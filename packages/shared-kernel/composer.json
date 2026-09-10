@@ -1,0 +1,23 @@
+{
+    "name": "smart-erp/shared-kernel",
+    "description": "Shared Domain Contracts, Enums, Outbox Models, and Middleware for Smart Distributed ERP",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Antigravity Engineering",
+            "email": "dev@smarterp.local"
+        }
+    ],
+    "require": {
+        "php": ">=8.2",
+        "illuminate/database": "^11.0|^12.0",
+        "illuminate/support": "^11.0|^12.0",
+        "ramsey/uuid": "^4.7"
+    },
+    "autoload": {
+        "psr-4": {
+            "SmartERP\\SharedKernel\\": "src/"
+        }
+    }
+}

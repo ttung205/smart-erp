@@ -1,0 +1,146 @@
+{
+  "rabbit_version": "3.13.0",
+  "vhosts": [
+    {
+      "name": "/"
+    }
+  ],
+  "users": [
+    {
+      "name": "erp_rabbit",
+      "password_hash": "Zq3fW4qE5f6G...",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": ["administrator"]
+    }
+  ],
+  "permissions": [
+    {
+      "user": "erp_rabbit",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "erp.events",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "erp.dlx",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "erp.inventory.events",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "erp.dlx",
+        "x-dead-letter-routing-key": "dead.letter.inventory"
+      }
+    },
+    {
+      "name": "erp.sales.events",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "erp.dlx",
+        "x-dead-letter-routing-key": "dead.letter.sales"
+      }
+    },
+    {
+      "name": "erp.purchase.events",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "erp.dlx",
+        "x-dead-letter-routing-key": "dead.letter.purchase"
+      }
+    },
+    {
+      "name": "erp.eoffice.events",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "erp.dlx",
+        "x-dead-letter-routing-key": "dead.letter.eoffice"
+      }
+    },
+    {
+      "name": "erp.analytics.events",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "erp.dlx",
+        "x-dead-letter-routing-key": "dead.letter.analytics"
+      }
+    },
+    {
+      "name": "erp.dead_letters",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "erp.events",
+      "vhost": "/",
+      "destination": "erp.inventory.events",
+      "destination_type": "queue",
+      "routing_key": "sales.order.*",
+      "arguments": {}
+    },
+    {
+      "source": "erp.events",
+      "vhost": "/",
+      "destination": "erp.inventory.events",
+      "destination_type": "queue",
+      "routing_key": "purchase.goods.*",
+      "arguments": {}
+    },
+    {
+      "source": "erp.events",
+      "vhost": "/",
+      "destination": "erp.sales.events",
+      "destination_type": "queue",
+      "routing_key": "inventory.stock.*",
+      "arguments": {}
+    },
+    {
+      "source": "erp.events",
+      "vhost": "/",
+      "destination": "erp.analytics.events",
+      "destination_type": "queue",
+      "routing_key": "*.*.*",
+      "arguments": {}
+    },
+    {
+      "source": "erp.dlx",
+      "vhost": "/",
+      "destination": "erp.dead_letters",
+      "destination_type": "queue",
+      "routing_key": "#",
+      "arguments": {}
+    }
+  ]
+}
