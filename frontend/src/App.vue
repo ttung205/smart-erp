@@ -2,70 +2,98 @@
   <div class="layout-wrapper">
     <Toast position="top-right" />
 
-    <!-- 1. LEFT WHITE SIDEBAR (Clean Canvas - No Dark Sidebar) -->
-    <aside class="layout-sidebar">
+    <!-- 1. LEFT WHITE SIDEBAR (Thụt ra thụt vào khi click vào brand-box) -->
+    <aside class="layout-sidebar" :class="{ 'is-collapsed': isSidebarCollapsed }">
       <div class="sidebar-header">
-        <div class="brand-dot">
-          <i class="pi pi-bolt"></i>
-        </div>
-        <div class="brand-name">
-          <span>Smart ERP</span>
-          <span class="brand-badge">v2.0</span>
+        <div 
+          class="brand-box" 
+          @click="toggleSidebar" 
+          :title="isSidebarCollapsed ? 'Bấm để mở rộng menu' : 'Bấm để thu gọn menu'"
+        >
+          <div class="brand-dot" v-tooltip.right="isSidebarCollapsed ? 'Smart ERP v2.0 - Bấm để mở rộng' : undefined">
+            <i :class="isSidebarCollapsed ? 'pi pi-bars' : 'pi pi-bolt'"></i>
+          </div>
+          <div v-show="!isSidebarCollapsed" class="brand-name">
+            <span>Smart ERP</span>
+            <span class="brand-badge">v2.0</span>
+          </div>
         </div>
       </div>
 
       <nav class="sidebar-menu">
-        <span class="menu-category">Phân Hệ Cốt Lõi</span>
-        
-        <button 
-          class="menu-item" 
-          :class="{ active: activeTab === 'identity' }" 
-          @click="activeTab = 'identity'"
-        >
-          <i class="pi pi-shield menu-icon"></i>
-          <span>1. Identity & RBAC</span>
-        </button>
+        <Menu :model="sidebarMenuItems" class="azure-prime-menu">
+          <template #submenulabel="{ item }">
+            <span v-if="!isSidebarCollapsed" class="menu-category">{{ item.label }}</span>
+            <div v-else class="menu-category-divider"></div>
+          </template>
+          <template #item="{ item }">
+            <div 
+              class="sidebar-menu-wrapper"
+              @mouseenter="item.tabKey === 'inventory' ? isInventoryHovered = true : null"
+              @mouseleave="item.tabKey === 'inventory' ? isInventoryHovered = false : null"
+            >
+              <button 
+                type="button"
+                class="menu-item" 
+                :class="{ 
+                  active: activeTab === item.tabKey && (!item.subItems || isSidebarCollapsed),
+                  'has-active-child': activeTab === item.tabKey && item.subItems
+                }" 
+                @click="item.command()"
+                v-tooltip.right="isSidebarCollapsed ? item.label : undefined"
+              >
+                <i :class="[item.icon, 'menu-icon']"></i>
+                <span v-if="!isSidebarCollapsed" class="menu-label-text">{{ item.label }}</span>
+                <span 
+                  v-if="!isSidebarCollapsed && item.subItems"
+                  class="submenu-chevron-btn"
+                  @click.stop="toggleInventorySubmenu"
+                  :title="isInventoryPinned ? 'Thu gọn menu con' : 'Cố định mở rộng menu con'"
+                >
+                  <i 
+                    class="pi pi-chevron-down submenu-chevron"
+                    :class="{ 'chevron-rotated': isInventoryPinned }"
+                  ></i>
+                </span>
+              </button>
 
-        <button 
-          class="menu-item" 
-          :class="{ active: activeTab === 'catalog' }" 
-          @click="activeTab = 'catalog'"
-        >
-          <i class="pi pi-box menu-icon"></i>
-          <span>2. Catalog Sản Phẩm</span>
-        </button>
-
-        <button 
-          class="menu-item" 
-          :class="{ active: activeTab === 'master' }" 
-          @click="activeTab = 'master'"
-        >
-          <i class="pi pi-building menu-icon"></i>
-          <span>3. Đối Tác & Kho Bãi</span>
-        </button>
-
-        <span class="menu-category">Hạ Tầng & Tích Hợp</span>
-
-        <button 
-          class="menu-item" 
-          :class="{ active: activeTab === 'architecture' }" 
-          @click="activeTab = 'architecture'"
-        >
-          <i class="pi pi-share-alt menu-icon"></i>
-          <span>4. Outbox & RabbitMQ</span>
-        </button>
+              <!-- 4 tag dọc xuất hiện khi mở Quản lý tồn kho trên menu -->
+              <div 
+                v-if="item.subItems" 
+                v-show="isInventoryPinned || isInventoryHovered"
+                class="vertical-subtabs"
+                :class="{ 'flyout-subtabs': isSidebarCollapsed }"
+              >
+                <button
+                  v-for="sub in item.subItems"
+                  :key="sub.subTabKey"
+                  type="button"
+                  class="vertical-subtab-item"
+                  :class="{ active: activeTab === 'inventory' && inventorySubTab === sub.subTabKey }"
+                  @click.stop="sub.command()"
+                >
+                  <i :class="[sub.icon, 'subtab-icon']"></i>
+                  <span class="subtab-text">{{ sub.label }}</span>
+                </button>
+              </div>
+            </div>
+          </template>
+        </Menu>
       </nav>
 
       <div class="sidebar-footer">
-        <div class="version-box">
+        <div v-if="!isSidebarCollapsed" class="version-box">
           <span class="text-muted text-xs">Microservices Architecture</span>
           <span class="font-semibold text-xs text-dark">Database-per-Service</span>
+        </div>
+        <div v-else class="version-box-collapsed" v-tooltip.right="'Microservices Architecture: Database-per-Service'">
+          <i class="pi pi-server text-muted text-sm"></i>
         </div>
       </div>
     </aside>
 
     <!-- 2. MAIN LAYOUT (Topbar + Content) -->
-    <div class="layout-main">
+    <div class="layout-main" :class="{ 'sidebar-collapsed': isSidebarCollapsed }">
       <!-- White Topbar with Hairline Border -->
       <header class="layout-topbar">
         <div class="topbar-left">
@@ -81,6 +109,11 @@
           <div class="soft-pill" :class="health.catalog ? 'online' : 'offline'">
             <span class="pulse-circle"></span>
             <span>Catalog :8002 • {{ health.catalog ? 'UP' : 'DOWN' }}</span>
+          </div>
+
+          <div class="soft-pill" :class="health.inventory ? 'online' : 'offline'">
+            <span class="pulse-circle"></span>
+            <span>Inventory :8004 • {{ health.inventory ? 'UP' : 'DOWN' }}</span>
           </div>
 
           <Button 
@@ -496,6 +529,14 @@
             </div>
           </div>
         </div>
+
+        <!-- TAB 5: INVENTORY & STOCK LEDGER -->
+        <div v-if="activeTab === 'inventory'" class="tab-pane-content">
+          <InventoryView 
+            :currentUser="currentUser" 
+            v-model:currentSubTab="inventorySubTab"
+          />
+        </div>
       </main>
     </div>
 
@@ -540,22 +581,41 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useToast } from 'primevue/usetoast'
 
 import Toast from 'primevue/toast'
+import Menu from 'primevue/menu'
 import Button from 'primevue/button'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import InputText from 'primevue/inputtext'
 import InputNumber from 'primevue/inputnumber'
 import Dialog from 'primevue/dialog'
+import InventoryView from './views/inventory/InventoryView.vue'
 
 const toast = useToast()
 
 const activeTab = ref('identity')
+const inventorySubTab = ref('overview')
+const isInventoryHovered = ref(false)
+const isInventoryPinned = ref(false)
 const showCopilot = ref(false)
+
+const toggleInventorySubmenu = (event) => {
+  if (event) event.stopPropagation()
+  isInventoryPinned.value = !isInventoryPinned.value
+}
+
+// Trạng thái thụt ra thụt vào của Sidebar khi click vào brand-box
+const isSidebarCollapsed = ref(localStorage.getItem('smart_erp_sidebar_collapsed') === 'true')
+
+const toggleSidebar = () => {
+  isSidebarCollapsed.value = !isSidebarCollapsed.value
+  localStorage.setItem('smart_erp_sidebar_collapsed', isSidebarCollapsed.value ? 'true' : 'false')
+}
 
 // Health State
 const health = reactive({
   identity: false,
-  catalog: false
+  catalog: false,
+  inventory: false
 })
 
 // Current User State
@@ -663,12 +723,102 @@ const newProduct = reactive({
 })
 
 // Computeds
+const sidebarMenuItems = computed(() => [
+  {
+    label: 'Phân Hệ Cốt Lõi',
+    items: [
+      {
+        label: '1. Identity & RBAC',
+        icon: 'pi pi-shield',
+        tabKey: 'identity',
+        command: () => { activeTab.value = 'identity' }
+      },
+      {
+        label: '2. Catalog Sản Phẩm',
+        icon: 'pi pi-box',
+        tabKey: 'catalog',
+        command: () => { activeTab.value = 'catalog' }
+      },
+      {
+        label: '3. Đối Tác & Kho Bãi',
+        icon: 'pi pi-building',
+        tabKey: 'master',
+        command: () => { activeTab.value = 'master' }
+      }
+    ]
+  },
+  {
+    label: 'Hạ Tầng & Tích Hợp',
+    items: [
+      {
+        label: '4. Outbox & RabbitMQ',
+        icon: 'pi pi-share-alt',
+        tabKey: 'architecture',
+        command: () => { activeTab.value = 'architecture' }
+      }
+    ]
+  },
+  {
+    label: 'Kho Vận & Động Cơ Tồn',
+    items: [
+      {
+        label: '5. Quản Lý Tồn Kho',
+        icon: 'pi pi-server',
+        tabKey: 'inventory',
+        command: () => { 
+          activeTab.value = 'inventory'
+          inventorySubTab.value = 'overview'
+        },
+        subItems: [
+          {
+            label: 'Tổng Quan',
+            icon: 'pi pi-chart-pie',
+            subTabKey: 'overview',
+            command: () => {
+              activeTab.value = 'inventory'
+              inventorySubTab.value = 'overview'
+            }
+          },
+          {
+            label: 'Tồn Kho',
+            icon: 'pi pi-box',
+            subTabKey: 'stocks',
+            command: () => {
+              activeTab.value = 'inventory'
+              inventorySubTab.value = 'stocks'
+            }
+          },
+          {
+            label: 'Đơn Giữ Hàng',
+            icon: 'pi pi-lock',
+            subTabKey: 'reservations',
+            command: () => {
+              activeTab.value = 'inventory'
+              inventorySubTab.value = 'reservations'
+            }
+          },
+          {
+            label: 'Lịch Sử',
+            icon: 'pi pi-history',
+            subTabKey: 'movements',
+            command: () => {
+              activeTab.value = 'inventory'
+              inventorySubTab.value = 'movements'
+            }
+          }
+        ]
+      }
+    ]
+  }
+])
+
 const currentTabTitle = computed(() => {
   switch (activeTab.value) {
     case 'identity': return '1. Quản Lý Định Danh & Phân Quyền (Identity & RBAC)'
     case 'catalog': return '2. Danh Mục Hàng Hóa & Kiểm Thử Quyền (Catalog Master)'
     case 'master': return '3. Danh Mục Đối Tác B2B & Hệ Thống Kho Bãi'
     case 'architecture': return '4. Kiến Trúc Phân Tán & Transactional Outbox'
+    case 'inventory': return '5. Động Cơ Tồn Kho & Sổ Cái Thẻ Kho (Inventory Service :8004)'
     default: return 'Smart Distributed ERP'
   }
 })
@@ -719,6 +869,13 @@ const checkHealth = async () => {
     health.catalog = resCat.ok
   } catch (e) {
     health.catalog = false
+  }
+
+  try {
+    const resInv = await fetch('/api/v1/inventory/health', { signal: AbortSignal.timeout(3000) })
+    health.inventory = resInv.ok
+  } catch (e) {
+    health.inventory = false
   }
 }
 

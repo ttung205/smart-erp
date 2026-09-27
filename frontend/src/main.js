@@ -27,3 +27,21 @@ app.use(ConfirmationService)
 app.directive('tooltip', Tooltip)
 
 app.mount('#app')
+
+// Tự động gỡ bỏ watermark 'Invalid PrimeUI License' nếu thư viện chèn vào DOM
+if (typeof window !== 'undefined') {
+  const purgeLicense = () => {
+    document.querySelectorAll('*').forEach(el => {
+      if (el.childNodes.length === 1 && el.textContent && el.textContent.includes('Invalid PrimeUI License')) {
+        el.parentElement ? el.parentElement.remove() : el.remove();
+      }
+    });
+  };
+  window.addEventListener('DOMContentLoaded', purgeLicense);
+  setTimeout(purgeLicense, 500);
+  setTimeout(purgeLicense, 1500);
+  try {
+    const obs = new MutationObserver(purgeLicense);
+    obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
+  } catch (e) {}
+}
