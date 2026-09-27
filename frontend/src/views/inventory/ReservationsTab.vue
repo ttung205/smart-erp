@@ -71,7 +71,6 @@
       paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown" 
       currentPageReportTemplate="Hiển thị {first} - {last} trên {totalRecords} mặt hàng đang giữ chỗ" 
       stripedRows 
-      showGridlines
       resizableColumns 
       columnResizeMode="expand" 
       scrollable 
@@ -80,7 +79,7 @@
       <template #empty>
         <div class="empty-state-box">
           <p class="text-slate-600 text-sm font-semibold">Hiện không có mặt hàng nào đang bị khóa giữ chỗ.</p>
-          <p class="text-slate-400 text-xs mt-1">Mọi sản phẩm trong kho đều ở trạng thái 100% Khả Dụng (Available) để bán.</p>
+          <p class="text-slate-400 text-xs mt-1">Mọi sản phẩm trong kho đều ở trạng thái 100% Khả Dụng để bán.</p>
         </div>
       </template>
 
@@ -114,23 +113,22 @@
       <Column field="quantity_on_hand" header="Tồn Thực Tế" style="width: 130px; text-align: right">
         <template #body="{ data }">
           <span class="font-mono text-sm text-slate-800 num-tabular">{{ formatNumber(data.quantity_on_hand) }}</span>
-          <span class="text-xs text-slate-400 ml-1.5 font-normal">&nbsp;{{ data.unit || 'Chiếc' }}</span>
+          <span class="text-xs text-slate-400 ml-1">{{ data.unit || 'Chiếc' }}</span>
         </template>
       </Column>
 
       <!-- Cột Đang Giữ Chỗ (Nổi bật) -->
-      <Column field="quantity_reserved" header="Đang Giữ Chỗ" style="width: 150px; text-align: right">
+      <Column field="quantity_reserved" header="Đang Giữ Chỗ (Reserved)" style="width: 170px; text-align: right">
         <template #body="{ data }">
           <span class="font-mono text-sm font-bold text-amber-600 num-tabular">{{ formatNumber(data.quantity_reserved) }}</span>
-          <span class="text-xs text-amber-600 ml-1.5 font-normal">&nbsp;{{ data.unit || 'Chiếc' }}</span>
+          <span class="text-xs text-amber-500 ml-1 font-semibold">{{ data.unit || 'Chiếc' }}</span>
         </template>
       </Column>
 
       <!-- Cột Khả Dụng Còn Lại -->
-      <Column field="available" header="Khả Dụng" style="width: 130px; text-align: right">
+      <Column field="available" header="Khả Dụng Còn Lại" style="width: 140px; text-align: right">
         <template #body="{ data }">
           <span class="font-mono text-sm font-bold text-emerald-700 num-tabular">{{ formatNumber(data.available) }}</span>
-          <span class="text-xs text-slate-400 ml-1.5 font-normal">&nbsp;{{ data.unit || 'Chiếc' }}</span>
         </template>
       </Column>
 
