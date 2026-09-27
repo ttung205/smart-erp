@@ -74,6 +74,13 @@ class IdentitySeeder extends Seeder
             ['code' => 'LOGISTIC_MANAGER', 'name' => 'Logistic Manager', 'description' => 'Trưởng phòng kho vận & vận tải (Chưa phân quyền)'],
         ];
 
+        // Xóa sạch các role cũ không nằm trong 11 role chuẩn hóa
+        $validRoleCodes = array_column($roles, 'code');
+        $oldRoleIds = DB::table('roles')->whereNotIn('code', $validRoleCodes)->pluck('id');
+        DB::table('role_permissions')->whereIn('role_id', $oldRoleIds)->delete();
+        DB::table('user_roles')->whereIn('role_id', $oldRoleIds)->delete();
+        DB::table('roles')->whereNotIn('code', $validRoleCodes)->delete();
+
         // Xóa bảng phân quyền cũ để chuẩn hóa sạch sẽ
         DB::table('role_permissions')->truncate();
 
