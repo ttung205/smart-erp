@@ -1,77 +1,84 @@
 <template>
-  <div class="layout-wrapper">
+  <div class="app-root">
     <Toast position="top-right" />
 
-    <!-- 1. Left Sidebar (Thụt ra thụt vào - Collapsible / Expand) -->
-    <AppSidebar
-      :current-tab="activeTab"
-      :is-collapsed="isSidebarCollapsed"
-      @select-tab="activeTab = $event"
-      @toggle-collapse="isSidebarCollapsed = !isSidebarCollapsed"
+    <!-- A. MÀN HÌNH ĐĂNG NHẬP CHUẨN KHI CHƯA XÁC THỰC -->
+    <LoginPage
+      v-if="!currentUser"
+      :loading="loading.login"
+      @login="submitLogin"
     />
 
-    <!-- 2. Main Content Area (Tự động co giãn theo Sidebar) -->
-    <div class="layout-main" :class="{ 'sidebar-collapsed': isSidebarCollapsed }">
-      <AppTopbar
-        :current-user="currentUser"
-        :health="health"
-        @refresh-health="checkHealth"
-        @logout="logout"
+    <!-- B. GIAO DIỆN CHÍNH ERP KHI ĐÃ ĐĂNG NHẬP THÀNH CÔNG -->
+    <div v-else class="layout-wrapper">
+      <!-- 1. Left Sidebar (Thụt ra thụt vào - Collapsible / Expand) -->
+      <AppSidebar
+        :current-tab="activeTab"
+        :is-collapsed="isSidebarCollapsed"
+        @select-tab="activeTab = $event"
+        @toggle-collapse="isSidebarCollapsed = !isSidebarCollapsed"
       />
 
-      <main class="page-container">
-        <!-- Page 1: Identity & RBAC -->
-        <IdentityPage
-          v-if="activeTab === 'identity'"
+      <!-- 2. Main Content Area (Tự động co giãn theo Sidebar) -->
+      <div class="layout-main" :class="{ 'sidebar-collapsed': isSidebarCollapsed }">
+        <AppTopbar
           :current-user="currentUser"
-          :jwt-token="jwtToken"
-          :loading-login="loading.login"
-          @quick-login="quickLogin"
-          @manual-login="submitLogin"
-          @copy-token="copyToken"
+          :health="health"
+          @refresh-health="checkHealth"
+          @logout="logout"
         />
 
-        <!-- Page 2: Catalog Master -->
-        <CatalogPage
-          v-else-if="activeTab === 'catalog'"
-          :products="products"
-          :current-user="currentUser"
-          :loading-create="loading.createProduct"
-          @refresh-products="fetchProducts"
-          @create-product="submitCreateProduct"
-        />
+        <main class="page-container">
+          <!-- Page 1: Identity & RBAC -->
+          <IdentityPage
+            v-if="activeTab === 'identity'"
+            :current-user="currentUser"
+            :jwt-token="jwtToken"
+            @copy-token="copyToken"
+          />
 
-        <!-- Page 3: Inventory Management (Tồn Kho) -->
-        <InventoryView
-          v-else-if="activeTab === 'inventory'"
-          :current-user="currentUser"
-        />
+          <!-- Page 2: Catalog Master -->
+          <CatalogPage
+            v-else-if="activeTab === 'catalog'"
+            :products="products"
+            :current-user="currentUser"
+            :loading-create="loading.createProduct"
+            @refresh-products="fetchProducts"
+            @create-product="submitCreateProduct"
+          />
 
-        <!-- Page 4: Sales Orders -->
-        <SalesPage
-          v-else-if="activeTab === 'sales'"
-          :customers="customers"
-          @order-created="onOrderCreated"
-        />
+          <!-- Page 3: Inventory Management (Tồn Kho) -->
+          <InventoryView
+            v-else-if="activeTab === 'inventory'"
+            :current-user="currentUser"
+          />
 
-        <!-- Page 5: Master Partners & Warehouses -->
-        <MasterPage
-          v-else-if="activeTab === 'master'"
-          :partners="partners"
-          :warehouses="warehouses"
-        />
+          <!-- Page 4: Sales Orders -->
+          <SalesPage
+            v-else-if="activeTab === 'sales'"
+            :customers="customers"
+            @order-created="onOrderCreated"
+          />
 
-        <!-- Page 6: Architecture & Outbox -->
-        <ArchitecturePage
-          v-else-if="activeTab === 'architecture'"
-        />
-      </main>
+          <!-- Page 5: Master Partners & Warehouses -->
+          <MasterPage
+            v-else-if="activeTab === 'master'"
+            :partners="partners"
+            :warehouses="warehouses"
+          />
+
+          <!-- Page 6: Architecture & Outbox -->
+          <ArchitecturePage
+            v-else-if="activeTab === 'architecture'"
+          />
+        </main>
+      </div>
+
+      <!-- 3. Clean Floating AI Assistant -->
+      <AiAssistant
+        :user-name="currentUser ? currentUser.name : 'người dùng'"
+      />
     </div>
-
-    <!-- 3. Clean Floating AI Assistant -->
-    <AiAssistant
-      :user-name="currentUser ? currentUser.name : 'người dùng'"
-    />
   </div>
 </template>
 
@@ -80,6 +87,7 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import Toast from 'primevue/toast';
 
+import LoginPage from './pages/auth/LoginPage.vue';
 import AppSidebar from './components/layout/AppSidebar.vue';
 import AppTopbar from './components/layout/AppTopbar.vue';
 import AiAssistant from './components/common/AiAssistant.vue';
@@ -133,11 +141,7 @@ const checkHealth = async () => {
   health.inventory = await inventoryApi.checkHealth();
 };
 
-// Login Actions
-const quickLogin = (email) => {
-  submitLogin({ email, password: 'password123' });
-};
-
+// Submit Login Action
 const submitLogin = async ({ email, password }) => {
   loading.login = true;
   try {
@@ -147,10 +151,11 @@ const submitLogin = async ({ email, password }) => {
       storage.setToken(jwtToken.value);
       currentUser.value = parseJwt(jwtToken.value);
 
+      const permsCount = currentUser.value && currentUser.value.permissions ? currentUser.value.permissions.length : 0;
       toast.add({
         severity: 'success',
         summary: 'Đăng nhập thành công',
-        detail: `Xin chào ${currentUser.value.name}. Cấp phát ${currentUser.value.permissions.length} quyền hệ thống.`,
+        detail: `Xin chào ${currentUser.value.name}. Cấp phát ${permsCount} quyền hệ thống.`,
         life: 3000
       });
 
@@ -175,7 +180,7 @@ const logout = () => {
   toast.add({
     severity: 'info',
     summary: 'Đã đăng xuất',
-    detail: 'Phiên làm việc đã kết thúc an toàn.',
+    detail: 'Phiên làm việc đã kết thúc an toàn. Vui lòng đăng nhập lại.',
     life: 2500
   });
 };
@@ -241,7 +246,7 @@ const submitCreateProduct = async (productData) => {
       toast.add({
         severity: 'warn',
         summary: 'Từ chối truy cập (Thiếu quyền)',
-        detail: 'Tài khoản hiện tại thiếu quyền catalog.create. Vui lòng đăng nhập với vai trò Trưởng phòng hoặc Quản trị viên.',
+        detail: 'Tài khoản hiện tại thiếu quyền catalog.create. Chỉ Super Admin có toàn quyền thao tác!',
         life: 5000
       });
     } else {
@@ -268,7 +273,15 @@ const onOrderCreated = (order) => {
 
 onMounted(() => {
   checkHealth();
-  fetchAllData();
+  if (currentUser.value) {
+    fetchAllData();
+  }
   setInterval(checkHealth, 15000);
 });
 </script>
+
+<style scoped>
+.app-root {
+  min-height: 100vh;
+}
+</style>
