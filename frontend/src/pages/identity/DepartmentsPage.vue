@@ -57,7 +57,7 @@
       <DataTable
         :value="filteredDepartments"
         :loading="loading.fetch"
-        stripedRows
+        showGridlines
         tableStyle="min-width: 50rem"
       >
         <template #empty>

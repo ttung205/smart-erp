@@ -34,6 +34,7 @@
 
       <DataTable
         :value="systemRoles"
+        showGridlines
         class="clean-datatable"
         responsiveLayout="scroll"
       >

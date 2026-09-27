@@ -78,7 +78,7 @@
       <DataTable
         :value="filteredUsers"
         :loading="loading.fetch"
-        stripedRows
+        showGridlines
         paginator
         :rows="10"
         :rowsPerPageOptions="[10, 20, 50]"

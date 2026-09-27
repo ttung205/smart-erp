@@ -32,7 +32,7 @@
       <DataTable
         :value="roles"
         :loading="loading.fetch"
-        stripedRows
+        showGridlines
         tableStyle="min-width: 50rem"
       >
         <template #empty>

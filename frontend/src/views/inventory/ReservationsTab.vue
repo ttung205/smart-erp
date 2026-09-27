@@ -72,7 +72,7 @@
       :rowsPerPageOptions="[10, 20, 50]" 
       paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown" 
       currentPageReportTemplate="Hiển thị {first} - {last} trên {totalRecords} mặt hàng đang giữ chỗ" 
-      stripedRows 
+      showGridlines 
       resizableColumns 
       columnResizeMode="expand" 
       scrollable 

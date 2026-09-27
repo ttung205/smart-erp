@@ -21,6 +21,7 @@
 
         <DataTable
           :value="partners"
+          showGridlines
           class="clean-datatable"
           responsiveLayout="scroll"
         >
@@ -73,6 +74,7 @@
 
         <DataTable
           :value="warehouses"
+          showGridlines
           class="clean-datatable"
           responsiveLayout="scroll"
         >

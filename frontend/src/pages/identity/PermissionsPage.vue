@@ -68,7 +68,7 @@
       <DataTable
         :value="filteredPermissions"
         :loading="loading.fetch"
-        stripedRows
+        showGridlines
         paginator
         :rows="12"
         :rowsPerPageOptions="[12, 24, 48]"

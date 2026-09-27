@@ -118,7 +118,14 @@ h1, h2, h3, h4, h5, h6 {
   padding: 12px 16px !important;
 }
 
-/* Clean Flat DataTable Overrides */
+/* Clean Flat DataTable Overrides - Pure White Rows & Clean Gridlines */
+.p-datatable,
+.clean-datatable {
+  font-size: 13px;
+}
+
+/* 1. Table Headers */
+.p-datatable .p-datatable-thead > tr > th,
 .clean-datatable .p-datatable-thead > tr > th {
   background: var(--canvas-bg) !important;
   color: var(--text-muted) !important;
@@ -131,18 +138,45 @@ h1, h2, h3, h4, h5, h6 {
   padding: 10px 14px !important;
 }
 
-.clean-datatable .p-datatable-tbody > tr {
-  background: var(--surface-white) !important;
-  transition: background-color 0.15s ease;
+/* 2. All Rows: Pure White (No alternating zebra striping or tinted rows) */
+.p-datatable .p-datatable-tbody > tr,
+.p-datatable .p-datatable-tbody > tr > td,
+.p-datatable.p-datatable-striped .p-datatable-tbody > tr,
+.p-datatable.p-datatable-striped .p-datatable-tbody > tr > td,
+.p-datatable .p-datatable-tbody > tr:nth-child(even),
+.p-datatable .p-datatable-tbody > tr:nth-child(odd),
+.p-datatable .p-datatable-tbody > tr:nth-child(even) > td,
+.p-datatable .p-datatable-tbody > tr:nth-child(odd) > td {
+  background-color: #ffffff !important;
+  color: var(--text-body) !important;
 }
 
-.clean-datatable .p-datatable-tbody > tr:hover {
-  background: var(--surface-hover) !important;
+/* 3. Hover State */
+.p-datatable .p-datatable-tbody > tr:hover,
+.p-datatable .p-datatable-tbody > tr:hover > td,
+.clean-datatable .p-datatable-tbody > tr:hover,
+.clean-datatable .p-datatable-tbody > tr:hover > td {
+  background-color: var(--surface-hover) !important;
 }
 
+/* 4. Cell padding and borders */
+.p-datatable .p-datatable-tbody > tr > td,
 .clean-datatable .p-datatable-tbody > tr > td {
   border-bottom: 1px solid var(--border-subtle) !important;
-  padding: 12px 14px !important;
-  color: var(--text-body) !important;
+  padding: 11px 14px !important;
   font-size: 13px !important;
+}
+
+/* 5. Gridlines (Borders between columns and rows when showGridlines is enabled) */
+.p-datatable.p-datatable-gridlines .p-datatable-thead > tr > th,
+.p-datatable.p-datatable-gridlines .p-datatable-tbody > tr > td,
+.p-datatable.p-datatable-gridlines .p-datatable-tfoot > tr > td {
+  border: 1px solid var(--border-subtle) !important;
+}
+
+/* 6. Clean Paginator */
+.p-datatable .p-paginator {
+  background-color: #ffffff !important;
+  border-top: 1px solid var(--border-subtle) !important;
+  padding: 8px 14px !important;
 }

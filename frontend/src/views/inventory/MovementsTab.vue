@@ -72,7 +72,6 @@
     <DataTable 
       :value="filteredMovements" 
       :loading="loading.movements" 
-      stripedRows 
       showGridlines
       scrollable
       resizableColumns

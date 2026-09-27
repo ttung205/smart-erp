@@ -118,7 +118,6 @@
     <DataTable 
       :value="filteredStocks" 
       :loading="loading.stocks" 
-      stripedRows 
       showGridlines
       scrollable
       resizableColumns

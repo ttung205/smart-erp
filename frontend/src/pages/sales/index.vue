@@ -54,6 +54,7 @@
     <div class="bg-white border border-slate-200 rounded-[6px] overflow-hidden shadow-none">
       <DataTable
         :value="filteredOrders"
+        showGridlines
         class="clean-datatable"
         responsiveLayout="scroll"
         :paginator="filteredOrders.length > 10"
