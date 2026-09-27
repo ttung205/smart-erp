@@ -1,9 +1,29 @@
 import { apiClient } from './client';
 
 export const identityApi = {
-  // Departments
+  // Departments (Phòng ban)
   getDepartments() {
     return apiClient('/api/v1/auth/departments');
+  },
+
+  createDepartment(data) {
+    return apiClient('/api/v1/auth/departments', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  updateDepartment(id, data) {
+    return apiClient(`/api/v1/auth/departments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  deleteDepartment(id) {
+    return apiClient(`/api/v1/auth/departments/${id}`, {
+      method: 'DELETE'
+    });
   },
 
   // Users (Nhân viên)

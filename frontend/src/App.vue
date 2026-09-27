@@ -32,9 +32,15 @@
         />
 
         <main class="p-6 max-w-7xl w-full mx-auto flex-1">
+          <!-- Phân hệ Tổ chức: 0. Phòng ban -->
+          <DepartmentsPage
+            v-if="activeTab === 'org-departments'"
+            :current-user="currentUser"
+          />
+
           <!-- Phân hệ Tổ chức: 1. Nhân viên -->
           <UsersPage
-            v-if="activeTab === 'org-users' || activeTab === 'identity' || activeTab === 'organization'"
+            v-else-if="activeTab === 'org-users' || activeTab === 'identity' || activeTab === 'organization'"
             :current-user="currentUser"
           />
 
@@ -105,6 +111,7 @@ import AppSidebar from './components/layout/AppSidebar.vue';
 import AppTopbar from './components/layout/AppTopbar.vue';
 import AiAssistant from './components/common/AiAssistant.vue';
 
+import DepartmentsPage from './pages/identity/DepartmentsPage.vue';
 import UsersPage from './pages/identity/UsersPage.vue';
 import RolesPage from './pages/identity/RolesPage.vue';
 import PermissionsPage from './pages/identity/PermissionsPage.vue';

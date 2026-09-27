@@ -9,6 +9,12 @@ export const menuCategories = [
         isFolder: true,
         children: [
           {
+            id: 'org-departments',
+            label: 'Phòng ban',
+            icon: 'pi pi-building',
+            badge: 'Cơ cấu'
+          },
+          {
             id: 'org-users',
             label: 'Nhân viên',
             icon: 'pi pi-users',
