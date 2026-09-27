@@ -168,7 +168,11 @@ class IdentitySeeder extends Seeder
             ],
         ];
 
-        // Clean user_roles table for clean setup
+        // Clean user_roles table and remove any old users not in the seeder list
+        $validEmails = array_column($users, 'email');
+        $oldUserIds = DB::table('users')->whereNotIn('email', $validEmails)->pluck('id');
+        DB::table('user_roles')->whereIn('user_id', $oldUserIds)->delete();
+        DB::table('users')->whereNotIn('email', $validEmails)->delete();
         DB::table('user_roles')->truncate();
 
         foreach ($users as $u) {
