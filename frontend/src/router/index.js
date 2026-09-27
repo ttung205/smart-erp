@@ -15,6 +15,7 @@ import InventoryView from '../views/inventory/InventoryView.vue';
 import SalesPage from '../pages/sales/index.vue';
 import MasterPage from '../pages/master/index.vue';
 import ArchitecturePage from '../pages/architecture/index.vue';
+import ServiceStatusPage from '../pages/system/ServiceStatusPage.vue';
 
 export const routes = [
   {
@@ -131,6 +132,19 @@ export const routes = [
       permission: 'architecture.view',
       title: 'Kiến Trúc & Outbox'
     }
+  },
+  {
+    path: '/service-status',
+    name: 'service-status',
+    component: ServiceStatusPage,
+    meta: {
+      requiresAuth: true,
+      title: 'Trạng Thái Dịch Vụ'
+    }
+  },
+  {
+    path: '/status',
+    redirect: '/service-status'
   },
   // Backward compatibility alias redirects
   {

@@ -88,6 +88,13 @@ export const menuCategories = [
     category: 'Hạ Tầng & Tích Hợp',
     items: [
       {
+        id: 'service-status',
+        path: '/service-status',
+        label: 'Trạng thái dịch vụ',
+        icon: 'pi pi-pulse',
+        badge: 'Health'
+      },
+      {
         id: 'architecture',
         path: '/architecture',
         resource: 'architecture',

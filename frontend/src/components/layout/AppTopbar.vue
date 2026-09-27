@@ -8,32 +8,18 @@
       </div>
     </div>
 
-    <!-- Center/Right: Microservices Status -->
+    <!-- Center/Right: Compact System Health Link -->
     <div class="flex items-center gap-2">
-      <Tag
-        :severity="health.identity ? 'success' : 'danger'"
-        :value="'Identity :8001 • ' + (health.identity ? 'Sẵn sàng' : 'Mất kết nối')"
-        class="!text-[11px] !px-2 !py-1 !rounded-[6px]"
-      />
-      <Tag
-        :severity="health.catalog ? 'success' : 'danger'"
-        :value="'Catalog :8002 • ' + (health.catalog ? 'Sẵn sàng' : 'Mất kết nối')"
-        class="!text-[11px] !px-2 !py-1 !rounded-[6px]"
-      />
-      <Tag
-        :severity="health.inventory ? 'success' : 'danger'"
-        :value="'Inventory :8004 • ' + (health.inventory ? 'Sẵn sàng' : 'Mất kết nối')"
-        class="!text-[11px] !px-2 !py-1 !rounded-[6px]"
-      />
-      <Button
-        icon="pi pi-refresh"
-        text
-        size="small"
-        severity="secondary"
-        @click="$emit('refresh-health')"
-        v-tooltip.bottom="'Kiểm tra lại trạng thái API'"
-        class="!w-7 !h-7 !p-0"
-      />
+      <router-link
+        to="/service-status"
+        class="flex items-center gap-2 px-2.5 py-1 rounded-[6px] border text-xs font-medium transition-colors cursor-pointer"
+        :class="isAllOnline ? 'text-emerald-700 bg-emerald-50/60 border-emerald-200 hover:bg-emerald-50' : 'text-amber-700 bg-amber-50/60 border-amber-200 hover:bg-amber-50'"
+        v-tooltip.bottom="'Xem trang chi tiết Trạng thái dịch vụ'"
+      >
+        <span class="w-2 h-2 rounded-full" :class="isAllOnline ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'"></span>
+        <span>Hệ thống: {{ onlineCount }}/3 Dịch vụ Online</span>
+        <i class="pi pi-arrow-up-right text-[10px] text-slate-400"></i>
+      </router-link>
     </div>
 
     <!-- Right: Current User Widget -->
@@ -70,11 +56,12 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
 import Tag from 'primevue/tag';
 import Avatar from 'primevue/avatar';
 import Button from 'primevue/button';
 
-defineProps({
+const props = defineProps({
   currentUser: {
     type: Object,
     default: null
@@ -86,4 +73,13 @@ defineProps({
 });
 
 defineEmits(['refresh-health', 'logout']);
+
+const onlineCount = computed(() => {
+  if (!props.health) return 0;
+  return Object.values(props.health).filter(Boolean).length;
+});
+
+const isAllOnline = computed(() => {
+  return onlineCount.value >= 3;
+});
 </script>

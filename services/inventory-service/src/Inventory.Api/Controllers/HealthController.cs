@@ -26,7 +26,7 @@ public class HealthController : ControllerBase
             service = "inventory-service",
             status = "healthy",
             port = 8004,
-            framework = ".NET 8.0",
+            framework = ".NET 10.0",
             timestamp = DateTime.UtcNow
         };
 
