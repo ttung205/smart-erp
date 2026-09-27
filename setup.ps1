@@ -5,7 +5,7 @@ Write-Host "==================================================================="
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # 1. Identity Service
-Write-Host "`n[1/3] Cai dat Identity Service (:8001)..." -ForegroundColor Yellow
+Write-Host "`n[1/4] Cai dat Identity Service (:8001)..." -ForegroundColor Yellow
 Set-Location "$root\services\identity-service"
 if (-not (Test-Path ".env")) { Copy-Item ".env.example" ".env" }
 composer install --no-interaction
@@ -13,15 +13,20 @@ php artisan key:generate
 php artisan migrate:fresh --seed
 
 # 2. Catalog Service
-Write-Host "`n[2/3] Cai dat Catalog Service (:8002)..." -ForegroundColor Yellow
+Write-Host "`n[2/4] Cai dat Catalog Service (:8002)..." -ForegroundColor Yellow
 Set-Location "$root\services\catalog-service"
 if (-not (Test-Path ".env")) { Copy-Item ".env.example" ".env" }
 composer install --no-interaction
 php artisan key:generate
 php artisan migrate:fresh --seed
 
-# 3. Frontend
-Write-Host "`n[3/3] Cai dat Frontend Vue 3 + PrimeVue..." -ForegroundColor Yellow
+# 3. Inventory Service
+Write-Host "`n[3/4] Cai dat Inventory Service (.NET Core :8004)..." -ForegroundColor Yellow
+Set-Location "$root\services\inventory-service\src\Inventory.Api"
+dotnet build
+
+# 4. Frontend
+Write-Host "`n[4/4] Cai dat Frontend Vue 3 + PrimeVue..." -ForegroundColor Yellow
 Set-Location "$root\frontend"
 npm install
 

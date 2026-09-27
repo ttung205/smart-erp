@@ -7,7 +7,7 @@ echo.
 
 cd /d %~dp0
 
-echo [1/3] Cài đặt Identity Service (Port 8001)...
+echo [1/4] Cài đặt Identity Service (Port 8001)...
 cd services\identity-service
 if not exist .env copy .env.example .env > nul
 call composer install --no-interaction
@@ -16,7 +16,7 @@ call php artisan migrate:fresh --seed
 cd ..\..
 
 echo.
-echo [2/3] Cài đặt Catalog Service (Port 8002)...
+echo [2/4] Cài đặt Catalog Service (Port 8002)...
 cd services\catalog-service
 if not exist .env copy .env.example .env > nul
 call composer install --no-interaction
@@ -25,7 +25,13 @@ call php artisan migrate:fresh --seed
 cd ..\..
 
 echo.
-echo [3/3] Cài đặt Frontend Vue 3 + PrimeVue...
+echo [3/4] Cài đặt Inventory Service (.NET Core - Port 8004)...
+cd services\inventory-service\src\Inventory.Api
+call dotnet build
+cd ..\..\..
+
+echo.
+echo [4/4] Cài đặt Frontend Vue 3 + PrimeVue...
 cd frontend
 call npm install
 cd ..
