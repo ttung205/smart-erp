@@ -8,7 +8,7 @@
     <!-- B. GIAO DIỆN CHÍNH ERP KHI ĐÃ ĐĂNG NHẬP THÀNH CÔNG -->
     <div v-else class="flex min-h-screen bg-slate-50">
       <!-- 1. Left Sidebar (Thụt ra thụt vào - Collapsible / Expand) -->
-      <AppSidebar :current-tab="activeTab" :is-collapsed="isSidebarCollapsed" @select-tab="activeTab = $event"
+      <AppSidebar :current-tab="activeTab" :current-user="currentUser" :is-collapsed="isSidebarCollapsed" @select-tab="activeTab = $event"
         @toggle-collapse="isSidebarCollapsed = !isSidebarCollapsed" />
 
       <!-- 2. Main Content Area (Tự động co giãn theo Sidebar) -->
@@ -17,35 +17,20 @@
         <AppTopbar :current-user="currentUser" :health="health" @refresh-health="checkHealth" @logout="logout" />
 
         <main class="px-4 py-3 w-full flex-1">
-          <!-- Phân hệ Tổ chức: 0. Phòng ban -->
-          <DepartmentsPage v-if="activeTab === 'org-departments'" :current-user="currentUser" />
-
-          <!-- Phân hệ Tổ chức: 1. Nhân viên -->
-          <UsersPage v-else-if="activeTab === 'org-users' || activeTab === 'identity' || activeTab === 'organization'"
-            :current-user="currentUser" />
-
-          <!-- Phân hệ Tổ chức: 2. Vai trò -->
-          <RolesPage v-else-if="activeTab === 'org-roles'" :current-user="currentUser" />
-
-          <!-- Phân hệ Tổ chức: 3. Quyền hạn -->
-          <PermissionsPage v-else-if="activeTab === 'org-permissions'" :current-user="currentUser" />
-
-          <!-- Page 2: Catalog Master -->
-          <CatalogPage v-else-if="activeTab === 'catalog'" :products="products" :current-user="currentUser"
-            :loading-create="loading.createProduct" @refresh-products="fetchProducts"
-            @create-product="submitCreateProduct" />
-
-          <!-- Page 3: Inventory Management (Tồn Kho) -->
-          <InventoryView v-else-if="activeTab === 'inventory'" :current-user="currentUser" />
-
-          <!-- Page 4: Sales Orders -->
-          <SalesPage v-else-if="activeTab === 'sales'" :customers="customers" @order-created="onOrderCreated" />
-
-          <!-- Page 5: Master Partners & Warehouses -->
-          <MasterPage v-else-if="activeTab === 'master'" :partners="partners" :warehouses="warehouses" />
-
-          <!-- Page 6: Architecture & Outbox -->
-          <ArchitecturePage v-else-if="activeTab === 'architecture'" />
+          <router-view v-slot="{ Component }">
+            <component
+              :is="Component"
+              :current-user="currentUser"
+              :products="products"
+              :loading-create="loading.createProduct"
+              :customers="customers"
+              :partners="partners"
+              :warehouses="warehouses"
+              @refresh-products="fetchProducts"
+              @create-product="submitCreateProduct"
+              @order-created="onOrderCreated"
+            />
+          </router-view>
         </main>
       </div>
 
@@ -56,7 +41,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import Toast from 'primevue/toast';
 
@@ -65,24 +51,16 @@ import AppSidebar from './components/layout/AppSidebar.vue';
 import AppTopbar from './components/layout/AppTopbar.vue';
 import AiAssistant from './components/common/AiAssistant.vue';
 
-import DepartmentsPage from './pages/identity/DepartmentsPage.vue';
-import UsersPage from './pages/identity/UsersPage.vue';
-import RolesPage from './pages/identity/RolesPage.vue';
-import PermissionsPage from './pages/identity/PermissionsPage.vue';
-import CatalogPage from './pages/catalog/index.vue';
-import SalesPage from './pages/sales/index.vue';
-import MasterPage from './pages/master/index.vue';
-import ArchitecturePage from './pages/architecture/index.vue';
-import InventoryView from './views/inventory/InventoryView.vue';
-
 import { authApi } from './api/auth.api';
 import { catalogApi } from './api/catalog.api';
 import { inventoryApi } from './api/inventory.api';
 import { storage } from './utils/storage';
 import { parseJwt } from './utils/jwt';
 
+const router = useRouter();
+const route = useRoute();
 const toast = useToast();
-const activeTab = ref('org-users');
+const activeTab = ref('employee');
 const isSidebarCollapsed = ref(false);
 
 // Microservices Health State
@@ -136,6 +114,7 @@ const submitLogin = async ({ email, password }) => {
       });
 
       fetchAllData();
+      router.push(route.query.redirect || '/employee');
     }
   } catch (error) {
     toast.add({
@@ -159,6 +138,7 @@ const logout = () => {
     detail: 'Phiên làm việc đã kết thúc an toàn. Vui lòng đăng nhập lại.',
     life: 2500
   });
+  router.push('/login');
 };
 
 const copyToken = () => {
@@ -247,10 +227,32 @@ const onOrderCreated = (order) => {
   });
 };
 
+watch(() => route.path, (newPath) => {
+  const map = {
+    '/department': 'department',
+    '/employee': 'employee',
+    '/role': 'role',
+    '/permission': 'permission',
+    '/catalog': 'catalog',
+    '/inventory': 'inventory',
+    '/sales': 'sales',
+    '/master': 'master',
+    '/architecture': 'architecture',
+  };
+  if (map[newPath]) {
+    activeTab.value = map[newPath];
+  }
+}, { immediate: true });
+
 onMounted(() => {
   checkHealth();
   if (currentUser.value) {
     fetchAllData();
+    if (route.path === '/' || route.path === '/login') {
+      router.push('/employee');
+    }
+  } else if (route.path !== '/login' && route.path !== '/forbidden') {
+    router.push('/login');
   }
   setInterval(checkHealth, 15000);
 });

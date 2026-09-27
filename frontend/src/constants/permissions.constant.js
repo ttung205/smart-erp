@@ -1,24 +1,48 @@
 export const SYSTEM_PERMISSIONS = [
-  { code: 'sales.view', desc: 'Xem danh sách và chi tiết đơn bán hàng SO' },
+  // Phân hệ Tổ chức (Organization)
+  { code: 'department.view', desc: 'Xem danh sách và cơ cấu phòng ban (Route: /department)' },
+  { code: 'department.manage', desc: 'Thêm, sửa, xóa phòng ban' },
+  { code: 'employee.view', desc: 'Xem danh sách nhân viên (Route: /employee)' },
+  { code: 'employee.manage', desc: 'Thêm, sửa, khóa nhân viên và gán vai trò' },
+  { code: 'role.view', desc: 'Xem danh sách vai trò (Route: /role)' },
+  { code: 'role.manage', desc: 'Thêm, sửa, xóa vai trò và chia quyền' },
+  { code: 'permission.view', desc: 'Xem danh mục quyền hạn (Route: /permission)' },
+  { code: 'permission.manage', desc: 'Thêm, sửa, xóa định nghĩa quyền hạn' },
+
+  // Phân hệ Sản phẩm (Catalog)
+  { code: 'catalog.view', desc: 'Xem danh mục sản phẩm (Route: /catalog)' },
+  { code: 'catalog.manage', desc: 'Thêm, sửa, xóa sản phẩm và bảng giá' },
+
+  // Phân hệ Kho hàng (Inventory)
+  { code: 'inventory.view', desc: 'Xem tồn kho thực tế On-Hand / Reserved (Route: /inventory)' },
+  { code: 'inventory.manage', desc: 'Quản trị nghiệp vụ nhập, xuất, điều chuyển kho' },
+  { code: 'inventory.receive', desc: 'Nhập kho hàng hóa thực tế' },
+  { code: 'inventory.issue', desc: 'Xuất kho hàng hóa thực tế' },
+  { code: 'inventory.transfer', desc: 'Điều chuyển kho hàng hóa' },
+
+  // Phân hệ Bán hàng (Sales)
+  { code: 'sales.view', desc: 'Xem danh sách và chi tiết đơn bán hàng SO (Route: /sales)' },
+  { code: 'sales.manage', desc: 'Tạo mới, chỉnh sửa, hủy và duyệt đơn bán hàng' },
   { code: 'sales.create', desc: 'Tạo mới báo giá và đơn đặt hàng SO' },
   { code: 'sales.update', desc: 'Cập nhật thông tin đơn bán hàng SO' },
   { code: 'sales.cancel', desc: 'Hủy đơn đặt hàng SO' },
   { code: 'sales.approve', desc: 'Phê duyệt chiết khấu hoặc đơn bán hàng' },
   { code: 'delivery.create', desc: 'Tạo yêu cầu giao hàng Delivery Request' },
+
+  // Phân hệ Đối tác & Kho bãi (Master)
+  { code: 'master.view', desc: 'Xem danh mục đối tác khách hàng & kho bãi (Route: /master)' },
+  { code: 'master.manage', desc: 'Thêm, sửa, xóa đối tác và kho bãi' },
+
+  // Hạ tầng & Outbox
+  { code: 'architecture.view', desc: 'Xem kiến trúc phân tán & Outbox (Route: /architecture)' },
+  { code: 'architecture.manage', desc: 'Quản trị hạ tầng hệ thống và đồng bộ Outbox' },
+
+  // Phân hệ Mua hàng & Tài chính
   { code: 'purchase.view', desc: 'Xem danh sách và chi tiết đơn mua hàng PO' },
   { code: 'purchase.create', desc: 'Tạo mới đơn mua hàng PO' },
   { code: 'purchase.approve', desc: 'Phê duyệt đơn mua hàng PO' },
-  { code: 'inventory.view', desc: 'Xem tồn kho thực tế On-Hand / Reserved' },
-  { code: 'inventory.receive', desc: 'Nhập kho hàng hóa thực tế' },
-  { code: 'inventory.issue', desc: 'Xuất kho hàng hóa thực tế' },
-  { code: 'inventory.transfer', desc: 'Điều chuyển kho hàng hóa' },
-  { code: 'catalog.view', desc: 'Xem danh mục sản phẩm và đối tác' },
-  { code: 'catalog.create', desc: 'Tạo mới sản phẩm hoặc đối tác' },
-  { code: 'catalog.edit', desc: 'Chỉnh sửa sản phẩm và bảng giá' },
   { code: 'finance.view', desc: 'Xem báo cáo tài chính và công nợ' },
   { code: 'finance.approve', desc: 'Duyệt thanh toán và hóa đơn' },
-  { code: 'technical.manage', desc: 'Cấu hình kỹ thuật và hạ tầng microservices' },
-  { code: 'report.view', desc: 'Xem báo cáo quản trị tổng hợp' },
   { code: 'ai.use', desc: 'Sử dụng trợ lý AI phân tích dữ liệu' },
   { code: 'users.view', desc: 'Xem danh sách người dùng' },
   { code: 'users.manage', desc: 'Quản trị người dùng và phân quyền' }

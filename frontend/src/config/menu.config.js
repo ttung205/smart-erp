@@ -9,25 +9,37 @@ export const menuCategories = [
         isFolder: true,
         children: [
           {
-            id: 'org-departments',
+            id: 'department',
+            path: '/department',
+            resource: 'department',
+            permission: 'department.view',
             label: 'Phòng ban',
             icon: 'pi pi-building',
             badge: 'Cơ cấu'
           },
           {
-            id: 'org-users',
+            id: 'employee',
+            path: '/employee',
+            resource: 'employee',
+            permission: 'employee.view',
             label: 'Nhân viên',
             icon: 'pi pi-users',
             badge: 'Tài khoản'
           },
           {
-            id: 'org-roles',
+            id: 'role',
+            path: '/role',
+            resource: 'role',
+            permission: 'role.view',
             label: 'Vai trò',
             icon: 'pi pi-id-card',
             badge: 'Role'
           },
           {
-            id: 'org-permissions',
+            id: 'permission',
+            path: '/permission',
+            resource: 'permission',
+            permission: 'permission.view',
             label: 'Quyền hạn',
             icon: 'pi pi-key',
             badge: 'Perms'
@@ -36,24 +48,36 @@ export const menuCategories = [
       },
       {
         id: 'catalog',
+        path: '/catalog',
+        resource: 'catalog',
+        permission: 'catalog.view',
         label: 'Danh mục sản phẩm',
         icon: 'pi pi-box',
         badge: 'Master'
       },
       {
         id: 'inventory',
+        path: '/inventory',
+        resource: 'inventory',
+        permission: 'inventory.view',
         label: 'Quản lý tồn kho',
         icon: 'pi pi-server',
         badge: 'Kho hàng'
       },
       {
         id: 'sales',
+        path: '/sales',
+        resource: 'sales',
+        permission: 'sales.view',
         label: 'Quản lý bán hàng',
         icon: 'pi pi-shopping-cart',
         badge: 'Đơn hàng'
       },
       {
         id: 'master',
+        path: '/master',
+        resource: 'master',
+        permission: 'master.view',
         label: 'Đối tác & Kho bãi',
         icon: 'pi pi-building',
         badge: 'B2B'
@@ -65,6 +89,9 @@ export const menuCategories = [
     items: [
       {
         id: 'architecture',
+        path: '/architecture',
+        resource: 'architecture',
+        permission: 'architecture.view',
         label: 'Kiến trúc Outbox & MQ',
         icon: 'pi pi-share-alt',
         badge: 'Event-Driven'

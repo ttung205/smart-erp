@@ -17,7 +17,15 @@
           class="!rounded-[6px]"
           @click="loadAllData"
         />
+        <Tag
+          v-if="!canManageRoles"
+          value="Chế độ chỉ xem (role.view)"
+          severity="secondary"
+          icon="pi pi-eye"
+          class="!text-[11px] !rounded-[6px] !px-2.5 !py-1"
+        />
         <Button
+          v-if="canManageRoles"
           label="Thêm vai trò"
           icon="pi pi-plus"
           size="small"
@@ -84,7 +92,7 @@
         </Column>
 
         <!-- Cột 5: Thao tác -->
-        <Column header="Hành Động" style="width: 150px; text-align: center">
+        <Column v-if="canManageRoles" header="Hành Động" style="width: 150px; text-align: center">
           <template #body="{ data }">
             <div class="flex items-center justify-center gap-1.5">
               <Button
@@ -288,6 +296,16 @@ import Dialog from 'primevue/dialog';
 import Checkbox from 'primevue/checkbox';
 import PageHeader from '../../components/common/PageHeader.vue';
 import { identityApi } from '../../api/identity.api';
+import { canManage } from '../../utils/rbac';
+
+const props = defineProps({
+  currentUser: {
+    type: Object,
+    default: null
+  }
+});
+
+const canManageRoles = computed(() => canManage('role', props.currentUser));
 
 const toast = useToast();
 

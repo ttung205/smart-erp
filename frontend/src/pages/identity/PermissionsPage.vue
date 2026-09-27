@@ -17,7 +17,15 @@
           class="!rounded-[6px]"
           @click="loadPermissions"
         />
+        <Tag
+          v-if="!canManagePermissions"
+          value="Chế độ chỉ xem (permission.view)"
+          severity="secondary"
+          icon="pi pi-eye"
+          class="!text-[11px] !rounded-[6px] !px-2.5 !py-1"
+        />
         <Button
+          v-if="canManagePermissions"
           label="Thêm quyền hạn"
           icon="pi pi-plus"
           size="small"
@@ -108,7 +116,7 @@
         </Column>
 
         <!-- Cột 4: Thao tác -->
-        <Column header="Hành Động" style="width: 120px; text-align: center">
+        <Column v-if="canManagePermissions" header="Hành Động" style="width: 120px; text-align: center">
           <template #body="{ data }">
             <div class="flex items-center justify-center gap-1.5">
               <Button
@@ -213,6 +221,16 @@ import Column from 'primevue/column';
 import Dialog from 'primevue/dialog';
 import PageHeader from '../../components/common/PageHeader.vue';
 import { identityApi } from '../../api/identity.api';
+import { canManage } from '../../utils/rbac';
+
+const props = defineProps({
+  currentUser: {
+    type: Object,
+    default: null
+  }
+});
+
+const canManagePermissions = computed(() => canManage('permission', props.currentUser));
 
 const toast = useToast();
 

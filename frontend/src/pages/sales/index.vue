@@ -6,7 +6,15 @@
       subtitle="Theo dõi đơn bán B2B, quản lý tiến độ thực hiện hợp đồng và duyệt xuất kho"
     >
       <template #actions>
+        <Tag
+          v-if="!canManageSales"
+          value="Chế độ chỉ xem (sales.view)"
+          severity="secondary"
+          icon="pi pi-eye"
+          class="!text-[11px] !rounded-[6px] !px-2.5 !py-1"
+        />
         <Button
+          v-if="canManageSales"
           label="Tạo đơn hàng mới"
           icon="pi pi-plus"
           size="small"
@@ -142,12 +150,25 @@ import PageHeader from '../../components/common/PageHeader.vue';
 import SalesOrderForm from './form.vue';
 import { formatCurrency, formatDate } from '../../utils/format';
 import { ORDER_STATUSES } from '../../constants/status.constant';
+import { canManage } from '../../utils/rbac';
 
 const props = defineProps({
   customers: {
     type: Array,
     default: () => []
+  },
+  currentUser: {
+    type: Object,
+    default: null
   }
+});
+
+const canManageSales = computed(() => {
+  return canManage('sales', props.currentUser) || (
+    props.currentUser &&
+    props.currentUser.permissions &&
+    props.currentUser.permissions.includes('sales.create')
+  );
 });
 
 const emit = defineEmits(['order-created']);

@@ -181,8 +181,10 @@ const searchQuery = ref('');
 const showCreateModal = ref(false);
 const initialFormData = ref(null);
 
+import { canManage } from '../../utils/rbac';
+
 const canCreateCatalog = computed(() => {
-  return (
+  return canManage('catalog', props.currentUser) || (
     props.currentUser &&
     props.currentUser.permissions &&
     props.currentUser.permissions.includes('catalog.create')

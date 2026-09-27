@@ -73,7 +73,7 @@
                 type="button"
                 class="flex items-center justify-center w-11 h-10 mx-auto rounded-[6px] border text-sm font-medium transition-colors cursor-pointer"
                 :class="isFolderActive(item) ? 'bg-sky-50 border-sky-200 text-sky-700 font-semibold' : 'border-transparent text-slate-600 hover:bg-slate-100'"
-                @click="$emit('select-tab', item.children[0].id)"
+                @click="handleNavigate(item.children[0])"
                 v-tooltip.right="item.label"
               >
                 <i :class="[item.icon, 'text-base', isFolderActive(item) ? 'text-sky-700' : 'text-slate-400']"></i>
@@ -86,15 +86,15 @@
                   :key="child.id"
                   type="button"
                   class="flex items-center rounded-[6px] border text-xs font-medium transition-colors cursor-pointer w-full gap-2 px-2.5 py-1.5 text-left"
-                  :class="currentTab === child.id ? 'bg-sky-50 border-sky-200 text-sky-700 font-semibold' : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'"
-                  @click="$emit('select-tab', child.id)"
+                  :class="isItemActive(child) ? 'bg-sky-50 border-sky-200 text-sky-700 font-semibold' : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'"
+                  @click="handleNavigate(child)"
                 >
-                  <i :class="[child.icon, 'text-sm shrink-0', currentTab === child.id ? 'text-sky-700' : 'text-slate-400']"></i>
+                  <i :class="[child.icon, 'text-sm shrink-0', isItemActive(child) ? 'text-sky-700' : 'text-slate-400']"></i>
                   <span class="flex-1 whitespace-nowrap overflow-hidden text-ellipsis">{{ child.label }}</span>
                   <span
                     v-if="child.badge"
                     class="text-[10px] font-semibold px-1.5 py-0.5 rounded-[4px]"
-                    :class="currentTab === child.id ? 'bg-white border border-sky-200 text-sky-700' : 'bg-white border border-slate-200 text-slate-500'"
+                    :class="isItemActive(child) ? 'bg-white border border-sky-200 text-sky-700' : 'bg-white border border-slate-200 text-slate-500'"
                   >
                     {{ child.badge }}
                   </span>
@@ -108,21 +108,21 @@
               type="button"
               class="flex items-center rounded-[6px] border text-sm font-medium transition-colors cursor-pointer group"
               :class="[
-                currentTab === item.id
+                isItemActive(item)
                   ? 'bg-sky-50 border-sky-200 text-sky-700 font-semibold'
                   : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900',
                 isCollapsed
                   ? 'justify-center w-11 h-10 mx-auto px-0'
                   : 'w-full gap-3 px-3 py-2 text-left'
               ]"
-              @click="$emit('select-tab', item.id)"
+              @click="handleNavigate(item)"
               v-tooltip.right="isCollapsed ? item.label : undefined"
             >
               <i
                 :class="[
                   item.icon,
                   'text-base shrink-0 transition-colors',
-                  currentTab === item.id ? 'text-sky-700' : 'text-slate-400 group-hover:text-slate-600'
+                  isItemActive(item) ? 'text-sky-700' : 'text-slate-400 group-hover:text-slate-600'
                 ]"
               ></i>
               <span v-if="!isCollapsed" class="flex-1 whitespace-nowrap overflow-hidden text-ellipsis">
@@ -162,23 +162,32 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import Button from 'primevue/button';
 import { appConfig } from '../../config/app.config';
-import { menuCategories } from '../../config/menu.config';
+import { menuCategories as rawMenuCategories } from '../../config/menu.config';
+import { canView } from '../../utils/rbac';
+
+const router = useRouter();
+const route = useRoute();
 
 const props = defineProps({
   currentTab: {
     type: String,
-    required: true
+    default: ''
   },
   isCollapsed: {
     type: Boolean,
     default: false
+  },
+  currentUser: {
+    type: Object,
+    default: null
   }
 });
 
-defineEmits(['select-tab', 'toggle-collapse']);
+const emit = defineEmits(['select-tab', 'toggle-collapse']);
 
 const openFolders = ref({
   organization: true
@@ -188,16 +197,55 @@ const toggleFolder = (folderId) => {
   openFolders.value[folderId] = !openFolders.value[folderId];
 };
 
+// Lọc menu theo quyền người dùng (chỉ hiển thị những trang có quyền .view)
+const menuCategories = computed(() => {
+  if (!props.currentUser) return rawMenuCategories;
+  
+  // Super Admin thấy tất cả
+  if (props.currentUser.roles && props.currentUser.roles.includes('SUPER_ADMIN')) {
+    return rawMenuCategories;
+  }
+
+  return rawMenuCategories.map(cat => {
+    const filteredItems = cat.items.map(item => {
+      if (item.children) {
+        const visibleChildren = item.children.filter(child => {
+          return !child.resource || canView(child.resource, props.currentUser);
+        });
+        return { ...item, children: visibleChildren };
+      }
+      return item;
+    }).filter(item => {
+      if (item.children) return item.children.length > 0;
+      return !item.resource || canView(item.resource, props.currentUser);
+    });
+
+    return { ...cat, items: filteredItems };
+  }).filter(cat => cat.items.length > 0);
+});
+
+const isItemActive = (item) => {
+  if (item.path && route.path === item.path) return true;
+  return props.currentTab === item.id;
+};
+
 const isFolderActive = (item) => {
-  if (!item.children) return props.currentTab === item.id;
-  return item.children.some(child => child.id === props.currentTab);
+  if (!item.children) return isItemActive(item);
+  return item.children.some(child => isItemActive(child));
+};
+
+const handleNavigate = (item) => {
+  emit('select-tab', item.id);
+  if (item.path) {
+    router.push(item.path);
+  }
 };
 
 // Tự động mở folder nếu một tab con đang được chọn
-watch(() => props.currentTab, (newTab) => {
-  for (const cat of menuCategories) {
+watch(() => route.path, (newPath) => {
+  for (const cat of rawMenuCategories) {
     for (const item of cat.items) {
-      if (item.children && item.children.some(c => c.id === newTab)) {
+      if (item.children && item.children.some(c => c.path === newPath)) {
         openFolders.value[item.id] = true;
       }
     }

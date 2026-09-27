@@ -17,7 +17,15 @@
           class="!rounded-[6px]"
           @click="loadAllData"
         />
+        <Tag
+          v-if="!canManageEmployees"
+          value="Chế độ chỉ xem (employee.view)"
+          severity="secondary"
+          icon="pi pi-eye"
+          class="!text-[11px] !rounded-[6px] !px-2.5 !py-1"
+        />
         <Button
+          v-if="canManageEmployees"
           label="Thêm nhân viên"
           icon="pi pi-user-plus"
           size="small"
@@ -151,7 +159,7 @@
         </Column>
 
         <!-- Cột 6: Thao tác -->
-        <Column header="Hành Động" style="width: 120px; text-align: center">
+        <Column v-if="canManageEmployees" header="Hành Động" style="width: 120px; text-align: center">
           <template #body="{ data }">
             <Button
               icon="pi pi-user-edit"
@@ -291,6 +299,16 @@ import Column from 'primevue/column';
 import Dialog from 'primevue/dialog';
 import PageHeader from '../../components/common/PageHeader.vue';
 import { identityApi } from '../../api/identity.api';
+import { canManage } from '../../utils/rbac';
+
+const props = defineProps({
+  currentUser: {
+    type: Object,
+    default: null
+  }
+});
+
+const canManageEmployees = computed(() => canManage('employee', props.currentUser));
 
 const toast = useToast();
 

@@ -23,37 +23,57 @@ class IdentitySeeder extends Seeder
             DB::table('departments')->updateOrInsert(['code' => $d['code']], $d);
         }
 
-        // 2. Permissions (Toàn bộ quyền hệ thống)
+        // 2. Permissions (Toàn bộ quyền hệ thống theo route và chức năng)
         $perms = [
-            ['code' => 'sales.view', 'module' => 'sales', 'description' => 'Xem danh sách và chi tiết đơn bán hàng SO'],
+            // Phân hệ Tổ chức (Organization / Identity)
+            ['code' => 'department.view', 'module' => 'organization', 'description' => 'Xem danh sách và cơ cấu phòng ban (Route: /department)'],
+            ['code' => 'department.manage', 'module' => 'organization', 'description' => 'Thêm, sửa, xóa phòng ban'],
+            ['code' => 'employee.view', 'module' => 'organization', 'description' => 'Xem danh sách nhân viên (Route: /employee)'],
+            ['code' => 'employee.manage', 'module' => 'organization', 'description' => 'Thêm, sửa, khóa nhân viên và gán vai trò'],
+            ['code' => 'role.view', 'module' => 'organization', 'description' => 'Xem danh sách vai trò (Route: /role)'],
+            ['code' => 'role.manage', 'module' => 'organization', 'description' => 'Thêm, sửa, xóa vai trò và chia quyền'],
+            ['code' => 'permission.view', 'module' => 'organization', 'description' => 'Xem danh mục quyền hạn (Route: /permission)'],
+            ['code' => 'permission.manage', 'module' => 'organization', 'description' => 'Thêm, sửa, xóa định nghĩa quyền hạn'],
+
+            // Phân hệ Sản phẩm (Catalog)
+            ['code' => 'catalog.view', 'module' => 'catalog', 'description' => 'Xem danh mục sản phẩm (Route: /catalog)'],
+            ['code' => 'catalog.manage', 'module' => 'catalog', 'description' => 'Thêm, sửa, xóa sản phẩm và bảng giá'],
+            ['code' => 'catalog.create', 'module' => 'catalog', 'description' => 'Tạo mới sản phẩm'],
+            ['code' => 'catalog.edit', 'module' => 'catalog', 'description' => 'Chỉnh sửa sản phẩm'],
+
+            // Phân hệ Kho hàng (Inventory)
+            ['code' => 'inventory.view', 'module' => 'inventory', 'description' => 'Xem tồn kho On-Hand, Reserved (Route: /inventory)'],
+            ['code' => 'inventory.manage', 'module' => 'inventory', 'description' => 'Quản trị nghiệp vụ nhập, xuất, điều chuyển kho'],
+            ['code' => 'inventory.receive', 'module' => 'inventory', 'description' => 'Nhập kho thực tế Goods Receipt'],
+            ['code' => 'inventory.issue', 'module' => 'inventory', 'description' => 'Xuất kho thực tế Goods Issue'],
+            ['code' => 'inventory.transfer', 'module' => 'inventory', 'description' => 'Điều chuyển kho Stock Transfer'],
+
+            // Phân hệ Bán hàng (Sales)
+            ['code' => 'sales.view', 'module' => 'sales', 'description' => 'Xem danh sách và chi tiết đơn bán hàng SO (Route: /sales)'],
+            ['code' => 'sales.manage', 'module' => 'sales', 'description' => 'Tạo mới, chỉnh sửa, hủy và phê duyệt đơn bán'],
             ['code' => 'sales.create', 'module' => 'sales', 'description' => 'Tạo mới báo giá và đơn đặt hàng SO'],
             ['code' => 'sales.update', 'module' => 'sales', 'description' => 'Cập nhật thông tin đơn bán hàng SO'],
             ['code' => 'sales.cancel', 'module' => 'sales', 'description' => 'Hủy đơn đặt hàng SO'],
             ['code' => 'sales.approve', 'module' => 'sales', 'description' => 'Phê duyệt chiết khấu hoặc đơn bán hàng'],
             ['code' => 'delivery.create', 'module' => 'sales', 'description' => 'Tạo yêu cầu giao hàng Delivery Request'],
 
-            ['code' => 'purchase.view', 'module' => 'purchase', 'description' => 'Xem danh sách và chi tiết đơn mua hàng PO'],
+            // Phân hệ Đối tác & Kho bãi (Master)
+            ['code' => 'master.view', 'module' => 'master', 'description' => 'Xem danh mục đối tác khách hàng & kho bãi (Route: /master)'],
+            ['code' => 'master.manage', 'module' => 'master', 'description' => 'Thêm, sửa, xóa đối tác và kho bãi'],
+
+            // Hạ tầng hệ thống & Outbox
+            ['code' => 'architecture.view', 'module' => 'system', 'description' => 'Xem kiến trúc phân tán & Outbox (Route: /architecture)'],
+            ['code' => 'architecture.manage', 'module' => 'system', 'description' => 'Quản trị hạ tầng hệ thống và đồng bộ Outbox'],
+
+            // Khác
+            ['code' => 'purchase.view', 'module' => 'purchase', 'description' => 'Xem danh sách đơn mua hàng PO'],
             ['code' => 'purchase.create', 'module' => 'purchase', 'description' => 'Tạo mới đơn mua hàng PO'],
             ['code' => 'purchase.approve', 'module' => 'purchase', 'description' => 'Phê duyệt đơn mua hàng PO'],
-
-            ['code' => 'inventory.view', 'module' => 'inventory', 'description' => 'Xem tồn kho On-Hand, Reserved, Available'],
-            ['code' => 'inventory.receive', 'module' => 'inventory', 'description' => 'Nhập kho thực tế Goods Receipt'],
-            ['code' => 'inventory.issue', 'module' => 'inventory', 'description' => 'Xuất kho thực tế Goods Issue'],
-            ['code' => 'inventory.transfer', 'module' => 'inventory', 'description' => 'Điều chuyển kho Stock Transfer'],
-
-            ['code' => 'catalog.view', 'module' => 'catalog', 'description' => 'Xem danh mục sản phẩm và đối tác'],
-            ['code' => 'catalog.create', 'module' => 'catalog', 'description' => 'Tạo mới sản phẩm hoặc đối tác'],
-            ['code' => 'catalog.edit', 'module' => 'catalog', 'description' => 'Chỉnh sửa sản phẩm và bảng giá'],
-
             ['code' => 'finance.view', 'module' => 'finance', 'description' => 'Xem báo cáo tài chính và công nợ'],
             ['code' => 'finance.approve', 'module' => 'finance', 'description' => 'Duyệt thanh toán và xuất hóa đơn'],
-
-            ['code' => 'technical.manage', 'module' => 'technical', 'description' => 'Cấu hình kỹ thuật và giám sát microservices'],
-            ['code' => 'report.view', 'module' => 'analytics', 'description' => 'Xem Dashboard báo cáo tổng quan'],
             ['code' => 'ai.use', 'module' => 'ai', 'description' => 'Sử dụng trợ lý AI Copilot phân tích dữ liệu'],
-
             ['code' => 'users.view', 'module' => 'admin', 'description' => 'Xem danh sách tài khoản'],
-            ['code' => 'users.manage', 'module' => 'admin', 'description' => 'Quản trị tài khoản và ma trận phân quyền'],
+            ['code' => 'users.manage', 'module' => 'admin', 'description' => 'Quản trị tài khoản và phân quyền'],
         ];
         foreach ($perms as $p) {
             DB::table('permissions')->updateOrInsert(['code' => $p['code']], $p);
