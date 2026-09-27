@@ -1,37 +1,35 @@
+@import "tailwindcss";
+
+@theme {
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 6px;
+  --radius: 6px;
+  --color-primary: #4F46E5;
+  --color-primary-hover: #4338CA;
+  --color-primary-subtle: #EEF2FF;
+  --color-primary-border: #C7D2FE;
+}
+
 :root {
-  /* 60% Clean Canvas & Surfaces */
+  /* Clean Canvas & Surfaces */
   --canvas-bg: #F8FAFC;      /* slate-50 base page bg */
   --surface-white: #FFFFFF;  /* pure white */
   --surface-hover: #F1F5F9;  /* slate-100 */
   --border-subtle: #E2E8F0;  /* slate-200 hairline border (1px) */
   --border-light: #F1F5F9;   /* slate-100 */
 
-  /* 30% Typography & Contrast */
+  /* Typography & Contrast */
   --text-main: #0F172A;      /* slate-900: Tiêu đề & Số liệu */
   --text-body: #334155;      /* slate-700: Nội dung thông thường */
   --text-muted: #64748B;     /* slate-500: Ghi chú & placeholder */
   --text-dim: #94A3B8;       /* slate-400 */
 
-  /* 10% Smart Indigo / Azure Accent */
+  /* Smart Indigo Brand Accent */
   --primary: #4F46E5;        /* indigo-600 */
   --primary-hover: #4338CA;  /* indigo-700 */
   --primary-subtle: #EEF2FF; /* indigo-50 */
   --primary-border: #C7D2FE; /* indigo-200 */
-  --azure-primary: #4F46E5;
-  --azure-hover: #4338CA;
-  --azure-light: #818CF8;
-  --border-azure: #E2E8F0;
-  --border-azure-hover: #C7D2FE;
-
-  /* Soft Status Colors */
-  --badge-success-bg: #ECFDF5;
-  --badge-success-text: #047857;
-  --badge-warning-bg: #FFFBEB;
-  --badge-warning-text: #B45309;
-  --badge-danger-bg: #FEF2F2;
-  --badge-danger-text: #B91C1C;
-  --badge-neutral-bg: #F1F5F9;
-  --badge-neutral-text: #475569;
 
   /* Typography */
   --font-heading: 'Plus Jakarta Sans', sans-serif;
@@ -49,12 +47,6 @@
   --p-inputtext-border-radius: 6px;
   --p-dialog-border-radius: 6px;
   --p-tag-border-radius: 6px;
-}
-
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
 body {
@@ -77,32 +69,6 @@ h1, h2, h3, h4, h5, h6 {
 .num-tabular {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
-}
-
-/* Layout Wrapper */
-.layout-wrapper {
-  display: flex;
-  min-height: 100vh;
-}
-
-.layout-main {
-  flex: 1;
-  margin-left: 256px;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  transition: margin-left 0.2s ease;
-}
-
-.layout-main.sidebar-collapsed {
-  margin-left: 68px;
-}
-
-.page-container {
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
 }
 
 /* PrimeVue Component Global Overrides for Flat Clean UI */
@@ -180,104 +146,3 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-body) !important;
   font-size: 13px !important;
 }
-
-/* Inventory Views & Breadcrumbs Support (Flattened, Bo góc 6px, No Gradient) */
-.inventory-view-container {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.breadcrumb-card {
-  background-color: var(--surface-white);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 8px 16px;
-}
-
-.azure-breadcrumb {
-  background: transparent !important;
-  border: none !important;
-  padding: 0 !important;
-}
-
-.main-content-card,
-.white-card {
-  background-color: var(--surface-white);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 16px;
-}
-
-.stat-card-overview {
-  background-color: var(--surface-white);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  transition: border-color 0.15s ease;
-}
-
-.stat-card-overview:hover {
-  border-color: var(--primary-border);
-}
-
-.stat-icon-wrapper {
-  width: 44px;
-  height: 44px;
-  border-radius: 6px;
-  background-color: var(--primary-subtle);
-  border: 1px solid var(--primary-border);
-  color: var(--primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-}
-
-.vertical-subtabs {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding-left: 28px;
-  margin-top: 4px;
-}
-
-.vertical-subtab-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: var(--text-body);
-  font-size: 12px;
-  cursor: pointer;
-  text-align: left;
-  transition: background-color 0.15s ease;
-}
-
-.vertical-subtab-item:hover {
-  background-color: var(--surface-hover);
-}
-
-.vertical-subtab-item.active {
-  background-color: var(--primary-subtle);
-  color: var(--primary);
-  font-weight: 600;
-}
-
-/* Utilities */
-.text-right { text-align: right; }
-.text-center { text-align: center; }
-.font-semibold { font-weight: 600; }
-.font-bold { font-weight: 700; }
-.text-primary { color: var(--primary); }
-.text-muted { color: var(--text-muted); }
-.text-main { color: var(--text-main); }
-.text-body { color: var(--text-body); }
-.w-full { width: 100%; }
-.flex-1 { flex: 1; }

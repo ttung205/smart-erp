@@ -1,31 +1,31 @@
 <template>
-  <div class="login-wrapper">
-    <div class="login-container">
+  <div class="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+    <div class="w-full max-w-[580px] flex flex-col gap-4">
       <!-- 1. Brand Header -->
-      <div class="login-header">
-        <div class="login-brand-icon">
+      <div class="text-center flex flex-col items-center gap-1.5">
+        <div class="w-11 h-11 rounded-[6px] bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center text-xl mb-1">
           <i class="pi pi-bolt"></i>
         </div>
-        <h1 class="login-title">Đăng Nhập Smart ERP</h1>
-        <p class="login-subtitle">Hệ thống quản trị nguồn lực doanh nghiệp phân tán (Enterprise v2.0)</p>
+        <h1 class="text-[22px] font-bold text-slate-900 m-0 tracking-tight">Đăng Nhập Smart ERP</h1>
+        <p class="text-[13px] text-slate-500 m-0">Hệ thống quản trị nguồn lực doanh nghiệp phân tán (Enterprise v2.0)</p>
       </div>
 
-      <!-- 2. Main Login Card (Flat Canvas, Hairline Border, Bo góc 6px) -->
-      <div class="login-card">
+      <!-- 2. Main Login Card (100% TailwindCSS, Flat, Hairline Border, Bo góc 6px) -->
+      <div class="bg-white border border-slate-200 rounded-[6px] p-6 shadow-none">
         <!-- Error Alert -->
         <Message
           v-if="errorMessage"
           severity="error"
           :closable="true"
-          class="login-error-msg"
+          class="mb-4 rounded-[6px]"
           @close="errorMessage = ''"
         >
           {{ errorMessage }}
         </Message>
 
-        <form @submit.prevent="handleSubmit" class="login-form">
-          <div class="form-field">
-            <label for="login-email" class="field-label">Email tài khoản</label>
+        <form @submit.prevent="handleSubmit" class="flex flex-col gap-4">
+          <div class="flex flex-col gap-1.5">
+            <label for="login-email" class="text-xs font-semibold text-slate-700">Email tài khoản</label>
             <IconField>
               <InputIcon class="pi pi-envelope" />
               <InputText
@@ -33,14 +33,14 @@
                 v-model="email"
                 type="email"
                 placeholder="Ví dụ: admin@erp.local"
-                class="w-full"
+                class="w-full rounded-[6px]"
                 required
               />
             </IconField>
           </div>
 
-          <div class="form-field">
-            <label for="login-password" class="field-label">Mật khẩu</label>
+          <div class="flex flex-col gap-1.5">
+            <label for="login-password" class="text-xs font-semibold text-slate-700">Mật khẩu</label>
             <IconField>
               <InputIcon class="pi pi-lock" />
               <InputText
@@ -48,18 +48,18 @@
                 v-model="password"
                 type="password"
                 placeholder="Nhập mật khẩu..."
-                class="w-full"
+                class="w-full rounded-[6px]"
                 required
               />
             </IconField>
           </div>
 
-          <div class="form-options">
-            <div class="remember-box">
+          <div class="flex justify-between items-center text-xs">
+            <div class="flex items-center gap-2">
               <Checkbox v-model="rememberMe" :binary="true" inputId="remember-me" />
-              <label for="remember-me" class="remember-label">Ghi nhớ phiên đăng nhập</label>
+              <label for="remember-me" class="text-xs text-slate-700 cursor-pointer select-none">Ghi nhớ phiên đăng nhập</label>
             </div>
-            <span class="password-hint">Mật khẩu mẫu: <code>password123</code></span>
+            <span class="text-slate-500 text-[11px]">Mật khẩu mẫu: <code class="bg-slate-50 border border-slate-200 px-1 py-0.5 rounded-[4px] font-mono text-indigo-600">password123</code></span>
           </div>
 
           <Button
@@ -67,38 +67,38 @@
             label="Đăng Nhập Hệ Thống"
             icon="pi pi-sign-in"
             :loading="loading"
-            class="w-full submit-btn"
+            class="w-full h-10 text-sm rounded-[6px]"
           />
         </form>
       </div>
 
-      <!-- 3. Test Account Selector by 11 System Roles -->
-      <div class="roles-helper-card">
-        <div class="helper-header">
-          <div class="helper-title-box">
-            <i class="pi pi-users text-primary"></i>
-            <span class="helper-title">Chọn nhanh tài khoản theo vai trò (11 Roles chuẩn):</span>
+      <!-- 3. Helper Panel: Chọn nhanh tài khoản theo vai trò -->
+      <div class="bg-white border border-slate-200 rounded-[6px] p-4 flex flex-col gap-3 shadow-none">
+        <div class="flex justify-between items-center">
+          <div class="flex items-center gap-2">
+            <i class="pi pi-users text-indigo-600"></i>
+            <span class="text-xs font-bold text-slate-900">Chọn nhanh tài khoản theo vai trò (11 Roles chuẩn):</span>
           </div>
-          <span class="helper-hint">Bấm vào vai trò để tự động điền</span>
+          <span class="text-[11px] text-slate-500">Bấm vào vai trò để tự động điền</span>
         </div>
 
-        <div class="roles-grid">
+        <div class="grid grid-cols-2 gap-2 max-h-[240px] overflow-y-auto pr-1">
           <button
             v-for="role in systemRoles"
             :key="role.code"
             type="button"
-            class="role-select-item"
-            :class="{ active: email === role.sampleEmail }"
+            class="flex justify-between items-center p-2 rounded-[6px] border border-slate-200 bg-slate-50 cursor-pointer text-left transition-colors hover:bg-slate-100 hover:border-indigo-200"
+            :class="{ 'bg-indigo-50 border-indigo-600': email === role.sampleEmail }"
             @click="selectRoleAccount(role)"
           >
-            <div class="role-item-info">
-              <span class="role-name">{{ role.name }}</span>
-              <span class="role-email">{{ role.sampleEmail }}</span>
+            <div class="flex flex-col min-w-0 pr-2">
+              <span class="text-xs font-semibold text-slate-900 truncate">{{ role.name }}</span>
+              <span class="text-[11px] text-slate-500 font-mono">{{ role.sampleEmail }}</span>
             </div>
             <Tag
               :severity="role.severity"
               :value="role.badge"
-              class="role-badge"
+              class="text-[10px] py-0.5 px-1.5 rounded-[6px] shrink-0"
             />
           </button>
         </div>
@@ -118,7 +118,7 @@ import Tag from 'primevue/tag';
 import Message from 'primevue/message';
 import { SYSTEM_ROLES } from '../../constants/permissions.constant';
 
-const props = defineProps({
+defineProps({
   loading: {
     type: Boolean,
     default: false
@@ -148,224 +148,3 @@ const handleSubmit = () => {
   emit('login', { email: email.value.trim(), password: password.value });
 };
 </script>
-
-<style scoped>
-.login-wrapper {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: var(--canvas-bg);
-  padding: 32px 16px;
-}
-
-.login-container {
-  width: 100%;
-  max-width: 580px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.login-header {
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-
-.login-brand-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 6px;
-  background-color: var(--primary-subtle);
-  border: 1px solid var(--primary-border);
-  color: var(--primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  margin-bottom: 4px;
-}
-
-.login-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-main);
-  margin: 0;
-  letter-spacing: -0.01em;
-}
-
-.login-subtitle {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin: 0;
-}
-
-.login-card {
-  background-color: var(--surface-white);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 24px;
-}
-
-.login-error-msg {
-  margin-bottom: 16px;
-  border-radius: 6px;
-}
-
-.login-form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.field-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-body);
-}
-
-.form-options {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-}
-
-.remember-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.remember-label {
-  font-size: 12px;
-  color: var(--text-body);
-  cursor: pointer;
-}
-
-.password-hint {
-  color: var(--text-muted);
-  font-size: 11px;
-}
-
-.password-hint code {
-  background-color: var(--canvas-bg);
-  border: 1px solid var(--border-subtle);
-  padding: 1px 4px;
-  border-radius: 4px;
-  font-family: var(--font-mono);
-  color: var(--primary);
-}
-
-.submit-btn {
-  height: 40px;
-  font-size: 14px;
-}
-
-/* Helper Roles Panel */
-.roles-helper-card {
-  background-color: var(--surface-white);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.helper-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.helper-title-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.helper-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-main);
-}
-
-.helper-hint {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.roles-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  max-height: 240px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.role-select-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border-subtle);
-  background-color: var(--canvas-bg);
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.15s ease;
-}
-
-.role-select-item:hover {
-  background-color: var(--surface-hover);
-  border-color: var(--primary-border);
-}
-
-.role-select-item.active {
-  background-color: var(--primary-subtle);
-  border-color: var(--primary);
-}
-
-.role-item-info {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.role-name {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-main);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.role-email {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-}
-
-.role-badge {
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 6px;
-  flex-shrink: 0;
-}
-
-.w-full {
-  width: 100%;
-}
-</style>

@@ -1,36 +1,36 @@
 <template>
-  <div class="claims-inspector-panel">
-    <div class="panel-header">
-      <span class="panel-title">Phiên xác thực hiện tại</span>
+  <div class="bg-white border border-slate-200 rounded-[6px] p-4 flex flex-col gap-3 shadow-none">
+    <div class="flex justify-between items-center pb-2 border-b border-slate-200">
+      <span class="text-sm font-bold text-slate-900">Phiên xác thực hiện tại</span>
       <Tag
         :severity="currentUser ? 'success' : 'danger'"
         :value="currentUser ? 'Đã xác thực' : 'Chưa đăng nhập'"
-        class="claims-tag"
+        class="text-[11px] px-2 py-0.5 rounded-[6px]"
       />
     </div>
 
-    <div v-if="currentUser" class="claims-body">
-      <div class="claim-item">
-        <span class="claim-label">Mã định danh (sub):</span>
-        <span class="claim-value">#{{ currentUser.sub }}</span>
+    <div v-if="currentUser" class="flex flex-col gap-2">
+      <div class="flex justify-between items-center px-3 py-2 bg-slate-50 border border-slate-200 rounded-[6px]">
+        <span class="text-xs text-slate-500">Mã định danh (sub):</span>
+        <span class="text-xs font-semibold text-slate-900">#{{ currentUser.sub }}</span>
       </div>
-      <div class="claim-item">
-        <span class="claim-label">Họ và tên:</span>
-        <span class="claim-value">{{ currentUser.name }}</span>
+      <div class="flex justify-between items-center px-3 py-2 bg-slate-50 border border-slate-200 rounded-[6px]">
+        <span class="text-xs text-slate-500">Họ và tên:</span>
+        <span class="text-xs font-semibold text-slate-900">{{ currentUser.name }}</span>
       </div>
-      <div class="claim-item">
-        <span class="claim-label">Phòng ban:</span>
-        <span class="claim-value">{{ currentUser.department }}</span>
+      <div class="flex justify-between items-center px-3 py-2 bg-slate-50 border border-slate-200 rounded-[6px]">
+        <span class="text-xs text-slate-500">Email:</span>
+        <span class="text-xs font-semibold font-mono text-slate-900">{{ currentUser.email }}</span>
       </div>
-      <div class="claim-item">
-        <span class="claim-label">Vai trò (Roles):</span>
-        <span class="claim-value font-semibold text-primary">{{ currentUser.roles.join(', ') }}</span>
+      <div class="flex justify-between items-center px-3 py-2 bg-slate-50 border border-slate-200 rounded-[6px]">
+        <span class="text-xs text-slate-500">Vai trò (Roles):</span>
+        <span class="text-xs font-semibold text-indigo-600">{{ currentUser.roles ? currentUser.roles.join(', ') : 'Chưa gán' }}</span>
       </div>
 
       <!-- Token Copy Row -->
-      <div class="token-container">
-        <div class="token-header">
-          <span class="token-label">Chuỗi JWT Bearer Token:</span>
+      <div class="flex flex-col gap-1 mt-1">
+        <div class="flex justify-between items-center">
+          <span class="text-[11px] font-semibold text-slate-500">Chuỗi JWT Bearer Token:</span>
           <Button
             label="Sao chép"
             icon="pi pi-copy"
@@ -43,14 +43,14 @@
           readonly
           :value="jwtToken"
           rows="2"
-          class="token-textarea"
+          class="w-full font-mono text-[11px] text-slate-700 rounded-[6px] border border-slate-200 bg-slate-50 resize-none"
         />
       </div>
     </div>
 
-    <div v-else class="empty-claims">
-      <i class="pi pi-lock empty-icon"></i>
-      <p class="empty-text">Vui lòng chọn hoặc đăng nhập một tài khoản để xem Claims giải mã.</p>
+    <div v-else class="p-6 text-center flex flex-col items-center gap-2">
+      <i class="pi pi-lock text-2xl text-slate-400"></i>
+      <p class="text-xs text-slate-500 m-0">Vui lòng đăng nhập để xem thông tin Claims giải mã.</p>
     </div>
   </div>
 </template>
@@ -73,112 +73,3 @@ defineProps({
 
 defineEmits(['copy-token']);
 </script>
-
-<style scoped>
-.claims-inspector-panel {
-  background: var(--surface-white);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.panel-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-main);
-}
-
-.claims-tag {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 6px;
-}
-
-.claims-body {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.claim-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px;
-  background-color: var(--canvas-bg);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-}
-
-.claim-label {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.claim-value {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.token-container {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 4px;
-}
-
-.token-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.token-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.token-textarea {
-  width: 100%;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-body);
-  border-radius: 6px;
-  border: 1px solid var(--border-subtle);
-  background-color: var(--canvas-bg);
-  resize: none;
-}
-
-.empty-claims {
-  padding: 24px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.empty-icon {
-  font-size: 24px;
-  color: var(--text-dim);
-}
-
-.empty-text {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin: 0;
-}
-</style>
