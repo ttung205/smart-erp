@@ -1,20 +1,45 @@
 <template>
-  <aside class="layout-sidebar">
-    <!-- Brand Header -->
+  <aside
+    class="layout-sidebar"
+    :class="{ 'is-collapsed': isCollapsed }"
+  >
+    <!-- Brand Header & Collapse Toggle Button -->
     <div class="sidebar-header">
-      <div class="brand-box">
-        <i class="pi pi-bolt brand-icon"></i>
+      <div
+        class="brand-box"
+        @click="$emit('toggle-collapse')"
+        :title="isCollapsed ? 'Bấm để mở rộng sidebar' : 'Bấm để thu gọn sidebar'"
+      >
+        <div
+          class="brand-icon-wrapper"
+          v-tooltip.right="isCollapsed ? `${appConfig.appName} ${appConfig.version} (Mở rộng)` : undefined"
+        >
+          <i class="pi pi-bolt brand-icon"></i>
+        </div>
+        <div v-show="!isCollapsed" class="brand-info">
+          <span class="brand-title">{{ appConfig.appName }}</span>
+          <span class="brand-tag">{{ appConfig.version }}</span>
+        </div>
       </div>
-      <div class="brand-info">
-        <span class="brand-title">{{ appConfig.appName }}</span>
-        <span class="brand-tag">{{ appConfig.version }}</span>
-      </div>
+
+      <Button
+        v-if="!isCollapsed"
+        icon="pi pi-angle-left"
+        text
+        size="small"
+        severity="secondary"
+        class="collapse-toggle-btn"
+        @click="$emit('toggle-collapse')"
+        v-tooltip.bottom="'Thu gọn menu'"
+      />
     </div>
 
     <!-- Navigation Menu -->
     <nav class="sidebar-menu">
       <template v-for="(cat, idx) in menuCategories" :key="idx">
-        <span class="menu-category-title">{{ cat.category }}</span>
+        <span v-if="!isCollapsed" class="menu-category-title">{{ cat.category }}</span>
+        <div v-else class="menu-category-divider"></div>
+
         <div class="menu-group">
           <button
             v-for="item in cat.items"
@@ -22,10 +47,11 @@
             class="menu-nav-button"
             :class="{ active: currentTab === item.id }"
             @click="$emit('select-tab', item.id)"
+            v-tooltip.right="isCollapsed ? item.label : undefined"
           >
             <i :class="[item.icon, 'menu-nav-icon']"></i>
-            <span class="menu-nav-label">{{ item.label }}</span>
-            <span v-if="item.badge" class="menu-nav-badge">{{ item.badge }}</span>
+            <span v-if="!isCollapsed" class="menu-nav-label">{{ item.label }}</span>
+            <span v-if="!isCollapsed && item.badge" class="menu-nav-badge">{{ item.badge }}</span>
           </button>
         </div>
       </template>
@@ -33,15 +59,23 @@
 
     <!-- Sidebar Footer -->
     <div class="sidebar-footer">
-      <div class="arch-info-box">
+      <div v-if="!isCollapsed" class="arch-info-box">
         <span class="arch-label">Kiến trúc hệ thống</span>
         <span class="arch-value">{{ appConfig.architecture }}</span>
+      </div>
+      <div
+        v-else
+        class="arch-info-collapsed"
+        v-tooltip.right="'Kiến trúc: Database-per-Service & Outbox'"
+      >
+        <i class="pi pi-server text-muted"></i>
       </div>
     </div>
   </aside>
 </template>
 
 <script setup>
+import Button from 'primevue/button';
 import { appConfig } from '../../config/app.config';
 import { menuCategories } from '../../config/menu.config';
 
@@ -49,10 +83,14 @@ defineProps({
   currentTab: {
     type: String,
     required: true
+  },
+  isCollapsed: {
+    type: Boolean,
+    default: false
   }
 });
 
-defineEmits(['select-tab']);
+defineEmits(['select-tab', 'toggle-collapse']);
 </script>
 
 <style scoped>
@@ -67,6 +105,11 @@ defineEmits(['select-tab']);
   bottom: 0;
   left: 0;
   z-index: 100;
+  transition: width 0.2s ease;
+}
+
+.layout-sidebar.is-collapsed {
+  width: 68px;
 }
 
 .sidebar-header {
@@ -74,11 +117,24 @@ defineEmits(['select-tab']);
   padding: 0 16px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
   border-bottom: 1px solid var(--border-subtle);
 }
 
+.layout-sidebar.is-collapsed .sidebar-header {
+  padding: 0;
+  justify-content: center;
+}
+
 .brand-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.brand-icon-wrapper {
   width: 32px;
   height: 32px;
   border-radius: 6px;
@@ -87,6 +143,7 @@ defineEmits(['select-tab']);
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .brand-icon {
@@ -98,6 +155,7 @@ defineEmits(['select-tab']);
   display: flex;
   align-items: center;
   gap: 8px;
+  white-space: nowrap;
 }
 
 .brand-title {
@@ -117,13 +175,25 @@ defineEmits(['select-tab']);
   border-radius: 6px;
 }
 
+.collapse-toggle-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0 !important;
+}
+
 .sidebar-menu {
   flex: 1;
-  padding: 16px 12px;
+  padding: 16px 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.layout-sidebar.is-collapsed .sidebar-menu {
+  padding: 16px 8px;
+  align-items: center;
 }
 
 .menu-category-title {
@@ -133,12 +203,21 @@ defineEmits(['select-tab']);
   color: var(--text-muted);
   letter-spacing: 0.04em;
   padding: 8px 8px 4px 8px;
+  white-space: nowrap;
+}
+
+.menu-category-divider {
+  width: 28px;
+  height: 1px;
+  background-color: var(--border-subtle);
+  margin: 6px auto;
 }
 
 .menu-group {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  width: 100%;
 }
 
 .menu-nav-button {
@@ -156,6 +235,15 @@ defineEmits(['select-tab']);
   text-align: left;
   transition: all 0.15s ease;
   width: 100%;
+  white-space: nowrap;
+}
+
+.layout-sidebar.is-collapsed .menu-nav-button {
+  justify-content: center;
+  padding: 10px 0;
+  width: 48px;
+  height: 44px;
+  margin: 0 auto;
 }
 
 .menu-nav-button:hover {
@@ -173,6 +261,7 @@ defineEmits(['select-tab']);
 .menu-nav-icon {
   font-size: 16px;
   color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .menu-nav-button.active .menu-nav-icon {
@@ -207,6 +296,12 @@ defineEmits(['select-tab']);
   border-top: 1px solid var(--border-subtle);
 }
 
+.layout-sidebar.is-collapsed .sidebar-footer {
+  padding: 12px 0;
+  display: flex;
+  justify-content: center;
+}
+
 .arch-info-box {
   display: flex;
   flex-direction: column;
@@ -222,5 +317,12 @@ defineEmits(['select-tab']);
   font-size: 11px;
   font-weight: 600;
   color: var(--text-main);
+}
+
+.arch-info-collapsed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
 }
 </style>

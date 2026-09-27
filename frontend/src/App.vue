@@ -2,14 +2,16 @@
   <div class="layout-wrapper">
     <Toast position="top-right" />
 
-    <!-- 1. Left Sidebar -->
+    <!-- 1. Left Sidebar (Thụt ra thụt vào - Collapsible / Expand) -->
     <AppSidebar
       :current-tab="activeTab"
+      :is-collapsed="isSidebarCollapsed"
       @select-tab="activeTab = $event"
+      @toggle-collapse="isSidebarCollapsed = !isSidebarCollapsed"
     />
 
-    <!-- 2. Main Content Area -->
-    <div class="layout-main">
+    <!-- 2. Main Content Area (Tự động co giãn theo Sidebar) -->
+    <div class="layout-main" :class="{ 'sidebar-collapsed': isSidebarCollapsed }">
       <AppTopbar
         :current-user="currentUser"
         :health="health"
@@ -97,6 +99,7 @@ import { parseJwt } from './utils/jwt';
 
 const toast = useToast();
 const activeTab = ref('identity');
+const isSidebarCollapsed = ref(false);
 
 // Microservices Health State
 const health = reactive({
