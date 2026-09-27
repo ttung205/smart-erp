@@ -91,13 +91,6 @@
                 >
                   <i :class="[child.icon, 'text-sm shrink-0', isItemActive(child) ? 'text-sky-700' : 'text-slate-400']"></i>
                   <span class="flex-1 whitespace-nowrap overflow-hidden text-ellipsis">{{ child.label }}</span>
-                  <span
-                    v-if="child.badge"
-                    class="text-[10px] font-semibold px-1.5 py-0.5 rounded-[4px]"
-                    :class="isItemActive(child) ? 'bg-white border border-sky-200 text-sky-700' : 'bg-white border border-slate-200 text-slate-500'"
-                  >
-                    {{ child.badge }}
-                  </span>
                 </button>
               </div>
             </div>
@@ -127,13 +120,6 @@
               ></i>
               <span v-if="!isCollapsed" class="flex-1 whitespace-nowrap overflow-hidden text-ellipsis">
                 {{ item.label }}
-              </span>
-              <span
-                v-if="!isCollapsed && item.badge"
-                class="text-[10px] font-semibold px-1.5 py-0.5 rounded-[6px]"
-                :class="currentTab === item.id ? 'bg-white border border-sky-200 text-sky-700' : 'bg-white border border-slate-200 text-slate-500'"
-              >
-                {{ item.badge }}
               </span>
             </button>
           </template>

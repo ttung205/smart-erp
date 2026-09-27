@@ -14,8 +14,7 @@ export const menuCategories = [
             resource: 'department',
             permission: 'department.view',
             label: 'Phòng ban',
-            icon: 'pi pi-building',
-            badge: 'Cơ cấu'
+            icon: 'pi pi-building'
           },
           {
             id: 'employee',
@@ -23,8 +22,7 @@ export const menuCategories = [
             resource: 'employee',
             permission: 'employee.view',
             label: 'Nhân viên',
-            icon: 'pi pi-users',
-            badge: 'Tài khoản'
+            icon: 'pi pi-users'
           },
           {
             id: 'role',
@@ -32,8 +30,7 @@ export const menuCategories = [
             resource: 'role',
             permission: 'role.view',
             label: 'Vai trò',
-            icon: 'pi pi-id-card',
-            badge: 'Role'
+            icon: 'pi pi-id-card'
           },
           {
             id: 'permission',
@@ -41,8 +38,7 @@ export const menuCategories = [
             resource: 'permission',
             permission: 'permission.view',
             label: 'Quyền hạn',
-            icon: 'pi pi-key',
-            badge: 'Perms'
+            icon: 'pi pi-key'
           }
         ]
       },
@@ -52,8 +48,7 @@ export const menuCategories = [
         resource: 'catalog',
         permission: 'catalog.view',
         label: 'Danh mục sản phẩm',
-        icon: 'pi pi-box',
-        badge: 'Master'
+        icon: 'pi pi-box'
       },
       {
         id: 'inventory',
@@ -61,8 +56,7 @@ export const menuCategories = [
         resource: 'inventory',
         permission: 'inventory.view',
         label: 'Quản lý tồn kho',
-        icon: 'pi pi-server',
-        badge: 'Kho hàng'
+        icon: 'pi pi-server'
       },
       {
         id: 'sales',
@@ -76,8 +70,7 @@ export const menuCategories = [
             resource: 'sales',
             permission: 'sales.view',
             label: 'Báo giá',
-            icon: 'pi pi-file-edit',
-            badge: 'Báo giá'
+            icon: 'pi pi-file-edit'
           },
           {
             id: 'order',
@@ -85,8 +78,7 @@ export const menuCategories = [
             resource: 'sales',
             permission: 'sales.view',
             label: 'Đơn bán hàng',
-            icon: 'pi pi-shopping-bag',
-            badge: 'Đơn bán'
+            icon: 'pi pi-shopping-bag'
           },
           {
             id: 'delivery',
@@ -94,8 +86,7 @@ export const menuCategories = [
             resource: 'sales',
             permission: 'sales.view',
             label: 'Yêu cầu giao hàng',
-            icon: 'pi pi-truck',
-            badge: 'Giao hàng'
+            icon: 'pi pi-truck'
           },
           {
             id: 'invoice',
@@ -103,8 +94,7 @@ export const menuCategories = [
             resource: 'sales',
             permission: 'sales.view',
             label: 'Chứng từ & Kho',
-            icon: 'pi pi-file',
-            badge: 'Chứng từ'
+            icon: 'pi pi-file'
           },
           {
             id: 'accounting',
@@ -112,8 +102,7 @@ export const menuCategories = [
             resource: 'sales',
             permission: 'sales.view',
             label: 'Ghi sổ kế toán',
-            icon: 'pi pi-book',
-            badge: 'Kế toán'
+            icon: 'pi pi-book'
           }
         ]
       },
@@ -123,8 +112,7 @@ export const menuCategories = [
         resource: 'master',
         permission: 'master.view',
         label: 'Đối tác & Kho bãi',
-        icon: 'pi pi-building',
-        badge: 'B2B'
+        icon: 'pi pi-building'
       }
     ]
   },
@@ -135,8 +123,7 @@ export const menuCategories = [
         id: 'service-status',
         path: '/service-status',
         label: 'Trạng thái dịch vụ',
-        icon: 'pi pi-pulse',
-        badge: 'Health'
+        icon: 'pi pi-pulse'
       },
       {
         id: 'architecture',
@@ -144,8 +131,7 @@ export const menuCategories = [
         resource: 'architecture',
         permission: 'architecture.view',
         label: 'Kiến trúc Outbox & MQ',
-        icon: 'pi pi-share-alt',
-        badge: 'Event-Driven'
+        icon: 'pi pi-share-alt'
       }
     ]
   }
