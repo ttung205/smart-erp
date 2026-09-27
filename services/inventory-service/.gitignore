@@ -1,0 +1,30 @@
+## .NET Core & C# Build Results
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## Visual Studio & Rider Cache
+.vs/
+.idea/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+
+## SQLite Local Databases & Logs
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+## Test Results & Code Coverage
+TestResults/
+[Tt]est[Rr]esult*/
+coverage/
+
+## OS-specific files
+.DS_Store
+Thumbs.db
+desktop.ini
