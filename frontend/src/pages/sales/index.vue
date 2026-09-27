@@ -1,5 +1,5 @@
 <template>
-  <div class="sales-page">
+  <div class="flex flex-col gap-4">
     <!-- Single Page Title -->
     <PageHeader
       title="Quản Lý Đơn Bán Hàng"
@@ -10,46 +10,48 @@
           label="Tạo đơn hàng mới"
           icon="pi pi-plus"
           size="small"
+          class="rounded-[6px]"
           @click="showCreateModal = true"
         />
       </template>
     </PageHeader>
 
     <!-- Operational Toolbar -->
-    <Toolbar class="sales-toolbar">
+    <Toolbar class="bg-white border border-slate-200 rounded-[6px] px-3 py-2 shadow-none">
       <template #start>
         <IconField>
           <InputIcon class="pi pi-search" />
           <InputText
             v-model="searchQuery"
             placeholder="Tìm theo mã đơn hoặc tên khách hàng..."
-            class="search-input"
+            class="w-80 rounded-[6px]"
             size="small"
           />
         </IconField>
       </template>
 
       <template #end>
-        <div class="toolbar-actions">
+        <div class="flex items-center gap-2">
           <Button
             label="Xuất dữ liệu"
             icon="pi pi-download"
             severity="secondary"
             outlined
             size="small"
+            class="rounded-[6px]"
             @click="exportCsv"
           />
           <Tag
             severity="secondary"
             :value="orders.length + ' Đơn hàng'"
-            class="count-tag"
+            class="text-[11px] px-2 py-1 rounded-[6px]"
           />
         </div>
       </template>
     </Toolbar>
 
     <!-- Orders Table (Flat Container) -->
-    <div class="table-container">
+    <div class="bg-white border border-slate-200 rounded-[6px] overflow-hidden shadow-none">
       <DataTable
         :value="filteredOrders"
         class="clean-datatable"
@@ -59,25 +61,25 @@
       >
         <Column field="order_number" header="Mã Đơn Bán" :sortable="true">
           <template #body="{ data }">
-            <span class="order-code">{{ data.order_number }}</span>
+            <span class="font-mono text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-[4px] border border-indigo-200">{{ data.order_number }}</span>
           </template>
         </Column>
 
         <Column field="customer_name" header="Khách Hàng" :sortable="true">
           <template #body="{ data }">
-            <span class="font-semibold text-main">{{ data.customer_name }}</span>
+            <span class="font-semibold text-slate-900">{{ data.customer_name }}</span>
           </template>
         </Column>
 
         <Column field="order_date" header="Ngày Tạo" :sortable="true">
           <template #body="{ data }">
-            <span class="text-muted text-xs">{{ formatDate(data.order_date) }}</span>
+            <span class="text-slate-500 text-xs">{{ formatDate(data.order_date) }}</span>
           </template>
         </Column>
 
         <Column field="total_amount" header="Tổng Giá Trị" class="text-right" :sortable="true">
           <template #body="{ data }">
-            <span class="font-semibold text-main num-tabular">{{ formatCurrency(data.total_amount) }}</span>
+            <span class="font-semibold text-slate-900 num-tabular">{{ formatCurrency(data.total_amount) }}</span>
           </template>
         </Column>
 
@@ -86,7 +88,7 @@
             <Tag
               :severity="getStatusMeta(data.status).severity"
               :value="getStatusMeta(data.status).label"
-              class="cell-tag"
+              class="text-[11px] px-1.5 py-0.5 rounded-[6px]"
             />
           </template>
         </Column>
@@ -98,6 +100,7 @@
               text
               size="small"
               severity="secondary"
+              class="rounded-[6px]"
               v-tooltip.bottom="'Xem chi tiết đơn'"
               @click="viewOrder(data)"
             />
@@ -105,10 +108,10 @@
         </Column>
 
         <template #empty>
-          <div class="empty-table-state">
-            <i class="pi pi-shopping-cart empty-icon"></i>
-            <p class="empty-title">Chưa có đơn bán hàng nào</p>
-            <p class="empty-subtitle">Nhấn nút Tạo đơn hàng mới ở trên để bắt đầu lập đơn bán B2B.</p>
+          <div class="py-8 px-4 text-center flex flex-col items-center gap-2">
+            <i class="pi pi-shopping-cart text-3xl text-slate-400"></i>
+            <p class="text-sm font-semibold text-slate-900 m-0">Chưa có đơn bán hàng nào</p>
+            <p class="text-xs text-slate-500 m-0">Nhấn nút Tạo đơn hàng mới ở trên để bắt đầu lập đơn bán B2B.</p>
           </div>
         </template>
       </DataTable>
@@ -220,84 +223,3 @@ const viewOrder = (order) => {
   // Demo view handler
 };
 </script>
-
-<style scoped>
-.sales-page {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.sales-toolbar {
-  background-color: var(--surface-white);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 8px 12px;
-}
-
-.search-input {
-  width: 320px;
-}
-
-.toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.count-tag {
-  font-size: 11px;
-  padding: 4px 8px;
-  border-radius: 6px;
-}
-
-.table-container {
-  background-color: var(--surface-white);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.order-code {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--primary);
-  background-color: var(--primary-subtle);
-  padding: 2px 6px;
-  border-radius: 6px;
-}
-
-.cell-tag {
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 6px;
-}
-
-.empty-table-state {
-  padding: 32px 16px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.empty-icon {
-  font-size: 28px;
-  color: var(--text-dim);
-}
-
-.empty-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-main);
-  margin: 0;
-}
-
-.empty-subtitle {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin: 0;
-}
-</style>

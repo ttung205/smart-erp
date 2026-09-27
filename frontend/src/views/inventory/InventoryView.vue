@@ -1,27 +1,27 @@
 <template>
-  <div class="inventory-view-container">
-    <!-- 1. Breadcrumb Điều Hướng Chuẩn PrimeVue 4 (Khoảng cách sát phần body) -->
-    <div class="breadcrumb-card">
-      <Breadcrumb :home="breadcrumbHome" :model="breadcrumbItems" class="azure-breadcrumb">
+  <div class="flex flex-col gap-3 pb-8">
+    <!-- 1. Breadcrumb Điều Hướng Chuẩn PrimeVue 4 -->
+    <div class="bg-white border border-slate-200 rounded-[6px] px-4 py-2">
+      <Breadcrumb :home="breadcrumbHome" :model="breadcrumbItems" class="!bg-transparent !border-none !p-0">
         <template #item="{ item }">
           <a 
             v-if="item.command" 
-            class="breadcrumb-link" 
+            class="inline-flex items-center gap-1.5 text-slate-500 hover:text-sky-600 text-xs font-medium cursor-pointer transition-colors leading-none" 
             @click.prevent="item.command"
           >
-            <i v-if="item.icon" :class="item.icon" class="breadcrumb-icon"></i>
-            <span v-if="item.label" class="breadcrumb-text">{{ item.label }}</span>
+            <i v-if="item.icon" :class="item.icon" class="text-xs leading-none"></i>
+            <span v-if="item.label" class="leading-none">{{ item.label }}</span>
           </a>
-          <span v-else class="breadcrumb-current">
-            <span class="breadcrumb-text">{{ item.label }}</span>
+          <span v-else class="inline-flex items-center text-slate-800 text-xs font-bold leading-none">
+            <span class="leading-none">{{ item.label }}</span>
           </span>
         </template>
       </Breadcrumb>
     </div>
 
-    <!-- 2. Khối Nội Dung Thẻ Tab Chính (Từng Tab là 1 file component riêng biệt) -->
-    <div class="white-card main-content-card">
-      <Tabs v-model:value="currentSubTab" class="azure-prime-tabs">
+    <!-- 2. Khối Nội Dung Thẻ Tab Chính -->
+    <div class="bg-white border border-slate-200 rounded-[6px] p-6">
+      <Tabs v-model:value="currentSubTab">
         <TabPanels>
           <!-- TAB 1: TỔNG QUAN (XEM TÌNH HÌNH KHO) -->
           <TabPanel value="overview">
@@ -73,70 +73,69 @@
       modal 
       header="Lập Phiếu Nhập Kho Hàng Hóa (Goods Receipt)" 
       :style="{ width: '480px' }"
-      class="azure-dialog"
     >
-      <div class="dialog-body-form">
-        <div class="form-group mb-4">
-          <label class="form-label">Mã Chứng Từ (PO / Receipt Code) *</label>
+      <div class="py-2 flex flex-col gap-4">
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-xs font-semibold text-slate-700">Mã Chứng Từ (PO / Receipt Code) *</label>
           <InputText 
             v-model="receiveForm.referenceDoc" 
             placeholder="Ví dụ: PO-202609-0099" 
-            class="p-inputtext-sm w-full font-mono" 
+            class="!text-xs w-full font-mono !rounded-[6px]" 
           />
         </div>
 
-        <div class="form-group mb-4">
-          <label class="form-label">Kho Bãi Đích Nhập *</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-xs font-semibold text-slate-700">Kho Bãi Đích Nhập *</label>
           <Select 
             v-model="receiveForm.warehouseId" 
             :options="warehouseOptions" 
             optionLabel="label" 
             optionValue="value" 
             placeholder="Chọn kho bãi..." 
-            class="w-full" 
+            class="w-full !rounded-[6px]" 
           />
         </div>
 
-        <div class="form-group mb-4">
-          <label class="form-label">Mặt Hàng Nhập Kho *</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-xs font-semibold text-slate-700">Mặt Hàng Nhập Kho *</label>
           <Select 
             v-model="receiveForm.productId" 
             :options="productOptions" 
             optionLabel="label" 
             optionValue="value" 
             placeholder="Chọn sản phẩm..." 
-            class="w-full" 
+            class="w-full !rounded-[6px]" 
           />
         </div>
 
-        <div class="form-group mb-4">
-          <label class="form-label">Số Lượng Nhập Thực Tế *</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-xs font-semibold text-slate-700">Số Lượng Nhập Thực Tế *</label>
           <InputNumber 
             v-model="receiveForm.quantity" 
             :min="1" 
             :max="10000" 
-            class="w-full font-mono" 
+            class="w-full font-mono !rounded-[6px]" 
             placeholder="Nhập số lượng..." 
           />
         </div>
 
-        <div class="form-group mb-3">
-          <label class="form-label">Ghi Chú Nghiệp Vụ</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-xs font-semibold text-slate-700">Ghi Chú Nghiệp Vụ</label>
           <InputText 
             v-model="receiveForm.notes" 
             placeholder="Ghi chú xuất xứ hoặc hợp đồng..." 
-            class="p-inputtext-sm w-full" 
+            class="!text-xs w-full !rounded-[6px]" 
           />
         </div>
       </div>
 
       <template #footer>
-        <div class="dialog-footer-actions">
-          <Button label="Hủy Bỏ" text size="small" @click="showReceiveDialog = false" />
+        <div class="flex items-center justify-end gap-2 w-full pt-2">
+          <Button label="Hủy Bỏ" text size="small" class="!rounded-[6px]" @click="showReceiveDialog = false" />
           <Button 
             label="Xác Nhận Nhập Kho" 
             size="small" 
-            class="btn-azure-primary" 
+            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px]" 
             :loading="loading.action" 
             @click="submitReceive" 
           />
@@ -150,65 +149,64 @@
       modal 
       header="Thử Nghiệm Khóa Giữ Chỗ Tồn Kho (Sales Order Reserve)" 
       :style="{ width: '480px' }"
-      class="azure-dialog"
     >
-      <div class="dialog-body-form">
-        <p class="text-xs text-slate-500 mb-4 leading-relaxed">
-          Form này giả lập sự kiện <code class="font-mono text-sky-700">SalesOrderCreated</code> từ Sales Service. Thử nhập số lượng lớn hơn <strong>Available</strong> để kiểm tra cơ chế chặn bán âm!
+      <div class="py-2 flex flex-col gap-4">
+        <p class="text-xs text-slate-500 mb-0 leading-relaxed">
+          Form này giả lập sự kiện <code class="font-mono text-sky-700 bg-sky-50 px-1 py-0.5 rounded-[4px]">SalesOrderCreated</code> từ Sales Service. Thử nhập số lượng lớn hơn <strong>Available</strong> để kiểm tra cơ chế chặn bán âm!
         </p>
 
-        <div class="form-group mb-4">
-          <label class="form-label">Mã Đơn Bán Hàng (SO Code) *</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-xs font-semibold text-slate-700">Mã Đơn Bán Hàng (SO Code) *</label>
           <InputText 
             v-model="reserveForm.orderId" 
             placeholder="Ví dụ: SO-202609-0088" 
-            class="p-inputtext-sm w-full font-mono" 
+            class="!text-xs w-full font-mono !rounded-[6px]" 
           />
         </div>
 
-        <div class="form-group mb-4">
-          <label class="form-label">Kho Bãi Xuất Hàng *</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-xs font-semibold text-slate-700">Kho Bãi Xuất Hàng *</label>
           <Select 
             v-model="reserveForm.warehouseId" 
             :options="warehouseOptions" 
             optionLabel="label" 
             optionValue="value" 
             placeholder="Chọn kho xuất..." 
-            class="w-full" 
+            class="w-full !rounded-[6px]" 
           />
         </div>
 
-        <div class="form-group mb-4">
-          <label class="form-label">Mặt Hàng Cần Giữ Chỗ *</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-xs font-semibold text-slate-700">Mặt Hàng Cần Giữ Chỗ *</label>
           <Select 
             v-model="reserveForm.productId" 
             :options="productOptions" 
             optionLabel="label" 
             optionValue="value" 
             placeholder="Chọn mặt hàng..." 
-            class="w-full" 
+            class="w-full !rounded-[6px]" 
           />
         </div>
 
-        <div class="form-group mb-3">
-          <label class="form-label">Số Lượng Giữ Chỗ *</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-xs font-semibold text-slate-700">Số Lượng Giữ Chỗ *</label>
           <InputNumber 
             v-model="reserveForm.quantity" 
             :min="1" 
             :max="10000" 
-            class="w-full font-mono" 
+            class="w-full font-mono !rounded-[6px]" 
             placeholder="Nhập số lượng..." 
           />
         </div>
       </div>
 
       <template #footer>
-        <div class="dialog-footer-actions">
-          <Button label="Hủy Bỏ" text size="small" @click="showReserveDialog = false" />
+        <div class="flex items-center justify-end gap-2 w-full pt-2">
+          <Button label="Hủy Bỏ" text size="small" class="!rounded-[6px]" @click="showReserveDialog = false" />
           <Button 
             label="Khóa Giữ Hàng (Reserve)" 
             size="small" 
-            class="btn-azure-primary" 
+            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px]" 
             :loading="loading.action" 
             @click="submitReserve" 
           />
@@ -222,47 +220,46 @@
       modal 
       header="Hủy Khóa Giữ Chỗ Tồn Kho (Release Reservation)" 
       :style="{ width: '500px' }"
-      class="azure-dialog"
     >
-      <div class="dialog-body-form">
-        <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+      <div class="py-2 flex flex-col gap-4">
+        <p class="text-xs text-slate-500 mb-0 leading-relaxed">
           Giải phóng lượng hàng đang bị khóa giữ chỗ (Reserved) khi Đơn bán hàng (SO) bị hủy, giảm số lượng hoặc hết hạn thanh toán. Lượng hàng này sẽ được hoàn trả trực tiếp về số dư <strong>Khả dụng (Available)</strong> để bán tiếp.
         </p>
 
-        <div class="form-group mb-4">
-          <label class="form-label">Mã Đơn Bán Hàng Cần Hủy Giữ *</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-xs font-semibold text-slate-700">Mã Đơn Bán Hàng Cần Hủy Giữ *</label>
           <InputText 
             v-model="releaseForm.orderId" 
             placeholder="Ví dụ: SO-202609-0088" 
-            class="p-inputtext-sm w-full font-mono" 
+            class="!text-xs w-full font-mono !rounded-[6px]" 
           />
         </div>
 
-        <div class="form-group mb-4">
-          <label class="form-label">Kho Bãi Đang Giữ Hàng *</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-xs font-semibold text-slate-700">Kho Bãi Đang Giữ Hàng *</label>
           <Select 
             v-model="releaseForm.warehouseId" 
             :options="warehouseOptions" 
             optionLabel="label" 
             optionValue="value" 
             placeholder="Chọn kho..." 
-            class="w-full" 
+            class="w-full !rounded-[6px]" 
           />
         </div>
 
-        <div class="form-group mb-4">
-          <label class="form-label">Mặt Hàng Cần Hủy Giữ Chỗ *</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-xs font-semibold text-slate-700">Mặt Hàng Cần Hủy Giữ Chỗ *</label>
           <Select 
             v-model="releaseForm.productId" 
             :options="productOptions" 
             optionLabel="label" 
             optionValue="value" 
             placeholder="Chọn mặt hàng..." 
-            class="w-full" 
+            class="w-full !rounded-[6px]" 
           />
         </div>
 
-        <div v-if="selectedReleaseStock" class="mb-4 p-3 rounded-lg border text-xs" :class="selectedReleaseStock.quantity_reserved > 0 ? 'bg-amber-50/70 border-amber-200 text-amber-950' : 'bg-slate-50 border-slate-200 text-slate-700'">
+        <div v-if="selectedReleaseStock" class="p-3 rounded-[6px] border text-xs" :class="selectedReleaseStock.quantity_reserved > 0 ? 'bg-amber-50/70 border-amber-200 text-amber-950' : 'bg-slate-50 border-slate-200 text-slate-700'">
           <div class="flex justify-between items-center mb-1.5">
             <span class="text-slate-600">Tồn kho trên kệ (On-Hand):</span>
             <span class="font-mono font-bold text-slate-800">{{ selectedReleaseStock.quantity_on_hand }}</span>
@@ -280,9 +277,9 @@
           </div>
         </div>
 
-        <div class="form-group mb-3">
-          <div class="flex justify-between items-center mb-1.5">
-            <label class="form-label mb-0">Số Lượng Hủy Giữ Chỗ *</label>
+        <div class="flex flex-col gap-1.5">
+          <div class="flex justify-between items-center mb-1">
+            <label class="block text-xs font-semibold text-slate-700">Số Lượng Hủy Giữ Chỗ *</label>
             <span v-if="selectedReleaseStock && selectedReleaseStock.quantity_reserved > 0" class="text-[11px] text-amber-700 font-medium">
               (Tối đa giải phóng: {{ selectedReleaseStock.quantity_reserved }})
             </span>
@@ -291,19 +288,19 @@
             v-model="releaseForm.quantity" 
             :min="1" 
             :max="selectedReleaseStock?.quantity_reserved || 10000" 
-            class="w-full font-mono" 
+            class="w-full font-mono !rounded-[6px]" 
             placeholder="Nhập số lượng hủy..." 
           />
         </div>
       </div>
 
       <template #footer>
-        <div class="dialog-footer-actions">
-          <Button label="Đóng" text size="small" @click="showReleaseDialog = false" />
+        <div class="flex items-center justify-end gap-2 w-full pt-2">
+          <Button label="Đóng" text size="small" class="!rounded-[6px]" @click="showReleaseDialog = false" />
           <Button 
             label="Xác Nhận Hủy Giữ Chỗ" 
             size="small" 
-            class="btn-amber-primary" 
+            class="!bg-amber-600 hover:!bg-amber-700 !text-white !border-amber-600 !rounded-[6px]" 
             :loading="loading.action" 
             :disabled="!selectedReleaseStock || selectedReleaseStock.quantity_reserved === 0"
             @click="submitRelease" 
@@ -318,56 +315,55 @@
       modal 
       header="Lập Phiếu Xuất Kho Giao Hàng (Goods Issue / Delivery)" 
       :style="{ width: '480px' }"
-      class="azure-dialog"
     >
-      <div class="dialog-body-form">
-        <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+      <div class="py-2 flex flex-col gap-4">
+        <p class="text-xs text-slate-500 mb-0 leading-relaxed">
           Ghi nhận xuất kho thực tế khi hàng rời khỏi kho để giao đến khách hàng, tự động trừ số lượng tồn trên kệ và giải phóng lượng đang giữ chỗ.
         </p>
 
-        <div class="form-group mb-4">
-          <label class="form-label">Mã Phiếu Xuất / Vận Đơn *</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-xs font-semibold text-slate-700">Mã Phiếu Xuất / Vận Đơn *</label>
           <InputText 
             v-model="issueForm.deliveryId" 
             placeholder="Ví dụ: DEL-202609-0099" 
-            class="p-inputtext-sm w-full font-mono" 
+            class="!text-xs w-full font-mono !rounded-[6px]" 
           />
         </div>
 
-        <div class="form-group mb-4">
-          <label class="form-label">Mã Đơn Bán Hàng (SO Code)</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-xs font-semibold text-slate-700">Mã Đơn Bán Hàng (SO Code)</label>
           <InputText 
             v-model="issueForm.orderId" 
             placeholder="Ví dụ: SO-202609-0042" 
-            class="p-inputtext-sm w-full font-mono" 
+            class="!text-xs w-full font-mono !rounded-[6px]" 
           />
         </div>
 
-        <div class="form-group mb-4">
-          <label class="form-label">Kho Bãi Xuất Hàng *</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-xs font-semibold text-slate-700">Kho Bãi Xuất Hàng *</label>
           <Select 
             v-model="issueForm.warehouseId" 
             :options="warehouseOptions" 
             optionLabel="label" 
             optionValue="value" 
             placeholder="Chọn kho xuất..." 
-            class="w-full" 
+            class="w-full !rounded-[6px]" 
           />
         </div>
 
-        <div class="form-group mb-4">
-          <label class="form-label">Mặt Hàng Cần Xuất *</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-xs font-semibold text-slate-700">Mặt Hàng Cần Xuất *</label>
           <Select 
             v-model="issueForm.productId" 
             :options="productOptions" 
             optionLabel="label" 
             optionValue="value" 
             placeholder="Chọn mặt hàng..." 
-            class="w-full" 
+            class="w-full !rounded-[6px]" 
           />
         </div>
 
-        <div v-if="selectedIssueStock" class="mb-4 p-3 rounded-lg border text-xs" :class="selectedIssueStock.quantity_reserved > 0 ? 'bg-sky-50/60 border-sky-200 text-sky-950' : 'bg-amber-50/80 border-amber-200 text-amber-950'">
+        <div v-if="selectedIssueStock" class="p-3 rounded-[6px] border text-xs" :class="selectedIssueStock.quantity_reserved > 0 ? 'bg-sky-50/60 border-sky-200 text-sky-950' : 'bg-amber-50/80 border-amber-200 text-amber-950'">
           <div class="flex justify-between items-center mb-1.5">
             <span class="text-slate-600">Tồn kho trên kệ (On-Hand):</span>
             <span class="font-mono font-bold text-slate-800">{{ selectedIssueStock.quantity_on_hand }}</span>
@@ -387,9 +383,9 @@
           </div>
         </div>
 
-        <div class="form-group mb-4">
-          <div class="flex justify-between items-center mb-1.5">
-            <label class="form-label mb-0">Số Lượng Xuất Thực Tế *</label>
+        <div class="flex flex-col gap-1.5">
+          <div class="flex justify-between items-center mb-1">
+            <label class="block text-xs font-semibold text-slate-700">Số Lượng Xuất Thực Tế *</label>
             <span v-if="selectedIssueStock && selectedIssueStock.quantity_reserved > 0" class="text-[11px] text-sky-700 font-medium">
               (Tối đa xuất: {{ selectedIssueStock.quantity_reserved }})
             </span>
@@ -398,28 +394,28 @@
             v-model="issueForm.quantity" 
             :min="1" 
             :max="selectedIssueStock?.quantity_reserved || 10000" 
-            class="w-full font-mono" 
+            class="w-full font-mono !rounded-[6px]" 
             placeholder="Nhập số lượng xuất..." 
           />
         </div>
 
-        <div class="form-group mb-3">
-          <label class="form-label">Ghi Chú Vận Chuyển</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-xs font-semibold text-slate-700">Ghi Chú Vận Chuyển</label>
           <InputText 
             v-model="issueForm.notes" 
             placeholder="Ghi chú đối tác vận chuyển, tài xế..." 
-            class="p-inputtext-sm w-full" 
+            class="!text-xs w-full !rounded-[6px]" 
           />
         </div>
       </div>
 
       <template #footer>
-        <div class="dialog-footer-actions">
-          <Button label="Hủy Bỏ" text size="small" @click="showIssueDialog = false" />
+        <div class="flex items-center justify-end gap-2 w-full pt-2">
+          <Button label="Hủy Bỏ" text size="small" class="!rounded-[6px]" @click="showIssueDialog = false" />
           <Button 
             label="Xác Nhận Xuất Kho" 
             size="small" 
-            class="btn-azure-primary" 
+            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px]" 
             :loading="loading.action" 
             @click="submitIssue" 
           />
@@ -433,88 +429,87 @@
       modal 
       header="Lập Phiếu Điều Chuyển Kho Nội Bộ (Stock Transfer)" 
       :style="{ width: '520px' }"
-      class="azure-dialog"
     >
-      <div class="dialog-body-form">
-        <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+      <div class="py-2 flex flex-col gap-4">
+        <p class="text-xs text-slate-500 mb-0 leading-relaxed">
           Điều chuyển cân đối hàng hóa giữa các kho chi nhánh, tự động cập nhật sổ cái thẻ kho cho cả kho nguồn và kho đích.
         </p>
 
-        <div class="form-group mb-4">
-          <label class="form-label">Mã Lệnh Điều Chuyển *</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-xs font-semibold text-slate-700">Mã Lệnh Điều Chuyển *</label>
           <InputText 
             v-model="transferForm.transferDoc" 
             placeholder="Ví dụ: TRF-202609-0012" 
-            class="p-inputtext-sm w-full font-mono" 
+            class="!text-xs w-full font-mono !rounded-[6px]" 
           />
         </div>
 
-        <div class="grid grid-cols-2 gap-4 mb-4">
-          <div class="form-group">
-            <label class="form-label">Kho Nguồn (Xuất Đi) *</label>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="flex flex-col gap-1.5">
+            <label class="block text-xs font-semibold text-slate-700">Kho Nguồn (Xuất Đi) *</label>
             <Select 
               v-model="transferForm.sourceWarehouseId" 
               :options="warehouseOptions" 
               optionLabel="label" 
               optionValue="value" 
               placeholder="Chọn kho nguồn..." 
-              class="w-full" 
+              class="w-full !rounded-[6px]" 
             />
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Kho Đích (Nhận Về) *</label>
+          <div class="flex flex-col gap-1.5">
+            <label class="block text-xs font-semibold text-slate-700">Kho Đích (Nhận Về) *</label>
             <Select 
               v-model="transferForm.targetWarehouseId" 
               :options="warehouseOptions" 
               optionLabel="label" 
               optionValue="value" 
               placeholder="Chọn kho đích..." 
-              class="w-full" 
+              class="w-full !rounded-[6px]" 
             />
           </div>
         </div>
 
-        <div class="form-group mb-4">
-          <label class="form-label">Mặt Hàng Điều Chuyển *</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-xs font-semibold text-slate-700">Mặt Hàng Điều Chuyển *</label>
           <Select 
             v-model="transferForm.productId" 
             :options="productOptions" 
             optionLabel="label" 
             optionValue="value" 
             placeholder="Chọn mặt hàng..." 
-            class="w-full" 
+            class="w-full !rounded-[6px]" 
           />
         </div>
 
-        <div class="form-group mb-4">
-          <label class="form-label">Số Lượng Điều Chuyển *</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-xs font-semibold text-slate-700">Số Lượng Điều Chuyển *</label>
           <InputNumber 
             v-model="transferForm.quantity" 
             :min="1" 
             :max="10000" 
-            class="w-full font-mono" 
+            class="w-full font-mono !rounded-[6px]" 
             placeholder="Nhập số lượng..." 
           />
         </div>
 
-        <div class="form-group mb-3">
-          <label class="form-label">Ghi Chú & Phương Tiện</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-xs font-semibold text-slate-700">Ghi Chú & Phương Tiện</label>
           <InputText 
             v-model="transferForm.notes" 
             placeholder="Lý do điều chuyển, xe vận tải..." 
-            class="p-inputtext-sm w-full" 
+            class="!text-xs w-full !rounded-[6px]" 
           />
         </div>
       </div>
 
       <template #footer>
-        <div class="dialog-footer-actions">
-          <Button label="Hủy Bỏ" text size="small" @click="showTransferDialog = false" />
+        <div class="flex items-center justify-end gap-2 w-full pt-2">
+          <Button label="Hủy Bỏ" text size="small" class="!rounded-[6px]" @click="showTransferDialog = false" />
           <Button 
             label="Xác Nhận Điều Chuyển" 
             size="small" 
-            class="btn-azure-primary" 
+            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px]" 
             :loading="loading.action" 
             @click="submitTransfer" 
           />
@@ -1069,135 +1064,3 @@ onMounted(async () => {
   await Promise.all([fetchWarehouses(), fetchStocks(), fetchMovements()])
 })
 </script>
-
-<style scoped>
-/* Giảm khoảng cách giữa Breadcrumb và phần body từ 28px xuống 12px theo yêu cầu */
-.inventory-view-container {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding-bottom: 32px;
-}
-
-/* Breadcrumb Card Chuẩn Soft Azure */
-.breadcrumb-card {
-  background: #FFFFFF;
-  border: 1px solid #E0F2FE;
-  border-radius: 8px;
-  padding: 8px 16px;
-  box-shadow: 0 1px 4px rgba(2, 132, 199, 0.04);
-}
-
-.azure-breadcrumb {
-  background: transparent !important;
-  border: none !important;
-  padding: 0 !important;
-}
-
-:deep(.azure-breadcrumb .p-breadcrumb-list) {
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  list-style: none !important;
-}
-
-:deep(.azure-breadcrumb .p-breadcrumb-item) {
-  display: inline-flex !important;
-  align-items: center !important;
-}
-
-:deep(.azure-breadcrumb .p-breadcrumb-separator) {
-  display: inline-flex !important;
-  align-items: center !important;
-  color: #94A3B8 !important;
-  font-size: 0.75rem !important;
-}
-
-.breadcrumb-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: #64748B;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  text-decoration: none;
-  cursor: pointer;
-  transition: color 0.15s ease;
-  line-height: 1;
-}
-
-.breadcrumb-link:hover {
-  color: #0284C7;
-}
-
-.breadcrumb-icon {
-  font-size: 0.875rem;
-  line-height: 1;
-}
-
-.breadcrumb-current {
-  display: inline-flex;
-  align-items: center;
-  color: #0F172A;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.breadcrumb-text {
-  line-height: 1;
-}
-
-/* Thẻ White Card chuẩn Soft Azure */
-.white-card {
-  background: var(--gradient-card, linear-gradient(145deg, #F0F9FF 0%, #FFFFFF 65%));
-  border: 1px solid var(--border-azure, #E0F2FE);
-  border-radius: 8px;
-  padding: 24px;
-  box-shadow: 0 4px 20px -2px rgba(2, 132, 199, 0.07);
-}
-
-.main-content-card {
-  padding: 24px;
-}
-
-/* Form trong Dialog */
-.dialog-body-form {
-  padding: 8px 0;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-}
-
-.form-label {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  color: #334155;
-  margin-bottom: 6px;
-}
-
-.dialog-footer-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  width: 100%;
-}
-
-.btn-azure-primary {
-  background: #0284C7 !important;
-  color: #FFFFFF !important;
-  border-color: #0284C7 !important;
-}
-
-.btn-amber-primary {
-  background: #D97706 !important;
-  color: #FFFFFF !important;
-  border-color: #D97706 !important;
-}
-</style>

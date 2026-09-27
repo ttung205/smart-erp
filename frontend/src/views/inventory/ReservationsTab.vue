@@ -1,16 +1,16 @@
 <template>
-  <div class="reservations-tab-content">
+  <div class="flex flex-col">
     <!-- Header Tiêu Đề Tab -->
-    <div class="card-title-row section-title-gap">
+    <div class="flex items-center justify-between flex-wrap gap-4 mb-4">
       <div>
-        <h4 class="text-sm font-bold text-slate-900 m-0">
+        <h4 class="text-sm font-bold text-slate-800 m-0">
           Danh Sách Đơn Giữ Hàng 
         </h4>
       </div>
 
       <!-- Thẻ tóm tắt nhanh -->
       <div class="flex items-center gap-3">
-        <span class="text-xs px-3 py-1.5 bg-amber-50 text-amber-800 rounded border border-amber-200 font-mono">
+        <span class="text-xs px-3 py-1.5 bg-amber-50 text-amber-800 rounded-[6px] border border-amber-200 font-mono">
           Đang giữ: <strong>{{ formatNumber(kpiSummary.totalReserved) }}</strong> chiếc
         </span>
         <Button 
@@ -19,19 +19,20 @@
           icon="pi pi-lock"
           size="small" 
           outlined 
-          class="btn-azure-outlined" 
+          class="!border-sky-300 !text-sky-700 hover:!bg-sky-50 !rounded-[6px]" 
           @click="emit('open-reserve')" 
         />
       </div>
     </div>
 
     <!-- Toolbar Lọc Giữ Hàng -->
-    <div class="filter-toolbar section-block-spacing">
-      <div class="toolbar-left">
+    <div class="flex items-center justify-between flex-wrap gap-3 bg-slate-50 p-3 rounded-[6px] border border-slate-200 mb-6">
+      <div class="flex items-center flex-wrap gap-2.5">
         <InputText 
           v-model="reservationFilters.search" 
           placeholder="Tìm theo SKU, tên sản phẩm hoặc kho..." 
-          class="p-inputtext-sm search-field-no-icon" 
+          size="small"
+          class="w-64 bg-white !rounded-[6px]" 
         />
 
         <Select 
@@ -40,7 +41,8 @@
           optionLabel="label" 
           optionValue="value" 
           placeholder="Chọn kho bãi" 
-          class="azure-select" 
+          size="small"
+          class="min-w-[170px] !rounded-[6px]" 
         />
 
         <Button 
@@ -49,11 +51,12 @@
           size="small" 
           text 
           severity="secondary" 
+          class="!rounded-[6px]"
           @click="reservationFilters.search = ''; reservationFilters.warehouseId = null" 
         />
       </div>
 
-      <div class="toolbar-right">
+      <div>
         <span class="text-xs text-slate-500 font-mono">
           {{ filteredReservations.length }} mặt hàng đang có đơn giữ
         </span>
@@ -63,7 +66,6 @@
     <!-- Bảng DataTable Hàng Giữ Chỗ -->
     <DataTable 
       :value="filteredReservations" 
-      class="azure-datatable sheets-table" 
       responsiveLayout="scroll" 
       :paginator="true" 
       :rows="10" 
@@ -77,7 +79,7 @@
       scrollHeight="520px"
     >
       <template #empty>
-        <div class="empty-state-box">
+        <div class="py-8 px-4 text-center">
           <p class="text-slate-600 text-sm font-semibold">Hiện không có mặt hàng nào đang bị khóa giữ chỗ.</p>
           <p class="text-slate-400 text-xs mt-1">Mọi sản phẩm trong kho đều ở trạng thái 100% Khả Dụng để bán.</p>
         </div>
@@ -93,7 +95,7 @@
       <!-- Cột Tên Sản Phẩm -->
       <Column field="product_name" header="Tên Mặt Hàng" style="width: 240px">
         <template #body="{ data }">
-          <div class="font-semibold text-slate-900 text-sm leading-snug">
+          <div class="font-semibold text-slate-800 text-sm leading-snug">
             {{ data.product_name || ('Sản phẩm #' + data.product_id) }}
           </div>
           <div class="text-xs text-slate-400 font-mono mt-0.5">Mã ID: #{{ data.product_id }}</div>
@@ -112,7 +114,7 @@
       <!-- Cột Tồn Thực Tế Trên Kệ -->
       <Column field="quantity_on_hand" header="Tồn Thực Tế" style="width: 130px; text-align: right">
         <template #body="{ data }">
-          <span class="font-mono text-sm text-slate-800 num-tabular">{{ formatNumber(data.quantity_on_hand) }}</span>
+          <span class="font-mono text-sm text-slate-800">{{ formatNumber(data.quantity_on_hand) }}</span>
           <span class="text-xs text-slate-400 ml-1">{{ data.unit || 'Chiếc' }}</span>
         </template>
       </Column>
@@ -120,7 +122,7 @@
       <!-- Cột Đang Giữ Chỗ (Nổi bật) -->
       <Column field="quantity_reserved" header="Đang Giữ Chỗ (Reserved)" style="width: 170px; text-align: right">
         <template #body="{ data }">
-          <span class="font-mono text-sm font-bold text-amber-600 num-tabular">{{ formatNumber(data.quantity_reserved) }}</span>
+          <span class="font-mono text-sm font-bold text-amber-600">{{ formatNumber(data.quantity_reserved) }}</span>
           <span class="text-xs text-amber-500 ml-1 font-semibold">{{ data.unit || 'Chiếc' }}</span>
         </template>
       </Column>
@@ -128,41 +130,43 @@
       <!-- Cột Khả Dụng Còn Lại -->
       <Column field="available" header="Khả Dụng Còn Lại" style="width: 140px; text-align: right">
         <template #body="{ data }">
-          <span class="font-mono text-sm font-bold text-emerald-700 num-tabular">{{ formatNumber(data.available) }}</span>
+          <span class="font-mono text-sm font-bold text-emerald-700">{{ formatNumber(data.available) }}</span>
         </template>
       </Column>
 
       <!-- Cột Tỷ Lệ Giữ Chỗ -->
       <Column header="Tỷ Lệ Giữ" style="width: 120px; text-align: center">
         <template #body="{ data }">
-          <span class="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+          <span class="font-mono text-xs font-semibold px-2 py-0.5 rounded-[4px] bg-amber-50 text-amber-700 border border-amber-200">
             {{ data.quantity_on_hand > 0 ? Math.round((data.quantity_reserved / data.quantity_on_hand) * 100) : 100 }}%
           </span>
         </template>
       </Column>
 
       <!-- Cột Hành Động Trực Tiếp -->
-      <Column header="Hành Động Nghiệp Vụ" style="width: 180px; text-align: center">
+      <Column header="Hành Động Nghiệp Vụ" style="width: 140px; text-align: center">
         <template #body="{ data }">
-          <div class="table-action-group">
-            <button 
+          <div class="flex items-center justify-center gap-1.5">
+            <Button 
               v-if="canReserve"
-              type="button"
-              class="action-pill-btn pill-amber" 
+              icon="pi pi-lock-open" 
+              size="small" 
+              text 
+              severity="warn" 
+              class="!w-7 !h-7 !p-0 !rounded-[6px]" 
               v-tooltip.top="'Hủy giải phóng lượng đang giữ chỗ'" 
               @click="emit('open-release', data)" 
-            >
-              <span class="sq-icon-wrap"><i class="pi pi-lock-open"></i></span>
-            </button>
-            <button 
+            />
+            <Button 
               v-if="canIssue"
-              type="button"
-              class="action-pill-btn pill-sky" 
+              icon="pi pi-truck" 
+              size="small" 
+              text 
+              severity="info" 
+              class="!w-7 !h-7 !p-0 !rounded-[6px]" 
               v-tooltip.top="'Lập phiếu xuất kho cho hàng này'" 
               @click="emit('open-issue', data)" 
-            >
-              <span class="sq-icon-wrap"><i class="pi pi-truck"></i></span>
-            </button>
+            />
           </div>
         </template>
       </Column>
@@ -245,80 +249,3 @@ const formatNumber = (num) => {
   return new Intl.NumberFormat('vi-VN').format(num)
 }
 </script>
-
-<style scoped>
-.reservations-tab-content {
-  display: flex;
-  flex-direction: column;
-}
-
-.section-block-spacing {
-  margin-bottom: 24px;
-}
-
-.section-title-gap {
-  margin-bottom: 16px;
-}
-
-.card-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.filter-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  background: #F8FAFC;
-  padding: 12px 16px;
-  border-radius: 8px;
-  border: 1px solid #E2E8F0;
-}
-
-.toolbar-left {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.search-field-no-icon {
-  width: 260px;
-  background: #FFFFFF !important;
-  border: 1px solid #CBD5E1 !important;
-  border-radius: 6px !important;
-}
-
-.azure-select {
-  min-width: 170px;
-  border-radius: 6px !important;
-}
-
-.empty-state-box {
-  padding: 32px 16px;
-  text-align: center;
-}
-
-.btn-azure-outlined {
-  color: #0284C7 !important;
-  border-color: #BAE6FD !important;
-  background: #F0F9FF !important;
-}
-
-.btn-azure-outlined:hover {
-  background: #E0F2FE !important;
-  border-color: #0284C7 !important;
-}
-</style>

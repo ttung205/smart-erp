@@ -5,61 +5,62 @@
     header="Tạo Đơn Bán Hàng Mới"
     :style="{ width: '640px' }"
     :closable="!loading"
+    class="rounded-[6px]"
     @update:visible="$emit('update:visible', $event)"
   >
-    <div class="sales-form-body">
-      <div class="form-row">
-        <div class="form-field">
-          <label class="field-label">Mã đơn hàng <span class="text-danger">*</span></label>
+    <div class="flex flex-col gap-4 pt-1">
+      <div class="grid grid-cols-2 gap-3">
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-semibold text-slate-700">Mã đơn hàng <span class="text-red-600">*</span></label>
           <InputText
             v-model="order.order_number"
-            class="w-full"
+            class="w-full rounded-[6px]"
             size="small"
             placeholder="SO-2026-XXXX"
           />
         </div>
-        <div class="form-field">
-          <label class="field-label">Ngày tạo đơn</label>
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-semibold text-slate-700">Ngày tạo đơn</label>
           <InputText
             v-model="order.order_date"
             type="date"
-            class="w-full"
+            class="w-full rounded-[6px]"
             size="small"
           />
         </div>
       </div>
 
-      <div class="form-field">
-        <label class="field-label">Khách hàng B2B <span class="text-danger">*</span></label>
+      <div class="flex flex-col gap-1">
+        <label class="text-xs font-semibold text-slate-700">Khách hàng B2B <span class="text-red-600">*</span></label>
         <Select
           v-model="order.customer_id"
           :options="customerOptions"
           optionLabel="name"
           optionValue="id"
           placeholder="Chọn khách hàng doanh nghiệp..."
-          class="w-full"
+          class="w-full rounded-[6px]"
           size="small"
         />
       </div>
 
-      <div class="order-items-box">
-        <span class="items-header-title">Danh sách mặt hàng:</span>
+      <div class="bg-slate-50 border border-slate-200 rounded-[6px] p-3 flex flex-col gap-2">
+        <span class="text-xs font-semibold text-slate-900">Danh sách mặt hàng:</span>
         <div
           v-for="(item, idx) in order.items"
           :key="idx"
-          class="item-row"
+          class="flex items-center gap-2"
         >
           <InputText
             v-model="item.name"
             placeholder="Tên sản phẩm..."
-            class="flex-2"
+            class="flex-[2] rounded-[6px]"
             size="small"
           />
           <InputNumber
             v-model="item.quantity"
             placeholder="SL"
             :min="1"
-            class="w-20"
+            class="w-20 rounded-[6px]"
             size="small"
           />
           <InputNumber
@@ -67,23 +68,23 @@
             placeholder="Đơn giá"
             currency="VND"
             locale="vi-VN"
-            class="flex-1"
+            class="flex-1 rounded-[6px]"
             size="small"
           />
-          <div class="item-subtotal num-tabular">
+          <div class="text-[13px] font-semibold text-slate-900 min-w-[120px] text-right num-tabular">
             {{ formatCurrency((item.quantity || 0) * (item.unit_price || 0)) }}
           </div>
         </div>
       </div>
 
-      <div class="order-summary-row">
-        <span class="text-sm font-semibold text-body">Tổng giá trị đơn hàng:</span>
-        <span class="text-lg font-bold text-primary num-tabular">{{ formatCurrency(totalAmount) }}</span>
+      <div class="flex justify-between items-center pt-2 border-t border-slate-200">
+        <span class="text-sm font-semibold text-slate-700">Tổng giá trị đơn hàng:</span>
+        <span class="text-lg font-bold text-indigo-600 num-tabular">{{ formatCurrency(totalAmount) }}</span>
       </div>
     </div>
 
     <template #footer>
-      <div class="dialog-footer-actions">
+      <div class="flex justify-end gap-2">
         <Button
           label="Hủy bỏ"
           icon="pi pi-times"
@@ -91,6 +92,7 @@
           size="small"
           severity="secondary"
           :disabled="loading"
+          class="rounded-[6px]"
           @click="$emit('update:visible', false)"
         />
         <Button
@@ -98,6 +100,7 @@
           icon="pi pi-check"
           size="small"
           :loading="loading"
+          class="rounded-[6px]"
           @click="$emit('submit', { ...order, total_amount: totalAmount })"
         />
       </div>
@@ -166,94 +169,3 @@ const totalAmount = computed(() => {
   }, 0);
 });
 </script>
-
-<style scoped>
-.sales-form-body {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding-top: 4px;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.field-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-body);
-}
-
-.text-danger {
-  color: #b91c1c;
-}
-
-.w-full {
-  width: 100%;
-}
-
-.order-items-box {
-  background-color: var(--canvas-bg);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.items-header-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.item-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.flex-2 {
-  flex: 2;
-}
-
-.flex-1 {
-  flex: 1;
-}
-
-.w-20 {
-  width: 80px;
-}
-
-.item-subtotal {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-main);
-  min-width: 120px;
-  text-align: right;
-}
-
-.order-summary-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 8px;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.dialog-footer-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-</style>

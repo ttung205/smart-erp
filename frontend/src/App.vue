@@ -1,5 +1,5 @@
 <template>
-  <div class="app-root">
+  <div class="min-h-screen bg-slate-50 text-slate-800 font-sans">
     <Toast position="top-right" />
 
     <!-- A. MÀN HÌNH ĐĂNG NHẬP CHUẨN KHI CHƯA XÁC THỰC -->
@@ -10,7 +10,7 @@
     />
 
     <!-- B. GIAO DIỆN CHÍNH ERP KHI ĐÃ ĐĂNG NHẬP THÀNH CÔNG -->
-    <div v-else class="layout-wrapper">
+    <div v-else class="flex min-h-screen bg-slate-50">
       <!-- 1. Left Sidebar (Thụt ra thụt vào - Collapsible / Expand) -->
       <AppSidebar
         :current-tab="activeTab"
@@ -20,7 +20,10 @@
       />
 
       <!-- 2. Main Content Area (Tự động co giãn theo Sidebar) -->
-      <div class="layout-main" :class="{ 'sidebar-collapsed': isSidebarCollapsed }">
+      <div
+        class="flex-1 flex flex-col min-w-0 transition-all duration-200"
+        :class="isSidebarCollapsed ? 'ml-[68px]' : 'ml-64'"
+      >
         <AppTopbar
           :current-user="currentUser"
           :health="health"
@@ -28,7 +31,7 @@
           @logout="logout"
         />
 
-        <main class="page-container">
+        <main class="p-6 max-w-7xl w-full mx-auto flex-1">
           <!-- Page 1: Identity & RBAC -->
           <IdentityPage
             v-if="activeTab === 'identity'"
@@ -279,9 +282,3 @@ onMounted(() => {
   setInterval(checkHealth, 15000);
 });
 </script>
-
-<style scoped>
-.app-root {
-  min-height: 100vh;
-}
-</style>

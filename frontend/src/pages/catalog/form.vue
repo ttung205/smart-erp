@@ -5,49 +5,50 @@
     header="Thêm Mới Sản Phẩm"
     :style="{ width: '520px' }"
     :closable="!loading"
+    class="rounded-[6px]"
     @update:visible="$emit('update:visible', $event)"
   >
-    <div class="form-content">
-      <div class="form-field">
-        <label for="sku" class="field-label">Mã SKU <span class="text-danger">*</span></label>
+    <div class="flex flex-col gap-3 pt-1">
+      <div class="flex flex-col gap-1">
+        <label for="sku" class="text-xs font-semibold text-slate-700">Mã SKU <span class="text-red-600">*</span></label>
         <InputText
           id="sku"
           v-model="form.sku"
           placeholder="Ví dụ: PROD-DELL-5520"
-          class="w-full"
+          class="w-full rounded-[6px]"
           size="small"
         />
       </div>
 
-      <div class="form-field">
-        <label for="name" class="field-label">Tên sản phẩm <span class="text-danger">*</span></label>
+      <div class="flex flex-col gap-1">
+        <label for="name" class="text-xs font-semibold text-slate-700">Tên sản phẩm <span class="text-red-600">*</span></label>
         <InputText
           id="name"
           v-model="form.name"
           placeholder="Ví dụ: Laptop Dell XPS 15 9520"
-          class="w-full"
+          class="w-full rounded-[6px]"
           size="small"
         />
       </div>
 
-      <div class="form-row">
-        <div class="form-field">
-          <label for="gross_price" class="field-label">Giá niêm yết (VNĐ)</label>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="flex flex-col gap-1">
+          <label for="gross_price" class="text-xs font-semibold text-slate-700">Giá niêm yết (VNĐ)</label>
           <InputNumber
             id="gross_price"
             v-model="form.gross_price"
-            class="w-full"
+            class="w-full rounded-[6px]"
             size="small"
             currency="VND"
             locale="vi-VN"
           />
         </div>
-        <div class="form-field">
-          <label for="cost_price" class="field-label">Giá vốn (VNĐ)</label>
+        <div class="flex flex-col gap-1">
+          <label for="cost_price" class="text-xs font-semibold text-slate-700">Giá vốn (VNĐ)</label>
           <InputNumber
             id="cost_price"
             v-model="form.cost_price"
-            class="w-full"
+            class="w-full rounded-[6px]"
             size="small"
             currency="VND"
             locale="vi-VN"
@@ -55,19 +56,19 @@
         </div>
       </div>
 
-      <div class="form-field">
-        <label for="min_stock" class="field-label">Định mức tồn an toàn</label>
+      <div class="flex flex-col gap-1">
+        <label for="min_stock" class="text-xs font-semibold text-slate-700">Định mức tồn an toàn</label>
         <InputNumber
           id="min_stock"
           v-model="form.min_stock"
-          class="w-full"
+          class="w-full rounded-[6px]"
           size="small"
         />
       </div>
     </div>
 
     <template #footer>
-      <div class="dialog-footer-actions">
+      <div class="flex justify-end gap-2">
         <Button
           label="Hủy bỏ"
           icon="pi pi-times"
@@ -75,6 +76,7 @@
           size="small"
           severity="secondary"
           :disabled="loading"
+          class="rounded-[6px]"
           @click="$emit('update:visible', false)"
         />
         <Button
@@ -82,6 +84,7 @@
           icon="pi pi-check"
           size="small"
           :loading="loading"
+          class="rounded-[6px]"
           @click="$emit('submit', form)"
         />
       </div>
@@ -128,44 +131,3 @@ watch(
   { immediate: true }
 );
 </script>
-
-<style scoped>
-.form-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding-top: 4px;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.field-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-body);
-}
-
-.text-danger {
-  color: #b91c1c;
-}
-
-.w-full {
-  width: 100%;
-}
-
-.dialog-footer-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-</style>

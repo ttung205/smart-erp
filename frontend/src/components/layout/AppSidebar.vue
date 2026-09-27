@@ -1,24 +1,27 @@
 <template>
   <aside
-    class="layout-sidebar"
-    :class="{ 'is-collapsed': isCollapsed }"
+    class="fixed top-0 bottom-0 left-0 z-50 flex flex-col bg-white border-r border-slate-200 transition-all duration-200 select-none"
+    :class="isCollapsed ? 'w-[68px]' : 'w-64'"
   >
     <!-- Brand Header & Collapse Toggle Button -->
-    <div class="sidebar-header">
+    <div
+      class="h-14 flex items-center border-b border-slate-200"
+      :class="isCollapsed ? 'justify-center px-0' : 'justify-between px-4'"
+    >
       <div
-        class="brand-box"
+        class="flex items-center gap-2.5 cursor-pointer"
         @click="$emit('toggle-collapse')"
         :title="isCollapsed ? 'Bấm để mở rộng sidebar' : 'Bấm để thu gọn sidebar'"
       >
         <div
-          class="brand-icon-wrapper"
+          class="w-8 h-8 rounded-[6px] bg-sky-50 border border-sky-200 flex items-center justify-center shrink-0"
           v-tooltip.right="isCollapsed ? `${appConfig.appName} ${appConfig.version} (Mở rộng)` : undefined"
         >
-          <i class="pi pi-bolt brand-icon"></i>
+          <i class="pi pi-bolt text-sky-600 text-base"></i>
         </div>
-        <div v-show="!isCollapsed" class="brand-info">
-          <span class="brand-title">{{ appConfig.appName }}</span>
-          <span class="brand-tag">{{ appConfig.version }}</span>
+        <div v-show="!isCollapsed" class="flex items-center gap-2 whitespace-nowrap">
+          <span class="font-bold text-[15px] text-slate-800 tracking-tight">{{ appConfig.appName }}</span>
+          <span class="text-[11px] font-semibold bg-slate-50 border border-slate-200 text-sky-600 px-1.5 py-0.5 rounded-[6px]">{{ appConfig.version }}</span>
         </div>
       </div>
 
@@ -28,47 +31,76 @@
         text
         size="small"
         severity="secondary"
-        class="collapse-toggle-btn"
+        class="!w-7 !h-7 !p-0"
         @click="$emit('toggle-collapse')"
         v-tooltip.bottom="'Thu gọn menu'"
       />
     </div>
 
     <!-- Navigation Menu -->
-    <nav class="sidebar-menu">
+    <nav
+      class="flex-1 flex flex-col gap-2 overflow-y-auto overflow-x-hidden"
+      :class="isCollapsed ? 'p-2 items-center' : 'p-3'"
+    >
       <template v-for="(cat, idx) in menuCategories" :key="idx">
-        <span v-if="!isCollapsed" class="menu-category-title">{{ cat.category }}</span>
-        <div v-else class="menu-category-divider"></div>
+        <span v-if="!isCollapsed" class="text-[11px] font-bold uppercase text-slate-400 tracking-wider px-2 pt-2 pb-1 whitespace-nowrap">
+          {{ cat.category }}
+        </span>
+        <div v-else class="w-7 h-[1px] bg-slate-200 my-1 mx-auto"></div>
 
-        <div class="menu-group">
+        <div class="flex flex-col gap-1 w-full">
           <button
             v-for="item in cat.items"
             :key="item.id"
-            class="menu-nav-button"
-            :class="{ active: currentTab === item.id }"
+            class="flex items-center rounded-[6px] border text-sm font-medium transition-colors cursor-pointer group"
+            :class="[
+              currentTab === item.id
+                ? 'bg-sky-50 border-sky-200 text-sky-700 font-semibold'
+                : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+              isCollapsed
+                ? 'justify-center w-11 h-10 mx-auto px-0'
+                : 'w-full gap-3 px-3 py-2 text-left'
+            ]"
             @click="$emit('select-tab', item.id)"
             v-tooltip.right="isCollapsed ? item.label : undefined"
           >
-            <i :class="[item.icon, 'menu-nav-icon']"></i>
-            <span v-if="!isCollapsed" class="menu-nav-label">{{ item.label }}</span>
-            <span v-if="!isCollapsed && item.badge" class="menu-nav-badge">{{ item.badge }}</span>
+            <i
+              :class="[
+                item.icon,
+                'text-base shrink-0 transition-colors',
+                currentTab === item.id ? 'text-sky-700' : 'text-slate-400 group-hover:text-slate-600'
+              ]"
+            ></i>
+            <span v-if="!isCollapsed" class="flex-1 whitespace-nowrap overflow-hidden text-ellipsis">
+              {{ item.label }}
+            </span>
+            <span
+              v-if="!isCollapsed && item.badge"
+              class="text-[10px] font-semibold px-1.5 py-0.5 rounded-[6px]"
+              :class="currentTab === item.id ? 'bg-white border border-sky-200 text-sky-700' : 'bg-white border border-slate-200 text-slate-500'"
+            >
+              {{ item.badge }}
+            </span>
           </button>
         </div>
       </template>
     </nav>
 
     <!-- Sidebar Footer -->
-    <div class="sidebar-footer">
-      <div v-if="!isCollapsed" class="arch-info-box">
-        <span class="arch-label">Kiến trúc hệ thống</span>
-        <span class="arch-value">{{ appConfig.architecture }}</span>
+    <div
+      class="border-t border-slate-200"
+      :class="isCollapsed ? 'py-3 flex justify-center' : 'p-3'"
+    >
+      <div v-if="!isCollapsed" class="flex flex-col gap-0.5">
+        <span class="text-[11px] text-slate-400">Kiến trúc hệ thống</span>
+        <span class="text-[11px] font-semibold text-slate-700">{{ appConfig.architecture }}</span>
       </div>
       <div
         v-else
-        class="arch-info-collapsed"
+        class="flex items-center justify-center cursor-help text-slate-400 hover:text-slate-600"
         v-tooltip.right="'Kiến trúc: Database-per-Service & Outbox'"
       >
-        <i class="pi pi-server text-muted"></i>
+        <i class="pi pi-server text-base"></i>
       </div>
     </div>
   </aside>
@@ -92,237 +124,3 @@ defineProps({
 
 defineEmits(['select-tab', 'toggle-collapse']);
 </script>
-
-<style scoped>
-.layout-sidebar {
-  width: 256px;
-  background-color: var(--surface-white);
-  border-right: 1px solid var(--border-subtle);
-  display: flex;
-  flex-direction: column;
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 100;
-  transition: width 0.2s ease;
-}
-
-.layout-sidebar.is-collapsed {
-  width: 68px;
-}
-
-.sidebar-header {
-  height: 56px;
-  padding: 0 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.layout-sidebar.is-collapsed .sidebar-header {
-  padding: 0;
-  justify-content: center;
-}
-
-.brand-box {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  user-select: none;
-}
-
-.brand-icon-wrapper {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  background-color: var(--primary-subtle);
-  border: 1px solid var(--primary-border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.brand-icon {
-  font-size: 16px;
-  color: var(--primary);
-}
-
-.brand-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
-}
-
-.brand-title {
-  font-family: var(--font-heading);
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-main);
-}
-
-.brand-tag {
-  font-size: 11px;
-  font-weight: 600;
-  background-color: var(--canvas-bg);
-  border: 1px solid var(--border-subtle);
-  color: var(--primary);
-  padding: 2px 6px;
-  border-radius: 6px;
-}
-
-.collapse-toggle-btn {
-  width: 28px;
-  height: 28px;
-  padding: 0 !important;
-}
-
-.sidebar-menu {
-  flex: 1;
-  padding: 16px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-.layout-sidebar.is-collapsed .sidebar-menu {
-  padding: 16px 8px;
-  align-items: center;
-}
-
-.menu-category-title {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  letter-spacing: 0.04em;
-  padding: 8px 8px 4px 8px;
-  white-space: nowrap;
-}
-
-.menu-category-divider {
-  width: 28px;
-  height: 1px;
-  background-color: var(--border-subtle);
-  margin: 6px auto;
-}
-
-.menu-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  width: 100%;
-}
-
-.menu-nav-button {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-body);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.15s ease;
-  width: 100%;
-  white-space: nowrap;
-}
-
-.layout-sidebar.is-collapsed .menu-nav-button {
-  justify-content: center;
-  padding: 10px 0;
-  width: 48px;
-  height: 44px;
-  margin: 0 auto;
-}
-
-.menu-nav-button:hover {
-  background-color: var(--surface-hover);
-  color: var(--text-main);
-}
-
-.menu-nav-button.active {
-  background-color: var(--primary-subtle);
-  border-color: var(--primary-border);
-  color: var(--primary);
-  font-weight: 600;
-}
-
-.menu-nav-icon {
-  font-size: 16px;
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.menu-nav-button.active .menu-nav-icon {
-  color: var(--primary);
-}
-
-.menu-nav-label {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.menu-nav-badge {
-  font-size: 10px;
-  font-weight: 600;
-  background: var(--surface-white);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-muted);
-  padding: 1px 6px;
-  border-radius: 6px;
-}
-
-.menu-nav-button.active .menu-nav-badge {
-  background: var(--surface-white);
-  border-color: var(--primary-border);
-  color: var(--primary);
-}
-
-.sidebar-footer {
-  padding: 12px 16px;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.layout-sidebar.is-collapsed .sidebar-footer {
-  padding: 12px 0;
-  display: flex;
-  justify-content: center;
-}
-
-.arch-info-box {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.arch-label {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.arch-value {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.arch-info-collapsed {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: help;
-}
-</style>

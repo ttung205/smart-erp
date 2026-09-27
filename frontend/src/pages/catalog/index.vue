@@ -1,5 +1,5 @@
 <template>
-  <div class="catalog-page">
+  <div class="flex flex-col gap-4">
     <!-- Single Page Title -->
     <PageHeader
       title="Danh Mục Hàng Hóa & Sản Phẩm"
@@ -10,6 +10,7 @@
           label="Tạo sản phẩm mới"
           icon="pi pi-plus"
           size="small"
+          class="rounded-[6px]"
           @click="handleOpenCreateModal"
         />
       </template>
@@ -19,9 +20,9 @@
     <Message
       :closable="false"
       :severity="canCreateCatalog ? 'success' : 'warn'"
-      class="rbac-message"
+      class="rounded-[6px]"
     >
-      <div class="rbac-message-content">
+      <div class="text-[13px] leading-normal">
         <span class="font-semibold">Quyền hạn tác vụ: </span>
         <span v-if="canCreateCatalog">
           Tài khoản <strong>{{ currentUser ? currentUser.name : '' }}</strong> có quyền thêm mới sản phẩm (<code>catalog.create</code>).
@@ -33,40 +34,41 @@
     </Message>
 
     <!-- Operational Toolbar -->
-    <Toolbar class="catalog-toolbar">
+    <Toolbar class="bg-white border border-slate-200 rounded-[6px] px-3 py-2 shadow-none">
       <template #start>
         <IconField>
           <InputIcon class="pi pi-search" />
           <InputText
             v-model="searchQuery"
             placeholder="Tìm theo SKU hoặc tên sản phẩm..."
-            class="search-input"
+            class="w-80 rounded-[6px]"
             size="small"
           />
         </IconField>
       </template>
 
       <template #end>
-        <div class="toolbar-actions">
+        <div class="flex items-center gap-2">
           <Button
             label="Làm mới"
             icon="pi pi-refresh"
             severity="secondary"
             outlined
             size="small"
+            class="rounded-[6px]"
             @click="$emit('refresh-products')"
           />
           <Tag
             severity="secondary"
             :value="filteredProducts.length + ' Sản phẩm'"
-            class="count-tag"
+            class="text-[11px] px-2 py-1 rounded-[6px]"
           />
         </div>
       </template>
     </Toolbar>
 
     <!-- Products DataTable (Flat Panel Container) -->
-    <div class="table-container">
+    <div class="bg-white border border-slate-200 rounded-[6px] overflow-hidden shadow-none">
       <DataTable
         :value="filteredProducts"
         class="clean-datatable"
@@ -76,57 +78,57 @@
       >
         <Column field="sku" header="Mã SKU" :sortable="true">
           <template #body="{ data }">
-            <span class="sku-badge">{{ data.sku }}</span>
+            <span class="font-mono text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-[4px] border border-indigo-200">{{ data.sku }}</span>
           </template>
         </Column>
 
         <Column field="name" header="Tên Sản Phẩm" :sortable="true">
           <template #body="{ data }">
-            <span class="font-semibold text-main">{{ data.name }}</span>
+            <span class="font-semibold text-slate-900">{{ data.name }}</span>
           </template>
         </Column>
 
         <Column field="category_name" header="Danh Mục">
           <template #body="{ data }">
-            <Tag severity="secondary" :value="data.category_name || 'Công nghệ'" class="cell-tag" />
+            <Tag severity="secondary" :value="data.category_name || 'Công nghệ'" class="text-[11px] px-1.5 py-0.5 rounded-[6px]" />
           </template>
         </Column>
 
         <Column field="unit_code" header="ĐVT">
           <template #body="{ data }">
-            <span class="text-muted text-xs">{{ data.unit_code || 'PCS' }}</span>
+            <span class="text-slate-500 text-xs">{{ data.unit_code || 'PCS' }}</span>
           </template>
         </Column>
 
         <Column field="gross_price" header="Giá Niêm Yết" class="text-right" :sortable="true">
           <template #body="{ data }">
-            <span class="font-semibold text-main num-tabular">{{ formatCurrency(data.gross_price) }}</span>
+            <span class="font-semibold text-slate-900 num-tabular">{{ formatCurrency(data.gross_price) }}</span>
           </template>
         </Column>
 
         <Column field="cost_price" header="Giá Vốn" class="text-right" :sortable="true">
           <template #body="{ data }">
-            <span class="text-muted num-tabular">{{ formatCurrency(data.cost_price) }}</span>
+            <span class="text-slate-500 num-tabular">{{ formatCurrency(data.cost_price) }}</span>
           </template>
         </Column>
 
         <Column field="min_stock" header="Tồn An Toàn" class="text-center" :sortable="true">
           <template #body="{ data }">
-            <Tag severity="warn" :value="data.min_stock + ' cái'" class="cell-tag" />
+            <Tag severity="warn" :value="data.min_stock + ' cái'" class="text-[11px] px-1.5 py-0.5 rounded-[6px]" />
           </template>
         </Column>
 
         <Column header="Trạng Thái" class="text-center">
           <template #body>
-            <Tag severity="success" value="Đang kinh doanh" class="cell-tag" />
+            <Tag severity="success" value="Đang kinh doanh" class="text-[11px] px-1.5 py-0.5 rounded-[6px]" />
           </template>
         </Column>
 
         <template #empty>
-          <div class="empty-table-state">
-            <i class="pi pi-box empty-icon"></i>
-            <p class="empty-title">Không tìm thấy sản phẩm nào</p>
-            <p class="empty-subtitle">Thử thay đổi từ khóa tìm kiếm hoặc nhấn nút Tạo sản phẩm mới.</p>
+          <div class="py-8 px-4 text-center flex flex-col items-center gap-2">
+            <i class="pi pi-box text-3xl text-slate-400"></i>
+            <p class="text-sm font-semibold text-slate-900 m-0">Không tìm thấy sản phẩm nào</p>
+            <p class="text-xs text-slate-500 m-0">Thử thay đổi từ khóa tìm kiếm hoặc nhấn nút Tạo sản phẩm mới.</p>
           </div>
         </template>
       </DataTable>
@@ -208,93 +210,3 @@ const handleOpenCreateModal = () => {
   showCreateModal.value = true;
 };
 </script>
-
-<style scoped>
-.catalog-page {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.rbac-message {
-  border-radius: 6px;
-}
-
-.rbac-message-content {
-  font-size: 13px;
-  line-height: 1.4;
-}
-
-.catalog-toolbar {
-  background-color: var(--surface-white);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 8px 12px;
-}
-
-.search-input {
-  width: 320px;
-}
-
-.toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.count-tag {
-  font-size: 11px;
-  padding: 4px 8px;
-  border-radius: 6px;
-}
-
-.table-container {
-  background-color: var(--surface-white);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.sku-badge {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--primary);
-  background-color: var(--primary-subtle);
-  padding: 2px 6px;
-  border-radius: 6px;
-}
-
-.cell-tag {
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 6px;
-}
-
-.empty-table-state {
-  padding: 32px 16px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.empty-icon {
-  font-size: 28px;
-  color: var(--text-dim);
-}
-
-.empty-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-main);
-  margin: 0;
-}
-
-.empty-subtitle {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin: 0;
-}
-</style>

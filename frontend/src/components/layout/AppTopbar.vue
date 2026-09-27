@@ -1,29 +1,29 @@
 <template>
-  <header class="layout-topbar">
+  <header class="h-14 bg-white border-b border-slate-200 px-6 flex items-center justify-between sticky top-0 z-40">
     <!-- Left: Breadcrumb / System Scope indicator -->
-    <div class="topbar-left">
-      <div class="system-indicator">
-        <i class="pi pi-server text-muted"></i>
-        <span class="system-name">Hệ Thống Phân Tán Smart ERP</span>
+    <div class="flex items-center">
+      <div class="flex items-center gap-2 text-[13px] font-semibold text-slate-600">
+        <i class="pi pi-server text-slate-400"></i>
+        <span>Hệ Thống Phân Tán Smart ERP</span>
       </div>
     </div>
 
     <!-- Center/Right: Microservices Status -->
-    <div class="service-status-cluster">
+    <div class="flex items-center gap-2">
       <Tag
         :severity="health.identity ? 'success' : 'danger'"
         :value="'Identity :8001 • ' + (health.identity ? 'Sẵn sàng' : 'Mất kết nối')"
-        class="status-tag"
+        class="!text-[11px] !px-2 !py-1 !rounded-[6px]"
       />
       <Tag
         :severity="health.catalog ? 'success' : 'danger'"
         :value="'Catalog :8002 • ' + (health.catalog ? 'Sẵn sàng' : 'Mất kết nối')"
-        class="status-tag"
+        class="!text-[11px] !px-2 !py-1 !rounded-[6px]"
       />
       <Tag
         :severity="health.inventory ? 'success' : 'danger'"
         :value="'Inventory :8004 • ' + (health.inventory ? 'Sẵn sàng' : 'Mất kết nối')"
-        class="status-tag"
+        class="!text-[11px] !px-2 !py-1 !rounded-[6px]"
       />
       <Button
         icon="pi pi-refresh"
@@ -32,20 +32,21 @@
         severity="secondary"
         @click="$emit('refresh-health')"
         v-tooltip.bottom="'Kiểm tra lại trạng thái API'"
+        class="!w-7 !h-7 !p-0"
       />
     </div>
 
     <!-- Right: Current User Widget -->
-    <div class="topbar-right">
-      <div v-if="currentUser" class="user-box">
+    <div class="flex items-center gap-3">
+      <div v-if="currentUser" class="flex items-center gap-2 px-2 py-1 rounded-[6px] border border-slate-200 bg-white">
         <Avatar
           :label="currentUser.name ? currentUser.name.charAt(0) : 'U'"
           shape="circle"
-          class="user-avatar"
+          class="!bg-sky-600 !text-white !font-bold !text-xs !w-7 !h-7"
         />
-        <div class="user-info">
-          <span class="user-name">{{ currentUser.name }}</span>
-          <span class="user-dept">{{ currentUser.department }}</span>
+        <div class="flex flex-col leading-tight">
+          <span class="text-xs font-semibold text-slate-800">{{ currentUser.name }}</span>
+          <span class="text-[10px] text-slate-400">{{ currentUser.department }}</span>
         </div>
         <Button
           icon="pi pi-sign-out"
@@ -54,6 +55,7 @@
           size="small"
           @click="$emit('logout')"
           v-tooltip.bottom="'Đăng xuất'"
+          class="!w-7 !h-7 !p-0 ml-1"
         />
       </div>
       <Tag
@@ -61,7 +63,7 @@
         severity="secondary"
         icon="pi pi-lock"
         value="Chưa đăng nhập"
-        class="status-tag"
+        class="!text-[11px] !px-2 !py-1 !rounded-[6px]"
       />
     </div>
   </header>
@@ -85,86 +87,3 @@ defineProps({
 
 defineEmits(['refresh-health', 'logout']);
 </script>
-
-<style scoped>
-.layout-topbar {
-  height: 56px;
-  background-color: var(--surface-white);
-  border-bottom: 1px solid var(--border-subtle);
-  padding: 0 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: sticky;
-  top: 0;
-  z-index: 90;
-}
-
-.topbar-left {
-  display: flex;
-  align-items: center;
-}
-
-.system-indicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-body);
-}
-
-.service-status-cluster {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.status-tag {
-  font-size: 11px;
-  padding: 4px 8px;
-  border-radius: 6px;
-}
-
-.topbar-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.user-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  border: 1px solid var(--border-subtle);
-  background-color: var(--surface-white);
-}
-
-.user-avatar {
-  background-color: var(--primary) !important;
-  color: #ffffff !important;
-  font-weight: 700;
-  font-size: 12px;
-  width: 28px;
-  height: 28px;
-}
-
-.user-info {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
-}
-
-.user-name {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.user-dept {
-  font-size: 10px;
-  color: var(--text-muted);
-}
-</style>
