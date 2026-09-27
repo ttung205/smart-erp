@@ -32,12 +32,22 @@
         />
 
         <main class="p-6 max-w-7xl w-full mx-auto flex-1">
-          <!-- Page 1: Identity & RBAC -->
-          <IdentityPage
-            v-if="activeTab === 'identity'"
+          <!-- Phân hệ Tổ chức: 1. Nhân viên -->
+          <UsersPage
+            v-if="activeTab === 'org-users' || activeTab === 'identity' || activeTab === 'organization'"
             :current-user="currentUser"
-            :jwt-token="jwtToken"
-            @copy-token="copyToken"
+          />
+
+          <!-- Phân hệ Tổ chức: 2. Vai trò -->
+          <RolesPage
+            v-else-if="activeTab === 'org-roles'"
+            :current-user="currentUser"
+          />
+
+          <!-- Phân hệ Tổ chức: 3. Quyền hạn -->
+          <PermissionsPage
+            v-else-if="activeTab === 'org-permissions'"
+            :current-user="currentUser"
           />
 
           <!-- Page 2: Catalog Master -->
@@ -95,7 +105,9 @@ import AppSidebar from './components/layout/AppSidebar.vue';
 import AppTopbar from './components/layout/AppTopbar.vue';
 import AiAssistant from './components/common/AiAssistant.vue';
 
-import IdentityPage from './pages/identity/index.vue';
+import UsersPage from './pages/identity/UsersPage.vue';
+import RolesPage from './pages/identity/RolesPage.vue';
+import PermissionsPage from './pages/identity/PermissionsPage.vue';
 import CatalogPage from './pages/catalog/index.vue';
 import SalesPage from './pages/sales/index.vue';
 import MasterPage from './pages/master/index.vue';
@@ -109,7 +121,7 @@ import { storage } from './utils/storage';
 import { parseJwt } from './utils/jwt';
 
 const toast = useToast();
-const activeTab = ref('identity');
+const activeTab = ref('org-users');
 const isSidebarCollapsed = ref(false);
 
 // Microservices Health State

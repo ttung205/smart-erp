@@ -10,7 +10,7 @@ Route::get('/health', function () {
         'success' => true,
         'data' => [
             'service' => 'identity-service',
-            'framework' => 'Laravel 11 / 12',
+            'framework' => 'Laravel 13',
             'status' => 'UP',
             'timestamp' => now()->toIso8601String(),
         ],
@@ -100,15 +100,296 @@ Route::get('/me', function (Request $request) {
     return response()->json(['success' => true, 'data' => $payload]);
 });
 
+// --- DEPARTMENTS ---
+Route::get('/departments', function () {
+    $departments = DB::table('departments')->orderBy('name')->get();
+    return response()->json(['success' => true, 'data' => $departments]);
+});
+
+// --- USERS (NHÂN VIÊN) ---
 Route::get('/users', function () {
     $users = DB::table('users')
         ->leftJoin('departments', 'users.department_id', '=', 'departments.id')
-        ->select('users.id', 'users.name', 'users.email', 'users.is_active', 'departments.name as department_name')
+        ->select(
+            'users.id',
+            'users.name',
+            'users.email',
+            'users.is_active',
+            'users.department_id',
+            'departments.name as department_name',
+            'departments.code as department_code',
+            'users.created_at'
+        )
+        ->orderBy('users.id')
         ->get();
+
+    $userRoles = DB::table('user_roles')
+        ->join('roles', 'user_roles.role_id', '=', 'roles.id')
+        ->select('user_roles.user_id', 'roles.id as role_id', 'roles.code', 'roles.name')
+        ->get()
+        ->groupBy('user_id');
+
+    foreach ($users as $user) {
+        $user->roles = $userRoles->get($user->id, collect())->values()->all();
+        $user->role_ids = collect($user->roles)->pluck('role_id')->all();
+    }
+
     return response()->json(['success' => true, 'data' => $users]);
 });
 
+Route::post('/users', function (Request $request) {
+    $validated = $request->validate([
+        'name' => 'required|string|max:150',
+        'email' => 'required|email|max:150|unique:users,email',
+        'password' => 'nullable|string|min:6',
+        'department_id' => 'nullable|exists:departments,id',
+        'is_active' => 'nullable|boolean',
+        'role_ids' => 'nullable|array',
+        'role_ids.*' => 'exists:roles,id'
+    ]);
+
+    $id = DB::table('users')->insertGetId([
+        'name' => $validated['name'],
+        'email' => $validated['email'],
+        'password_hash' => Hash::make($validated['password'] ?? 'password123'),
+        'department_id' => $validated['department_id'] ?? null,
+        'is_active' => array_key_exists('is_active', $validated) ? ($validated['is_active'] ? 1 : 0) : 1,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    if (!empty($validated['role_ids'])) {
+        foreach ($validated['role_ids'] as $roleId) {
+            DB::table('user_roles')->insert([
+                'user_id' => $id,
+                'role_id' => $roleId,
+            ]);
+        }
+    }
+
+    return response()->json(['success' => true, 'message' => 'Tạo nhân viên thành công', 'data' => ['id' => $id]], 201);
+});
+
+Route::put('/users/{id}', function (Request $request, $id) {
+    $user = DB::table('users')->where('id', $id)->first();
+    if (!$user) {
+        return response()->json(['success' => false, 'message' => 'Không tìm thấy người dùng'], 404);
+    }
+
+    $validated = $request->validate([
+        'name' => 'sometimes|required|string|max:150',
+        'email' => 'sometimes|required|email|max:150|unique:users,email,' . $id,
+        'password' => 'nullable|string|min:6',
+        'department_id' => 'nullable|exists:departments,id',
+        'is_active' => 'nullable|boolean',
+        'role_ids' => 'nullable|array',
+        'role_ids.*' => 'exists:roles,id'
+    ]);
+
+    $updateData = [];
+    if (isset($validated['name'])) $updateData['name'] = $validated['name'];
+    if (isset($validated['email'])) $updateData['email'] = $validated['email'];
+    if (!empty($validated['password'])) $updateData['password_hash'] = Hash::make($validated['password']);
+    if (array_key_exists('department_id', $validated)) $updateData['department_id'] = $validated['department_id'];
+    if (array_key_exists('is_active', $validated)) $updateData['is_active'] = $validated['is_active'] ? 1 : 0;
+    $updateData['updated_at'] = now();
+
+    DB::table('users')->where('id', $id)->update($updateData);
+
+    if (isset($validated['role_ids'])) {
+        DB::table('user_roles')->where('user_id', $id)->delete();
+        foreach ($validated['role_ids'] as $roleId) {
+            DB::table('user_roles')->insert([
+                'user_id' => $id,
+                'role_id' => $roleId,
+            ]);
+        }
+    }
+
+    return response()->json(['success' => true, 'message' => 'Cập nhật nhân viên thành công']);
+});
+
+// --- ROLES (VAI TRÒ) ---
 Route::get('/roles', function () {
-    $roles = DB::table('roles')->get();
+    $roles = DB::table('roles')->orderBy('id')->get();
+
+    $userCounts = DB::table('user_roles')
+        ->select('role_id', DB::raw('count(user_id) as total_users'))
+        ->groupBy('role_id')
+        ->pluck('total_users', 'role_id');
+
+    $rolePerms = DB::table('role_permissions')
+        ->join('permissions', 'role_permissions.permission_id', '=', 'permissions.id')
+        ->select('role_permissions.role_id', 'permissions.id as permission_id', 'permissions.code', 'permissions.description', 'permissions.module')
+        ->get()
+        ->groupBy('role_id');
+
+    foreach ($roles as $r) {
+        $r->users_count = (int) ($userCounts[$r->id] ?? 0);
+        $perms = $rolePerms->get($r->id, collect());
+        $r->permissions = $perms->values()->all();
+        $r->permission_ids = $perms->pluck('permission_id')->all();
+        $r->permission_codes = $perms->pluck('code')->all();
+    }
+
     return response()->json(['success' => true, 'data' => $roles]);
+});
+
+Route::post('/roles', function (Request $request) {
+    $validated = $request->validate([
+        'code' => 'required|string|max:50|unique:roles,code',
+        'name' => 'required|string|max:150',
+        'description' => 'nullable|string|max:255',
+        'permission_ids' => 'nullable|array',
+        'permission_ids.*' => 'exists:permissions,id'
+    ]);
+
+    $roleId = DB::table('roles')->insertGetId([
+        'code' => strtoupper(trim($validated['code'])),
+        'name' => $validated['name'],
+        'description' => $validated['description'] ?? null,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    if (!empty($validated['permission_ids'])) {
+        foreach ($validated['permission_ids'] as $permId) {
+            DB::table('role_permissions')->insert([
+                'role_id' => $roleId,
+                'permission_id' => $permId,
+            ]);
+        }
+    }
+
+    return response()->json(['success' => true, 'message' => 'Tạo vai trò thành công', 'data' => ['id' => $roleId]], 201);
+});
+
+Route::put('/roles/{id}', function (Request $request, $id) {
+    $role = DB::table('roles')->where('id', $id)->first();
+    if (!$role) {
+        return response()->json(['success' => false, 'message' => 'Không tìm thấy vai trò'], 404);
+    }
+
+    $validated = $request->validate([
+        'name' => 'sometimes|required|string|max:150',
+        'description' => 'nullable|string|max:255',
+        'permission_ids' => 'nullable|array',
+        'permission_ids.*' => 'exists:permissions,id'
+    ]);
+
+    $updateData = [];
+    if (isset($validated['name'])) $updateData['name'] = $validated['name'];
+    if (array_key_exists('description', $validated)) $updateData['description'] = $validated['description'];
+    $updateData['updated_at'] = now();
+
+    DB::table('roles')->where('id', $id)->update($updateData);
+
+    if (isset($validated['permission_ids'])) {
+        DB::table('role_permissions')->where('role_id', $id)->delete();
+        foreach ($validated['permission_ids'] as $permId) {
+            DB::table('role_permissions')->insert([
+                'role_id' => $id,
+                'permission_id' => $permId,
+            ]);
+        }
+    }
+
+    return response()->json(['success' => true, 'message' => 'Cập nhật vai trò thành công']);
+});
+
+Route::delete('/roles/{id}', function ($id) {
+    $role = DB::table('roles')->where('id', $id)->first();
+    if (!$role) {
+        return response()->json(['success' => false, 'message' => 'Không tìm thấy vai trò'], 404);
+    }
+    if ($role->code === 'SUPER_ADMIN') {
+        return response()->json(['success' => false, 'message' => 'Không được phép xóa vai trò Super Admin'], 400);
+    }
+
+    DB::table('role_permissions')->where('role_id', $id)->delete();
+    DB::table('user_roles')->where('role_id', $id)->delete();
+    DB::table('roles')->where('id', $id)->delete();
+
+    return response()->json(['success' => true, 'message' => 'Đã xóa vai trò']);
+});
+
+Route::put('/roles/{id}/permissions', function (Request $request, $id) {
+    $role = DB::table('roles')->where('id', $id)->first();
+    if (!$role) {
+        return response()->json(['success' => false, 'message' => 'Không tìm thấy vai trò'], 404);
+    }
+
+    $validated = $request->validate([
+        'permission_ids' => 'required|array',
+        'permission_ids.*' => 'exists:permissions,id'
+    ]);
+
+    DB::table('role_permissions')->where('role_id', $id)->delete();
+    foreach ($validated['permission_ids'] as $permId) {
+        DB::table('role_permissions')->insert([
+            'role_id' => $id,
+            'permission_id' => $permId,
+        ]);
+    }
+
+    return response()->json(['success' => true, 'message' => 'Đã cập nhật danh sách quyền cho vai trò']);
+});
+
+// --- PERMISSIONS (QUYỀN HẠN) ---
+Route::get('/permissions', function () {
+    $perms = DB::table('permissions')->orderBy('module')->orderBy('code')->get();
+    return response()->json(['success' => true, 'data' => $perms]);
+});
+
+Route::post('/permissions', function (Request $request) {
+    $validated = $request->validate([
+        'code' => 'required|string|max:100|unique:permissions,code',
+        'module' => 'required|string|max:50',
+        'description' => 'required|string|max:255',
+    ]);
+
+    $id = DB::table('permissions')->insertGetId([
+        'code' => strtolower(trim($validated['code'])),
+        'module' => strtolower(trim($validated['module'])),
+        'description' => $validated['description'],
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    return response()->json(['success' => true, 'message' => 'Tạo quyền hạn thành công', 'data' => ['id' => $id]], 201);
+});
+
+Route::put('/permissions/{id}', function (Request $request, $id) {
+    $perm = DB::table('permissions')->where('id', $id)->first();
+    if (!$perm) {
+        return response()->json(['success' => false, 'message' => 'Không tìm thấy quyền hạn'], 404);
+    }
+
+    $validated = $request->validate([
+        'code' => 'sometimes|required|string|max:100|unique:permissions,code,' . $id,
+        'module' => 'sometimes|required|string|max:50',
+        'description' => 'sometimes|required|string|max:255',
+    ]);
+
+    $updateData = [];
+    if (isset($validated['code'])) $updateData['code'] = strtolower(trim($validated['code']));
+    if (isset($validated['module'])) $updateData['module'] = strtolower(trim($validated['module']));
+    if (isset($validated['description'])) $updateData['description'] = $validated['description'];
+    $updateData['updated_at'] = now();
+
+    DB::table('permissions')->where('id', $id)->update($updateData);
+
+    return response()->json(['success' => true, 'message' => 'Cập nhật quyền hạn thành công']);
+});
+
+Route::delete('/permissions/{id}', function ($id) {
+    $perm = DB::table('permissions')->where('id', $id)->first();
+    if (!$perm) {
+        return response()->json(['success' => false, 'message' => 'Không tìm thấy quyền hạn'], 404);
+    }
+
+    DB::table('role_permissions')->where('permission_id', $id)->delete();
+    DB::table('permissions')->where('id', $id)->delete();
+
+    return response()->json(['success' => true, 'message' => 'Đã xóa quyền hạn']);
 });

@@ -3,10 +3,30 @@ export const menuCategories = [
     category: 'Phân Hệ Nghiệp Vụ',
     items: [
       {
-        id: 'identity',
-        label: 'Tài khoản & Phân quyền',
-        icon: 'pi pi-shield',
-        badge: 'RBAC'
+        id: 'organization',
+        label: 'Tổ chức',
+        icon: 'pi pi-sitemap',
+        isFolder: true,
+        children: [
+          {
+            id: 'org-users',
+            label: 'Nhân viên',
+            icon: 'pi pi-users',
+            badge: 'Tài khoản'
+          },
+          {
+            id: 'org-roles',
+            label: 'Vai trò',
+            icon: 'pi pi-id-card',
+            badge: 'Role'
+          },
+          {
+            id: 'org-permissions',
+            label: 'Quyền hạn',
+            icon: 'pi pi-key',
+            badge: 'Perms'
+          }
+        ]
       },
       {
         id: 'catalog',

@@ -49,39 +49,94 @@
         <div v-else class="w-7 h-[1px] bg-slate-200 my-1 mx-auto"></div>
 
         <div class="flex flex-col gap-1 w-full">
-          <button
-            v-for="item in cat.items"
-            :key="item.id"
-            class="flex items-center rounded-[6px] border text-sm font-medium transition-colors cursor-pointer group"
-            :class="[
-              currentTab === item.id
-                ? 'bg-sky-50 border-sky-200 text-sky-700 font-semibold'
-                : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900',
-              isCollapsed
-                ? 'justify-center w-11 h-10 mx-auto px-0'
-                : 'w-full gap-3 px-3 py-2 text-left'
-            ]"
-            @click="$emit('select-tab', item.id)"
-            v-tooltip.right="isCollapsed ? item.label : undefined"
-          >
-            <i
+          <template v-for="item in cat.items" :key="item.id">
+            <!-- 1. Folder có danh mục con (Children) -->
+            <div v-if="item.children && item.children.length > 0" class="flex flex-col w-full">
+              <!-- Expanded State Folder Header -->
+              <button
+                v-if="!isCollapsed"
+                type="button"
+                class="flex items-center justify-between w-full px-3 py-2 rounded-[6px] border border-transparent text-sm font-semibold transition-colors cursor-pointer text-slate-700 hover:bg-slate-100"
+                :class="{ 'text-sky-700 bg-sky-50/70': isFolderActive(item) }"
+                @click="toggleFolder(item.id)"
+              >
+                <div class="flex items-center gap-2.5">
+                  <i :class="[item.icon, 'text-base shrink-0', isFolderActive(item) ? 'text-sky-700' : 'text-slate-400']"></i>
+                  <span class="whitespace-nowrap">{{ item.label }}</span>
+                </div>
+                <i :class="['text-xs text-slate-400 transition-transform duration-150', openFolders[item.id] ? 'pi pi-chevron-down' : 'pi pi-chevron-right']"></i>
+              </button>
+
+              <!-- Collapsed State Folder Button -->
+              <button
+                v-else
+                type="button"
+                class="flex items-center justify-center w-11 h-10 mx-auto rounded-[6px] border text-sm font-medium transition-colors cursor-pointer"
+                :class="isFolderActive(item) ? 'bg-sky-50 border-sky-200 text-sky-700 font-semibold' : 'border-transparent text-slate-600 hover:bg-slate-100'"
+                @click="$emit('select-tab', item.children[0].id)"
+                v-tooltip.right="item.label"
+              >
+                <i :class="[item.icon, 'text-base', isFolderActive(item) ? 'text-sky-700' : 'text-slate-400']"></i>
+              </button>
+
+              <!-- Folder Sub-items -->
+              <div v-if="!isCollapsed && openFolders[item.id]" class="flex flex-col gap-1 pl-3 my-1 border-l-2 border-slate-100 ml-4">
+                <button
+                  v-for="child in item.children"
+                  :key="child.id"
+                  type="button"
+                  class="flex items-center rounded-[6px] border text-xs font-medium transition-colors cursor-pointer w-full gap-2 px-2.5 py-1.5 text-left"
+                  :class="currentTab === child.id ? 'bg-sky-50 border-sky-200 text-sky-700 font-semibold' : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'"
+                  @click="$emit('select-tab', child.id)"
+                >
+                  <i :class="[child.icon, 'text-sm shrink-0', currentTab === child.id ? 'text-sky-700' : 'text-slate-400']"></i>
+                  <span class="flex-1 whitespace-nowrap overflow-hidden text-ellipsis">{{ child.label }}</span>
+                  <span
+                    v-if="child.badge"
+                    class="text-[10px] font-semibold px-1.5 py-0.5 rounded-[4px]"
+                    :class="currentTab === child.id ? 'bg-white border border-sky-200 text-sky-700' : 'bg-white border border-slate-200 text-slate-500'"
+                  >
+                    {{ child.badge }}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 2. Mục độc lập (Single item) -->
+            <button
+              v-else
+              type="button"
+              class="flex items-center rounded-[6px] border text-sm font-medium transition-colors cursor-pointer group"
               :class="[
-                item.icon,
-                'text-base shrink-0 transition-colors',
-                currentTab === item.id ? 'text-sky-700' : 'text-slate-400 group-hover:text-slate-600'
+                currentTab === item.id
+                  ? 'bg-sky-50 border-sky-200 text-sky-700 font-semibold'
+                  : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+                isCollapsed
+                  ? 'justify-center w-11 h-10 mx-auto px-0'
+                  : 'w-full gap-3 px-3 py-2 text-left'
               ]"
-            ></i>
-            <span v-if="!isCollapsed" class="flex-1 whitespace-nowrap overflow-hidden text-ellipsis">
-              {{ item.label }}
-            </span>
-            <span
-              v-if="!isCollapsed && item.badge"
-              class="text-[10px] font-semibold px-1.5 py-0.5 rounded-[6px]"
-              :class="currentTab === item.id ? 'bg-white border border-sky-200 text-sky-700' : 'bg-white border border-slate-200 text-slate-500'"
+              @click="$emit('select-tab', item.id)"
+              v-tooltip.right="isCollapsed ? item.label : undefined"
             >
-              {{ item.badge }}
-            </span>
-          </button>
+              <i
+                :class="[
+                  item.icon,
+                  'text-base shrink-0 transition-colors',
+                  currentTab === item.id ? 'text-sky-700' : 'text-slate-400 group-hover:text-slate-600'
+                ]"
+              ></i>
+              <span v-if="!isCollapsed" class="flex-1 whitespace-nowrap overflow-hidden text-ellipsis">
+                {{ item.label }}
+              </span>
+              <span
+                v-if="!isCollapsed && item.badge"
+                class="text-[10px] font-semibold px-1.5 py-0.5 rounded-[6px]"
+                :class="currentTab === item.id ? 'bg-white border border-sky-200 text-sky-700' : 'bg-white border border-slate-200 text-slate-500'"
+              >
+                {{ item.badge }}
+              </span>
+            </button>
+          </template>
         </div>
       </template>
     </nav>
@@ -107,11 +162,12 @@
 </template>
 
 <script setup>
+import { ref, watch } from 'vue';
 import Button from 'primevue/button';
 import { appConfig } from '../../config/app.config';
 import { menuCategories } from '../../config/menu.config';
 
-defineProps({
+const props = defineProps({
   currentTab: {
     type: String,
     required: true
@@ -123,4 +179,28 @@ defineProps({
 });
 
 defineEmits(['select-tab', 'toggle-collapse']);
+
+const openFolders = ref({
+  organization: true
+});
+
+const toggleFolder = (folderId) => {
+  openFolders.value[folderId] = !openFolders.value[folderId];
+};
+
+const isFolderActive = (item) => {
+  if (!item.children) return props.currentTab === item.id;
+  return item.children.some(child => child.id === props.currentTab);
+};
+
+// Tự động mở folder nếu một tab con đang được chọn
+watch(() => props.currentTab, (newTab) => {
+  for (const cat of menuCategories) {
+    for (const item of cat.items) {
+      if (item.children && item.children.some(c => c.id === newTab)) {
+        openFolders.value[item.id] = true;
+      }
+    }
+  }
+}, { immediate: true });
 </script>
