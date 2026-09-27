@@ -162,11 +162,11 @@ import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
-import PageHeader from '../../../components/common/PageHeader.vue';
+import PageHeader from '../../components/common/PageHeader.vue';
 
 import DeliveryDetailForm from './form.vue';
 import CreateInvoiceDialog from './invoice-dialog.vue';
-import { deliveryRequests, addInvoice } from '../salesStore';
+import { deliveryRequests, addInvoice } from '../../composables/salesStore';
 
 const router = useRouter();
 const toast = useToast();
@@ -215,6 +215,6 @@ const handleCreateInvoice = (newInv) => {
     life: 3000
   });
 
-  router.push('/sales/invoice');
+  router.push('/invoice');
 };
 </script>

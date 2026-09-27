@@ -131,7 +131,7 @@ import Column from 'primevue/column';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
 import InputText from 'primevue/inputtext';
-import { formatCurrency } from '../../../utils/format';
+import { formatCurrency } from '../../utils/format';
 
 const props = defineProps({
   visible: {

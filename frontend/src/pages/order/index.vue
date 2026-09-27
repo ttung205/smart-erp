@@ -167,12 +167,12 @@ import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
-import PageHeader from '../../../components/common/PageHeader.vue';
+import PageHeader from '../../components/common/PageHeader.vue';
 
 import OrderDetailForm from './form.vue';
 import CreateDeliveryDialog from './delivery-dialog.vue';
-import { orders, addDeliveryRequest } from '../salesStore';
-import { formatCurrency } from '../../../utils/format';
+import { orders, addDeliveryRequest } from '../../composables/salesStore';
+import { formatCurrency } from '../../utils/format';
 
 const props = defineProps({
   warehouses: {
@@ -237,6 +237,6 @@ const handleCreateDelivery = (newDr) => {
     life: 3000
   });
 
-  router.push('/sales/delivery');
+  router.push('/delivery');
 };
 </script>

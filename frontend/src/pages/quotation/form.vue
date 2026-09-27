@@ -194,7 +194,7 @@ import InputNumber from 'primevue/inputnumber';
 import Select from 'primevue/select';
 import Textarea from 'primevue/textarea';
 import Button from 'primevue/button';
-import { formatCurrency } from '../../../utils/format';
+import { formatCurrency } from '../../utils/format';
 
 const props = defineProps({
   visible: {

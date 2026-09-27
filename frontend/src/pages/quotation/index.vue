@@ -166,12 +166,12 @@ import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
-import PageHeader from '../../../components/common/PageHeader.vue';
+import PageHeader from '../../components/common/PageHeader.vue';
 
 import QuotationForm from './form.vue';
 import WinForm from './win-form.vue';
-import { quotations, addQuotation, createSOFromQuotation } from '../salesStore';
-import { formatCurrency } from '../../../utils/format';
+import { quotations, addQuotation, createSOFromQuotation } from '../../composables/salesStore';
+import { formatCurrency } from '../../utils/format';
 
 const props = defineProps({
   customers: {
@@ -246,6 +246,6 @@ const handleCreateSO = (payload) => {
     life: 4000
   });
 
-  router.push('/sales/order');
+  router.push('/order');
 };
 </script>

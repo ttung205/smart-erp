@@ -155,7 +155,7 @@ import Select from 'primevue/select';
 import Button from 'primevue/button';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
-import { formatCurrency } from '../../../utils/format';
+import { formatCurrency } from '../../utils/format';
 
 const props = defineProps({
   visible: {

@@ -191,11 +191,11 @@ import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
-import PageHeader from '../../../components/common/PageHeader.vue';
+import PageHeader from '../../components/common/PageHeader.vue';
 
 import AccountingPostForm from './form.vue';
-import { invoices, postAccountingInvoice } from '../salesStore';
-import { formatCurrency } from '../../../utils/format';
+import { invoices, postAccountingInvoice } from '../../composables/salesStore';
+import { formatCurrency } from '../../utils/format';
 
 const props = defineProps({
   currentUser: {

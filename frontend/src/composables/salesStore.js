@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue';
-import { inventoryApi } from '../../api/inventory.api';
+import { inventoryApi } from '../api/inventory.api';
 
 // Shared state across all sales sub-pages
 export const quotations = ref([

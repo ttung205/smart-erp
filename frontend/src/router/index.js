@@ -17,11 +17,11 @@ import ArchitecturePage from '../pages/architecture/index.vue';
 import ServiceStatusPage from '../pages/system/ServiceStatusPage.vue';
 
 // Sales sub-pages
-import QuotationPage from '../pages/sales/quotation/index.vue';
-import OrderPage from '../pages/sales/order/index.vue';
-import DeliveryPage from '../pages/sales/delivery/index.vue';
-import InvoicePage from '../pages/sales/invoice/index.vue';
-import AccountingPage from '../pages/sales/accounting/index.vue';
+import QuotationPage from '../pages/quotation/index.vue';
+import OrderPage from '../pages/order/index.vue';
+import DeliveryPage from '../pages/delivery/index.vue';
+import InvoicePage from '../pages/invoice/index.vue';
+import AccountingPage from '../pages/accounting/index.vue';
 
 export const routes = [
   {
@@ -108,11 +108,11 @@ export const routes = [
   },
   {
     path: '/sales',
-    redirect: '/sales/quotation'
+    redirect: '/quotation'
   },
   {
-    path: '/sales/quotation',
-    name: 'sales-quotation',
+    path: '/quotation',
+    name: 'quotation',
     component: QuotationPage,
     meta: {
       requiresAuth: true,
@@ -122,8 +122,8 @@ export const routes = [
     }
   },
   {
-    path: '/sales/order',
-    name: 'sales-order',
+    path: '/order',
+    name: 'order',
     component: OrderPage,
     meta: {
       requiresAuth: true,
@@ -133,8 +133,8 @@ export const routes = [
     }
   },
   {
-    path: '/sales/delivery',
-    name: 'sales-delivery',
+    path: '/delivery',
+    name: 'delivery',
     component: DeliveryPage,
     meta: {
       requiresAuth: true,
@@ -144,8 +144,8 @@ export const routes = [
     }
   },
   {
-    path: '/sales/invoice',
-    name: 'sales-invoice',
+    path: '/invoice',
+    name: 'invoice',
     component: InvoicePage,
     meta: {
       requiresAuth: true,
@@ -155,8 +155,8 @@ export const routes = [
     }
   },
   {
-    path: '/sales/accounting',
-    name: 'sales-accounting',
+    path: '/accounting',
+    name: 'accounting',
     component: AccountingPage,
     meta: {
       requiresAuth: true,
@@ -165,6 +165,12 @@ export const routes = [
       title: 'Ghi Sổ Kế Toán'
     }
   },
+  // Backward compatibility alias redirects
+  { path: '/sales/quotation', redirect: '/quotation' },
+  { path: '/sales/order', redirect: '/order' },
+  { path: '/sales/delivery', redirect: '/delivery' },
+  { path: '/sales/invoice', redirect: '/invoice' },
+  { path: '/sales/accounting', redirect: '/accounting' },
   {
     path: '/master',
     name: 'master',

@@ -169,7 +169,7 @@
                 size="small"
                 class="!text-xs !py-1 !px-2 rounded-[6px] !text-emerald-700 !font-bold hover:!bg-emerald-50"
                 v-tooltip.bottom="'Chuyển sang trang Kế toán để ghi sổ trừ tồn kho'"
-                @click="$router.push('/sales/accounting')"
+                @click="$router.push('/accounting')"
               />
             </div>
           </template>
@@ -205,11 +205,11 @@ import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
-import PageHeader from '../../../components/common/PageHeader.vue';
+import PageHeader from '../../components/common/PageHeader.vue';
 
 import InvoiceDetailForm from './form.vue';
-import { invoices, updateWarehouseStatus } from '../salesStore';
-import { formatCurrency } from '../../../utils/format';
+import { invoices, updateWarehouseStatus } from '../../composables/salesStore';
+import { formatCurrency } from '../../utils/format';
 
 const toast = useToast();
 

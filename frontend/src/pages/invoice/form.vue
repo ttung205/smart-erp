@@ -105,7 +105,7 @@ import Dialog from 'primevue/dialog';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Button from 'primevue/button';
-import { formatCurrency } from '../../../utils/format';
+import { formatCurrency } from '../../utils/format';
 
 defineProps({
   visible: {

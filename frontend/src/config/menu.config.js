@@ -71,8 +71,8 @@ export const menuCategories = [
         isFolder: true,
         children: [
           {
-            id: 'sales-quotation',
-            path: '/sales/quotation',
+            id: 'quotation',
+            path: '/quotation',
             resource: 'sales',
             permission: 'sales.view',
             label: 'Báo giá',
@@ -80,8 +80,8 @@ export const menuCategories = [
             badge: 'Báo giá'
           },
           {
-            id: 'sales-order',
-            path: '/sales/order',
+            id: 'order',
+            path: '/order',
             resource: 'sales',
             permission: 'sales.view',
             label: 'Đơn bán hàng',
@@ -89,8 +89,8 @@ export const menuCategories = [
             badge: 'Đơn bán'
           },
           {
-            id: 'sales-delivery',
-            path: '/sales/delivery',
+            id: 'delivery',
+            path: '/delivery',
             resource: 'sales',
             permission: 'sales.view',
             label: 'Yêu cầu giao hàng',
@@ -98,8 +98,8 @@ export const menuCategories = [
             badge: 'Giao hàng'
           },
           {
-            id: 'sales-invoice',
-            path: '/sales/invoice',
+            id: 'invoice',
+            path: '/invoice',
             resource: 'sales',
             permission: 'sales.view',
             label: 'Chứng từ & Kho',
@@ -107,8 +107,8 @@ export const menuCategories = [
             badge: 'Chứng từ'
           },
           {
-            id: 'sales-accounting',
-            path: '/sales/accounting',
+            id: 'accounting',
+            path: '/accounting',
             resource: 'sales',
             permission: 'sales.view',
             label: 'Ghi sổ kế toán',
