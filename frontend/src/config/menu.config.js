@@ -15,6 +15,12 @@ export const menuCategories = [
         badge: 'Master'
       },
       {
+        id: 'inventory',
+        label: 'Quản lý tồn kho',
+        icon: 'pi pi-server',
+        badge: 'Kho hàng'
+      },
+      {
         id: 'sales',
         label: 'Quản lý bán hàng',
         icon: 'pi pi-shopping-cart',

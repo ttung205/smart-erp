@@ -39,21 +39,27 @@
           @create-product="submitCreateProduct"
         />
 
-        <!-- Page 3: Sales Orders -->
+        <!-- Page 3: Inventory Management (Tồn Kho) -->
+        <InventoryView
+          v-else-if="activeTab === 'inventory'"
+          :current-user="currentUser"
+        />
+
+        <!-- Page 4: Sales Orders -->
         <SalesPage
           v-else-if="activeTab === 'sales'"
           :customers="customers"
           @order-created="onOrderCreated"
         />
 
-        <!-- Page 4: Master Partners & Warehouses -->
+        <!-- Page 5: Master Partners & Warehouses -->
         <MasterPage
           v-else-if="activeTab === 'master'"
           :partners="partners"
           :warehouses="warehouses"
         />
 
-        <!-- Page 5: Architecture & Outbox -->
+        <!-- Page 6: Architecture & Outbox -->
         <ArchitecturePage
           v-else-if="activeTab === 'architecture'"
         />
@@ -81,9 +87,11 @@ import CatalogPage from './pages/catalog/index.vue';
 import SalesPage from './pages/sales/index.vue';
 import MasterPage from './pages/master/index.vue';
 import ArchitecturePage from './pages/architecture/index.vue';
+import InventoryView from './views/inventory/InventoryView.vue';
 
 import { authApi } from './api/auth.api';
 import { catalogApi } from './api/catalog.api';
+import { inventoryApi } from './api/inventory.api';
 import { storage } from './utils/storage';
 import { parseJwt } from './utils/jwt';
 
@@ -93,7 +101,8 @@ const activeTab = ref('identity');
 // Microservices Health State
 const health = reactive({
   identity: false,
-  catalog: false
+  catalog: false,
+  inventory: false
 });
 
 // User Session State
@@ -118,6 +127,7 @@ const customers = computed(() => {
 const checkHealth = async () => {
   health.identity = await authApi.checkHealth();
   health.catalog = await catalogApi.checkHealth();
+  health.inventory = await inventoryApi.checkHealth();
 };
 
 // Login Actions

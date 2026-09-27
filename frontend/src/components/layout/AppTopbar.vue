@@ -20,6 +20,11 @@
         :value="'Catalog :8002 • ' + (health.catalog ? 'Sẵn sàng' : 'Mất kết nối')"
         class="status-tag"
       />
+      <Tag
+        :severity="health.inventory ? 'success' : 'danger'"
+        :value="'Inventory :8004 • ' + (health.inventory ? 'Sẵn sàng' : 'Mất kết nối')"
+        class="status-tag"
+      />
       <Button
         icon="pi pi-refresh"
         text
