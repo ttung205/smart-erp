@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-6">
+  <div class="space-y-3">
     <!-- 1. Header Độc Bản -->
     <PageHeader
       title="Quản Lý Vai Trò & Thẩm Quyền"

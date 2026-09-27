@@ -3,100 +3,54 @@
     <Toast position="top-right" />
 
     <!-- A. MÀN HÌNH ĐĂNG NHẬP CHUẨN KHI CHƯA XÁC THỰC -->
-    <LoginPage
-      v-if="!currentUser"
-      :loading="loading.login"
-      @login="submitLogin"
-    />
+    <LoginPage v-if="!currentUser" :loading="loading.login" @login="submitLogin" />
 
     <!-- B. GIAO DIỆN CHÍNH ERP KHI ĐÃ ĐĂNG NHẬP THÀNH CÔNG -->
     <div v-else class="flex min-h-screen bg-slate-50">
       <!-- 1. Left Sidebar (Thụt ra thụt vào - Collapsible / Expand) -->
-      <AppSidebar
-        :current-tab="activeTab"
-        :is-collapsed="isSidebarCollapsed"
-        @select-tab="activeTab = $event"
-        @toggle-collapse="isSidebarCollapsed = !isSidebarCollapsed"
-      />
+      <AppSidebar :current-tab="activeTab" :is-collapsed="isSidebarCollapsed" @select-tab="activeTab = $event"
+        @toggle-collapse="isSidebarCollapsed = !isSidebarCollapsed" />
 
       <!-- 2. Main Content Area (Tự động co giãn theo Sidebar) -->
-      <div
-        class="flex-1 flex flex-col min-w-0 transition-all duration-200"
-        :class="isSidebarCollapsed ? 'ml-[68px]' : 'ml-64'"
-      >
-        <AppTopbar
-          :current-user="currentUser"
-          :health="health"
-          @refresh-health="checkHealth"
-          @logout="logout"
-        />
+      <div class="flex-1 flex flex-col min-w-0 transition-all duration-200"
+        :class="isSidebarCollapsed ? 'ml-[68px]' : 'ml-64'">
+        <AppTopbar :current-user="currentUser" :health="health" @refresh-health="checkHealth" @logout="logout" />
 
-        <main class="p-6 max-w-7xl w-full mx-auto flex-1">
+        <main class="px-4 py-3 w-full flex-1">
           <!-- Phân hệ Tổ chức: 0. Phòng ban -->
-          <DepartmentsPage
-            v-if="activeTab === 'org-departments'"
-            :current-user="currentUser"
-          />
+          <DepartmentsPage v-if="activeTab === 'org-departments'" :current-user="currentUser" />
 
           <!-- Phân hệ Tổ chức: 1. Nhân viên -->
-          <UsersPage
-            v-else-if="activeTab === 'org-users' || activeTab === 'identity' || activeTab === 'organization'"
-            :current-user="currentUser"
-          />
+          <UsersPage v-else-if="activeTab === 'org-users' || activeTab === 'identity' || activeTab === 'organization'"
+            :current-user="currentUser" />
 
           <!-- Phân hệ Tổ chức: 2. Vai trò -->
-          <RolesPage
-            v-else-if="activeTab === 'org-roles'"
-            :current-user="currentUser"
-          />
+          <RolesPage v-else-if="activeTab === 'org-roles'" :current-user="currentUser" />
 
           <!-- Phân hệ Tổ chức: 3. Quyền hạn -->
-          <PermissionsPage
-            v-else-if="activeTab === 'org-permissions'"
-            :current-user="currentUser"
-          />
+          <PermissionsPage v-else-if="activeTab === 'org-permissions'" :current-user="currentUser" />
 
           <!-- Page 2: Catalog Master -->
-          <CatalogPage
-            v-else-if="activeTab === 'catalog'"
-            :products="products"
-            :current-user="currentUser"
-            :loading-create="loading.createProduct"
-            @refresh-products="fetchProducts"
-            @create-product="submitCreateProduct"
-          />
+          <CatalogPage v-else-if="activeTab === 'catalog'" :products="products" :current-user="currentUser"
+            :loading-create="loading.createProduct" @refresh-products="fetchProducts"
+            @create-product="submitCreateProduct" />
 
           <!-- Page 3: Inventory Management (Tồn Kho) -->
-          <InventoryView
-            v-else-if="activeTab === 'inventory'"
-            :current-user="currentUser"
-          />
+          <InventoryView v-else-if="activeTab === 'inventory'" :current-user="currentUser" />
 
           <!-- Page 4: Sales Orders -->
-          <SalesPage
-            v-else-if="activeTab === 'sales'"
-            :customers="customers"
-            @order-created="onOrderCreated"
-          />
+          <SalesPage v-else-if="activeTab === 'sales'" :customers="customers" @order-created="onOrderCreated" />
 
           <!-- Page 5: Master Partners & Warehouses -->
-          <MasterPage
-            v-else-if="activeTab === 'master'"
-            :partners="partners"
-            :warehouses="warehouses"
-          />
+          <MasterPage v-else-if="activeTab === 'master'" :partners="partners" :warehouses="warehouses" />
 
           <!-- Page 6: Architecture & Outbox -->
-          <ArchitecturePage
-            v-else-if="activeTab === 'architecture'"
-          />
+          <ArchitecturePage v-else-if="activeTab === 'architecture'" />
         </main>
       </div>
 
       <!-- 3. Clean Floating AI Assistant -->
-      <AiAssistant
-        :user-name="currentUser ? currentUser.name : 'người dùng'"
-      />
+      <AiAssistant :user-name="currentUser ? currentUser.name : 'người dùng'" />
     </div>
   </div>
 </template>

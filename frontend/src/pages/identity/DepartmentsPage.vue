@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-6">
+  <div class="space-y-3">
     <!-- 1. Header Độc Bản -->
     <PageHeader
       title="Quản Lý Cơ Cấu Phòng Ban"
@@ -28,7 +28,7 @@
     </PageHeader>
 
     <!-- 2. Toolbar Tìm Kiếm -->
-    <div class="bg-white border border-slate-200 rounded-[6px] p-4 flex flex-wrap items-center justify-between gap-3">
+    <div class="bg-white border border-slate-200 rounded-[6px] px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-3">
         <InputText
           v-model="searchQuery"

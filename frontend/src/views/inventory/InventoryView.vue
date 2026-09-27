@@ -20,7 +20,7 @@
     </div>
 
     <!-- 2. Khối Nội Dung Thẻ Tab Chính -->
-    <div class="bg-white border border-slate-200 rounded-[6px] p-6">
+    <div class="bg-white border border-slate-200 rounded-[6px] p-4">
       <Tabs v-model:value="currentSubTab">
         <TabPanels>
           <!-- TAB 1: TỔNG QUAN (XEM TÌNH HÌNH KHO) -->
