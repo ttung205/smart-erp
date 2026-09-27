@@ -1,6 +1,13 @@
 <template>
-  <div class="space-y-3">
-    <!-- 1. Explanatory Enterprise Rule Banner -->
+  <div class="space-y-3 pb-8">
+    <PageHeader
+      title="Sổ Cái Bán Hàng & Ghi Sổ Trừ Kho (Accounting Ledger & Stock Deduction)"
+      subtitle="Chốt sổ kế toán sau khi giao hàng thành công: Ghi nhận doanh thu, giá vốn và kích hoạt trừ tồn kho On-Hand thực tế"
+      badge="Stage 5: Final Post"
+      badge-severity="success"
+    />
+
+    <!-- Explanatory Enterprise Rule Banner -->
     <div class="bg-indigo-50/70 border border-indigo-200 rounded-[6px] p-3 text-xs text-indigo-900 flex items-start gap-3">
       <div class="w-7 h-7 rounded-[4px] bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
         <i class="pi pi-book text-sm"></i>
@@ -10,12 +17,12 @@
           Chính Sách Đối Soát & Ghi Sổ Trừ Kho (Accounting Posting Policy)
         </div>
         <p class="m-0 text-indigo-800 text-[11px] leading-relaxed">
-          Theo nguyên tắc kế toán tài chính ERP: Khi hàng hóa được kho giao thành công tới khách hàng (có biên bản bàn giao), Kế toán tiến hành đối soát chứng từ và bấm nút <strong>"Ghi Sổ Kế Toán & Trừ Kho"</strong>. Lúc này hệ thống mới chính thức gửi lệnh gọi API <code>POST /api/v1/inventory/stocks/issue</code> sang <strong>Inventory Service (:8004)</strong> để trừ lượng tồn thực tế (On-Hand) và ghi nhận giá vốn hàng bán (COGS).
+          Theo quy chế kế toán ERP: Hàng hóa chỉ chính thức trừ tồn vật lý (On-Hand) trên <code>Inventory Service (:8004)</code> khi bộ phận Kế toán kiểm tra đối soát biên bản giao nhận và bấm <strong>"Ghi Sổ & Trừ Kho"</strong>. Chứng từ sau khi ghi sổ sẽ được khóa bất biến.
         </p>
       </div>
     </div>
 
-    <!-- 2. Action Toolbar -->
+    <!-- Toolbar Filter -->
     <Toolbar class="bg-white border border-slate-200 rounded-[6px] px-3 py-2 shadow-none">
       <template #start>
         <div class="flex items-center gap-2">
@@ -52,7 +59,7 @@
       </template>
     </Toolbar>
 
-    <!-- 3. Table -->
+    <!-- Data Table -->
     <div class="bg-white border border-slate-200 rounded-[6px] overflow-hidden">
       <DataTable
         :value="filteredInvoices"
@@ -82,7 +89,7 @@
           </template>
         </Column>
 
-        <Column header="Tình Trạng Giao" class="text-center" style="width: 140px">
+        <Column header="Tình Trạng Giao" class="text-center" style="width: 150px">
           <template #body="{ data }">
             <Tag
               v-if="data.warehouse_status === 'DELIVERED'"
@@ -108,7 +115,7 @@
           </template>
         </Column>
 
-        <Column header="Trạng Thái Sổ Cái" class="text-center" style="width: 170px">
+        <Column header="Trạng Thái Sổ Cái" class="text-center" style="width: 180px">
           <template #body="{ data }">
             <div v-if="data.accounting_status === 'POSTED'" class="flex flex-col items-center gap-0.5">
               <Tag
@@ -141,7 +148,7 @@
                 :disabled="data.warehouse_status !== 'DELIVERED'"
                 class="!text-xs !py-1 !px-2.5 rounded-[6px] !bg-emerald-600 hover:!bg-emerald-700 !text-white !border-emerald-600 !font-semibold disabled:!opacity-40"
                 v-tooltip.bottom="data.warehouse_status === 'DELIVERED' ? 'Bấm để ghi sổ kế toán và kích hoạt trừ tồn kho thực tế' : 'Cần đợi kho hoàn tất giao hàng thành công'"
-                @click="$emit('open-accounting-confirm', data)"
+                @click="openAccountingDialog(data)"
               />
 
               <div v-else class="text-xs text-emerald-700 font-semibold flex items-center gap-1">
@@ -161,11 +168,20 @@
         </template>
       </DataTable>
     </div>
+
+    <!-- Modals -->
+    <AccountingPostForm
+      v-model:visible="showConfirmDialog"
+      :invoice="selectedInvoice"
+      :loading="loadingPosting"
+      @confirm="handleConfirmPost"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue';
+import { useToast } from 'primevue/usetoast';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Toolbar from 'primevue/toolbar';
@@ -175,19 +191,26 @@ import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
+import PageHeader from '../../../components/common/PageHeader.vue';
+
+import AccountingPostForm from './form.vue';
+import { invoices, postAccountingInvoice } from '../salesStore';
 import { formatCurrency } from '../../../utils/format';
 
 const props = defineProps({
-  invoices: {
-    type: Array,
-    default: () => []
+  currentUser: {
+    type: Object,
+    default: null
   }
 });
 
-defineEmits(['open-accounting-confirm']);
+const toast = useToast();
 
 const searchQuery = ref('');
 const filterStatus = ref(null);
+const showConfirmDialog = ref(false);
+const selectedInvoice = ref(null);
+const loadingPosting = ref(false);
 
 const filterOptions = [
   { label: 'Tất cả chứng từ', value: null },
@@ -196,15 +219,15 @@ const filterOptions = [
 ];
 
 const pendingCount = computed(() => {
-  return props.invoices.filter((i) => i.accounting_status !== 'POSTED').length;
+  return invoices.value.filter((i) => i.accounting_status !== 'POSTED').length;
 });
 
 const postedCount = computed(() => {
-  return props.invoices.filter((i) => i.accounting_status === 'POSTED').length;
+  return invoices.value.filter((i) => i.accounting_status === 'POSTED').length;
 });
 
 const filteredInvoices = computed(() => {
-  return props.invoices.filter((inv) => {
+  return invoices.value.filter((inv) => {
     const matchSearch =
       !searchQuery.value ||
       inv.invoice_number.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
@@ -213,4 +236,35 @@ const filteredInvoices = computed(() => {
     return matchSearch && matchStatus;
   });
 });
+
+const openAccountingDialog = (inv) => {
+  selectedInvoice.value = inv;
+  showConfirmDialog.value = true;
+};
+
+const handleConfirmPost = async ({ invoice, note }) => {
+  loadingPosting.value = true;
+  try {
+    const posterName = props.currentUser?.name || 'Kế toán trưởng';
+    await postAccountingInvoice(invoice.id, note, posterName);
+
+    toast.add({
+      severity: 'success',
+      summary: 'Ghi Sổ Kế Toán & Trừ Kho Thành Công!',
+      detail: `Chứng từ ${invoice.invoice_number} đã được ghi sổ kế toán. Đã kích hoạt lệnh trừ tồn kho trên Inventory Service (:8004).`,
+      life: 5000
+    });
+
+    showConfirmDialog.value = false;
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Lỗi ghi sổ kế toán',
+      detail: err.message || 'Không thể kết nối đến Inventory Service.',
+      life: 5000
+    });
+  } finally {
+    loadingPosting.value = false;
+  }
+};
 </script>

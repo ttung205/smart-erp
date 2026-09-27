@@ -1,6 +1,13 @@
 <template>
-  <div class="space-y-3">
-    <!-- Action Toolbar -->
+  <div class="space-y-3 pb-8">
+    <PageHeader
+      title="Chứng Từ Bán Hàng & Điều Phối Kho (Invoices & Warehouse)"
+      subtitle="Theo dõi chứng từ bán hàng, tiến độ nhặt hàng (Pick & Pack), bàn giao vận chuyển và nhận hàng của khách"
+      badge="Stage 4: Fulfillment"
+      badge-severity="info"
+    />
+
+    <!-- Toolbar Filter -->
     <Toolbar class="bg-white border border-slate-200 rounded-[6px] px-3 py-2 shadow-none">
       <template #start>
         <div class="flex items-center gap-2">
@@ -32,7 +39,7 @@
       </template>
     </Toolbar>
 
-    <!-- Table -->
+    <!-- Data Table -->
     <div class="bg-white border border-slate-200 rounded-[6px] overflow-hidden">
       <DataTable
         :value="filteredInvoices"
@@ -111,9 +118,19 @@
         </Column>
 
         <!-- Thao tác tiến độ Kho -->
-        <Column header="Thao Tác Tại Kho" class="text-center" style="width: 220px">
+        <Column header="Thao Tác Tại Kho" class="text-center" style="width: 240px">
           <template #body="{ data }">
-            <div class="flex items-center justify-center gap-1">
+            <div class="flex items-center justify-center gap-1.5">
+              <Button
+                icon="pi pi-eye"
+                text
+                size="small"
+                severity="secondary"
+                class="!w-7 !h-7 !p-0 rounded-[6px]"
+                v-tooltip.bottom="'Xem chi tiết chứng từ'"
+                @click="openViewInvoice(data)"
+              />
+
               <!-- Nút 1: Chuyển xuống kho -->
               <Button
                 v-if="data.warehouse_status === 'PENDING_WAREHOUSE'"
@@ -121,7 +138,7 @@
                 icon="pi pi-send"
                 size="small"
                 class="!text-xs !py-1 !px-2 rounded-[6px] !bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600"
-                @click="$emit('update-warehouse-status', { invoice: data, status: 'PICKING' })"
+                @click="onUpdateWarehouse(data, 'PICKING')"
               />
 
               <!-- Nút 2: Kho nhặt hàng xong -> Bàn giao shipper -->
@@ -131,7 +148,7 @@
                 icon="pi pi-box"
                 size="small"
                 class="!text-xs !py-1 !px-2 rounded-[6px] !bg-amber-600 hover:!bg-amber-700 !text-white !border-amber-600"
-                @click="$emit('update-warehouse-status', { invoice: data, status: 'DISPATCHED' })"
+                @click="onUpdateWarehouse(data, 'DISPATCHED')"
               />
 
               <!-- Nút 3: Xác nhận khách đã nhận hàng -->
@@ -141,14 +158,19 @@
                 icon="pi pi-check-circle"
                 size="small"
                 class="!text-xs !py-1 !px-2 rounded-[6px] !bg-emerald-600 hover:!bg-emerald-700 !text-white !border-emerald-600"
-                @click="$emit('update-warehouse-status', { invoice: data, status: 'DELIVERED' })"
+                @click="onUpdateWarehouse(data, 'DELIVERED')"
               />
 
               <!-- Đã giao hàng -->
-              <div v-else-if="data.warehouse_status === 'DELIVERED'" class="flex items-center gap-1 text-[11px] text-emerald-700 font-semibold">
-                <i class="pi pi-check text-xs"></i>
-                <span>Giao hàng xong</span>
-              </div>
+              <Button
+                v-else-if="data.warehouse_status === 'DELIVERED' && data.accounting_status !== 'POSTED'"
+                label="Sang Ghi Sổ ➔"
+                text
+                size="small"
+                class="!text-xs !py-1 !px-2 rounded-[6px] !text-emerald-700 !font-bold hover:!bg-emerald-50"
+                v-tooltip.bottom="'Chuyển sang trang Kế toán để ghi sổ trừ tồn kho'"
+                @click="$router.push('/sales/accounting')"
+              />
             </div>
           </template>
         </Column>
@@ -157,16 +179,23 @@
           <div class="py-10 text-center flex flex-col items-center gap-2">
             <i class="pi pi-file text-3xl text-slate-300"></i>
             <p class="text-xs font-semibold text-slate-700 m-0">Chưa có chứng từ bán hàng nào</p>
-            <p class="text-[11px] text-slate-400 m-0">Lập chứng từ bán từ tab "Yêu Cầu Giao Hàng" để bắt đầu quy trình xuất kho.</p>
+            <p class="text-[11px] text-slate-400 m-0">Lập chứng từ bán từ trang Yêu Cầu Giao Hàng để bắt đầu quy trình xuất kho.</p>
           </div>
         </template>
       </DataTable>
     </div>
+
+    <!-- Modal -->
+    <InvoiceDetailForm
+      v-model:visible="showViewDialog"
+      :invoice="selectedInvoice"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue';
+import { useToast } from 'primevue/usetoast';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Toolbar from 'primevue/toolbar';
@@ -176,19 +205,18 @@ import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
+import PageHeader from '../../../components/common/PageHeader.vue';
+
+import InvoiceDetailForm from './form.vue';
+import { invoices, updateWarehouseStatus } from '../salesStore';
 import { formatCurrency } from '../../../utils/format';
 
-const props = defineProps({
-  invoices: {
-    type: Array,
-    default: () => []
-  }
-});
-
-defineEmits(['update-warehouse-status']);
+const toast = useToast();
 
 const searchQuery = ref('');
 const warehouseStatusFilter = ref(null);
+const showViewDialog = ref(false);
+const selectedInvoice = ref(null);
 
 const statusOptions = [
   { label: 'Tất cả tiến độ', value: null },
@@ -209,7 +237,7 @@ const getWarehouseStatusMeta = (st) => {
 };
 
 const filteredInvoices = computed(() => {
-  return props.invoices.filter((inv) => {
+  return invoices.value.filter((inv) => {
     const matchSearch =
       !searchQuery.value ||
       inv.invoice_number.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
@@ -219,4 +247,26 @@ const filteredInvoices = computed(() => {
     return matchSearch && matchStatus;
   });
 });
+
+const openViewInvoice = (inv) => {
+  selectedInvoice.value = inv;
+  showViewDialog.value = true;
+};
+
+const onUpdateWarehouse = (inv, status) => {
+  updateWarehouseStatus(inv.id, status);
+
+  const messages = {
+    PICKING: 'Kho đã nhận chứng từ và đang nhặt hàng đóng gói (Pick & Pack).',
+    DISPATCHED: 'Hàng đã được đóng gói và bàn giao cho shipper vận chuyển tới khách.',
+    DELIVERED: 'Khách hàng đã nhận hàng và ký biên bản giao nhận thành công! Sẵn sàng để Kế toán ghi sổ.'
+  };
+
+  toast.add({
+    severity: 'info',
+    summary: 'Cập nhật tiến độ kho',
+    detail: messages[status] || status,
+    life: 3000
+  });
+};
 </script>

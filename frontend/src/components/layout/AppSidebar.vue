@@ -190,7 +190,8 @@ const props = defineProps({
 const emit = defineEmits(['select-tab', 'toggle-collapse']);
 
 const openFolders = ref({
-  organization: true
+  organization: true,
+  sales: true
 });
 
 const toggleFolder = (folderId) => {

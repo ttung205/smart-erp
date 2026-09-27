@@ -12,10 +12,16 @@ import RolesPage from '../pages/identity/RolesPage.vue';
 import PermissionsPage from '../pages/identity/PermissionsPage.vue';
 import CatalogPage from '../pages/catalog/index.vue';
 import InventoryView from '../views/inventory/InventoryView.vue';
-import SalesPage from '../pages/sales/index.vue';
 import MasterPage from '../pages/master/index.vue';
 import ArchitecturePage from '../pages/architecture/index.vue';
 import ServiceStatusPage from '../pages/system/ServiceStatusPage.vue';
+
+// Sales sub-pages
+import QuotationPage from '../pages/sales/quotation/index.vue';
+import OrderPage from '../pages/sales/order/index.vue';
+import DeliveryPage from '../pages/sales/delivery/index.vue';
+import InvoicePage from '../pages/sales/invoice/index.vue';
+import AccountingPage from '../pages/sales/accounting/index.vue';
 
 export const routes = [
   {
@@ -102,13 +108,61 @@ export const routes = [
   },
   {
     path: '/sales',
-    name: 'sales',
-    component: SalesPage,
+    redirect: '/sales/quotation'
+  },
+  {
+    path: '/sales/quotation',
+    name: 'sales-quotation',
+    component: QuotationPage,
     meta: {
       requiresAuth: true,
       resource: 'sales',
       permission: 'sales.view',
-      title: 'Quản Lý Bán Hàng'
+      title: 'Báo Giá Khách Hàng'
+    }
+  },
+  {
+    path: '/sales/order',
+    name: 'sales-order',
+    component: OrderPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'sales',
+      permission: 'sales.view',
+      title: 'Đơn Bán Hàng'
+    }
+  },
+  {
+    path: '/sales/delivery',
+    name: 'sales-delivery',
+    component: DeliveryPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'sales',
+      permission: 'sales.view',
+      title: 'Yêu Cầu Giao Hàng'
+    }
+  },
+  {
+    path: '/sales/invoice',
+    name: 'sales-invoice',
+    component: InvoicePage,
+    meta: {
+      requiresAuth: true,
+      resource: 'sales',
+      permission: 'sales.view',
+      title: 'Chứng Từ & Kho'
+    }
+  },
+  {
+    path: '/sales/accounting',
+    name: 'sales-accounting',
+    component: AccountingPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'sales',
+      permission: 'sales.view',
+      title: 'Ghi Sổ Kế Toán'
     }
   },
   {

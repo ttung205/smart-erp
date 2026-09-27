@@ -1,6 +1,13 @@
 <template>
-  <div class="space-y-3">
-    <!-- Action Toolbar -->
+  <div class="space-y-3 pb-8">
+    <PageHeader
+      title="Đơn Bán Hàng (Sales Orders)"
+      subtitle="Quản lý danh sách đơn bán hàng chính thức (SO) được sinh từ các mặt hàng trúng thầu (Item Win) hoặc tạo mới"
+      badge="Stage 2: Sales Order"
+      badge-severity="info"
+    />
+
+    <!-- Toolbar Filter -->
     <Toolbar class="bg-white border border-slate-200 rounded-[6px] px-3 py-2 shadow-none">
       <template #start>
         <div class="flex items-center gap-2">
@@ -19,7 +26,7 @@
             optionLabel="label"
             optionValue="value"
             placeholder="Lọc trạng thái..."
-            class="w-44 rounded-[6px]"
+            class="w-48 rounded-[6px]"
             size="small"
           />
         </div>
@@ -32,7 +39,7 @@
       </template>
     </Toolbar>
 
-    <!-- Table -->
+    <!-- Data Table -->
     <div class="bg-white border border-slate-200 rounded-[6px] overflow-hidden">
       <DataTable
         :value="filteredOrders"
@@ -50,12 +57,12 @@
           </template>
         </Column>
 
-        <Column field="quotation_id" header="Nguồn Báo Giá" style="width: 150px">
+        <Column field="quotation_id" header="Nguồn Báo Giá" style="width: 160px">
           <template #body="{ data }">
-            <span v-if="data.quotation_id" class="font-mono text-xs text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded-[4px] border border-sky-100">
+            <span v-if="data.quotation_id" class="font-mono text-xs text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-100 font-semibold">
               {{ data.quotation_id }}
             </span>
-            <span v-else class="text-slate-400 text-xs italic">Đơn trực tiếp</span>
+            <span v-else class="text-slate-400 text-xs italic">Đơn lập trực tiếp</span>
           </template>
         </Column>
 
@@ -74,7 +81,7 @@
         <Column header="Mặt Hàng Chốt" class="text-center" style="width: 120px">
           <template #body="{ data }">
             <span class="text-xs font-mono font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded-[4px]">
-              {{ data.items?.length || 0 }} items win
+              {{ data.items?.length || 0 }} items
             </span>
           </template>
         </Column>
@@ -87,7 +94,7 @@
           </template>
         </Column>
 
-        <Column header="Trạng Thái" class="text-center" style="width: 140px">
+        <Column header="Trạng Thái" class="text-center" style="width: 150px">
           <template #body="{ data }">
             <Tag
               :severity="getStatusMeta(data.status).severity"
@@ -97,16 +104,25 @@
           </template>
         </Column>
 
-        <Column header="Thao Tác" class="text-center" style="width: 180px">
+        <Column header="Thao Tác" class="text-center" style="width: 220px">
           <template #body="{ data }">
-            <div class="flex items-center justify-center gap-1">
+            <div class="flex items-center justify-center gap-1.5">
+              <Button
+                icon="pi pi-eye"
+                text
+                size="small"
+                severity="secondary"
+                class="!w-7 !h-7 !p-0 rounded-[6px]"
+                v-tooltip.bottom="'Xem chi tiết đơn'"
+                @click="openViewOrder(data)"
+              />
               <Button
                 label="Lập Yêu Cầu Giao"
                 icon="pi pi-truck"
                 size="small"
-                class="!text-xs !py-1 !px-2 rounded-[6px] !bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !font-medium"
-                v-tooltip.bottom="'Tạo lệnh yêu cầu giao hàng sang kho xuất'"
-                @click="$emit('open-delivery-request', data)"
+                class="!text-xs !py-1 !px-2 rounded-[6px] !bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !font-semibold"
+                v-tooltip.bottom="'Tạo lệnh yêu cầu giao hàng chuyển sang bộ phận kho'"
+                @click="openDeliveryDialog(data)"
               />
             </div>
           </template>
@@ -116,16 +132,32 @@
           <div class="py-10 text-center flex flex-col items-center gap-2">
             <i class="pi pi-shopping-cart text-3xl text-slate-300"></i>
             <p class="text-xs font-semibold text-slate-700 m-0">Chưa có đơn bán hàng nào</p>
-            <p class="text-[11px] text-slate-400 m-0">Hãy duyệt chọn Item Win từ mục "Báo Giá" để sinh đơn bán hàng tự động.</p>
+            <p class="text-[11px] text-slate-400 m-0">Hãy sang trang Báo Giá và chọn Item Win để sinh Đơn bán tự động.</p>
           </div>
         </template>
       </DataTable>
     </div>
+
+    <!-- Modals -->
+    <OrderDetailForm
+      v-model:visible="showViewDialog"
+      :order="selectedOrder"
+      :is-view-mode="true"
+    />
+
+    <CreateDeliveryDialog
+      v-model:visible="showDeliveryDialog"
+      :order="selectedOrder"
+      :warehouses="warehouses"
+      @create-delivery-request="handleCreateDelivery"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue';
+import { useRouter } from 'vue-router';
+import { useToast } from 'primevue/usetoast';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Toolbar from 'primevue/toolbar';
@@ -135,19 +167,28 @@ import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
+import PageHeader from '../../../components/common/PageHeader.vue';
+
+import OrderDetailForm from './form.vue';
+import CreateDeliveryDialog from './delivery-dialog.vue';
+import { orders, addDeliveryRequest } from '../salesStore';
 import { formatCurrency } from '../../../utils/format';
 
 const props = defineProps({
-  orders: {
+  warehouses: {
     type: Array,
     default: () => []
   }
 });
 
-defineEmits(['open-delivery-request']);
+const router = useRouter();
+const toast = useToast();
 
 const searchQuery = ref('');
 const statusFilter = ref(null);
+const showViewDialog = ref(false);
+const showDeliveryDialog = ref(false);
+const selectedOrder = ref(null);
 
 const statusOptions = [
   { label: 'Tất cả trạng thái', value: null },
@@ -167,7 +208,7 @@ const getStatusMeta = (st) => {
 };
 
 const filteredOrders = computed(() => {
-  return props.orders.filter((o) => {
+  return orders.value.filter((o) => {
     const matchSearch =
       !searchQuery.value ||
       o.id.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
@@ -176,4 +217,26 @@ const filteredOrders = computed(() => {
     return matchSearch && matchStatus;
   });
 });
+
+const openViewOrder = (order) => {
+  selectedOrder.value = order;
+  showViewDialog.value = true;
+};
+
+const openDeliveryDialog = (order) => {
+  selectedOrder.value = order;
+  showDeliveryDialog.value = true;
+};
+
+const handleCreateDelivery = (newDr) => {
+  addDeliveryRequest(newDr);
+  toast.add({
+    severity: 'success',
+    summary: 'Đã lập lệnh yêu cầu giao hàng',
+    detail: `Lệnh giao ${newDr.id} đã phát hành thành công. Đang chuyển sang trang Giao Hàng...`,
+    life: 3000
+  });
+
+  router.push('/sales/delivery');
+};
 </script>

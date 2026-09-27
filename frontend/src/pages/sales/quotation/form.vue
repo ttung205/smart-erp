@@ -211,7 +211,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['update:visible', 'create-quotation']);
+const emit = defineEmits(['update:visible', 'submit']);
 
 const customerOptions = computed(() => {
   return props.customers.map((c) => ({
@@ -250,17 +250,17 @@ watch(
     if (val) {
       form.value = {
         quotation_number: generateQuotationNumber(),
-        customer_id: props.customers[0]?.id || null,
-        customer_name: props.customers[0]?.name || '',
+        customer_id: props.customers[0]?.id || 1,
+        customer_name: props.customers[0]?.name || 'Tập đoàn Công nghệ FPT',
         valid_until: '2026-10-30',
-        notes: 'Báo giá đã bao gồm thuế GTGT và bảo hành chính hãng 24 tháng.',
+        notes: 'Báo giá đã bao gồm thuế GTGT 10% và bảo hành chính hãng 24 tháng.',
         items: [
           {
             product_id: props.products[0]?.id || 1,
             product_sku: props.products[0]?.sku || 'LAP-DELL-5520',
             product_name: props.products[0]?.name || 'Dell Precision 5520 Workstation',
             quantity: 5,
-            unit_price: props.products[0]?.price || 28500000,
+            unit_price: props.products[0]?.price || 26500000,
             discount_percent: 5,
             vat_percent: 10
           }
@@ -351,12 +351,12 @@ const submitQuotation = () => {
       discount_percent: i.discount_percent,
       vat_percent: i.vat_percent || 10,
       total_line: calculateLineTotal(i) * 1.1,
-      won: false,
+      won: true,
       won_quantity: i.quantity
     }))
   };
 
-  emit('create-quotation', payload);
+  emit('submit', payload);
   emit('update:visible', false);
 };
 </script>

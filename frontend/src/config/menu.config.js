@@ -66,12 +66,56 @@ export const menuCategories = [
       },
       {
         id: 'sales',
-        path: '/sales',
-        resource: 'sales',
-        permission: 'sales.view',
-        label: 'Quản lý bán hàng',
+        label: 'Bán hàng',
         icon: 'pi pi-shopping-cart',
-        badge: 'Đơn hàng'
+        isFolder: true,
+        children: [
+          {
+            id: 'sales-quotation',
+            path: '/sales/quotation',
+            resource: 'sales',
+            permission: 'sales.view',
+            label: 'Báo giá',
+            icon: 'pi pi-file-edit',
+            badge: 'Báo giá'
+          },
+          {
+            id: 'sales-order',
+            path: '/sales/order',
+            resource: 'sales',
+            permission: 'sales.view',
+            label: 'Đơn bán hàng',
+            icon: 'pi pi-shopping-bag',
+            badge: 'Đơn bán'
+          },
+          {
+            id: 'sales-delivery',
+            path: '/sales/delivery',
+            resource: 'sales',
+            permission: 'sales.view',
+            label: 'Yêu cầu giao hàng',
+            icon: 'pi pi-truck',
+            badge: 'Giao hàng'
+          },
+          {
+            id: 'sales-invoice',
+            path: '/sales/invoice',
+            resource: 'sales',
+            permission: 'sales.view',
+            label: 'Chứng từ & Kho',
+            icon: 'pi pi-file',
+            badge: 'Chứng từ'
+          },
+          {
+            id: 'sales-accounting',
+            path: '/sales/accounting',
+            resource: 'sales',
+            permission: 'sales.view',
+            label: 'Ghi sổ kế toán',
+            icon: 'pi pi-book',
+            badge: 'Kế toán'
+          }
+        ]
       },
       {
         id: 'master',

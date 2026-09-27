@@ -1,6 +1,13 @@
 <template>
-  <div class="space-y-3">
-    <!-- Action Toolbar -->
+  <div class="space-y-3 pb-8">
+    <PageHeader
+      title="Yêu Cầu Giao Hàng (Delivery Requests)"
+      subtitle="Quản lý các lệnh điều phối vận chuyển, kho xuất hàng và địa chỉ giao nhận theo đơn bán hàng (SO)"
+      badge="Stage 3: Delivery Request"
+      badge-severity="info"
+    />
+
+    <!-- Toolbar Filter -->
     <Toolbar class="bg-white border border-slate-200 rounded-[6px] px-3 py-2 shadow-none">
       <template #start>
         <div class="flex items-center gap-2">
@@ -23,7 +30,7 @@
       </template>
     </Toolbar>
 
-    <!-- Table -->
+    <!-- Data Table -->
     <div class="bg-white border border-slate-200 rounded-[6px] overflow-hidden">
       <DataTable
         :value="filteredRequests"
@@ -41,7 +48,7 @@
           </template>
         </Column>
 
-        <Column field="order_id" header="Đơn Bán Gốc" style="width: 140px">
+        <Column field="order_id" header="Đơn Bán Gốc" style="width: 150px">
           <template #body="{ data }">
             <span class="font-mono text-xs font-semibold text-indigo-700">
               {{ data.order_id }}
@@ -55,7 +62,7 @@
           </template>
         </Column>
 
-        <Column field="warehouse_name" header="Kho Xuất Hàng" style="width: 180px">
+        <Column field="warehouse_name" header="Kho Xuất Hàng" style="width: 200px">
           <template #body="{ data }">
             <div class="flex items-center gap-1.5 text-xs text-slate-700">
               <i class="pi pi-building text-slate-400"></i>
@@ -64,7 +71,7 @@
           </template>
         </Column>
 
-        <Column field="expected_delivery_date" header="Hẹn Giao" style="width: 110px">
+        <Column field="expected_delivery_date" header="Hẹn Giao" style="width: 120px">
           <template #body="{ data }">
             <span class="text-slate-600 text-xs font-medium">{{ data.expected_delivery_date }}</span>
           </template>
@@ -78,7 +85,7 @@
           </template>
         </Column>
 
-        <Column header="Trạng Thái" class="text-center" style="width: 130px">
+        <Column header="Trạng Thái" class="text-center" style="width: 140px">
           <template #body="{ data }">
             <Tag
               :severity="getStatusMeta(data.status).severity"
@@ -88,17 +95,26 @@
           </template>
         </Column>
 
-        <Column header="Thao Tác" class="text-center" style="width: 180px">
+        <Column header="Thao Tác" class="text-center" style="width: 210px">
           <template #body="{ data }">
-            <div class="flex items-center justify-center gap-1">
+            <div class="flex items-center justify-center gap-1.5">
+              <Button
+                icon="pi pi-eye"
+                text
+                size="small"
+                severity="secondary"
+                class="!w-7 !h-7 !p-0 rounded-[6px]"
+                v-tooltip.bottom="'Xem chi tiết lệnh giao'"
+                @click="openViewRequest(data)"
+              />
               <Button
                 v-if="data.status !== 'INVOICED'"
                 label="Lập Chứng Từ Bán"
                 icon="pi pi-file"
                 size="small"
-                class="!text-xs !py-1 !px-2 rounded-[6px] !bg-indigo-600 hover:!bg-indigo-700 !text-white !border-indigo-600 !font-medium"
+                class="!text-xs !py-1 !px-2 rounded-[6px] !bg-indigo-600 hover:!bg-indigo-700 !text-white !border-indigo-600 !font-semibold"
                 v-tooltip.bottom="'Tạo chứng từ bán hàng để chuyển kho nhặt hàng'"
-                @click="$emit('open-invoice-dialog', data)"
+                @click="openInvoiceDialog(data)"
               />
               <Tag
                 v-else
@@ -114,16 +130,30 @@
           <div class="py-10 text-center flex flex-col items-center gap-2">
             <i class="pi pi-truck text-3xl text-slate-300"></i>
             <p class="text-xs font-semibold text-slate-700 m-0">Chưa có yêu cầu giao hàng nào</p>
-            <p class="text-[11px] text-slate-400 m-0">Tạo lệnh giao hàng từ danh sách Đơn Bán Hàng (SO) ở tab trước.</p>
+            <p class="text-[11px] text-slate-400 m-0">Tạo lệnh giao hàng từ danh sách Đơn Bán Hàng (SO) ở mục trước.</p>
           </div>
         </template>
       </DataTable>
     </div>
+
+    <!-- Modals -->
+    <DeliveryDetailForm
+      v-model:visible="showViewDialog"
+      :delivery-request="selectedRequest"
+    />
+
+    <CreateInvoiceDialog
+      v-model:visible="showInvoiceDialog"
+      :delivery-request="selectedRequest"
+      @create-invoice="handleCreateInvoice"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue';
+import { useRouter } from 'vue-router';
+import { useToast } from 'primevue/usetoast';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Toolbar from 'primevue/toolbar';
@@ -132,17 +162,19 @@ import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
+import PageHeader from '../../../components/common/PageHeader.vue';
 
-const props = defineProps({
-  deliveryRequests: {
-    type: Array,
-    default: () => []
-  }
-});
+import DeliveryDetailForm from './form.vue';
+import CreateInvoiceDialog from './invoice-dialog.vue';
+import { deliveryRequests, addInvoice } from '../salesStore';
 
-defineEmits(['open-invoice-dialog']);
+const router = useRouter();
+const toast = useToast();
 
 const searchQuery = ref('');
+const showViewDialog = ref(false);
+const showInvoiceDialog = ref(false);
+const selectedRequest = ref(null);
 
 const getStatusMeta = (st) => {
   const map = {
@@ -154,7 +186,7 @@ const getStatusMeta = (st) => {
 };
 
 const filteredRequests = computed(() => {
-  return props.deliveryRequests.filter((r) => {
+  return deliveryRequests.value.filter((r) => {
     return (
       !searchQuery.value ||
       r.id.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
@@ -163,4 +195,26 @@ const filteredRequests = computed(() => {
     );
   });
 });
+
+const openViewRequest = (r) => {
+  selectedRequest.value = r;
+  showViewDialog.value = true;
+};
+
+const openInvoiceDialog = (r) => {
+  selectedRequest.value = r;
+  showInvoiceDialog.value = true;
+};
+
+const handleCreateInvoice = (newInv) => {
+  addInvoice(newInv);
+  toast.add({
+    severity: 'success',
+    summary: 'Đã lập chứng từ bán hàng',
+    detail: `Chứng từ ${newInv.invoice_number} đã chuyển xuống kho. Đang chuyển sang trang Chứng Từ & Kho...`,
+    life: 3000
+  });
+
+  router.push('/sales/invoice');
+};
 </script>

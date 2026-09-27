@@ -2,7 +2,7 @@
   <Dialog
     :visible="visible"
     modal
-    :header="`Chi Tiết Báo Giá: ${quotation?.quotation_number || ''}`"
+    :header="`Chi Tiết Báo Giá & Chọn Item Win: ${quotation?.quotation_number || ''}`"
     :style="{ width: '920px' }"
     class="rounded-[6px]"
     @update:visible="$emit('update:visible', $event)"
@@ -185,7 +185,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['update:visible', 'create-so-from-quotation']);
+const emit = defineEmits(['update:visible', 'create-so']);
 
 const items = ref([]);
 
@@ -195,7 +195,7 @@ watch(
     if (newQ && newQ.items) {
       items.value = newQ.items.map((item) => ({
         ...item,
-        won: item.won ?? true, // Mặc định gợi ý win
+        won: item.won ?? true,
         won_quantity: item.won_quantity || item.quantity
       }));
     } else {
@@ -263,10 +263,10 @@ const confirmGenerateSO = () => {
       discount_percent: i.discount_percent || 0,
       amount: i.won_quantity * i.unit_price * (1 - (i.discount_percent || 0) / 100)
     })),
-    total_amount: totalWonAmount.value * 1.1 // Có VAT
+    total_amount: totalWonAmount.value * 1.1
   };
 
-  emit('create-so-from-quotation', payload);
+  emit('create-so', payload);
   emit('update:visible', false);
 };
 </script>

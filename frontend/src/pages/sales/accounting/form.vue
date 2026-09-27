@@ -8,7 +8,7 @@
     @update:visible="$emit('update:visible', $event)"
   >
     <div v-if="invoice" class="flex flex-col gap-4 pt-1">
-      <!-- 1. Cảnh báo nghiệp vụ ghi sổ -->
+      <!-- Cảnh báo nghiệp vụ ghi sổ -->
       <div class="bg-red-50 border border-red-200 rounded-[6px] p-3 text-xs text-red-900 flex items-start gap-2.5">
         <i class="pi pi-exclamation-triangle text-red-600 text-lg mt-0.5 shrink-0"></i>
         <div>
@@ -21,7 +21,7 @@
         </div>
       </div>
 
-      <!-- 2. Thông tin đối soát -->
+      <!-- Thông tin đối soát -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3 bg-slate-50 border border-slate-200 rounded-[6px] p-3 text-xs">
         <div class="space-y-1.5">
           <div><span class="text-slate-500">Mã chứng từ:</span> <strong class="font-mono text-indigo-700 ml-1">{{ invoice.invoice_number }}</strong></div>
@@ -46,7 +46,7 @@
         </div>
       </div>
 
-      <!-- 3. Danh sách mặt hàng trừ kho -->
+      <!-- Danh sách mặt hàng trừ kho -->
       <div class="border border-slate-200 rounded-[6px] overflow-hidden">
         <div class="bg-slate-100 px-3 py-1.5 border-b border-slate-200 text-xs font-semibold text-slate-700 flex justify-between items-center">
           <span>Chi Tiết Mặt Hàng Trừ Kho Vật Lý (Issue Stock)</span>
@@ -86,7 +86,7 @@
         </DataTable>
       </div>
 
-      <!-- 4. Ghi chú của Kế toán -->
+      <!-- Ghi chú của Kế toán -->
       <div class="flex flex-col gap-1">
         <label class="text-xs font-semibold text-slate-700">Ghi chú đối soát sổ cái kế toán</label>
         <InputText
@@ -148,12 +148,12 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['update:visible', 'confirm-post']);
+const emit = defineEmits(['update:visible', 'confirm']);
 
 const accountingNote = ref('Biên bản giao nhận đã ký đầy đủ, đối soát công nợ hợp lệ, duyệt xuất kho chính thức.');
 
 const confirmPost = () => {
-  emit('confirm-post', {
+  emit('confirm', {
     invoice: props.invoice,
     note: accountingNote.value
   });
