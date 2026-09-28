@@ -18,6 +18,7 @@ import ServiceStatusPage from '../pages/system/ServiceStatusPage.vue';
 
 // Sales sub-pages
 import QuotationPage from '../pages/quotation/index.vue';
+import QuotationFormPage from '../pages/quotation/form.vue';
 import OrderPage from '../pages/order/index.vue';
 import DeliveryPage from '../pages/delivery/index.vue';
 import InvoicePage from '../pages/invoice/index.vue';
@@ -120,6 +121,32 @@ export const routes = [
       permission: 'sales.view',
       title: 'Báo Giá Khách Hàng'
     }
+  },
+  {
+    path: '/quotation/create',
+    name: 'quotation-create',
+    component: QuotationFormPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'sales',
+      permission: 'sales.view',
+      title: 'Tạo Báo Giá Mới'
+    }
+  },
+  {
+    path: '/quotation/:id/edit',
+    name: 'quotation-edit',
+    component: QuotationFormPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'sales',
+      permission: 'sales.view',
+      title: 'Chỉnh Sửa Báo Giá'
+    }
+  },
+  {
+    path: '/quotation/:id',
+    redirect: to => `/quotation/${to.params.id}/edit`
   },
   {
     path: '/order',

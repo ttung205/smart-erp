@@ -2,7 +2,7 @@
   <div class="space-y-3 pb-8">
     <PageHeader
       title="Báo Giá Khách Hàng (Quotations)"
-      subtitle="Quản lý các bản báo giá B2B, theo dõi trạng thái đàm phán và lựa chọn Item Win để sinh Đơn Bán Hàng"
+      subtitle="Quản lý các bản báo giá B2B, theo dõi tiến trình phê duyệt và liên kết đơn bán hàng"
       badge="Stage 1: Quotation"
       badge-severity="info"
     >
@@ -12,7 +12,7 @@
           icon="pi pi-plus"
           size="small"
           class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 rounded-[6px]"
-          @click="showCreateDialog = true"
+          @click="goToCreate"
         />
       </template>
     </PageHeader>
@@ -49,102 +49,114 @@
       </template>
     </Toolbar>
 
-    <!-- Data Table -->
-    <div class="bg-white border border-slate-200 rounded-[6px] overflow-hidden">
-      <DataTable
-        :value="filteredQuotations"
-        showGridlines
-        class="clean-datatable"
-        responsiveLayout="scroll"
-        :paginator="filteredQuotations.length > 8"
-        :rows="8"
-      >
-        <Column field="quotation_number" header="Mã Báo Giá" :sortable="true" style="width: 160px">
-          <template #body="{ data }">
-            <span class="font-mono text-xs font-semibold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-200">
-              {{ data.quotation_number }}
-            </span>
-          </template>
-        </Column>
+    <!-- Data Table using CommonDataTable -->
+    <CommonDataTable
+      :value="filteredQuotations"
+      :columns="tableColumns"
+      :rows="8"
+      emptyIcon="pi pi-file-edit"
+      emptyTitle="Chưa có bản báo giá nào"
+      emptySubtitle="Nhấn nút 'Lập Báo Giá Mới' ở trên để chuyển sang màn hình lập báo giá."
+    >
+      <!-- Custom column: quotation_number -->
+      <template #col-quotation_number="{ data }">
+        <span
+          class="font-mono text-xs font-semibold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-200 cursor-pointer hover:underline"
+          @click="openViewDialog(data)"
+        >
+          {{ data.quotation_number }}
+        </span>
+      </template>
 
-        <Column field="customer_name" header="Khách Hàng B2B" :sortable="true">
-          <template #body="{ data }">
-            <span class="font-semibold text-slate-800 text-xs">{{ data.customer_name }}</span>
-          </template>
-        </Column>
+      <!-- Custom column: customer_name -->
+      <template #col-customer_name="{ data }">
+        <div class="flex flex-col">
+          <span class="font-semibold text-slate-800 text-xs">{{ data.customer_name }}</span>
+          <span v-if="data.contact_name" class="text-[11px] text-slate-400">LH: {{ data.contact_name }}</span>
+        </div>
+      </template>
 
-        <Column field="quotation_date" header="Ngày Lập" style="width: 110px">
-          <template #body="{ data }">
-            <span class="text-slate-600 text-xs">{{ data.quotation_date }}</span>
-          </template>
-        </Column>
+      <!-- Custom column: created_at -->
+      <template #col-created_at="{ data }">
+        <span class="text-slate-600 text-xs font-mono">{{ data.created_at || data.quotation_date }}</span>
+      </template>
 
-        <Column field="valid_until" header="Hạn Hiệu Lực" style="width: 110px">
-          <template #body="{ data }">
-            <span class="text-slate-500 text-xs">{{ data.valid_until }}</span>
-          </template>
-        </Column>
+      <!-- Custom column: items_count -->
+      <template #col-items_count="{ data }">
+        <div class="text-center">
+          <span class="text-xs font-mono font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded-[4px]">
+            {{ data.items?.length || 0 }} items
+          </span>
+        </div>
+      </template>
 
-        <Column header="Số Mặt Hàng" class="text-center" style="width: 110px">
-          <template #body="{ data }">
-            <span class="text-xs font-mono font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded-[4px]">
-              {{ data.items?.length || 0 }} items
-            </span>
-          </template>
-        </Column>
+      <!-- Custom column: total_amount -->
+      <template #col-total_amount="{ data }">
+        <div class="text-right">
+          <span class="font-mono text-xs font-bold text-slate-900 num-tabular">
+            {{ formatCurrency(data.total_amount) }}
+          </span>
+        </div>
+      </template>
 
-        <Column field="total_amount" header="Tổng Báo Giá" class="text-right" :sortable="true" style="width: 150px">
-          <template #body="{ data }">
-            <span class="font-mono text-xs font-bold text-slate-900 num-tabular">
-              {{ formatCurrency(data.total_amount) }}
-            </span>
-          </template>
-        </Column>
+      <!-- Custom column: status -->
+      <template #col-status="{ data }">
+        <div class="text-center">
+          <Tag
+            :severity="getStatusMeta(data.status).severity"
+            :value="getStatusMeta(data.status).label"
+            class="text-[11px] px-2 py-0.5 rounded-[6px]"
+          />
+        </div>
+      </template>
 
-        <Column header="Trạng Thái" class="text-center" style="width: 150px">
-          <template #body="{ data }">
-            <Tag
-              :severity="getStatusMeta(data.status).severity"
-              :value="getStatusMeta(data.status).label"
-              class="text-[11px] px-2 py-0.5 rounded-[6px]"
+      <!-- Column Thao Tác (Actions) -->
+      <Column header="Thao Tác" class="text-center" style="width: 170px">
+        <template #body="{ data }">
+          <div class="flex items-center justify-center gap-1">
+            <!-- Nút View báo giá qua dialog -->
+            <Button
+              icon="pi pi-eye"
+              size="small"
+              text
+              severity="secondary"
+              class="!text-xs !p-1.5 rounded-[6px] hover:!bg-slate-100"
+              v-tooltip.bottom="'Xem chi tiết báo giá'"
+              @click="openViewDialog(data)"
             />
-          </template>
-        </Column>
 
-        <Column header="Thao Tác" class="text-center" style="width: 160px">
-          <template #body="{ data }">
-            <div class="flex items-center justify-center gap-1">
-              <Button
-                label="Chọn Item Win"
-                icon="pi pi-check-circle"
-                size="small"
-                text
-                class="!text-xs !py-1 !px-2 rounded-[6px] !text-indigo-600 hover:!bg-indigo-50 !font-semibold"
-                v-tooltip.bottom="'Xem chi tiết & chọn Item Win để sinh Đơn bán (SO)'"
-                @click="openWinDialog(data)"
-              />
-            </div>
-          </template>
-        </Column>
+            <!-- Nút Chỉnh sửa báo giá sang trang riêng form.vue -->
+            <Button
+              icon="pi pi-pencil"
+              size="small"
+              text
+              class="!text-xs !p-1.5 rounded-[6px] !text-sky-600 hover:!bg-sky-50"
+              v-tooltip.bottom="'Chỉnh sửa báo giá (Trang riêng)'"
+              @click="goToEdit(data)"
+            />
 
-        <template #empty>
-          <div class="py-10 text-center flex flex-col items-center gap-2">
-            <i class="pi pi-file-edit text-3xl text-slate-300"></i>
-            <p class="text-xs font-semibold text-slate-700 m-0">Chưa có bản báo giá nào</p>
-            <p class="text-[11px] text-slate-400 m-0">Nhấn nút "Lập Báo Giá Mới" ở trên để bắt đầu quy trình bán hàng.</p>
+            <!-- Nút Tạo đơn bán (SO) / Chọn item win nếu đã duyệt -->
+            <Button
+              v-if="data.status === 'APPROVED'"
+              icon="pi pi-cart-plus"
+              size="small"
+              text
+              class="!text-xs !p-1.5 rounded-[6px] !text-emerald-600 hover:!bg-emerald-50"
+              v-tooltip.bottom="'Chọn Item Win để sinh Đơn bán (SO)'"
+              @click="openWinDialog(data)"
+            />
           </div>
         </template>
-      </DataTable>
-    </div>
+      </Column>
+    </CommonDataTable>
 
-    <!-- Modals -->
-    <QuotationForm
-      v-model:visible="showCreateDialog"
-      :customers="customers"
-      :products="products"
-      @submit="handleCreateQuotation"
+    <!-- View Quotation Modal Dialog -->
+    <QuotationViewDialog
+      v-model:visible="showViewDialog"
+      :quotation="selectedQuotation"
     />
 
+    <!-- Win Items Selection Dialog for converting to SO -->
     <WinForm
       v-model:visible="showWinDialog"
       :quotation="selectedQuotation"
@@ -157,7 +169,6 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
-import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Toolbar from 'primevue/toolbar';
 import IconField from 'primevue/iconfield';
@@ -167,45 +178,46 @@ import Select from 'primevue/select';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
 import PageHeader from '../../components/common/PageHeader.vue';
-
-import QuotationForm from './form.vue';
+import CommonDataTable from '../../components/common/CommonDataTable.vue';
+import QuotationViewDialog from './view-dialog.vue';
 import WinForm from './win-form.vue';
-import { quotations, addQuotation, createSOFromQuotation } from '../../composables/salesStore';
-import { formatCurrency } from '../../utils/format';
 
-const props = defineProps({
-  customers: {
-    type: Array,
-    default: () => []
-  },
-  products: {
-    type: Array,
-    default: () => []
-  }
-});
+import { quotations, createSOFromQuotation } from '../../composables/salesStore';
+import { formatCurrency } from '../../utils/format';
 
 const router = useRouter();
 const toast = useToast();
 
 const searchQuery = ref('');
 const statusFilter = ref(null);
-const showCreateDialog = ref(false);
+const showViewDialog = ref(false);
 const showWinDialog = ref(false);
 const selectedQuotation = ref(null);
 
+// Cấu hình các cột cho CommonDataTable (đã bỏ cột hạn hiệu lực theo yêu cầu)
+const tableColumns = [
+  { field: 'quotation_number', header: 'Mã Báo Giá', sortable: true, width: '180px' },
+  { field: 'customer_name', header: 'Khách Hàng', sortable: true },
+  { field: 'created_at', header: 'Ngày Tạo', sortable: true, width: '140px' },
+  { field: 'items_count', header: 'Số Item', sortable: false, width: '100px', align: 'center' },
+  { field: 'total_amount', header: 'Tổng Số Tiền', sortable: true, width: '160px', align: 'right' },
+  { field: 'status', header: 'Trạng Thái', sortable: true, width: '140px', align: 'center' }
+];
+
 const statusOptions = [
   { label: 'Tất cả trạng thái', value: null },
-  { label: 'Dự thảo', value: 'DRAFT' },
-  { label: 'Đang đàm phán', value: 'NEGOTIATING' },
-  { label: 'Đã sinh đơn bán (SO)', value: 'CONVERTED' }
+  { label: 'Bản nháp', value: 'DRAFT' },
+  { label: 'Chờ duyệt', value: 'PENDING_APPROVAL' },
+  { label: 'Đã duyệt', value: 'APPROVED' },
+  { label: 'Đã tạo đơn bán', value: 'CONVERTED' }
 ];
 
 const getStatusMeta = (st) => {
   const map = {
-    DRAFT: { label: 'Dự thảo', severity: 'secondary' },
-    SENT: { label: 'Đã gửi khách', severity: 'info' },
-    NEGOTIATING: { label: 'Đang đàm phán', severity: 'warn' },
-    CONVERTED: { label: 'Đã tạo SO', severity: 'success' },
+    DRAFT: { label: 'Bản nháp', severity: 'secondary' },
+    PENDING_APPROVAL: { label: 'Chờ duyệt', severity: 'warn' },
+    APPROVED: { label: 'Đã duyệt', severity: 'info' },
+    CONVERTED: { label: 'Đã tạo đơn bán', severity: 'success' },
     REJECTED: { label: 'Từ chối', severity: 'danger' }
   };
   return map[st] || { label: st, severity: 'secondary' };
@@ -222,14 +234,17 @@ const filteredQuotations = computed(() => {
   });
 });
 
-const handleCreateQuotation = (newQ) => {
-  addQuotation(newQ);
-  toast.add({
-    severity: 'success',
-    summary: 'Đã lập báo giá mới',
-    detail: `Báo giá ${newQ.quotation_number} đã được phát hành thành công.`,
-    life: 3000
-  });
+const goToCreate = () => {
+  router.push('/quotation/create');
+};
+
+const goToEdit = (quotation) => {
+  router.push(`/quotation/${quotation.id}/edit`);
+};
+
+const openViewDialog = (q) => {
+  selectedQuotation.value = q;
+  showViewDialog.value = true;
 };
 
 const openWinDialog = (q) => {
