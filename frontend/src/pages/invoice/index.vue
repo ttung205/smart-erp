@@ -194,7 +194,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
@@ -208,11 +208,13 @@ import Tag from 'primevue/tag';
 import PageHeader from '../../components/common/PageHeader.vue';
 
 import InvoiceDetailForm from './form.vue';
-import { invoices, updateWarehouseStatus } from '../../composables/salesStore';
+import { salesApi } from '../../api/sales.api';
 import { formatCurrency } from '../../utils/format';
 
 const toast = useToast();
 
+const invoices = ref([]);
+const loading = ref(false);
 const searchQuery = ref('');
 const warehouseStatusFilter = ref(null);
 const showViewDialog = ref(false);
@@ -236,13 +238,35 @@ const getWarehouseStatusMeta = (st) => {
   return map[st] || { label: st, severity: 'secondary' };
 };
 
+const loadInvoices = async () => {
+  loading.value = true;
+  try {
+    const res = await salesApi.getInvoices();
+    invoices.value = (res.data || []).map((inv) => ({
+      ...inv,
+      order_id: inv.order_number || inv.order_id
+    }));
+  } catch (err) {
+    console.error('Lỗi tải danh sách chứng từ:', err);
+  } finally {
+    loading.value = false;
+  }
+};
+
+onMounted(() => {
+  loadInvoices();
+});
+
 const filteredInvoices = computed(() => {
   return invoices.value.filter((inv) => {
+    const invNum = String(inv.invoice_number || '');
+    const cName = String(inv.customer_name || '');
+    const oId = String(inv.order_id || inv.order_number || '');
     const matchSearch =
       !searchQuery.value ||
-      inv.invoice_number.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      inv.customer_name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      inv.order_id.toLowerCase().includes(searchQuery.value.toLowerCase());
+      invNum.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+      cName.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+      oId.toLowerCase().includes(searchQuery.value.toLowerCase());
     const matchStatus = !warehouseStatusFilter.value || inv.warehouse_status === warehouseStatusFilter.value;
     return matchSearch && matchStatus;
   });
@@ -253,20 +277,30 @@ const openViewInvoice = (inv) => {
   showViewDialog.value = true;
 };
 
-const onUpdateWarehouse = (inv, status) => {
-  updateWarehouseStatus(inv.id, status);
+const onUpdateWarehouse = async (inv, status) => {
+  try {
+    await salesApi.updateInvoiceWarehouseStatus(inv.id, status);
+    inv.warehouse_status = status;
 
-  const messages = {
-    PICKING: 'Kho đã nhận chứng từ và đang nhặt hàng đóng gói (Pick & Pack).',
-    DISPATCHED: 'Hàng đã được đóng gói và bàn giao cho shipper vận chuyển tới khách.',
-    DELIVERED: 'Khách hàng đã nhận hàng và ký biên bản giao nhận thành công! Sẵn sàng để Kế toán ghi sổ.'
-  };
+    const messages = {
+      PICKING: 'Kho đã nhận chứng từ và đang nhặt hàng đóng gói (Pick & Pack).',
+      DISPATCHED: 'Hàng đã được đóng gói và bàn giao cho shipper vận chuyển tới khách.',
+      DELIVERED: 'Khách hàng đã nhận hàng và ký biên bản giao nhận thành công! Sẵn sàng để Kế toán ghi sổ.'
+    };
 
-  toast.add({
-    severity: 'info',
-    summary: 'Cập nhật tiến độ kho',
-    detail: messages[status] || status,
-    life: 3000
-  });
+    toast.add({
+      severity: 'info',
+      summary: 'Cập nhật tiến độ kho',
+      detail: messages[status] || status,
+      life: 3000
+    });
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Lỗi cập nhật kho',
+      detail: err.message || 'Không thể cập nhật trạng thái kho.',
+      life: 3000
+    });
+  }
 };
 </script>

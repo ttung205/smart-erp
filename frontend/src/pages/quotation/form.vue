@@ -176,14 +176,8 @@ import Tag from 'primevue/tag';
 import Dialog from 'primevue/dialog';
 
 import ItemDataTable from '../../components/common/ItemDataTable.vue';
-import {
-  customers,
-  getQuotationById,
-  saveQuotation,
-  submitForApproval,
-  approveQuotation,
-  generateQuotationNumber
-} from '../../composables/salesStore';
+import { catalogApi } from '../../api/catalog.api';
+import { salesApi } from '../../api/sales.api';
 import { isSuperAdmin } from '../../utils/rbac';
 
 const route = useRoute();
@@ -206,6 +200,8 @@ const canApprove = computed(() => {
   return props.currentUser.permissions && props.currentUser.permissions.includes('quotation.approve');
 });
 
+const customers = ref([]);
+
 // Dropdown khách hàng
 const customerOptions = computed(() => {
   return customers.value.map((c) => ({
@@ -219,7 +215,7 @@ const customerOptions = computed(() => {
 // Dropdown người liên hệ theo khách hàng đã chọn
 const contactOptions = computed(() => {
   const currentCust = customers.value.find((c) => c.id === form.value.customer_id);
-  return currentCust ? currentCust.contacts : [];
+  return currentCust ? currentCust.contacts || [] : [];
 });
 
 // Trạng thái form
@@ -255,6 +251,15 @@ const newContact = ref({
   email: ''
 });
 
+// Sinh số báo giá theo quy ước QT-mãkháchhàng-ngày ddmmyy
+const generateQuotationNumber = (customerCode = 'KH01', date = new Date()) => {
+  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const y = String(date.getFullYear()).slice(-2);
+  const dateStr = `${d}${m}${y}`;
+  return `QT-${customerCode}-${dateStr}`;
+};
+
 // Map trạng thái báo giá
 const getStatusMeta = (st) => {
   const map = {
@@ -278,14 +283,40 @@ watch(
   }
 );
 
-const initFormData = () => {
+const initFormData = async () => {
   const qId = route.params.id;
 
+  // Load danh sách khách hàng từ catalog-service
+  try {
+    const resPartners = await catalogApi.getPartners();
+    if (resPartners && resPartners.data) {
+      customers.value = resPartners.data
+        .filter((p) => !p.type || p.type === 'CUSTOMER' || p.type === 'BOTH')
+        .map((p) => ({
+          ...p,
+          contacts: [
+            {
+              id: 1,
+              name: p.phone ? `Người đại diện (${p.phone})` : 'Phòng Vật tư / Mua hàng',
+              phone: p.phone || '',
+              email: p.email || ''
+            }
+          ]
+        }));
+    }
+  } catch (err) {
+    console.warn('Lỗi tải khách hàng từ Catalog Service:', err);
+  }
+
   if (isEditMode.value) {
-    const existing = getQuotationById(qId);
-    if (existing) {
-      form.value = JSON.parse(JSON.stringify(existing));
-      return;
+    try {
+      const res = await salesApi.getQuotationById(qId);
+      if (res && res.data) {
+        form.value = res.data;
+        return;
+      }
+    } catch (err) {
+      console.error('Lỗi tải chi tiết báo giá:', err);
     }
   }
 
@@ -307,8 +338,8 @@ const initFormData = () => {
     customer_id: firstCust?.id || null,
     customer_code: firstCust?.code || '',
     customer_name: firstCust?.name || '',
-    contact_id: firstCust?.contacts[0]?.id || null,
-    contact_name: firstCust?.contacts[0]?.name || '',
+    contact_id: firstCust?.contacts?.[0]?.id || null,
+    contact_name: firstCust?.contacts?.[0]?.name || '',
     currency: 'VND',
     exchange_rate: 1,
     created_by: props.currentUser?.name || 'admin',
@@ -319,27 +350,7 @@ const initFormData = () => {
     total_amount: 0,
     subtotal: 0,
     vat_total: 0,
-    items: [
-      {
-        id: 1,
-        sku: '23236 CC/W33-C&U',
-        designation: '23236 CC/W33',
-        brand: 'C&U',
-        description: 'Vòng bi tang trống tự lựa 23236 CC/W33',
-        com: 'Trung Quốc',
-        stock: 45,
-        unit: 'Cái',
-        quantity: 1,
-        gross_price: 18500000,
-        discount_percent: 15,
-        selling_price: 15725000,
-        vat_percent: 10,
-        lead_time: 'Có sẵn',
-        subtotal: 15725000,
-        won: true,
-        won_quantity: 1
-      }
-    ]
+    items: []
   };
 };
 
@@ -381,6 +392,7 @@ const saveNewContact = () => {
   }
   const currentCust = customers.value.find((c) => c.id === form.value.customer_id);
   if (currentCust) {
+    if (!currentCust.contacts) currentCust.contacts = [];
     const contactObj = {
       id: Date.now(),
       name: newContact.value.name,
@@ -411,7 +423,7 @@ const onItemsSummaryChange = (summary) => {
 // ----------------------------------------------------
 // THAO TÁC LƯU / GỬI DUYỆT / DUYỆT
 // ----------------------------------------------------
-const handleSaveQuotation = () => {
+const handleSaveQuotation = async () => {
   if (!form.value.customer_id) {
     alert('Vui lòng chọn khách hàng!');
     return;
@@ -421,36 +433,72 @@ const handleSaveQuotation = () => {
     return;
   }
 
-  saveQuotation(form.value);
-  toast.add({
-    severity: 'success',
-    summary: 'Lưu báo giá thành công',
-    detail: `Báo giá ${form.value.quotation_number} đã được lưu thành công.`,
-    life: 3000
-  });
-
-  router.push('/quotation');
+  try {
+    if (isEditMode.value) {
+      await salesApi.updateQuotation(form.value.id, form.value);
+    } else {
+      await salesApi.createQuotation(form.value);
+    }
+    toast.add({
+      severity: 'success',
+      summary: 'Lưu báo giá thành công',
+      detail: `Báo giá ${form.value.quotation_number} đã được lưu thành công vào CSDL.`,
+      life: 3000
+    });
+    router.push('/quotation');
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Lỗi lưu báo giá',
+      detail: err.message || 'Không thể lưu báo giá lên máy chủ.',
+      life: 4000
+    });
+  }
 };
 
-const handleSubmitForApproval = () => {
-  form.value.status = 'PENDING_APPROVAL';
-  saveQuotation(form.value);
-  toast.add({
-    severity: 'info',
-    summary: 'Đã gửi xét duyệt',
-    detail: `Báo giá ${form.value.quotation_number} đã được chuyển sang trạng thái Chờ duyệt.`,
-    life: 3000
-  });
+const handleSubmitForApproval = async () => {
+  try {
+    if (isEditMode.value) {
+      await salesApi.submitApproval(form.value.id);
+    } else {
+      form.value.status = 'PENDING_APPROVAL';
+      await salesApi.createQuotation(form.value);
+    }
+    form.value.status = 'PENDING_APPROVAL';
+    toast.add({
+      severity: 'info',
+      summary: 'Đã gửi xét duyệt',
+      detail: `Báo giá ${form.value.quotation_number} đã được chuyển sang trạng thái Chờ duyệt.`,
+      life: 3000
+    });
+    router.push('/quotation');
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Lỗi gửi duyệt',
+      detail: err.message || 'Thao tác không thành công.',
+      life: 3000
+    });
+  }
 };
 
-const handleApproveQuotation = () => {
-  form.value.status = 'APPROVED';
-  approveQuotation(form.value.id, props.currentUser?.name || 'admin');
-  toast.add({
-    severity: 'success',
-    summary: 'Đã duyệt báo giá',
-    detail: `Báo giá ${form.value.quotation_number} đã được phê duyệt thành công!`,
-    life: 3000
-  });
+const handleApproveQuotation = async () => {
+  try {
+    await salesApi.approveQuotation(form.value.id, props.currentUser?.name || 'admin');
+    form.value.status = 'APPROVED';
+    toast.add({
+      severity: 'success',
+      summary: 'Đã duyệt báo giá',
+      detail: `Báo giá ${form.value.quotation_number} đã được phê duyệt thành công!`,
+      life: 3000
+    });
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Lỗi phê duyệt',
+      detail: err.message || 'Không thể duyệt báo giá.',
+      life: 3000
+    });
+  }
 };
 </script>

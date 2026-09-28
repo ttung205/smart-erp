@@ -155,7 +155,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import DataTable from 'primevue/datatable';
@@ -171,7 +171,7 @@ import PageHeader from '../../components/common/PageHeader.vue';
 
 import OrderDetailForm from './form.vue';
 import CreateDeliveryDialog from './delivery-dialog.vue';
-import { orders, addDeliveryRequest } from '../../composables/salesStore';
+import { salesApi } from '../../api/sales.api';
 import { formatCurrency } from '../../utils/format';
 
 const props = defineProps({
@@ -184,6 +184,8 @@ const props = defineProps({
 const router = useRouter();
 const toast = useToast();
 
+const orders = ref([]);
+const loading = ref(false);
 const searchQuery = ref('');
 const statusFilter = ref(null);
 const showViewDialog = ref(false);
@@ -207,12 +209,34 @@ const getStatusMeta = (st) => {
   return map[st] || { label: st, severity: 'secondary' };
 };
 
+const loadOrders = async () => {
+  loading.value = true;
+  try {
+    const res = await salesApi.getOrders();
+    orders.value = (res.data || []).map((o) => ({
+      ...o,
+      id: o.order_number || o.id,
+      quotation_id: o.quotation_number || o.quotation_id
+    }));
+  } catch (err) {
+    console.error('Lỗi tải danh sách đơn hàng:', err);
+  } finally {
+    loading.value = false;
+  }
+};
+
+onMounted(() => {
+  loadOrders();
+});
+
 const filteredOrders = computed(() => {
   return orders.value.filter((o) => {
+    const oId = String(o.id || o.order_number || '');
+    const cName = String(o.customer_name || '');
     const matchSearch =
       !searchQuery.value ||
-      o.id.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      o.customer_name.toLowerCase().includes(searchQuery.value.toLowerCase());
+      oId.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+      cName.toLowerCase().includes(searchQuery.value.toLowerCase());
     const matchStatus = !statusFilter.value || o.status === statusFilter.value;
     return matchSearch && matchStatus;
   });
@@ -228,15 +252,24 @@ const openDeliveryDialog = (order) => {
   showDeliveryDialog.value = true;
 };
 
-const handleCreateDelivery = (newDr) => {
-  addDeliveryRequest(newDr);
-  toast.add({
-    severity: 'success',
-    summary: 'Đã lập lệnh yêu cầu giao hàng',
-    detail: `Lệnh giao ${newDr.id} đã phát hành thành công. Đang chuyển sang trang Giao Hàng...`,
-    life: 3000
-  });
-
-  router.push('/delivery');
+const handleCreateDelivery = async (newDr) => {
+  try {
+    const res = await salesApi.createDelivery(newDr);
+    const dr = res.data;
+    toast.add({
+      severity: 'success',
+      summary: 'Đã lập lệnh yêu cầu giao hàng',
+      detail: `Lệnh giao ${dr?.request_number || dr?.id || 'DR'} đã phát hành thành công. Đang chuyển sang trang Giao Hàng...`,
+      life: 3000
+    });
+    router.push('/delivery');
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Lỗi tạo yêu cầu giao hàng',
+      detail: err.message || 'Không thể tạo yêu cầu giao hàng.',
+      life: 3000
+    });
+  }
 };
 </script>

@@ -13,6 +13,37 @@ class InvoiceController extends Controller
         return response()->json(['success' => true, 'data' => $invoices]);
     }
 
+    public function store(Request $request)
+    {
+        $randNum = rand(100, 999);
+        $invNumber = $request->input('invoice_number') ?? "INV-2026-{$randNum}";
+
+        $inv = Invoice::create([
+            'invoice_number' => $invNumber,
+            'delivery_request_number' => $request->input('delivery_request_number') ?? $request->input('delivery_request_id'),
+            'order_number' => $request->input('order_number') ?? $request->input('order_id'),
+            'customer_name' => $request->input('customer_name', 'Khách hàng'),
+            'warehouse_name' => $request->input('warehouse_name', 'Kho Tổng Miền Bắc (Hà Nội)'),
+            'invoice_date' => $request->input('invoice_date', now()->format('Y-m-d')),
+            'payment_terms' => $request->input('payment_terms', 'Công nợ 30 ngày'),
+            'total_amount' => (float)$request->input('total_amount', 0),
+            'warehouse_status' => $request->input('warehouse_status', 'PICKING'),
+            'accounting_status' => 'UNPOSTED',
+        ]);
+
+        foreach ($request->input('items', []) as $it) {
+            InvoiceItem::create([
+                'invoice_id' => $inv->id,
+                'sku' => $it['sku'] ?? $it['product_sku'] ?? '',
+                'product_name' => $it['product_name'] ?? $it['designation'] ?? '',
+                'quantity' => (float)($it['quantity'] ?? 1),
+                'unit_price' => (float)($it['unit_price'] ?? $it['price'] ?? 0),
+            ]);
+        }
+
+        return response()->json(['success' => true, 'data' => $inv->load('items')], 201);
+    }
+
     public function show($id)
     {
         $inv = Invoice::with('items')->where('id', $id)->orWhere('invoice_number', $id)->first();

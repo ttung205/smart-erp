@@ -151,7 +151,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import DataTable from 'primevue/datatable';
@@ -166,11 +166,13 @@ import PageHeader from '../../components/common/PageHeader.vue';
 
 import DeliveryDetailForm from './form.vue';
 import CreateInvoiceDialog from './invoice-dialog.vue';
-import { deliveryRequests, addInvoice } from '../../composables/salesStore';
+import { salesApi } from '../../api/sales.api';
 
 const router = useRouter();
 const toast = useToast();
 
+const deliveryRequests = ref([]);
+const loading = ref(false);
 const searchQuery = ref('');
 const showViewDialog = ref(false);
 const showInvoiceDialog = ref(false);
@@ -179,19 +181,43 @@ const selectedRequest = ref(null);
 const getStatusMeta = (st) => {
   const map = {
     APPROVED: { label: 'Chờ lập chứng từ', severity: 'warn' },
+    PENDING: { label: 'Chờ lập chứng từ', severity: 'warn' },
     INVOICED: { label: 'Đã lập chứng từ', severity: 'success' },
     CANCELLED: { label: 'Đã hủy', severity: 'danger' }
   };
   return map[st] || { label: st, severity: 'secondary' };
 };
 
+const loadDeliveries = async () => {
+  loading.value = true;
+  try {
+    const res = await salesApi.getDeliveries();
+    deliveryRequests.value = (res.data || []).map((r) => ({
+      ...r,
+      id: r.request_number || r.id,
+      order_id: r.order_number || r.order_id
+    }));
+  } catch (err) {
+    console.error('Lỗi tải danh sách giao hàng:', err);
+  } finally {
+    loading.value = false;
+  }
+};
+
+onMounted(() => {
+  loadDeliveries();
+});
+
 const filteredRequests = computed(() => {
   return deliveryRequests.value.filter((r) => {
+    const rId = String(r.id || r.request_number || '');
+    const cName = String(r.customer_name || '');
+    const oId = String(r.order_id || r.order_number || '');
     return (
       !searchQuery.value ||
-      r.id.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      r.customer_name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      r.order_id.toLowerCase().includes(searchQuery.value.toLowerCase())
+      rId.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+      cName.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+      oId.toLowerCase().includes(searchQuery.value.toLowerCase())
     );
   });
 });
@@ -206,15 +232,28 @@ const openInvoiceDialog = (r) => {
   showInvoiceDialog.value = true;
 };
 
-const handleCreateInvoice = (newInv) => {
-  addInvoice(newInv);
-  toast.add({
-    severity: 'success',
-    summary: 'Đã lập chứng từ bán hàng',
-    detail: `Chứng từ ${newInv.invoice_number} đã chuyển xuống kho. Đang chuyển sang trang Chứng Từ & Kho...`,
-    life: 3000
-  });
-
-  router.push('/invoice');
+const handleCreateInvoice = async (newInv) => {
+  try {
+    const res = await salesApi.createInvoice(newInv);
+    const inv = res.data;
+    // Đồng thời cập nhật trạng thái của lệnh giao hàng thành INVOICED
+    if (selectedRequest.value?.id) {
+      await salesApi.updateDeliveryStatus(selectedRequest.value.id, 'INVOICED');
+    }
+    toast.add({
+      severity: 'success',
+      summary: 'Đã lập chứng từ bán hàng',
+      detail: `Chứng từ ${inv?.invoice_number || 'INV'} đã chuyển xuống kho. Đang chuyển sang trang Chứng Từ & Kho...`,
+      life: 3000
+    });
+    router.push('/invoice');
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Lỗi lập chứng từ bán hàng',
+      detail: err.message || 'Không thể tạo chứng từ.',
+      life: 3000
+    });
+  }
 };
 </script>

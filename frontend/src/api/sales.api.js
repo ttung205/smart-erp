@@ -93,6 +93,13 @@ export const salesApi = {
     return apiClient('/api/v1/sales/invoices');
   },
 
+  createInvoice(data) {
+    return apiClient('/api/v1/sales/invoices', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
   updateInvoiceWarehouseStatus(id, status) {
     return apiClient(`/api/v1/sales/invoices/${id}/warehouse-status`, {
       method: 'PUT',

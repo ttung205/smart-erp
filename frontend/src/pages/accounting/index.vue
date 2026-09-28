@@ -180,7 +180,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
@@ -194,7 +194,7 @@ import Tag from 'primevue/tag';
 import PageHeader from '../../components/common/PageHeader.vue';
 
 import AccountingPostForm from './form.vue';
-import { invoices, postAccountingInvoice } from '../../composables/salesStore';
+import { salesApi } from '../../api/sales.api';
 import { formatCurrency } from '../../utils/format';
 
 const props = defineProps({
@@ -206,6 +206,8 @@ const props = defineProps({
 
 const toast = useToast();
 
+const invoices = ref([]);
+const loading = ref(false);
 const searchQuery = ref('');
 const filterStatus = ref(null);
 const showConfirmDialog = ref(false);
@@ -218,6 +220,25 @@ const filterOptions = [
   { label: 'Đã ghi sổ & trừ kho', value: 'POSTED' }
 ];
 
+const loadInvoices = async () => {
+  loading.value = true;
+  try {
+    const res = await salesApi.getInvoices();
+    invoices.value = (res.data || []).map((inv) => ({
+      ...inv,
+      order_id: inv.order_number || inv.order_id
+    }));
+  } catch (err) {
+    console.error('Lỗi tải chứng từ kế toán:', err);
+  } finally {
+    loading.value = false;
+  }
+};
+
+onMounted(() => {
+  loadInvoices();
+});
+
 const pendingCount = computed(() => {
   return invoices.value.filter((i) => i.accounting_status !== 'POSTED').length;
 });
@@ -228,10 +249,12 @@ const postedCount = computed(() => {
 
 const filteredInvoices = computed(() => {
   return invoices.value.filter((inv) => {
+    const invNum = String(inv.invoice_number || '');
+    const cName = String(inv.customer_name || '');
     const matchSearch =
       !searchQuery.value ||
-      inv.invoice_number.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      inv.customer_name.toLowerCase().includes(searchQuery.value.toLowerCase());
+      invNum.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+      cName.toLowerCase().includes(searchQuery.value.toLowerCase());
     const matchStatus = !filterStatus.value || inv.accounting_status === filterStatus.value;
     return matchSearch && matchStatus;
   });
@@ -246,12 +269,15 @@ const handleConfirmPost = async ({ invoice, note }) => {
   loadingPosting.value = true;
   try {
     const posterName = props.currentUser?.name || 'Kế toán trưởng';
-    await postAccountingInvoice(invoice.id, note, posterName);
+    await salesApi.postAccounting(invoice.id, posterName);
+
+    invoice.accounting_status = 'POSTED';
+    invoice.posted_by = posterName;
 
     toast.add({
       severity: 'success',
-      summary: 'Ghi Sổ Kế Toán & Trừ Kho Thành Công!',
-      detail: `Chứng từ ${invoice.invoice_number} đã được ghi sổ kế toán. Đã kích hoạt lệnh trừ tồn kho trên Inventory Service (:8004).`,
+      summary: 'Ghi Sổ Kế Toán Thành Công!',
+      detail: `Chứng từ ${invoice.invoice_number} đã được ghi sổ kế toán thành công.`,
       life: 5000
     });
 
@@ -260,7 +286,7 @@ const handleConfirmPost = async ({ invoice, note }) => {
     toast.add({
       severity: 'error',
       summary: 'Lỗi ghi sổ kế toán',
-      detail: err.message || 'Không thể kết nối đến Inventory Service.',
+      detail: err.message || 'Không thể kết nối đến Sales Service.',
       life: 5000
     });
   } finally {

@@ -441,9 +441,34 @@ import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
 import Dialog from 'primevue/dialog';
 import IconField from 'primevue/iconfield';
-import InputIcon from 'primevue/inputicon';
-import { catalogProducts, loadCatalogProducts } from '../../composables/salesStore';
+import { catalogApi } from '../../api/catalog.api';
 import { formatCurrency } from '../../utils/format';
+
+const catalogProducts = ref([]);
+const loadCatalogProducts = async () => {
+  try {
+    const res = await catalogApi.getProducts();
+    if (res && res.data) {
+      catalogProducts.value = res.data.map((p) => ({
+        id: p.id,
+        sku: p.sku,
+        designation: p.designation || '',
+        brand: p.brand || '',
+        category: p.category || '',
+        description: p.description || p.item_description || p.name || '',
+        unit: p.unit || 'Cái',
+        com: p.com || 'Việt Nam',
+        stock: p.stock ?? (p.min_stock || 20),
+        gross_price: Number(p.gross_price) || 0,
+        lead_time: 'Có sẵn',
+        vat_percent: 10,
+        spec: p.spec || ''
+      }));
+    }
+  } catch (err) {
+    console.warn('loadCatalogProducts error:', err);
+  }
+};
 
 const props = defineProps({
   modelValue: {

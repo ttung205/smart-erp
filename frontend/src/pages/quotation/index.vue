@@ -166,7 +166,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import Column from 'primevue/column';
@@ -182,12 +182,14 @@ import CommonDataTable from '../../components/common/CommonDataTable.vue';
 import QuotationViewDialog from './view-dialog.vue';
 import WinForm from './win-form.vue';
 
-import { quotations, createSOFromQuotation } from '../../composables/salesStore';
+import { salesApi } from '../../api/sales.api';
 import { formatCurrency } from '../../utils/format';
 
 const router = useRouter();
 const toast = useToast();
 
+const quotations = ref([]);
+const loading = ref(false);
 const searchQuery = ref('');
 const statusFilter = ref(null);
 const showViewDialog = ref(false);
@@ -223,12 +225,30 @@ const getStatusMeta = (st) => {
   return map[st] || { label: st, severity: 'secondary' };
 };
 
+const loadQuotations = async () => {
+  loading.value = true;
+  try {
+    const res = await salesApi.getQuotations();
+    quotations.value = res.data || [];
+  } catch (err) {
+    console.error('Lỗi tải danh sách báo giá:', err);
+  } finally {
+    loading.value = false;
+  }
+};
+
+onMounted(() => {
+  loadQuotations();
+});
+
 const filteredQuotations = computed(() => {
   return quotations.value.filter((q) => {
+    const qNum = q.quotation_number || '';
+    const cName = q.customer_name || '';
     const matchSearch =
       !searchQuery.value ||
-      q.quotation_number.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      q.customer_name.toLowerCase().includes(searchQuery.value.toLowerCase());
+      qNum.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+      cName.toLowerCase().includes(searchQuery.value.toLowerCase());
     const matchStatus = !statusFilter.value || q.status === statusFilter.value;
     return matchSearch && matchStatus;
   });
@@ -252,15 +272,24 @@ const openWinDialog = (q) => {
   showWinDialog.value = true;
 };
 
-const handleCreateSO = (payload) => {
-  const newSO = createSOFromQuotation(payload);
-  toast.add({
-    severity: 'success',
-    summary: 'Đã sinh Đơn Bán Hàng (SO)!',
-    detail: `Tạo thành công ${newSO.id} từ các mặt hàng Item Win. Đang chuyển sang trang Đơn Hàng...`,
-    life: 4000
-  });
-
-  router.push('/order');
+const handleCreateSO = async (payload) => {
+  try {
+    const res = await salesApi.createSOFromQuotation(selectedQuotation.value.id, payload);
+    const newSO = res.data;
+    toast.add({
+      severity: 'success',
+      summary: 'Đã sinh Đơn Bán Hàng (SO)!',
+      detail: `Tạo thành công ${newSO?.order_number || newSO?.id || 'SO'} từ các mặt hàng Item Win. Đang chuyển sang trang Đơn Hàng...`,
+      life: 4000
+    });
+    router.push('/order');
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Lỗi tạo đơn bán hàng',
+      detail: err.message || 'Không thể tạo đơn bán hàng từ báo giá.',
+      life: 4000
+    });
+  }
 };
 </script>

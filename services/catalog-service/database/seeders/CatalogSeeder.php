@@ -63,5 +63,70 @@ conn.commit()
 conn.close()
 \"";
         @shell_exec($cmd);
+
+        // Seed default partners (Customers)
+        $defaultPartners = [
+            [
+                'code' => 'EA-02592',
+                'name' => 'CÔNG TY TNHH LONG SƠN - NHÀ MÁY XI MĂNG',
+                'type' => 'CUSTOMER',
+                'tax_code' => '2800123456',
+                'email' => 'hop.procurement@longson.com',
+                'phone' => '0912 345 678',
+                'address' => 'Thị xã Bỉm Sơn, Thanh Hóa',
+                'credit_limit' => 500000000,
+            ],
+            [
+                'code' => 'FPT-01',
+                'name' => 'Tập đoàn Công nghệ FPT',
+                'type' => 'CUSTOMER',
+                'tax_code' => '0101248141',
+                'email' => 'namnv@fpt.com.vn',
+                'phone' => '024 7300 7300',
+                'address' => 'Số 10 Phạm Văn Bạch, Cầu Giấy, Hà Nội',
+                'credit_limit' => 1000000000,
+            ],
+            [
+                'code' => 'VTL-01',
+                'name' => 'Tập đoàn Công nghiệp - Viễn thông Quân đội (Viettel)',
+                'type' => 'CUSTOMER',
+                'tax_code' => '0100109106',
+                'email' => 'minhlh@viettel.com.vn',
+                'phone' => '024 6255 6789',
+                'address' => 'Lô D26 KĐT mới Cầu Giấy, Hà Nội',
+                'credit_limit' => 2000000000,
+            ],
+            [
+                'code' => 'HOAPHAT-01',
+                'name' => 'Tập đoàn Hòa Phát',
+                'type' => 'CUSTOMER',
+                'tax_code' => '0900189284',
+                'email' => 'contact@hoaphat.com.vn',
+                'phone' => '024 6284 8666',
+                'address' => 'KCN Phố Nối A, Hưng Yên',
+                'credit_limit' => 3000000000,
+            ]
+        ];
+
+        foreach ($defaultPartners as $p) {
+            DB::table('partners')->updateOrInsert(['code' => $p['code']], array_merge($p, [
+                'created_at' => now(),
+                'updated_at' => now()
+            ]));
+        }
+
+        // Seed default warehouses
+        $defaultWarehouses = [
+            ['code' => 'WH-HN-01', 'name' => 'Kho Tổng Miền Bắc (Hà Nội)', 'address' => 'Khu CN Đài Tư, Long Biên, Hà Nội', 'is_active' => true],
+            ['code' => 'WH-HCM-01', 'name' => 'Kho Miền Nam (TP.HCM)', 'address' => 'Khu CN Tân Bình, TP.HCM', 'is_active' => true],
+            ['code' => 'WH-DN-01', 'name' => 'Kho Miền Trung (Đà Nẵng)', 'address' => 'Khu CN Hòa Khánh, Đà Nẵng', 'is_active' => true],
+        ];
+
+        foreach ($defaultWarehouses as $w) {
+            DB::table('warehouses')->updateOrInsert(['code' => $w['code']], array_merge($w, [
+                'created_at' => now(),
+                'updated_at' => now()
+            ]));
+        }
     }
 }
