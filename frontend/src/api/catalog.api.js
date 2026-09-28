@@ -18,6 +18,13 @@ export const catalogApi = {
     });
   },
 
+  importProducts(items) {
+    return apiClient('/api/v1/catalog/products/import', {
+      method: 'POST',
+      body: JSON.stringify({ items })
+    });
+  },
+
   getPartners() {
     return apiClient('/api/v1/catalog/partners');
   },

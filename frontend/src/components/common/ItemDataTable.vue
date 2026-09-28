@@ -433,7 +433,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch } from 'vue';
+import { ref, reactive, computed, watch, onMounted } from 'vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Button from 'primevue/button';
@@ -442,7 +442,7 @@ import InputNumber from 'primevue/inputnumber';
 import Dialog from 'primevue/dialog';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
-import { catalogProducts } from '../../composables/salesStore';
+import { catalogProducts, loadCatalogProducts } from '../../composables/salesStore';
 import { formatCurrency } from '../../utils/format';
 
 const props = defineProps({
@@ -629,7 +629,10 @@ const filteredCatalogProducts = computed(() => {
   );
 });
 
-const openSearchDialog = () => {
+const openSearchDialog = async () => {
+  if (catalogProducts.value.length === 0) {
+    await loadCatalogProducts();
+  }
   selectedCatalogItems.value = [];
   catalogSearchQuery.value = '';
   showCatalogSearchDialog.value = true;
@@ -718,4 +721,10 @@ const exportToExcel = () => {
   link.click();
   document.body.removeChild(link);
 };
+
+onMounted(() => {
+  if (catalogProducts.value.length === 0) {
+    loadCatalogProducts();
+  }
+});
 </script>
