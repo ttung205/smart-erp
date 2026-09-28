@@ -10,7 +10,9 @@ import DepartmentsPage from '../pages/identity/DepartmentsPage.vue';
 import UsersPage from '../pages/identity/UsersPage.vue';
 import RolesPage from '../pages/identity/RolesPage.vue';
 import PermissionsPage from '../pages/identity/PermissionsPage.vue';
-import CatalogPage from '../pages/catalog/index.vue';
+import ProductPage from '../pages/product/index.vue';
+import BrandPage from '../pages/brand/index.vue';
+import CategoryPage from '../pages/category/index.vue';
 import InventoryView from '../views/inventory/InventoryView.vue';
 import MasterPage from '../pages/master/index.vue';
 import ArchitecturePage from '../pages/architecture/index.vue';
@@ -86,15 +88,41 @@ export const routes = [
     }
   },
   {
-    path: '/catalog',
-    name: 'catalog',
-    component: CatalogPage,
+    path: '/product',
+    name: 'product',
+    component: ProductPage,
     meta: {
       requiresAuth: true,
       resource: 'catalog',
       permission: 'catalog.view',
-      title: 'Danh Mục Sản Phẩm'
+      title: 'Quản Lý Sản Phẩm'
     }
+  },
+  {
+    path: '/brand',
+    name: 'brand',
+    component: BrandPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'catalog',
+      permission: 'catalog.view',
+      title: 'Quản Lý Thương Hiệu'
+    }
+  },
+  {
+    path: '/category',
+    name: 'category',
+    component: CategoryPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'catalog',
+      permission: 'catalog.view',
+      title: 'Quản Lý Danh Mục'
+    }
+  },
+  {
+    path: '/catalog',
+    redirect: '/product'
   },
   {
     path: '/inventory',

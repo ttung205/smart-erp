@@ -43,12 +43,36 @@ export const menuCategories = [
         ]
       },
       {
-        id: 'catalog',
-        path: '/catalog',
-        resource: 'catalog',
-        permission: 'catalog.view',
-        label: 'Danh mục sản phẩm',
-        icon: 'pi pi-box'
+        id: 'product-hub',
+        label: 'Sản phẩm',
+        icon: 'pi pi-box',
+        isFolder: true,
+        children: [
+          {
+            id: 'product',
+            path: '/product',
+            resource: 'catalog',
+            permission: 'catalog.view',
+            label: 'Sản phẩm',
+            icon: 'pi pi-tag'
+          },
+          {
+            id: 'brand',
+            path: '/brand',
+            resource: 'catalog',
+            permission: 'catalog.view',
+            label: 'Thương hiệu',
+            icon: 'pi pi-bookmark'
+          },
+          {
+            id: 'category',
+            path: '/category',
+            resource: 'catalog',
+            permission: 'catalog.view',
+            label: 'Danh mục',
+            icon: 'pi pi-th-large'
+          }
+        ]
       },
       {
         id: 'inventory',
