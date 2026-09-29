@@ -63,88 +63,69 @@
       </div>
     </div>
 
-    <!-- Bảng DataTable Hàng Giữ Chỗ -->
-    <DataTable 
+    <!-- Bảng DataTable Hàng Giữ Chỗ Sử Dụng CommonDataTable Đồng Bộ -->
+    <CommonDataTable 
       :value="filteredReservations" 
-      responsiveLayout="scroll" 
-      :paginator="true" 
-      :rows="10" 
-      :rowsPerPageOptions="[10, 20, 50]" 
-      paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown" 
-      currentPageReportTemplate="Hiển thị {first} - {last} trên {totalRecords} mặt hàng đang giữ chỗ" 
-      showGridlines 
-      resizableColumns 
-      columnResizeMode="expand" 
-      scrollable 
-      scrollHeight="520px"
+      :columns="tableColumns"
+      :rows="10"
+      emptyIcon="pi pi-lock"
+      emptyTitle="Hiện không có mặt hàng nào đang bị khóa giữ chỗ"
+      emptySubtitle="Mọi sản phẩm trong kho đều ở trạng thái 100% Khả Dụng để bán."
     >
-      <template #empty>
-        <div class="py-8 px-4 text-center">
-          <p class="text-slate-600 text-sm font-semibold">Hiện không có mặt hàng nào đang bị khóa giữ chỗ.</p>
-          <p class="text-slate-400 text-xs mt-1">Mọi sản phẩm trong kho đều ở trạng thái 100% Khả Dụng để bán.</p>
+      <!-- Cột SKU -->
+      <template #col-sku="{ data }">
+        <span class="font-mono text-xs font-semibold text-slate-800">{{ data.sku || ('SKU-' + data.product_id) }}</span>
+      </template>
+
+      <!-- Cột Tên Sản Phẩm -->
+      <template #col-product_name="{ data }">
+        <div class="font-semibold text-slate-800 text-sm leading-snug">
+          {{ data.product_name || ('Sản phẩm #' + data.product_id) }}
+        </div>
+        <div class="text-xs text-slate-400 font-mono mt-0.5">Mã ID: #{{ data.product_id }}</div>
+      </template>
+
+      <!-- Cột Kho Lưu Trữ -->
+      <template #col-warehouse_name="{ data }">
+        <span class="text-xs font-medium text-slate-700">
+          {{ data.warehouse_name || ('Kho #' + data.warehouse_id) }}
+        </span>
+      </template>
+
+      <!-- Cột Tồn Thực Tế Trên Kệ -->
+      <template #col-quantity_on_hand="{ data }">
+        <div class="text-right">
+          <span class="font-mono text-sm text-slate-800">{{ formatNumber(data.quantity_on_hand) }}</span>
+          <span class="text-xs text-slate-400 ml-1">{{ data.unit || 'Chiếc' }}</span>
         </div>
       </template>
 
-      <!-- Cột SKU -->
-      <Column field="sku" header="Mã SKU" style="width: 140px">
-        <template #body="{ data }">
-          <span class="font-mono text-xs font-semibold text-slate-800">{{ data.sku || ('SKU-' + data.product_id) }}</span>
-        </template>
-      </Column>
-
-      <!-- Cột Tên Sản Phẩm -->
-      <Column field="product_name" header="Tên Mặt Hàng" style="width: 240px">
-        <template #body="{ data }">
-          <div class="font-semibold text-slate-800 text-sm leading-snug">
-            {{ data.product_name || ('Sản phẩm #' + data.product_id) }}
-          </div>
-          <div class="text-xs text-slate-400 font-mono mt-0.5">Mã ID: #{{ data.product_id }}</div>
-        </template>
-      </Column>
-
-      <!-- Cột Kho Lưu Trữ -->
-      <Column field="warehouse_name" header="Kho Bãi" style="width: 170px">
-        <template #body="{ data }">
-          <span class="text-xs font-medium text-slate-700">
-            {{ data.warehouse_name || ('Kho #' + data.warehouse_id) }}
-          </span>
-        </template>
-      </Column>
-
-      <!-- Cột Tồn Thực Tế Trên Kệ -->
-      <Column field="quantity_on_hand" header="Tồn Thực Tế" style="width: 130px; text-align: right">
-        <template #body="{ data }">
-          <span class="font-mono text-sm text-slate-800">{{ formatNumber(data.quantity_on_hand) }}</span>
-          <span class="text-xs text-slate-400 ml-1">{{ data.unit || 'Chiếc' }}</span>
-        </template>
-      </Column>
-
       <!-- Cột Đang Giữ Chỗ (Nổi bật) -->
-      <Column field="quantity_reserved" header="Đang Giữ Chỗ (Reserved)" style="width: 170px; text-align: right">
-        <template #body="{ data }">
+      <template #col-quantity_reserved="{ data }">
+        <div class="text-right">
           <span class="font-mono text-sm font-bold text-amber-600">{{ formatNumber(data.quantity_reserved) }}</span>
           <span class="text-xs text-amber-500 ml-1 font-semibold">{{ data.unit || 'Chiếc' }}</span>
-        </template>
-      </Column>
+        </div>
+      </template>
 
       <!-- Cột Khả Dụng Còn Lại -->
-      <Column field="available" header="Khả Dụng Còn Lại" style="width: 140px; text-align: right">
-        <template #body="{ data }">
+      <template #col-available="{ data }">
+        <div class="text-right">
           <span class="font-mono text-sm font-bold text-emerald-700">{{ formatNumber(data.available) }}</span>
-        </template>
-      </Column>
+        </div>
+      </template>
 
       <!-- Cột Tỷ Lệ Giữ Chỗ -->
-      <Column header="Tỷ Lệ Giữ" style="width: 120px; text-align: center">
-        <template #body="{ data }">
+      <template #col-reserve_rate="{ data }">
+        <div class="text-center">
           <span class="font-mono text-xs font-semibold px-2 py-0.5 rounded-[4px] bg-amber-50 text-amber-700 border border-amber-200">
             {{ data.quantity_on_hand > 0 ? Math.round((data.quantity_reserved / data.quantity_on_hand) * 100) : 100 }}%
           </span>
-        </template>
-      </Column>
+        </div>
+      </template>
 
-      <!-- Cột Hành Động Trực Tiếp -->
-      <Column header="Hành Động Nghiệp Vụ" style="width: 140px; text-align: center">
+      <!-- Cột Hành Động Nghiệp Vụ -->
+      <Column header="Hành Động Nghiệp Vụ" style="width: 140px" class="text-center">
         <template #body="{ data }">
           <div class="flex items-center justify-center gap-1.5">
             <Button 
@@ -170,7 +151,7 @@
           </div>
         </template>
       </Column>
-    </DataTable>
+    </CommonDataTable>
   </div>
 </template>
 
@@ -179,9 +160,19 @@ import { reactive, computed } from 'vue'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
-import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
+import CommonDataTable from '../../components/common/CommonDataTable.vue'
 import { useInventory } from '../../composables/useInventory'
+
+const tableColumns = [
+  { field: 'sku', header: 'Mã SKU', width: '140px', sortable: true },
+  { field: 'product_name', header: 'Tên Mặt Hàng', width: '240px', sortable: true },
+  { field: 'warehouse_name', header: 'Kho Bãi', width: '170px', sortable: true },
+  { field: 'quantity_on_hand', header: 'Tồn Thực Tế', width: '130px', align: 'right', sortable: true },
+  { field: 'quantity_reserved', header: 'Đang Giữ Chỗ (Reserved)', width: '170px', align: 'right', sortable: true },
+  { field: 'available', header: 'Khả Dụng Còn Lại', width: '140px', align: 'right', sortable: true },
+  { field: 'reserve_rate', header: 'Tỷ Lệ Giữ', width: '120px', align: 'center', sortable: false }
+]
 
 const props = defineProps({
   currentUser: {

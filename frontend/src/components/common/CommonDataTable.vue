@@ -5,11 +5,17 @@
       showGridlines
       class="clean-datatable"
       responsiveLayout="scroll"
-      :paginator="paginator && filteredData.length > rows"
+      :paginator="paginator"
       :rows="rows"
+      :rowsPerPageOptions="rowsPerPageOptions"
       :loading="loading"
       :sortField="defaultSortField"
       :sortOrder="defaultSortOrder"
+      :scrollable="scrollable"
+      :scrollHeight="scrollHeight"
+      :tableStyle="tableStyle"
+      :resizableColumns="resizableColumns"
+      :columnResizeMode="columnResizeMode"
     >
       <!-- Optional slot for custom columns or prepend -->
       <slot name="prepend-columns"></slot>
@@ -36,13 +42,15 @@
       <!-- Dynamic slot for custom columns (action, etc.) -->
       <slot></slot>
 
-      <!-- Empty state template -->
+      <!-- Empty state template with custom slot support -->
       <template #empty>
-        <div class="py-10 text-center flex flex-col items-center gap-2">
-          <i :class="[emptyIcon || 'pi pi-inbox', 'text-3xl text-slate-300']"></i>
-          <p class="text-xs font-semibold text-slate-700 m-0">{{ emptyTitle || 'Chưa có dữ liệu nào' }}</p>
-          <p class="text-[11px] text-slate-400 m-0">{{ emptySubtitle || 'Không tìm thấy bản ghi phù hợp với điều kiện lọc.' }}</p>
-        </div>
+        <slot name="empty">
+          <div class="py-10 text-center flex flex-col items-center gap-2">
+            <i :class="[emptyIcon || 'pi pi-inbox', 'text-3xl text-slate-300']"></i>
+            <p class="text-xs font-semibold text-slate-700 m-0">{{ emptyTitle || 'Chưa có dữ liệu nào' }}</p>
+            <p class="text-[11px] text-slate-400 m-0">{{ emptySubtitle || 'Không tìm thấy bản ghi phù hợp với điều kiện lọc.' }}</p>
+          </div>
+        </slot>
       </template>
     </DataTable>
   </div>
@@ -73,6 +81,30 @@ const props = defineProps({
   rows: {
     type: Number,
     default: 10
+  },
+  rowsPerPageOptions: {
+    type: Array,
+    default: () => [10, 20, 50]
+  },
+  scrollable: {
+    type: Boolean,
+    default: false
+  },
+  scrollHeight: {
+    type: String,
+    default: null
+  },
+  tableStyle: {
+    type: Object,
+    default: null
+  },
+  resizableColumns: {
+    type: Boolean,
+    default: false
+  },
+  columnResizeMode: {
+    type: String,
+    default: 'fit'
   },
   searchQuery: {
     type: String,

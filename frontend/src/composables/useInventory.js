@@ -1,110 +1,99 @@
 import { ref, reactive, computed } from 'vue'
+import { FALLBACK_CATALOG_PRODUCTS } from '../constants/catalogProducts.constant.js'
 
 // Dữ liệu mẫu Fallback chuẩn SCM (khớp với DbInitializer.cs của C# Backend)
 const FALLBACK_WAREHOUSES = [
-  { id: 1, code: 'WH-HN-01', name: 'Kho Tổng Hà Nội', location: 'KCN Thăng Long, Đông Anh, Hà Nội', is_active: true },
-  { id: 2, code: 'WH-HCM-01', name: 'Kho Phân Phối TP.HCM', location: 'KCN Tân Bình, Tây Thạnh, TP.HCM', is_active: true },
-  { id: 3, code: 'WH-DN-01', name: 'Kho Trung Chuyển Đà Nẵng', location: 'KCN Hòa Khánh, Liên Chiểu, Đà Nẵng', is_active: true }
+  { id: 1, code: 'WH-HN-01', name: 'Kho Tổng Miền Bắc (Hà Nội)', location: 'Cụm Công Nghiệp Nam Từ Liêm, Hà Nội', is_active: true },
+  { id: 2, code: 'WH-HCM-01', name: 'Kho Trung Tâm Miền Nam (TP.HCM)', location: 'KCN Tân Bình, TP.HCM', is_active: true },
+  { id: 3, code: 'WH-DN-01', name: 'Kho Trung Chuyển Miền Trung (Đà Nẵng)', location: 'KCN Hòa Khánh, Liên Chiểu, Đà Nẵng', is_active: true }
 ]
 
-const FALLBACK_STOCKS = [
-  {
-    id: 1,
-    product_id: 1,
-    sku: 'LAP-MBP14-M3',
-    product_name: 'MacBook Pro 14 M3 Max (36GB / 1TB)',
-    warehouse_id: 1,
-    warehouse_code: 'WH-HN-01',
-    warehouse_name: 'Kho Tổng Hà Nội',
-    quantity_on_hand: 50,
-    quantity_reserved: 5,
-    available: 45,
-    min_stock: 10,
-    unit: 'Chiếc',
-    status: 'NORMAL',
-    updated_at: new Date().toISOString()
-  },
-  {
-    id: 2,
-    product_id: 1,
-    sku: 'LAP-MBP14-M3',
-    product_name: 'MacBook Pro 14 M3 Max (36GB / 1TB)',
-    warehouse_id: 2,
-    warehouse_code: 'WH-HCM-01',
-    warehouse_name: 'Kho Phân Phối TP.HCM',
-    quantity_on_hand: 30,
-    quantity_reserved: 0,
-    available: 30,
-    min_stock: 10,
-    unit: 'Chiếc',
-    status: 'NORMAL',
-    updated_at: new Date().toISOString()
-  },
-  {
-    id: 3,
-    product_id: 2,
-    sku: 'PHN-IP15PM-256',
-    product_name: 'iPhone 15 Pro Max 256GB Titan Tự Nhiên',
-    warehouse_id: 1,
-    warehouse_code: 'WH-HN-01',
-    warehouse_name: 'Kho Tổng Hà Nội',
-    quantity_on_hand: 80,
-    quantity_reserved: 12,
-    available: 68,
-    min_stock: 20,
-    unit: 'Chiếc',
-    status: 'NORMAL',
-    updated_at: new Date().toISOString()
-  },
-  {
-    id: 4,
-    product_id: 2,
-    sku: 'PHN-IP15PM-256',
-    product_name: 'iPhone 15 Pro Max 256GB Titan Tự Nhiên',
-    warehouse_id: 2,
-    warehouse_code: 'WH-HCM-01',
-    warehouse_name: 'Kho Phân Phối TP.HCM',
-    quantity_on_hand: 40,
-    quantity_reserved: 5,
-    available: 35,
-    min_stock: 15,
-    unit: 'Chiếc',
-    status: 'NORMAL',
-    updated_at: new Date().toISOString()
-  },
-  {
-    id: 5,
-    product_id: 3,
-    sku: 'MON-DELL-U2723',
-    product_name: 'Màn hình Dell UltraSharp U2723QE 4K IPS Black',
-    warehouse_id: 1,
-    warehouse_code: 'WH-HN-01',
-    warehouse_name: 'Kho Tổng Hà Nội',
-    quantity_on_hand: 12,
-    quantity_reserved: 8,
-    available: 4,
-    min_stock: 15,
-    unit: 'Chiếc',
-    status: 'LOW_STOCK', // Cảnh báo dưới định mức
-    updated_at: new Date().toISOString()
-  },
-  {
-    id: 6,
-    product_id: 4,
-    sku: 'ACC-KEY-Q1PRO',
-    product_name: 'Bàn phím cơ Keychron Q1 Pro Wireless Custom',
-    warehouse_id: 3,
-    warehouse_code: 'WH-DN-01',
-    warehouse_name: 'Kho Trung Chuyển Đà Nẵng',
-    quantity_on_hand: 5,
-    quantity_reserved: 5,
-    available: 0,
-    min_stock: 8,
-    unit: 'Chiếc',
-    status: 'OUT_OF_STOCK', // Hết tồn khả dụng
-    updated_at: new Date().toISOString()
-  }
-]
+// Sinh dữ liệu tồn kho mẫu đầu kỳ cho toàn bộ 100 sản phẩm Catalog
+const generateFallbackStocks = () => {
+  const list = []
+  FALLBACK_CATALOG_PRODUCTS.forEach(p => {
+    // 1. Kho Hà Nội (Kho chính: Đầy đủ 100% sản phẩm)
+    let qOnHandHn = 20 + ((p.id * 7) % 65)
+    let qResHn = (p.id % 4 === 0) ? 5 : 0
+    if ([5, 12, 19, 25, 40, 60, 75].includes(p.id)) {
+      qOnHandHn = 4 + (p.id % 3) // Sắp hết (LOW_STOCK)
+      qResHn = 1
+    } else if ([8, 33].includes(p.id)) {
+      qOnHandHn = 0 // Hết hàng (OUT_OF_STOCK)
+      qResHn = 0
+    }
+    const availHn = Math.max(0, qOnHandHn - qResHn)
+    let statusHn = 'NORMAL'
+    if (availHn === 0) statusHn = 'OUT_OF_STOCK'
+    else if (availHn <= (p.min_stock || 10)) statusHn = 'LOW_STOCK'
+
+    list.push({
+      id: list.length + 1,
+      product_id: p.id,
+      sku: p.sku,
+      product_name: p.name || p.description,
+      warehouse_id: 1,
+      warehouse_code: 'WH-HN-01',
+      warehouse_name: 'Kho Tổng Hà Nội',
+      quantity_on_hand: qOnHandHn,
+      quantity_reserved: qResHn,
+      available: availHn,
+      min_stock: p.min_stock || 10,
+      unit: p.unit || 'Cái',
+      status: statusHn,
+      updated_at: new Date().toISOString()
+    })
+
+    // 2. Kho TP.HCM (Kho thứ 2: Phủ 70% danh mục)
+    if (p.id % 3 !== 0) {
+      const qHcm = 15 + ((p.id * 11) % 50)
+      const qResHcm = (p.id % 5 === 0) ? 3 : 0
+      const availHcm = Math.max(0, qHcm - qResHcm)
+      list.push({
+        id: list.length + 1,
+        product_id: p.id,
+        sku: p.sku,
+        product_name: p.name || p.description,
+        warehouse_id: 2,
+        warehouse_code: 'WH-HCM-01',
+        warehouse_name: 'Kho Trung Tâm Miền Nam (TP.HCM)',
+        quantity_on_hand: qHcm,
+        quantity_reserved: qResHcm,
+        available: availHcm,
+        min_stock: p.min_stock || 10,
+        unit: p.unit || 'Cái',
+        status: availHcm <= (p.min_stock || 10) ? 'LOW_STOCK' : 'NORMAL',
+        updated_at: new Date().toISOString()
+      })
+    }
+
+    // 3. Kho Đà Nẵng (Kho thứ 3: Phủ 35% danh mục luân chuyển Miền Trung)
+    if (p.id % 3 === 0) {
+      const qDn = 10 + ((p.id * 5) % 35)
+      const qResDn = (p.id % 6 === 0) ? 2 : 0
+      const availDn = Math.max(0, qDn - qResDn)
+      list.push({
+        id: list.length + 1,
+        product_id: p.id,
+        sku: p.sku,
+        product_name: p.name || p.description,
+        warehouse_id: 3,
+        warehouse_code: 'WH-DN-01',
+        warehouse_name: 'Kho Trung Chuyển Miền Trung (Đà Nẵng)',
+        quantity_on_hand: qDn,
+        quantity_reserved: qResDn,
+        available: availDn,
+        min_stock: p.min_stock || 10,
+        unit: p.unit || 'Cái',
+        status: availDn <= (p.min_stock || 10) ? 'LOW_STOCK' : 'NORMAL',
+        updated_at: new Date().toISOString()
+      })
+    }
+  })
+  return list
+}
+
+const FALLBACK_STOCKS = generateFallbackStocks()
 
 const FALLBACK_MOVEMENTS = [
   {
@@ -113,13 +102,13 @@ const FALLBACK_MOVEMENTS = [
     warehouse_id: 1,
     warehouse_name: 'Kho Tổng Hà Nội',
     product_id: 1,
-    product_name: 'MacBook Pro 14 M3 Max (36GB / 1TB)',
-    sku: 'LAP-MBP14-M3',
+    product_name: 'Tủ lạnh LG Inverter 654 Lít GR-X247JS',
+    sku: 'TL-LG-654',
     movement_type: 'PO_RECEIPT',
     quantity_delta: 50,
     balance_on_hand_after: 50,
     balance_reserved_after: 0,
-    notes: 'Nhập kho lô hàng đầu kỳ từ Nhà Cung Cấp FPT Synnex',
+    notes: 'Nhập kho lô hàng đầu kỳ từ Tổng kho LG Electronics',
     created_at: '2026-09-18T08:30:00Z'
   },
   {
@@ -128,8 +117,8 @@ const FALLBACK_MOVEMENTS = [
     warehouse_id: 1,
     warehouse_name: 'Kho Tổng Hà Nội',
     product_id: 1,
-    product_name: 'MacBook Pro 14 M3 Max (36GB / 1TB)',
-    sku: 'LAP-MBP14-M3',
+    product_name: 'Tủ lạnh LG Inverter 654 Lít GR-X247JS',
+    sku: 'TL-LG-654',
     movement_type: 'SO_RESERVE',
     quantity_delta: 5,
     balance_on_hand_after: 50,
@@ -142,14 +131,14 @@ const FALLBACK_MOVEMENTS = [
     reference_doc: 'PO-202609-0018',
     warehouse_id: 1,
     warehouse_name: 'Kho Tổng Hà Nội',
-    product_id: 3,
-    product_name: 'Màn hình Dell UltraSharp U2723QE 4K IPS Black',
-    sku: 'MON-DELL-U2723',
+    product_id: 2,
+    product_name: 'Máy giặt Electrolux Inverter 10 Kg EWF1024P5WB',
+    sku: 'MG-EL-104',
     movement_type: 'PO_RECEIPT',
     quantity_delta: 20,
     balance_on_hand_after: 20,
     balance_reserved_after: 0,
-    notes: 'Nhập kho bổ sung từ DigiWorld',
+    notes: 'Nhập kho bổ sung từ Electrolux Việt Nam',
     created_at: '2026-09-21T09:00:00Z'
   },
   {
@@ -157,14 +146,14 @@ const FALLBACK_MOVEMENTS = [
     reference_doc: 'SO-202609-0051',
     warehouse_id: 1,
     warehouse_name: 'Kho Tổng Hà Nội',
-    product_id: 3,
-    product_name: 'Màn hình Dell UltraSharp U2723QE 4K IPS Black',
-    sku: 'MON-DELL-U2723',
+    product_id: 2,
+    product_name: 'Máy giặt Electrolux Inverter 10 Kg EWF1024P5WB',
+    sku: 'MG-EL-104',
     movement_type: 'SO_RESERVE',
     quantity_delta: 8,
     balance_on_hand_after: 20,
     balance_reserved_after: 8,
-    notes: 'Khóa giữ chỗ đơn hàng dự án Công ty FPT Software',
+    notes: 'Khóa giữ chỗ đơn hàng dự án khách sạn Vinpearl',
     created_at: '2026-09-21T14:20:00Z'
   },
   {
@@ -172,9 +161,9 @@ const FALLBACK_MOVEMENTS = [
     reference_doc: 'DEL-202609-0008',
     warehouse_id: 1,
     warehouse_name: 'Kho Tổng Hà Nội',
-    product_id: 3,
-    product_name: 'Màn hình Dell UltraSharp U2723QE 4K IPS Black',
-    sku: 'MON-DELL-U2723',
+    product_id: 2,
+    product_name: 'Máy giặt Electrolux Inverter 10 Kg EWF1024P5WB',
+    sku: 'MG-EL-104',
     movement_type: 'SO_ISSUE',
     quantity_delta: -8,
     balance_on_hand_after: 12,
@@ -188,12 +177,27 @@ const FALLBACK_MOVEMENTS = [
 const stocks = ref([])
 const warehouses = ref([])
 const movements = ref([])
+const catalogProducts = ref([...FALLBACK_CATALOG_PRODUCTS])
 const isUsingFallback = ref(false)
+
+const catalogMap = computed(() => {
+  const map = new Map()
+  catalogProducts.value.forEach(p => {
+    map.set(Number(p.id), {
+      sku: p.sku || `SKU-${p.id}`,
+      name: p.name || p.designation || p.description || `Sản phẩm #${p.id}`,
+      unit: p.unit || 'Cái',
+      min_stock: p.min_stock || 10
+    })
+  })
+  return map
+})
 
 const loading = reactive({
   stocks: false,
   warehouses: false,
   movements: false,
+  catalog: false,
   action: false
 })
 
@@ -332,19 +336,41 @@ export function useInventory() {
     }
   }
 
-// Danh mục tra cứu nhanh sản phẩm chuẩn ERP
-const PRODUCT_CATALOG = {
-  1: { sku: 'LAP-MBP14-M3', name: 'MacBook Pro 14 M3 Max (36GB / 1TB)', unit: 'Chiếc' },
-  2: { sku: 'PHN-IP15PM-256', name: 'iPhone 15 Pro Max 256GB Titan Tự Nhiên', unit: 'Chiếc' },
-  3: { sku: 'MON-DELL-U2723', name: 'Màn hình Dell UltraSharp U2723QE 4K IPS Black', unit: 'Chiếc' },
-  4: { sku: 'ACC-KEY-Q1PRO', name: 'Bàn phím cơ Keychron Q1 Pro Wireless Custom', unit: 'Chiếc' }
-}
+  // Tải danh mục Sản Phẩm Master Data từ Catalog Service
+  const fetchCatalogProducts = async () => {
+    loading.catalog = true
+    try {
+      const res = await fetch('/api/v1/catalog/products?limit=500', {
+        headers: getHeaders(),
+        signal: AbortSignal.timeout(3000)
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const json = await res.json()
+      const items = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : null)
+      if (items && items.length > 0) {
+        catalogProducts.value = items.map(p => ({
+          id: Number(p.id),
+          sku: p.sku || p.code || `SKU-${p.id}`,
+          name: p.name || p.designation || p.title || '',
+          description: p.description || '',
+          unit: p.unit || 'Cái',
+          min_stock: Number(p.min_stock ?? p.minimum_stock ?? 10)
+        }))
+        return
+      }
+    } catch (err) {
+      console.warn('[useInventory] Không thể tải danh mục Catalog từ API, dùng Fallback 100 sản phẩm:', err.message)
+    } finally {
+      loading.catalog = false
+    }
+  }
 
   // 2. Tải danh sách Tồn Kho
   const fetchStocks = async () => {
     loading.stocks = true
     try {
       const params = new URLSearchParams()
+      params.append('pageSize', '1000')
       if (filters.warehouseId) params.append('warehouseId', filters.warehouseId)
       if (filters.lowStockOnly) params.append('lowStock', 'true')
 
@@ -356,11 +382,11 @@ const PRODUCT_CATALOG = {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       if (json.success && Array.isArray(json.data)) {
-        // Chuẩn hóa và làm giàu dữ liệu (Enrich) SKU & Tên Sản Phẩm từ Catalog
+        // Chuẩn hóa và làm giàu dữ liệu (Enrich) SKU & Tên Sản Phẩm từ Catalog Map
         stocks.value = json.data.map(item => {
           const pid = Number(item.product_id ?? item.productId ?? 0)
           const wid = Number(item.warehouse_id ?? item.warehouseId ?? 0)
-          const cat = PRODUCT_CATALOG[pid] || {}
+          const cat = catalogMap.value.get(pid) || {}
           const qOnHand = Number(item.quantity_on_hand ?? item.quantityOnHand ?? 0)
           const qReserved = Number(item.quantity_reserved ?? item.quantityReserved ?? 0)
           return {
@@ -369,11 +395,11 @@ const PRODUCT_CATALOG = {
             warehouse_id: wid,
             sku: item.sku || cat.sku || `SKU-${pid}`,
             product_name: item.product_name || item.productName || cat.name || `Sản phẩm #${pid}`,
-            unit: item.unit || cat.unit || 'Chiếc',
+            unit: item.unit || cat.unit || 'Cái',
             quantity_on_hand: qOnHand,
             quantity_reserved: qReserved,
             available: Number(item.available ?? (qOnHand - qReserved)),
-            min_stock: Number(item.min_stock ?? item.minStock ?? 10)
+            min_stock: Number(item.min_stock ?? item.minStock ?? (cat.min_stock || 10))
           }
         })
         isUsingFallback.value = false
@@ -401,7 +427,9 @@ const PRODUCT_CATALOG = {
   const fetchMovements = async () => {
     loading.movements = true
     try {
-      const res = await fetch('/api/v1/inventory/stocks/movements', {
+      const params = new URLSearchParams()
+      params.append('pageSize', '500')
+      const res = await fetch(`/api/v1/inventory/stocks/movements?${params.toString()}`, {
         headers: getHeaders(),
         signal: AbortSignal.timeout(3000)
       })
@@ -410,7 +438,7 @@ const PRODUCT_CATALOG = {
       if (json.success && Array.isArray(json.data)) {
         movements.value = json.data.map(m => {
           const pid = Number(m.product_id ?? m.productId ?? 0)
-          const cat = PRODUCT_CATALOG[pid] || {}
+          const cat = catalogMap.value.get(pid) || {}
           return {
             ...m,
             product_id: pid,
@@ -617,6 +645,8 @@ const PRODUCT_CATALOG = {
     stocks,
     warehouses,
     movements,
+    catalogProducts,
+    catalogMap,
     isUsingFallback,
     loading,
     filters,
@@ -625,6 +655,7 @@ const PRODUCT_CATALOG = {
     filteredStocks,
     filteredMovements,
     fetchWarehouses,
+    fetchCatalogProducts,
     fetchStocks,
     fetchMovements,
     receiveStock,

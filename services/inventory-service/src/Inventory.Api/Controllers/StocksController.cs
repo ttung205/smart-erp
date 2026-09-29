@@ -41,11 +41,11 @@ public class StocksController : ControllerBase
         [FromQuery] long? warehouseId,
         [FromQuery] bool? lowStock,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20,
+        [FromQuery] int pageSize = 1000,
         CancellationToken ct = default)
     {
         page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 1, 100);
+        pageSize = Math.Clamp(pageSize, 1, 1000);
 
         var query = _context.InventoryStocks
             .AsNoTracking()
@@ -161,11 +161,11 @@ public class StocksController : ControllerBase
         [FromQuery] long? warehouseId,
         [FromQuery] string? movementType,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 50,
+        [FromQuery] int pageSize = 500,
         CancellationToken ct = default)
     {
         page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 1, 100);
+        pageSize = Math.Clamp(pageSize, 1, 1000);
 
         var query = _context.StockMovements
             .AsNoTracking()

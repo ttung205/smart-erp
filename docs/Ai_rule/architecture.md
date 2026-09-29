@@ -1,6 +1,6 @@
 # ARCHITECTURE GUIDELINES — Smart Distributed ERP
 
-> **Mục tiêu**: Định nghĩa cấu trúc kiến trúc tổng thể, nguyên tắc phân lớp Clean Architecture và các mẫu thiết kế phân tán (Distributed Patterns) bắt buộc cho toàn bộ các microservices (PHP Laravel & C# .NET 8).
+> **Mục tiêu**: Định nghĩa cấu trúc kiến trúc tổng thể, nguyên tắc phân lớp Clean Architecture và các mẫu thiết kế phân tán (Distributed Patterns) bắt buộc cho toàn bộ các microservices (PHP Laravel & C# .NET 10).
 
 ---
 

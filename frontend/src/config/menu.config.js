@@ -99,12 +99,44 @@ export const menuCategories = [
         ]
       },
       {
-        id: 'inventory',
-        path: '/inventory',
-        resource: 'inventory',
-        permission: 'inventory.view',
-        label: 'Quản lý tồn kho',
-        icon: 'pi pi-server'
+        id: 'inventory-hub',
+        label: 'Quản lý kho',
+        icon: 'pi pi-server',
+        isFolder: true,
+        children: [
+          {
+            id: 'inventory-overview',
+            path: '/inventory/overview',
+            resource: 'inventory',
+            permission: 'inventory.view',
+            label: 'Tổng quan kho',
+            icon: 'pi pi-chart-bar'
+          },
+          {
+            id: 'inventory-stocks',
+            path: '/inventory/stocks',
+            resource: 'inventory',
+            permission: 'inventory.view',
+            label: 'Bảng tồn kho',
+            icon: 'pi pi-box'
+          },
+          {
+            id: 'inventory-reservations',
+            path: '/inventory/reservations',
+            resource: 'inventory',
+            permission: 'inventory.view',
+            label: 'Hàng giữ chỗ',
+            icon: 'pi pi-lock'
+          },
+          {
+            id: 'inventory-movements',
+            path: '/inventory/movements',
+            resource: 'inventory',
+            permission: 'inventory.view',
+            label: 'Sổ cái thẻ kho',
+            icon: 'pi pi-history'
+          }
+        ]
       },
       {
         id: 'sales',

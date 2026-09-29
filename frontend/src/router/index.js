@@ -181,13 +181,54 @@ export const routes = [
   },
   {
     path: '/inventory',
-    name: 'inventory',
+    redirect: '/inventory/overview'
+  },
+  {
+    path: '/inventory/overview',
+    name: 'inventory-overview',
     component: InventoryView,
+    props: { currentSubTab: 'overview' },
     meta: {
       requiresAuth: true,
       resource: 'inventory',
       permission: 'inventory.view',
-      title: 'Quản Lý Tồn Kho'
+      title: 'Tổng Quan Kho'
+    }
+  },
+  {
+    path: '/inventory/stocks',
+    name: 'inventory-stocks',
+    component: InventoryView,
+    props: { currentSubTab: 'stocks' },
+    meta: {
+      requiresAuth: true,
+      resource: 'inventory',
+      permission: 'inventory.view',
+      title: 'Bảng Tồn Kho'
+    }
+  },
+  {
+    path: '/inventory/reservations',
+    name: 'inventory-reservations',
+    component: InventoryView,
+    props: { currentSubTab: 'reservations' },
+    meta: {
+      requiresAuth: true,
+      resource: 'inventory',
+      permission: 'inventory.view',
+      title: 'Quản Lý Hàng Giữ Chỗ'
+    }
+  },
+  {
+    path: '/inventory/movements',
+    name: 'inventory-movements',
+    component: InventoryView,
+    props: { currentSubTab: 'movements' },
+    meta: {
+      requiresAuth: true,
+      resource: 'inventory',
+      permission: 'inventory.view',
+      title: 'Sổ Cái Thẻ Kho'
     }
   },
   {

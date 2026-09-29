@@ -68,103 +68,83 @@
       </div>
     </div>
 
-    <!-- PrimeVue 4 DataTable Sổ Cái Thẻ Kho -->
-    <DataTable 
+    <!-- Bảng Sổ Cái Thẻ Kho Sử Dụng CommonDataTable Đồng Bộ -->
+    <CommonDataTable 
       :value="filteredMovements" 
+      :columns="tableColumns"
       :loading="loading.movements" 
-      showGridlines
-      scrollable
-      resizableColumns
-      columnResizeMode="expand"
-      paginator 
-      :rows="10" 
-      :rowsPerPageOptions="[10, 20, 50]"
+      :rows="10"
+      emptyIcon="pi pi-history"
+      emptyTitle="Không tìm thấy bản ghi biến động thẻ kho"
+      emptySubtitle="Không có giao dịch nhập, xuất hoặc điều chuyển nào phù hợp với bộ lọc."
     >
-      <template #empty>
-        <div class="py-8 px-4 text-center">
-          <p class="text-slate-500 text-sm font-medium">Không tìm thấy bản ghi biến động thẻ kho nào phù hợp với bộ lọc.</p>
-        </div>
+      <!-- Thời gian -->
+      <template #col-created_at="{ data }">
+        <span class="text-xs font-mono text-slate-700">{{ formatDateTime(data.created_at) }}</span>
       </template>
 
-      <!-- Thời gian -->
-      <Column field="created_at" header="Thời Điểm" style="width: 175px">
-        <template #body="{ data }">
-          <span class="text-xs font-mono text-slate-700">{{ formatDateTime(data.created_at) }}</span>
-        </template>
-      </Column>
-
       <!-- Mã chứng từ -->
-      <Column field="reference_doc" header="Mã Chứng Từ" style="width: 160px">
-        <template #body="{ data }">
-          <span 
-            class="text-[11px] px-1.5 py-0.5 rounded-[4px] border font-mono inline-block"
-            :class="getDocTagClass(data.reference_doc)"
-          >
-            {{ formatReferenceDoc(data.reference_doc) }}
-          </span>
-        </template>
-      </Column>
+      <template #col-reference_doc="{ data }">
+        <span 
+          class="text-[11px] px-1.5 py-0.5 rounded-[4px] border font-mono inline-block"
+          :class="getDocTagClass(data.reference_doc)"
+        >
+          {{ formatReferenceDoc(data.reference_doc) }}
+        </span>
+      </template>
 
       <!-- Kho bãi -->
-      <Column field="warehouse_name" header="Kho Bãi" style="width: 160px">
-        <template #body="{ data }">
-          <span class="text-xs text-slate-700 font-medium">
-            {{ data.warehouse_name }}
-          </span>
-        </template>
-      </Column>
+      <template #col-warehouse_name="{ data }">
+        <span class="text-xs text-slate-700 font-medium">
+          {{ data.warehouse_name }}
+        </span>
+      </template>
 
       <!-- Sản phẩm & SKU -->
-      <Column field="product_name" header="Mặt Hàng" style="width: 220px">
-        <template #body="{ data }">
-          <div class="text-xs font-semibold text-slate-800 leading-snug">{{ data.product_name }}</div>
-          <div class="text-xs text-slate-400 font-mono mt-0.5">{{ data.sku }}</div>
-        </template>
-      </Column>
+      <template #col-product_name="{ data }">
+        <div class="text-xs font-semibold text-slate-800 leading-snug">{{ data.product_name }}</div>
+        <div class="text-xs text-slate-400 font-mono mt-0.5">{{ data.sku }}</div>
+      </template>
 
       <!-- Loại nghiệp vụ -->
-      <Column field="movement_type" header="Loại Nghiệp Vụ" style="width: 140px">
-        <template #body="{ data }">
-          <span 
-            class="font-semibold text-xs" 
-            :class="getMovementClass(data.movement_type)"
-          >
-            {{ formatMovementType(data.movement_type) }}
-          </span>
-        </template>
-      </Column>
+      <template #col-movement_type="{ data }">
+        <span 
+          class="font-semibold text-xs" 
+          :class="getMovementClass(data.movement_type)"
+        >
+          {{ formatMovementType(data.movement_type) }}
+        </span>
+      </template>
 
       <!-- Độ Biến động +/- -->
-      <Column field="quantity_delta" header="Biến Động" style="width: 110px; text-align: right">
-        <template #body="{ data }">
+      <template #col-quantity_delta="{ data }">
+        <div class="text-right">
           <span 
             class="font-mono font-bold text-xs px-1.5 py-0.5 rounded-[4px]" 
             :class="data.quantity_delta >= 0 ? 'text-emerald-700 bg-emerald-50' : 'text-rose-700 bg-rose-50'"
           >
             {{ data.quantity_delta > 0 ? '+' + formatNumber(data.quantity_delta) : formatNumber(data.quantity_delta) }}
           </span>
-        </template>
-      </Column>
+        </div>
+      </template>
 
       <!-- Số dư sau thao tác -->
-      <Column header="Số Dư Sau Thao Tác" style="width: 150px; text-align: right">
-        <template #body="{ data }">
+      <template #col-balance="{ data }">
+        <div class="text-right">
           <div class="font-mono text-xs text-slate-800">
             Tồn: <strong>{{ formatNumber(data.balance_on_hand_after) }}</strong>
           </div>
           <div class="text-xs text-slate-400 font-mono mt-0.5">
             Giữ: {{ formatNumber(data.balance_reserved_after) }}
           </div>
-        </template>
-      </Column>
+        </div>
+      </template>
 
       <!-- Ghi chú / Nguồn gốc -->
-      <Column field="notes" header="Ghi Chú / Nguồn Gốc Giao Dịch" style="width: 220px">
-        <template #body="{ data }">
-          <span class="text-xs text-slate-600 leading-relaxed">{{ formatNotes(data.notes) }}</span>
-        </template>
-      </Column>
-    </DataTable>
+      <template #col-notes="{ data }">
+        <span class="text-xs text-slate-600 leading-relaxed">{{ formatNotes(data.notes) }}</span>
+      </template>
+    </CommonDataTable>
   </div>
 </template>
 
@@ -174,9 +154,19 @@ import Tag from 'primevue/tag'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
-import DataTable from 'primevue/datatable'
-import Column from 'primevue/column'
+import CommonDataTable from '../../components/common/CommonDataTable.vue'
 import { useInventory } from '../../composables/useInventory'
+
+const tableColumns = [
+  { field: 'created_at', header: 'Thời Điểm', width: '175px', sortable: true },
+  { field: 'reference_doc', header: 'Mã Chứng Từ', width: '160px', sortable: true },
+  { field: 'warehouse_name', header: 'Kho Bãi', width: '160px', sortable: true },
+  { field: 'product_name', header: 'Mặt Hàng', width: '220px', sortable: true },
+  { field: 'movement_type', header: 'Loại Nghiệp Vụ', width: '140px', sortable: true },
+  { field: 'quantity_delta', header: 'Biến Động', width: '110px', align: 'right', sortable: true },
+  { field: 'balance', header: 'Số Dư Sau Thao Tác', width: '150px', align: 'right', sortable: false },
+  { field: 'notes', header: 'Ghi Chú / Nguồn Gốc Giao Dịch', width: '220px', sortable: false }
+]
 
 const {
   movements,

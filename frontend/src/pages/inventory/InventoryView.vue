@@ -1,69 +1,132 @@
 <template>
-  <div class="flex flex-col gap-3 pb-8">
-    <!-- 1. Breadcrumb Điều Hướng Chuẩn PrimeVue 4 -->
-    <div class="bg-white border border-slate-200 rounded-[6px] px-4 py-2">
-      <Breadcrumb :home="breadcrumbHome" :model="breadcrumbItems" class="!bg-transparent !border-none !p-0">
-        <template #item="{ item }">
-          <a 
-            v-if="item.command" 
-            class="inline-flex items-center gap-1.5 text-slate-500 hover:text-sky-600 text-xs font-medium cursor-pointer transition-colors leading-none" 
-            @click.prevent="item.command"
-          >
-            <i v-if="item.icon" :class="item.icon" class="text-xs leading-none"></i>
-            <span v-if="item.label" class="leading-none">{{ item.label }}</span>
-          </a>
-          <span v-else class="inline-flex items-center text-slate-800 text-xs font-bold leading-none">
-            <span class="leading-none">{{ item.label }}</span>
+  <div class="flex flex-col gap-4 pb-10">
+    <!-- 1. Header Trang Chuẩn Smart ERP (Đồng bộ với Catalog, Sales, Accounting...) -->
+    <PageHeader
+      :title="pageHeaderTitle"
+      :subtitle="pageHeaderSubtitle"
+    >
+      <template #title v-if="selectedWarehouse">
+        <div class="flex items-center gap-2 flex-wrap">
+          <Button 
+            v-if="canSwitchWarehouse"
+            icon="pi pi-arrow-left" 
+            text 
+            size="small" 
+            class="!text-slate-600 hover:!text-sky-600 !p-1 !w-7 !h-7 !rounded-[6px]"
+            v-tooltip.top="'Quay lại tất cả kho'"
+            @click="selectedWarehouseId = null" 
+          />
+          <span>{{ selectedWarehouse.name }}</span>
+          <span class="text-xs font-mono font-bold px-2 py-0.5 bg-sky-50 text-sky-700 rounded-[4px] border border-sky-200">
+            {{ selectedWarehouse.code }}
           </span>
-        </template>
-      </Breadcrumb>
-    </div>
+          <span class="text-[11px] font-semibold px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-[4px] border border-emerald-200 inline-flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Đang hoạt động
+          </span>
+        </div>
+      </template>
 
-    <!-- 2. Khối Nội Dung Thẻ Tab Chính -->
+      <template #actions>
+        <div class="flex items-center gap-2">
+          <!-- Dropdown chuyển nhanh giữa các kho khi ở Dashboard kho -->
+          <div v-if="selectedWarehouse && canSwitchWarehouse && warehouses.length > 1" class="flex items-center gap-1.5 mr-1">
+            <Select 
+              :modelValue="Number(selectedWarehouseId)" 
+              @update:modelValue="selectedWarehouseId = $event"
+              :options="warehouseOptions" 
+              optionLabel="label" 
+              optionValue="value" 
+              class="!text-xs !h-8 !rounded-[6px] w-48"
+            />
+          </div>
+
+          <!-- Nút Điều chuyển kho (Hiện ở Overview và Stocks) -->
+          <Button
+            v-if="currentSubTab === 'overview' || currentSubTab === 'stocks'"
+            label="Điều chuyển kho"
+            icon="pi pi-arrows-h"
+            size="small"
+            outlined
+            class="rounded-[6px] !text-xs !py-1.5 !px-3 !border-slate-300 !text-slate-700 hover:!bg-slate-50 font-medium"
+            @click="openTransferDialog(selectedWarehouseId)"
+          />
+
+          <!-- Nút Nhập kho (Hiện ở Overview và Stocks) -->
+          <Button
+            v-if="currentSubTab === 'overview' || currentSubTab === 'stocks'"
+            :label="selectedWarehouse ? 'Nhập kho tại đây' : 'Lập phiếu nhập kho'"
+            icon="pi pi-plus"
+            size="small"
+            class="rounded-[6px] !text-xs !py-1.5 !px-3 !bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 font-medium"
+            @click="openReceiveDialog(selectedWarehouseId)"
+          />
+
+          <!-- Nút Khóa giữ hàng mới (Hiện ở Reservations) -->
+          <Button
+            v-if="currentSubTab === 'reservations'"
+            label="Khóa Giữ Hàng Mới (SO)"
+            icon="pi pi-lock"
+            size="small"
+            class="rounded-[6px] !text-xs !py-1.5 !px-3 !bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 font-medium"
+            @click="openReserveDialog()"
+          />
+        </div>
+      </template>
+    </PageHeader>
+
+    <!-- 2. Khối Nội Dung Thẻ Chính Theo Route Phân Hệ Kho -->
     <div class="bg-white border border-slate-200 rounded-[6px] p-4">
-      <Tabs v-model:value="currentSubTab">
-        <TabPanels>
-          <!-- TAB 1: TỔNG QUAN (XEM TÌNH HÌNH KHO) -->
-          <TabPanel value="overview">
-            <OverviewTab 
-              :currentUser="currentUser" 
-              @navigate="currentSubTab = $event"
-              @open-transfer="openTransferDialog"
-              @quick-receive="quickReceiveForStock"
-              @filter-low-stock="goToStocksWithLowFilter"
-            />
-          </TabPanel>
+      <!-- 1. TỔNG QUAN KHO -->
+      <template v-if="currentSubTab === 'overview'">
+        <OverviewTabRegional
+          v-if="selectedWarehouseId"
+          :warehouseId="selectedWarehouseId"
+          :currentUser="currentUser"
+          @back="selectedWarehouseId = null"
+          @change-warehouse="selectedWarehouseId = $event"
+          @navigate="navigateToSubTab"
+          @open-receive="openReceiveDialog"
+          @open-transfer="openTransferDialog"
+          @quick-receive="quickReceiveForStock"
+          @view-movement="viewMovementForStock"
+        />
+        <OverviewTab 
+          v-else
+          :currentUser="currentUser" 
+          @select-warehouse="selectedWarehouseId = $event"
+          @navigate="navigateToSubTab"
+          @open-transfer="openTransferDialog"
+          @quick-receive="quickReceiveForStock"
+          @filter-low-stock="goToStocksWithLowFilter"
+        />
+      </template>
 
-          <!-- TAB 2: TỒN KHO (XEM SỐ LƯỢNG SẢN PHẨM HIỆN CÓ) -->
-          <TabPanel value="stocks">
-            <StocksTab 
-              :currentUser="currentUser"
-              @open-receive="openReceiveDialog"
-              @open-reserve="openReserveDialog"
-              @open-release="openReleaseDialog"
-              @open-issue="openIssueDialog"
-              @open-transfer="openTransferDialog"
-              @view-movement="viewMovementForStock"
-              @quick-receive="quickReceiveForStock"
-            />
-          </TabPanel>
+      <!-- 2. BẢNG TỒN KHO THỰC TẾ -->
+      <StocksTab 
+        v-else-if="currentSubTab === 'stocks'"
+        :currentUser="currentUser"
+        @open-receive="openReceiveDialog"
+        @open-reserve="openReserveDialog"
+        @open-release="openReleaseDialog"
+        @open-issue="openIssueDialog"
+        @open-transfer="openTransferDialog"
+        @view-movement="viewMovementForStock"
+        @quick-receive="quickReceiveForStock"
+      />
 
-          <!-- TAB 3: ĐƠN GIỮ HÀNG (SẢN PHẨM ĐANG ĐƯỢC GIỮ CHO ĐƠN) -->
-          <TabPanel value="reservations">
-            <ReservationsTab 
-              :currentUser="currentUser"
-              @open-reserve="openReserveDialog"
-              @open-release="openReleaseDialog"
-              @open-issue="openIssueDialog"
-            />
-          </TabPanel>
+      <!-- 3. QUẢN LÝ HÀNG GIỮ CHỖ (SO RESERVATIONS) -->
+      <ReservationsTab 
+        v-else-if="currentSubTab === 'reservations'"
+        :currentUser="currentUser"
+        @open-reserve="openReserveDialog"
+        @open-release="openReleaseDialog"
+        @open-issue="openIssueDialog"
+      />
 
-          <!-- TAB 4: LỊCH SỬ BIẾN ĐỘNG THẺ KHO (SỔ CÁI THẺ KHO) -->
-          <TabPanel value="movements">
-            <MovementsTab />
-          </TabPanel>
-        </TabPanels>
-      </Tabs>
+      <!-- 4. SỔ CÁI BIẾN ĐỘNG THẺ KHO -->
+      <MovementsTab 
+        v-else-if="currentSubTab === 'movements'"
+      />
     </div>
 
     <!-- 3. CÁC MODAL HÀNH ĐỘNG NGHIỆP VỤ SCM TOÀN HỆ THỐNG -->
@@ -103,6 +166,8 @@
             :options="productOptions" 
             optionLabel="label" 
             optionValue="value" 
+            filter
+            filterPlaceholder="Tìm nhanh mã SKU hoặc tên sản phẩm..."
             placeholder="Chọn sản phẩm..." 
             class="w-full !rounded-[6px]" 
           />
@@ -521,19 +586,18 @@
 
 <script setup>
 import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
-import Breadcrumb from 'primevue/breadcrumb'
+import PageHeader from '../../components/common/PageHeader.vue'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import InputNumber from 'primevue/inputnumber'
 import Select from 'primevue/select'
 import Dialog from 'primevue/dialog'
-import Tabs from 'primevue/tabs'
-import TabPanels from 'primevue/tabpanels'
-import TabPanel from 'primevue/tabpanel'
 
 import { useInventory } from '../../composables/useInventory'
 import OverviewTab from './OverviewTab.vue'
+import OverviewTabRegional from './OverviewTabRegional.vue'
 import StocksTab from './StocksTab.vue'
 import ReservationsTab from './ReservationsTab.vue'
 import MovementsTab from './MovementsTab.vue'
@@ -551,6 +615,8 @@ const props = defineProps({
 
 const emit = defineEmits(['update:currentSubTab'])
 const toast = useToast()
+const router = useRouter()
+const route = useRoute()
 
 const {
   stocks,
@@ -558,6 +624,8 @@ const {
   loading,
   filters,
   movementFilters,
+  catalogProducts,
+  fetchCatalogProducts,
   fetchWarehouses,
   fetchStocks,
   fetchMovements,
@@ -568,8 +636,24 @@ const {
   transferStock
 } = useInventory()
 
-// State tab đồng bộ 2 chiều với menu sidebar App.vue
-const currentSubTab = ref(props.currentSubTab || 'overview')
+const getSubTabFromPath = (path) => {
+  if (path) {
+    if (path.includes('/inventory/stocks')) return 'stocks'
+    if (path.includes('/inventory/reservations')) return 'reservations'
+    if (path.includes('/inventory/movements')) return 'movements'
+    if (path.includes('/inventory/overview')) return 'overview'
+  }
+  return 'overview'
+}
+
+// State tab đồng bộ 2 chiều với URL route và menu sidebar
+const currentSubTab = ref(props.currentSubTab || getSubTabFromPath(route.path))
+
+watch(() => route.path, (newPath) => {
+  if (newPath) {
+    currentSubTab.value = getSubTabFromPath(newPath)
+  }
+}, { immediate: true })
 
 watch(() => props.currentSubTab, (val) => {
   if (val && val !== currentSubTab.value) {
@@ -581,39 +665,57 @@ watch(currentSubTab, (val) => {
   emit('update:currentSubTab', val)
 })
 
-// Breadcrumb PrimeVue 4 đồng bộ thời gian thực theo tab đang chọn
-const breadcrumbHome = ref({
-  icon: 'pi pi-home',
-  command: () => {
-    currentSubTab.value = 'overview'
-  }
+const navigateToSubTab = (tab) => {
+  router.push(`/inventory/${tab}`)
+}
+
+// Phân quyền thủ kho khu vực: Nếu tài khoản được phân cứng vào 1 kho
+const assignedWarehouseId = computed(() => {
+  return props.currentUser?.warehouse_id || props.currentUser?.assigned_warehouse_id || null
 })
 
-const breadcrumbItems = computed(() => {
-  const currentTabMap = {
-    overview: 'Tổng Quan',
-    stocks: 'Tồn Kho',
-    reservations: 'Đơn Giữ Hàng',
-    movements: 'Lịch Sử'
-  }
+// Quản lý kho đang được chọn xem Dashboard chi tiết (null = Toàn hệ thống)
+const selectedWarehouseId = ref(null)
 
-  return [
-    {
-      label: 'Kho Vận',
-      command: () => {
-        currentSubTab.value = 'overview'
-      }
-    },
-    {
-      label: 'Quản Lý Tồn Kho',
-      command: () => {
-        currentSubTab.value = 'overview'
-      }
-    },
-    {
-      label: currentTabMap[currentSubTab.value] || 'Tổng Quan'
-    }
-  ]
+// Đối tượng kho đang chọn
+const selectedWarehouse = computed(() => {
+  if (!selectedWarehouseId.value) return null
+  return warehouses.value.find(w => Number(w.id) === Number(selectedWarehouseId.value)) || null
+})
+
+// Quyền chuyển kho
+const canSwitchWarehouse = computed(() => {
+  if (!props.currentUser) return true
+  if (['Ban Giám Đốc (BOD)', 'Quản Trị Hệ Thống'].includes(props.currentUser?.department)) return true
+  if (props.currentUser?.role === 'admin' || props.currentUser?.role === 'manager') return true
+  return !assignedWarehouseId.value
+})
+
+// Tiêu đề PageHeader động đồng bộ với các trang khác
+const pageHeaderTitle = computed(() => {
+  if (currentSubTab.value === 'overview' && selectedWarehouse.value) {
+    return selectedWarehouse.value.name
+  }
+  const tabTitles = {
+    overview: 'Tổng Quan Kho Bãi',
+    stocks: 'Bảng Quản Lý Tồn Kho',
+    reservations: 'Quản Lý Hàng Giữ Chỗ',
+    movements: 'Biến Động Thẻ Kho'
+  }
+  return tabTitles[currentSubTab.value] || 'Quản Lý Kho'
+})
+
+const pageHeaderSubtitle = computed(() => {
+  if (currentSubTab.value === 'overview' && selectedWarehouse.value) {
+    return selectedWarehouse.value.location || selectedWarehouse.value.address || 'Kho chi nhánh trực thuộc Smart ERP'
+  }
+  const tabSubtitles = {
+    overview: 'Theo dõi mức lưu trữ thực tế, phân bổ tồn kho các chi nhánh và kiểm soát định mức an toàn',
+    stocks: 'Tra cứu số lượng tồn thực tế trên kệ, hàng đang giữ chỗ và khả dụng xuất bán cho toàn bộ sản phẩm',
+    reservations: 'Kiểm soát hàng giữ chỗ theo đơn bán hàng SO nhằm ngăn chặn bán âm tồn kho',
+    movements: 'Nhật ký kiểm toán truy vết toàn bộ biến động nhập, xuất, giữ chỗ và điều chuyển hàng hóa'
+  }
+  return tabSubtitles[currentSubTab.value] || 'Hệ thống quản lý kho vận phân tán Smart ERP'
 })
 
 // Trạng thái hiển thị 5 Dialogs
@@ -683,9 +785,18 @@ const uniqueProductList = computed(() => {
   return Array.from(map.values())
 })
 
-const productOptions = computed(() => 
-  uniqueProductList.value.map(p => ({ label: `${p.sku} - ${p.product_name}`, value: p.product_id }))
-)
+const productOptions = computed(() => {
+  if (catalogProducts.value && catalogProducts.value.length > 0) {
+    return catalogProducts.value.map(p => ({
+      label: `${p.sku} - ${p.name || p.description || ('Sản phẩm #' + p.id)}`,
+      value: p.id
+    }))
+  }
+  return uniqueProductList.value.map(p => ({
+    label: `${p.sku} - ${p.product_name}`,
+    value: p.product_id
+  }))
+})
 
 const selectedIssueStock = computed(() => {
   if (!issueForm.warehouseId || !issueForm.productId) return null
@@ -704,10 +815,18 @@ const selectedReleaseStock = computed(() => {
 })
 
 // Mở các Dialogs
-const openReceiveDialog = () => {
+const openReceiveDialog = (prefillWarehouseId = null) => {
   receiveForm.referenceDoc = `PO-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`
-  if (warehouses.value.length > 0) receiveForm.warehouseId = warehouses.value[0].id
-  if (uniqueProductList.value.length > 0) receiveForm.productId = uniqueProductList.value[0].product_id
+  if (prefillWarehouseId && typeof prefillWarehouseId === 'number') {
+    receiveForm.warehouseId = prefillWarehouseId
+  } else if (warehouses.value.length > 0) {
+    receiveForm.warehouseId = warehouses.value[0].id
+  }
+  if (productOptions.value.length > 0) {
+    receiveForm.productId = productOptions.value[0].value
+  } else if (uniqueProductList.value.length > 0) {
+    receiveForm.productId = uniqueProductList.value[0].product_id
+  }
   receiveForm.quantity = 10
   receiveForm.notes = 'Nhập kho bổ sung từ nhà cung cấp'
   showReceiveDialog.value = true
@@ -772,9 +891,13 @@ const openIssueDialog = (stock) => {
   showIssueDialog.value = true
 }
 
-const openTransferDialog = () => {
+const openTransferDialog = (sourceWarehouseId = null) => {
   transferForm.transferDoc = `TRF-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`
-  if (warehouses.value.length >= 2) {
+  if (sourceWarehouseId && typeof sourceWarehouseId === 'number') {
+    transferForm.sourceWarehouseId = sourceWarehouseId
+    const other = warehouses.value.find(w => w.id !== sourceWarehouseId)
+    if (other) transferForm.targetWarehouseId = other.id
+  } else if (warehouses.value.length >= 2) {
     transferForm.sourceWarehouseId = warehouses.value[0].id
     transferForm.targetWarehouseId = warehouses.value[1].id
   } else if (warehouses.value.length === 1) {
@@ -800,14 +923,16 @@ const quickReceiveForStock = (stock) => {
 
 const goToStocksWithLowFilter = () => {
   filters.lowStockOnly = true
-  currentSubTab.value = 'stocks'
+  router.push('/inventory/stocks')
 }
 
 const viewMovementForStock = (stock) => {
-  movementFilters.search = stock.sku
+  if (stock) {
+    movementFilters.search = stock.sku || ''
+  }
   movementFilters.type = null
   movementFilters.warehouseId = null
-  currentSubTab.value = 'movements'
+  router.push('/inventory/movements')
 }
 
 // Submit Handlers
@@ -1061,6 +1186,11 @@ const submitTransfer = async () => {
 }
 
 onMounted(async () => {
-  await Promise.all([fetchWarehouses(), fetchStocks(), fetchMovements()])
+  await Promise.all([
+    fetchWarehouses(),
+    fetchCatalogProducts(),
+    fetchStocks(),
+    fetchMovements()
+  ])
 })
 </script>

@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col gap-6">
-    <!-- 1.1 Khối 4 Thẻ KPI -->
+    <!-- 1.1 Khối 4 Thẻ KPI Toàn Hệ Thống -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <!-- KPI 1: Tổng Mã Hàng Đang Quản Lý -->
       <div 
@@ -79,9 +79,7 @@
           <span :class="kpiSummary.lowStockCount > 0 ? 'text-rose-600 font-semibold' : 'text-emerald-600 font-semibold'">
             {{ kpiSummary.lowStockCount > 0 ? 'Có mặt hàng chạm Min-Stock' : 'Tất cả đạt ngưỡng an toàn' }}
           </span>
-          <span class="text-sky-600 font-medium">
-            Xem chi tiết
-          </span>
+          <span class="text-sky-600 font-medium">Xem chi tiết</span>
         </div>
       </div>
     </div>
@@ -94,7 +92,7 @@
             Tình Hình Sức Chứa & Lưu Trữ Tại Các Kho Chi Nhánh
           </h4>
           <p class="text-xs text-slate-500 m-0 mt-0.5">
-            Số liệu thực tế về lượng hàng trên kệ, lượng đang giữ và khả dụng theo từng địa điểm kho.
+            Click vào thẻ kho để mở Dashboard quản trị chuyên sâu của thủ kho khu vực.
           </p>
         </div>
         <Button 
@@ -108,19 +106,29 @@
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div v-for="wh in warehouseSummaryList" :key="wh.id" class="bg-white border border-slate-200 rounded-[6px] p-4 hover:border-sky-300 transition-colors">
+        <div 
+          v-for="wh in warehouseSummaryList" 
+          :key="wh.id" 
+          class="group bg-white border border-slate-200 rounded-[6px] p-4 hover:border-sky-400 hover:shadow-md cursor-pointer transition-all flex flex-col relative"
+          @click="emit('select-warehouse', wh.id)"
+          v-tooltip.top="`Click để mở Dashboard quản lý kho ${wh.name}`"
+        >
           <div class="flex items-center justify-between mb-2.5">
             <div class="flex items-center gap-2">
-              <span class="font-bold text-slate-800 text-sm">{{ wh.name }}</span>
-              <span class="text-xs font-mono px-1.5 py-0.5 bg-sky-50 text-sky-700 rounded-[4px] border border-sky-200">{{ wh.code }}</span>
+              <span class="font-bold text-slate-800 text-sm group-hover:text-sky-600 transition-colors">{{ wh.name }}</span>
+              <span class="text-xs font-mono px-1.5 py-0.5 bg-sky-50 text-sky-700 rounded-[4px] border border-sky-200 font-semibold">{{ wh.code }}</span>
             </div>
             <span v-if="wh.lowCount > 0" class="text-[11px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-[4px] border border-rose-200">
               {{ wh.lowCount }} hàng chạm Min
             </span>
           </div>
-          <div class="text-xs text-slate-400 mb-3 truncate">{{ wh.address || 'Kho chi nhánh trực thuộc Smart ERP' }}</div>
+          
+          <div class="text-xs text-slate-400 mb-3 truncate flex items-center gap-1">
+            <i class="pi pi-map-marker text-[11px] text-slate-400"></i>
+            {{ wh.address || 'Kho chi nhánh trực thuộc Smart ERP' }}
+          </div>
 
-          <div class="grid grid-cols-3 gap-2.5 py-2.5 px-3 bg-slate-50 rounded-[6px] text-xs mb-3 border border-slate-100">
+          <div class="grid grid-cols-3 gap-2.5 py-2.5 px-3 bg-slate-50 rounded-[6px] text-xs mb-3 border border-slate-100 group-hover:bg-sky-50/40 transition-colors">
             <div>
               <div class="text-slate-500 text-[11px]">Tồn thực tế</div>
               <div class="font-mono font-bold text-slate-800 text-sm mt-0.5">{{ formatNumber(wh.onHand) }}</div>
@@ -135,19 +143,25 @@
             </div>
           </div>
 
-          <div class="flex justify-between items-center text-[11px] text-slate-500 pt-2 border-t border-slate-100">
-            <span>Tỷ lệ giữ chỗ (SO)</span>
-            <span class="font-mono font-bold" :class="wh.reservedRate > 25 ? 'text-amber-600' : 'text-slate-700'">{{ wh.reservedRate }}%</span>
+          <div class="flex justify-between items-center text-[11px] text-slate-500 pt-2 border-t border-slate-100 mt-auto">
+            <div>
+              <span>Tỷ lệ giữ: </span>
+              <span class="font-mono font-bold" :class="wh.reservedRate > 25 ? 'text-amber-600' : 'text-slate-700'">{{ wh.reservedRate }}%</span>
+            </div>
+            <div class="inline-flex items-center gap-1 text-sky-600 font-semibold text-xs group-hover:translate-x-1 transition-transform">
+              <span>Vào Dashboard kho</span>
+              <i class="pi pi-arrow-right text-[10px]"></i>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 1.3 Cảnh Báo Tồn Kho Sắp Hết -->
+    <!-- 1.3 Cảnh Báo Tồn Kho Sắp Hết Toàn Hệ Thống -->
     <div class="bg-slate-50 border border-slate-200 rounded-[6px] p-4">
       <div class="flex items-center justify-between mb-3">
         <h5 class="text-xs font-bold text-slate-800 m-0 uppercase tracking-wide">
-          Mặt Hàng Dưới Định Mức An Toàn (Cần Bổ Sung)
+          Mặt Hàng Dưới Định Mức An Toàn (Toàn Hệ Thống)
         </h5>
         <Button 
           label="Xem tất cả" 
@@ -207,7 +221,13 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['navigate', 'open-transfer', 'quick-receive', 'filter-low-stock'])
+const emit = defineEmits([
+  'navigate',
+  'select-warehouse',
+  'open-transfer',
+  'quick-receive',
+  'filter-low-stock'
+])
 
 const {
   stocks,
@@ -219,13 +239,14 @@ const {
 // Thống kê phân bổ theo từng kho bãi cho Tab Tổng Quan
 const warehouseSummaryList = computed(() => {
   return warehouses.value.map(w => {
-    const list = stocks.value.filter(s => s.warehouse_id === w.id)
+    const list = stocks.value.filter(s => Number(s.warehouse_id ?? s.warehouseId) === Number(w.id))
     const onHand = list.reduce((acc, cur) => acc + (cur.quantity_on_hand || 0), 0)
     const reserved = list.reduce((acc, cur) => acc + (cur.quantity_reserved || 0), 0)
     const available = list.reduce((acc, cur) => acc + (cur.available || 0), 0)
     const lowCount = list.filter(s => (s.available || 0) <= (s.min_stock || 0)).length
     return {
       ...w,
+      address: w.location || w.address || 'Kho chi nhánh trực thuộc Smart ERP',
       skuCount: list.length,
       onHand,
       reserved,
