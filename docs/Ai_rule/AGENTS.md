@@ -64,7 +64,7 @@ Trước khi viết hoặc chỉnh sửa bất kỳ đoạn code nào, AI **BẮ
 
 ## 📚 BẢN ĐỒ TÀI LIỆU QUY CHUẨN CHI TIẾT (SUB-RULES INDEX)
 
-Để đảm bảo tính nhất quán tuyệt đối giữa **PHP (Laravel)** và **C# (.NET 8)**, mã nguồn phải tuân theo 4 tài liệu con:
+Để đảm bảo tính nhất quán tuyệt đối giữa **PHP (Laravel)** và **C# (.NET 10)**, mã nguồn phải tuân theo 4 tài liệu con:
 
 1. **[architecture.md](file:///g:/Do_an_lien_nganh/smart-erp/docs/Ai_rule/architecture.md)**: Đặc tả Clean Architecture, Bounded Contexts, Event-Driven (Outbox, RabbitMQ, Saga) và Concurrency Control (Zero Overselling).
 2. **[api-guidelines.md](file:///g:/Do_an_lien_nganh/smart-erp/docs/Ai_rule/api-guidelines.md)**: Chuẩn REST API Envelope, HTTP Status, định tuyến NGINX Gateway, `X-Correlation-ID` và Stateless RBAC JWT.

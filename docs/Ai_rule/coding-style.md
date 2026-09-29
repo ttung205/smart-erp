@@ -6,7 +6,7 @@
 
 ## 1. MA TRẬN ĐẶT TÊN NHẤT QUÁN (NAMING CONVENTIONS)
 
-| Thành Phần Code | C# (.NET 8) | PHP (Laravel 11/12) | Ví Dụ C# | Ví Dụ PHP |
+| Thành Phần Code | C# (.NET 10) | PHP (Laravel 11/12) | Ví Dụ C# | Ví Dụ PHP |
 |---|---|---|---|---|
 | **Class / Entity / Model** | PascalCase | PascalCase | `SalesOrder`, `InventoryStock` | `SalesOrder`, `InventoryStock` |
 | **Interface** | `I` + PascalCase | `I` + PascalCase hoặc `...Interface` | `IStockRepository`, `ISagaManager` | `StockRepositoryInterface` |
@@ -20,7 +20,7 @@
 
 ---
 
-## 2. QUY CHUẨN C# (.NET 8 WEB API)
+## 2. QUY CHUẨN C# (.NET 10 WEB API)
 
 ### 2.1. Cấm Trả Về Trực Tiếp Domain Entity Ra Controller
 ```csharp
@@ -123,3 +123,18 @@ public function show(int $id): JsonResponse
    - Luôn đặt câu hỏi: *"Viết thế này có ai hiểu được ngay không? Có test được ngay không?"*.
 2. **Không nuốt lỗi (No Silent Failures)**:
    - Nghiêm cấm đặt khối `try-catch` trống rỗng. Nếu bắt exception, phải ghi log kèm `correlation_id` hoặc re-throw custom domain exception.
+
+---
+
+## 5. QUY CHUẨN FRONTEND COMPONENT (VUE 3 + PRIMEVUE 4)
+
+### 5.1. Chuẩn Hóa Thành Phần Bảng Dữ Liệu
+Để đảm bảo tính đồng bộ tuyệt đối về giao diện (UI) và trải nghiệm (UX) trên toàn hệ thống ERP:
+1. **Trang Danh Sách / Listing (Index Pages)**:
+   - **Bắt buộc dùng `CommonDataTable.vue`** (`src/components/common/CommonDataTable.vue`).
+   - Cấm viết raw `<DataTable>` trực tiếp tại các view/tab index.
+   - Hỗ trợ đầy đủ: viền hairline 1px `border-slate-200`, bo góc `6px`, `clean-datatable`, phân trang, loading, lọc nhanh và empty state chuẩn.
+2. **Trang Biểu Mẫu Nhập Liệu / Chứng Từ Giao Dịch (Form Pages)**:
+   - **Bắt buộc dùng `ItemDataTable.vue`** (`src/components/common/ItemDataTable.vue`) cho bảng quản lý danh sách mặt hàng dòng hàng.
+   - Tích hợp sẵn: mảng reactive `v-model`, banner thống kê tài chính (Subtotal, VAT, Discount%, Grand Total), tính toán công thức 2 chiều (Gross - Discount% <-> Selling Price), modal tìm kiếm nhanh từ Catalog và xuất Excel.
+

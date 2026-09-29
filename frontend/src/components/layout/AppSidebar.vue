@@ -177,7 +177,8 @@ const emit = defineEmits(['select-tab', 'toggle-collapse']);
 
 const openFolders = ref({
   organization: true,
-  sales: true
+  sales: true,
+  'inventory-hub': true
 });
 
 const toggleFolder = (folderId) => {

@@ -13,7 +13,7 @@ import PermissionsPage from '../pages/identity/PermissionsPage.vue';
 import ProductPage from '../pages/product/index.vue';
 import BrandPage from '../pages/brand/index.vue';
 import CategoryPage from '../pages/category/index.vue';
-import InventoryView from '../views/inventory/InventoryView.vue';
+import InventoryView from '../pages/inventory/InventoryView.vue';
 import MasterPage from '../pages/master/index.vue';
 import ArchitecturePage from '../pages/architecture/index.vue';
 import ServiceStatusPage from '../pages/system/ServiceStatusPage.vue';
@@ -126,13 +126,54 @@ export const routes = [
   },
   {
     path: '/inventory',
-    name: 'inventory',
+    redirect: '/inventory/overview'
+  },
+  {
+    path: '/inventory/overview',
+    name: 'inventory-overview',
     component: InventoryView,
+    props: { currentSubTab: 'overview' },
     meta: {
       requiresAuth: true,
       resource: 'inventory',
       permission: 'inventory.view',
-      title: 'Quản Lý Tồn Kho'
+      title: 'Tổng Quan Kho'
+    }
+  },
+  {
+    path: '/inventory/stocks',
+    name: 'inventory-stocks',
+    component: InventoryView,
+    props: { currentSubTab: 'stocks' },
+    meta: {
+      requiresAuth: true,
+      resource: 'inventory',
+      permission: 'inventory.view',
+      title: 'Bảng Tồn Kho'
+    }
+  },
+  {
+    path: '/inventory/reservations',
+    name: 'inventory-reservations',
+    component: InventoryView,
+    props: { currentSubTab: 'reservations' },
+    meta: {
+      requiresAuth: true,
+      resource: 'inventory',
+      permission: 'inventory.view',
+      title: 'Quản Lý Hàng Giữ Chỗ'
+    }
+  },
+  {
+    path: '/inventory/movements',
+    name: 'inventory-movements',
+    component: InventoryView,
+    props: { currentSubTab: 'movements' },
+    meta: {
+      requiresAuth: true,
+      resource: 'inventory',
+      permission: 'inventory.view',
+      title: 'Sổ Cái Thẻ Kho'
     }
   },
   {
