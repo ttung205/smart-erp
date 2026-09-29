@@ -61,70 +61,74 @@
       </div>
     </div>
 
-    <!-- 2. Form Thông Tin Báo Giá (Bố cục thông thoáng, ô rộng rãi, hiển thị rõ ràng) -->
-    <div class="bg-white border border-slate-200 rounded-[8px] p-5 md:p-6 shadow-sm flex flex-col gap-5">
-      <!-- Hàng 1: Khách hàng, Liên hệ, Số báo giá, Tiền tệ & Tỷ giá -->
-      <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
-        <!-- Khách hàng (4 cols) -->
-        <div class="md:col-span-4 flex flex-col gap-1.5">
-          <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
-            Khách hàng <span class="text-red-500">*</span>
-          </label>
-          <Select
-            v-model="form.customer_id"
-            :options="customerOptions"
-            optionLabel="label"
-            optionValue="id"
-            filter
-            placeholder="-- Chọn khách hàng doanh nghiệp --"
-            class="w-full text-xs rounded-[6px] h-10 flex items-center"
-            @change="onCustomerChange"
-          />
-        </div>
-
-        <!-- Liên hệ khách hàng (3 cols) -->
-        <div class="md:col-span-3 flex flex-col gap-1.5">
-          <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
-            Liên hệ khách hàng <span class="text-red-500">*</span>
-          </label>
-          <div class="flex items-center gap-1.5">
+    <!-- 2. Form Thông Tin Báo Giá (Bố cục 2 cột: Trái 65% - Phải 35%) -->
+    <div class="flex flex-col lg:flex-row gap-4 items-stretch">
+      <!-- Cột Trái: 65% (Khách hàng, Liên hệ, Số báo giá, Tiền tệ, Tỷ giá) -->
+      <div class="w-full lg:w-[65%] bg-white border border-slate-200 rounded-[8px] p-5 shadow-sm flex flex-col justify-between gap-4">
+        <!-- Hàng 1 của cột trái: Khách hàng (7 cols) + Liên hệ (5 cols) -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-start">
+          <!-- Chọn khách hàng -->
+          <div class="md:col-span-7 flex flex-col gap-1.5">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
+              Khách hàng <span class="text-red-500">*</span>
+            </label>
             <Select
-              v-model="form.contact_id"
-              :options="contactOptions"
+              v-model="form.customer_id"
+              :options="customerOptions"
               optionLabel="label"
               optionValue="id"
-              :placeholder="form.customer_id ? '-- Chọn người liên hệ --' : '(Cần chọn khách hàng trước)'"
+              filter
+              placeholder="-- Chọn khách hàng doanh nghiệp --"
               class="w-full text-xs rounded-[6px] h-10 flex items-center"
-              :disabled="!form.customer_id"
-              @change="onContactChange"
+              @change="onCustomerChange"
             />
-            <Button
-              icon="pi pi-plus"
-              size="small"
-              text
-              class="!w-10 !h-10 !p-0 rounded-[6px] shrink-0 border border-slate-300 text-sky-600 hover:!bg-sky-50"
-              :disabled="!form.customer_id"
-              title="Thêm người liên hệ mới cho khách hàng này"
-              @click="showAddContactDialog = true"
-            />
+          </div>
+
+          <!-- Liên hệ khách -->
+          <div class="md:col-span-5 flex flex-col gap-1.5">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
+              Liên hệ khách hàng <span class="text-red-500">*</span>
+            </label>
+            <div class="flex items-center gap-1.5">
+              <Select
+                v-model="form.contact_id"
+                :options="contactOptions"
+                optionLabel="label"
+                optionValue="id"
+                :placeholder="form.customer_id ? '-- Chọn người liên hệ --' : '(Cần chọn khách hàng)'"
+                class="w-full text-xs rounded-[6px] h-10 flex items-center"
+                :disabled="!form.customer_id"
+                @change="onContactChange"
+              />
+              <Button
+                icon="pi pi-plus"
+                size="small"
+                text
+                class="!w-10 !h-10 !p-0 rounded-[6px] shrink-0 border border-slate-300 text-sky-600 hover:!bg-sky-50"
+                :disabled="!form.customer_id"
+                title="Thêm người liên hệ mới cho khách hàng này"
+                @click="showAddContactDialog = true"
+              />
+            </div>
           </div>
         </div>
 
-        <!-- Số báo giá (3 cols) -->
-        <div class="md:col-span-3 flex flex-col gap-1.5">
-          <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
-            Số báo giá
-          </label>
-          <InputText
-            :value="form.quotation_number || (form.customer_code ? previewQuotationNumber : '(Tự động sinh khi lưu)')"
-            class="w-full text-xs font-mono font-bold text-slate-700 bg-slate-50 rounded-[6px] h-10 px-3 border-slate-200"
-            readonly
-          />
-        </div>
+        <!-- Hàng 2 của cột trái: Số báo giá (6 cols) + Tiền tệ (3 cols) + Tỷ giá (3 cols) -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-start pt-2 border-t border-slate-100">
+          <!-- Số báo giá -->
+          <div class="md:col-span-6 flex flex-col gap-1.5">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
+              Số báo giá
+            </label>
+            <InputText
+              :value="form.quotation_number || (form.customer_code ? previewQuotationNumber : '(Tự động sinh khi lưu)')"
+              class="w-full text-xs font-mono font-bold text-slate-700 bg-slate-50 rounded-[6px] h-10 px-3 border-slate-200"
+              readonly
+            />
+          </div>
 
-        <!-- Tiền tệ & Tỷ giá (2 cols) -->
-        <div class="md:col-span-2 grid grid-cols-2 gap-2">
-          <div class="flex flex-col gap-1.5">
+          <!-- Tiền tệ -->
+          <div class="md:col-span-3 flex flex-col gap-1.5">
             <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">Tiền tệ</label>
             <Select
               v-model="form.currency"
@@ -132,7 +136,9 @@
               class="w-full text-xs rounded-[6px] h-10 flex items-center"
             />
           </div>
-          <div class="flex flex-col gap-1.5">
+
+          <!-- Tỷ giá -->
+          <div class="md:col-span-3 flex flex-col gap-1.5">
             <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">Tỷ giá</label>
             <InputNumber
               v-model="form.exchange_rate"
@@ -144,56 +150,66 @@
         </div>
       </div>
 
-      <!-- Hàng 2: Nhân viên phụ trách, Ngày tạo, Nhân viên theo dõi, Trạng thái -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 pt-3.5 border-t border-slate-100 items-center">
-        <!-- Nhân viên phụ trách (người tạo) -->
-        <div class="flex flex-col gap-1">
-          <span class="text-xs font-semibold text-slate-500">Nhân viên phụ trách:</span>
-          <div class="flex items-center gap-2 mt-1">
-            <div
-              class="w-7 h-7 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold font-mono">
-              {{ (form.created_by || 'A').charAt(0).toUpperCase() }}
+      <!-- Cột Phải: 35% (Nhân viên phụ trách, Ngày tạo báo giá, Nhân viên theo dõi, Trạng thái) -->
+      <div class="w-full lg:w-[35%] bg-white border border-slate-200 rounded-[8px] p-5 shadow-sm flex flex-col justify-between gap-4">
+        <!-- Hàng 1 của cột phải: Nhân viên phụ trách (1 col) + Ngày tạo báo giá (1 col) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-start">
+          <!-- Nhân viên phụ trách -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
+              Nhân viên phụ trách
+            </label>
+            <div class="h-10 flex items-center gap-2 px-3 bg-slate-50 border border-slate-200 rounded-[6px]">
+              <div class="w-6 h-6 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold font-mono">
+                {{ (form.created_by || 'A').charAt(0).toUpperCase() }}
+              </div>
+              <span class="text-xs font-semibold text-slate-800 truncate">{{ form.created_by || 'Quản Trị Viên' }}</span>
             </div>
-            <span class="text-xs font-semibold text-slate-800">{{ form.created_by || 'Quản Trị Viên' }}</span>
+          </div>
+
+          <!-- Ngày tạo báo giá -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
+              Ngày tạo báo giá
+            </label>
+            <div class="h-10 flex items-center px-3 bg-slate-50 border border-slate-200 rounded-[6px]">
+              <span v-if="form.created_at || form.quotation_date" class="text-xs font-mono font-medium text-slate-800 truncate">
+                {{ form.created_at || form.quotation_date }}
+              </span>
+              <span v-else class="text-[11px] text-slate-400 italic truncate">
+                (Tự động ghi khi tạo)
+              </span>
+            </div>
           </div>
         </div>
 
-        <!-- Ngày tạo báo giá (Khi nào nhấn tạo mới hiển thị) -->
-        <div class="flex flex-col gap-1">
-          <span class="text-xs font-semibold text-slate-500">Ngày tạo báo giá:</span>
-          <span v-if="form.created_at || form.quotation_date" class="text-xs font-mono font-medium text-slate-800 mt-1">
-            {{ form.created_at || form.quotation_date }}
-          </span>
-          <span v-else class="text-xs text-slate-400 italic mt-1">
-            (Tự động ghi nhận khi nhấn tạo)
-          </span>
-        </div>
-
-        <!-- Nhân viên theo dõi * -->
-        <div class="flex flex-col gap-1.5">
-          <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
-            Nhân viên theo dõi <span class="text-red-500">*</span>
-          </label>
-          <Select
-            v-model="form.assigned_to"
-            :options="['admin', 'sale_lead', 'nv_kinhdoanh_01']"
-            placeholder="Chọn nhân viên..."
-            class="w-full text-xs rounded-[6px] h-10 flex items-center"
-          />
-        </div>
-
-        <!-- Trạng thái * -->
-        <div class="flex flex-col gap-1.5">
-          <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
-            Trạng thái <span class="text-red-500">*</span>
-          </label>
-          <div class="h-10 flex items-center px-3 bg-slate-50 border border-slate-200 rounded-[6px]">
-            <Tag
-              :severity="getStatusMeta(form.status).severity"
-              :value="getStatusMeta(form.status).label"
-              class="text-[11px] px-2.5 py-0.5 rounded-[4px]"
+        <!-- Hàng 2 của cột phải: Nhân viên theo dõi (1 col) + Trạng thái (1 col) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-start pt-2 border-t border-slate-100">
+          <!-- Nhân viên theo dõi -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
+              Nhân viên theo dõi <span class="text-red-500">*</span>
+            </label>
+            <Select
+              v-model="form.assigned_to"
+              :options="['admin', 'sale_lead', 'nv_kinhdoanh_01']"
+              placeholder="Chọn nhân viên..."
+              class="w-full text-xs rounded-[6px] h-10 flex items-center"
             />
-            <span class="text-[11px] text-slate-400 ml-2 italic">(Cập nhật qua các nút quy trình)</span>
+          </div>
+
+          <!-- Trạng thái (Đã bỏ dòng cập nhật qua các nút quy trình) -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
+              Trạng thái <span class="text-red-500">*</span>
+            </label>
+            <div class="h-10 flex items-center justify-center px-3 bg-slate-50 border border-slate-200 rounded-[6px]">
+              <Tag
+                :severity="getStatusMeta(form.status).severity"
+                :value="getStatusMeta(form.status).label"
+                class="text-xs px-3 py-1 rounded-[4px] font-semibold"
+              />
+            </div>
           </div>
         </div>
       </div>
