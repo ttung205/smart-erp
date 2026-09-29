@@ -3,8 +3,8 @@
     :visible="visible"
     modal
     :header="`Chi Tiết Báo Giá & Chọn Item Win: ${quotation?.quotation_number || ''}`"
-    :style="{ width: '920px' }"
-    class="rounded-[6px]"
+    :style="{ width: '960px' }"
+    class="rounded-[8px]"
     @update:visible="$emit('update:visible', $event)"
   >
     <div v-if="quotation" class="flex flex-col gap-4 pt-1">
@@ -16,18 +16,18 @@
         </div>
         <div>
           <span class="text-slate-500 block">Ngày lập:</span>
-          <span class="font-semibold text-slate-700">{{ quotation.quotation_date }}</span>
+          <span class="font-semibold text-slate-700">{{ quotation.quotation_date || quotation.created_at || 'Hôm nay' }}</span>
         </div>
         <div>
           <span class="text-slate-500 block">Hạn hiệu lực:</span>
-          <span class="font-semibold text-slate-700">{{ quotation.valid_until }}</span>
+          <span class="font-semibold text-slate-700">{{ quotation.valid_until || '30 ngày' }}</span>
         </div>
         <div>
           <span class="text-slate-500 block">Trạng thái:</span>
           <Tag
             :severity="getStatusSeverity(quotation.status)"
             :value="getStatusLabel(quotation.status)"
-            class="text-[11px] px-2 py-0.5 rounded-[6px]"
+            class="text-[11px] px-2 py-0.5 rounded-[4px]"
           />
         </div>
       </div>
@@ -51,32 +51,40 @@
         <DataTable
           :value="items"
           showGridlines
-          class="clean-datatable"
+          class="clean-datatable text-xs"
           responsiveLayout="scroll"
         >
           <!-- Cột Checkbox Win -->
           <Column header="Trúng (Win)" style="width: 80px" class="text-center">
             <template #body="{ data }">
-              <input
-                type="checkbox"
-                v-model="data.won"
-                class="w-4 h-4 rounded text-sky-600 focus:ring-sky-500 cursor-pointer"
-              />
+              <div class="flex justify-center">
+                <input
+                  type="checkbox"
+                  v-model="data.won"
+                  class="w-4 h-4 rounded text-sky-600 focus:ring-sky-500 cursor-pointer"
+                />
+              </div>
             </template>
           </Column>
 
-          <Column field="product_sku" header="Mã SKU" style="width: 130px">
+          <!-- Mã SKU -->
+          <Column field="sku" header="Mã SKU" style="width: 140px">
             <template #body="{ data }">
-              <span class="font-mono text-xs font-semibold text-slate-700">{{ data.product_sku }}</span>
+              <span class="font-mono text-xs font-semibold text-slate-700">{{ data.sku }}</span>
             </template>
           </Column>
 
-          <Column field="product_name" header="Tên Sản Phẩm">
+          <!-- Tên sản phẩm / Quy cách -->
+          <Column field="designation" header="Tên Sản Phẩm">
             <template #body="{ data }">
-              <span class="font-semibold text-slate-900 text-xs">{{ data.product_name }}</span>
+              <div class="flex flex-col gap-0.5">
+                <span class="font-semibold text-slate-900 text-xs">{{ data.designation }}</span>
+                <span v-if="data.brand" class="text-[11px] text-slate-400">Thương hiệu: {{ data.brand }}</span>
+              </div>
             </template>
           </Column>
 
+          <!-- SL Báo giá -->
           <Column header="SL Báo Giá" class="text-right" style="width: 90px">
             <template #body="{ data }">
               <span class="font-mono text-xs text-slate-600">{{ data.quantity }}</span>
@@ -97,22 +105,30 @@
             </template>
           </Column>
 
+          <!-- Đơn Giá -->
           <Column header="Đơn Giá" class="text-right" style="width: 130px">
             <template #body="{ data }">
-              <span class="font-mono text-xs text-slate-700">{{ formatCurrency(data.unit_price) }}</span>
+              <span class="font-mono text-xs text-slate-700">{{ formatCurrency(data.selling_price) }}</span>
             </template>
           </Column>
 
+          <!-- Thành Tiền Chốt -->
           <Column header="Thành Tiền Chốt" class="text-right" style="width: 140px">
             <template #body="{ data }">
               <span
                 class="font-mono text-xs font-bold"
                 :class="data.won ? 'text-indigo-600' : 'text-slate-400 line-through'"
               >
-                {{ formatCurrency((data.won_quantity || data.quantity) * data.unit_price * (1 - (data.discount_percent || 0) / 100)) }}
+                {{ formatCurrency(getLineAmount(data)) }}
               </span>
             </template>
           </Column>
+
+          <template #empty>
+            <div class="py-6 text-center text-slate-400 text-xs italic">
+              Báo giá này chưa có mặt hàng nào.
+            </div>
+          </template>
         </DataTable>
       </div>
 
@@ -130,14 +146,14 @@
     </div>
 
     <template #footer>
-      <div class="flex justify-between items-center w-full">
+      <div class="flex justify-between items-center w-full pt-2">
         <Button
           label="Đóng"
           icon="pi pi-times"
           text
           size="small"
           severity="secondary"
-          class="rounded-[6px]"
+          class="rounded-[6px] !text-xs"
           @click="$emit('update:visible', false)"
         />
 
@@ -155,7 +171,7 @@
             icon="pi pi-shopping-cart"
             size="small"
             :disabled="selectedWonItems.length === 0"
-            class="!bg-indigo-600 hover:!bg-indigo-700 !text-white !border-indigo-600 rounded-[6px] !font-semibold"
+            class="!bg-indigo-600 hover:!bg-indigo-700 !text-white !border-indigo-600 rounded-[6px] !font-semibold !text-xs shadow-sm"
             @click="confirmGenerateSO"
           />
         </div>
@@ -189,14 +205,24 @@ const emit = defineEmits(['update:visible', 'create-so']);
 
 const items = ref([]);
 
+const getLineAmount = (item) => {
+  const qty = Number(item.won_quantity || item.quantity || 0);
+  const price = Number(item.selling_price || 0);
+  const disc = Number(item.discount_percent || 0);
+  return qty * price * (1 - disc / 100);
+};
+
 watch(
   () => props.quotation,
   (newQ) => {
     if (newQ && newQ.items) {
       items.value = newQ.items.map((item) => ({
         ...item,
-        won: item.won ?? true,
-        won_quantity: item.won_quantity || item.quantity
+        sku: item.sku || item.product_sku || '',
+        designation: item.designation || item.product_name || item.description || '',
+        selling_price: Number(item.selling_price || item.unit_price || item.gross_price || 0),
+        won: item.won ?? item.is_won ?? true,
+        won_quantity: Number(item.won_quantity || item.quantity || 1)
       }));
     } else {
       items.value = [];
@@ -216,17 +242,14 @@ const selectedWonItems = computed(() => {
 });
 
 const totalWonAmount = computed(() => {
-  return selectedWonItems.value.reduce((acc, i) => {
-    const discounted = i.unit_price * (1 - (i.discount_percent || 0) / 100);
-    return acc + (i.won_quantity || i.quantity) * discounted;
-  }, 0);
+  return selectedWonItems.value.reduce((acc, i) => acc + getLineAmount(i), 0);
 });
 
 const getStatusLabel = (st) => {
   const map = {
-    DRAFT: 'Dự thảo',
-    SENT: 'Đã gửi khách',
-    NEGOTIATING: 'Đang đàm phán',
+    DRAFT: 'Bản nháp',
+    PENDING_APPROVAL: 'Chờ duyệt',
+    APPROVED: 'Đã duyệt',
     CONVERTED: 'Đã sinh đơn bán (SO)',
     REJECTED: 'Từ chối'
   };
@@ -236,9 +259,9 @@ const getStatusLabel = (st) => {
 const getStatusSeverity = (st) => {
   const map = {
     DRAFT: 'secondary',
-    SENT: 'info',
-    NEGOTIATING: 'warn',
-    CONVERTED: 'success',
+    PENDING_APPROVAL: 'warn',
+    APPROVED: 'success',
+    CONVERTED: 'info',
     REJECTED: 'danger'
   };
   return map[st] || 'secondary';
@@ -251,17 +274,23 @@ const confirmGenerateSO = () => {
   }
 
   const payload = {
-    quotation_id: props.quotation.quotation_number,
+    quotation_id: props.quotation.id || props.quotation.quotation_number,
+    quotation_number: props.quotation.quotation_number,
     customer_id: props.quotation.customer_id,
     customer_name: props.quotation.customer_name,
     items: selectedWonItems.value.map((i) => ({
-      product_id: i.product_id,
-      product_sku: i.product_sku,
-      product_name: i.product_name,
+      product_id: i.product_id || i.id,
+      sku: i.sku,
+      product_sku: i.sku,
+      designation: i.designation,
+      product_name: i.designation,
       quantity: i.won_quantity,
-      unit_price: i.unit_price,
+      won_quantity: i.won_quantity,
+      unit_price: i.selling_price,
+      selling_price: i.selling_price,
       discount_percent: i.discount_percent || 0,
-      amount: i.won_quantity * i.unit_price * (1 - (i.discount_percent || 0) / 100)
+      subtotal: getLineAmount(i),
+      amount: getLineAmount(i)
     })),
     total_amount: totalWonAmount.value * 1.1
   };

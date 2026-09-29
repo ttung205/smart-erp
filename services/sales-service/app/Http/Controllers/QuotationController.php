@@ -261,6 +261,26 @@ class QuotationController extends Controller
         ]);
     }
 
+    public function reject(Request $request, $id)
+    {
+        $q = Quotation::where('id', $id)->orWhere('quotation_number', $id)->first();
+        if (!$q) {
+            return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND']], 404);
+        }
+
+        $reason = trim($request->input('reason', ''));
+        $q->update([
+            'status' => 'REJECTED',
+            'notes' => $reason ? ($q->notes ? $q->notes . "\n[Lý do từ chối: {$reason}]" : "[Lý do từ chối: {$reason}]") : $q->notes
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => $q,
+            'message' => "Báo giá {$q->quotation_number} đã bị từ chối."
+        ]);
+    }
+
     public function createSO(Request $request, $id)
     {
         $q = Quotation::with('items')->where('id', $id)->orWhere('quotation_number', $id)->first();
@@ -293,10 +313,10 @@ class QuotationController extends Controller
                 SalesOrderItem::create([
                     'order_id' => $so->id,
                     'sku' => $it['sku'] ?? $it['product_sku'] ?? '',
-                    'product_name' => $it['description'] ?? $it['product_name'] ?? '',
+                    'product_name' => $it['designation'] ?? $it['description'] ?? $it['product_name'] ?? '',
                     'quantity' => (float)($it['won_quantity'] ?? $it['quantity'] ?? 1),
                     'unit_price' => (float)($it['selling_price'] ?? $it['unit_price'] ?? 0),
-                    'subtotal' => (float)($it['subtotal'] ?? 0),
+                    'subtotal' => (float)($it['subtotal'] ?? $it['amount'] ?? 0),
                 ]);
             }
 

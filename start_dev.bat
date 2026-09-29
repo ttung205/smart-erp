@@ -11,12 +11,12 @@ set "ROOT=%~dp0"
 where wt >nul 2>nul
 if errorlevel 1 goto fallback_cmd
 
-echo Phat hien Windows Terminal (wt.exe) -> Dang mo 1 cua so voi 5 tabs...
+echo Phat hien Windows Terminal (wt.exe) : Dang mo 1 cua so voi 5 tabs...
 start wt -w 0 --title "Identity :8001" -d "%ROOT%services\identity-service" cmd /k "php artisan serve --port=8001" ; new-tab --title "Catalog :8002" -d "%ROOT%services\catalog-service" cmd /k "php artisan serve --port=8002" ; new-tab --title "Sales :8003" -d "%ROOT%services\sales-service" cmd /k "php artisan serve --port=8003" ; new-tab --title "Inventory :8004" -d "%ROOT%services\inventory-service\src\Inventory.Api" cmd /k "dotnet run --urls=http://localhost:8004" ; new-tab --title "Frontend :5173/5174" -d "%ROOT%frontend" cmd /k "npm run dev"
 goto done
 
 :fallback_cmd
-echo Khong tim thay Windows Terminal -> Mo 5 cua so CMD rieng biet...
+echo Khong tim thay Windows Terminal : Mo 5 cua so CMD rieng biet...
 start "Identity Service :8001" cmd /k "cd /d %ROOT%services\identity-service && php artisan serve --port=8001"
 start "Catalog Service :8002" cmd /k "cd /d %ROOT%services\catalog-service && php artisan serve --port=8002"
 start "Sales Service :8003" cmd /k "cd /d %ROOT%services\sales-service && php artisan serve --port=8003"

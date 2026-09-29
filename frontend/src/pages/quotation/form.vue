@@ -30,24 +30,36 @@
 
       <!-- Action Buttons -->
       <div class="flex items-center gap-2.5">
-        <!-- Nút Gửi xét duyệt -->
+        <!-- Nút Gửi xét duyệt (khi trạng thái DRAFT) -->
         <Button
           v-if="form.status === 'DRAFT'"
           label="Gửi xét duyệt"
           icon="pi pi-send"
           size="small"
           class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !text-xs !py-2 !px-3.5 rounded-[6px] !font-medium"
-          @click="handleSubmitForApproval"
+          @click="confirmSubmitApproval"
         />
 
-        <!-- Nút Phê duyệt (Chỉ hiển thị khi có quyền quotation.approve hoặc Super Admin) -->
+        <!-- Nút Từ chối (khi PENDING_APPROVAL và canApprove) -->
+        <Button
+          v-if="canApprove && form.status === 'PENDING_APPROVAL'"
+          label="Từ chối"
+          icon="pi pi-times-circle"
+          size="small"
+          severity="danger"
+          outlined
+          class="!text-xs !py-2 !px-3.5 rounded-[6px] !font-semibold !border-red-300 hover:!bg-red-50 !text-red-600"
+          @click="confirmRejectQuotation"
+        />
+
+        <!-- Nút Phê duyệt (khi PENDING_APPROVAL và canApprove) -->
         <Button
           v-if="canApprove && form.status === 'PENDING_APPROVAL'"
           label="Duyệt báo giá"
           icon="pi pi-check-circle"
           size="small"
           class="!bg-emerald-600 hover:!bg-emerald-700 !text-white !border-emerald-600 !text-xs !py-2 !px-3.5 rounded-[6px] !font-semibold"
-          @click="handleApproveQuotation"
+          @click="confirmApproveQuotation"
         />
 
         <!-- Nút Lưu thay đổi -->
@@ -308,6 +320,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
+import { useConfirm } from 'primevue/useconfirm';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
@@ -323,6 +336,7 @@ import { isSuperAdmin } from '../../utils/rbac';
 const route = useRoute();
 const router = useRouter();
 const toast = useToast();
+const confirm = useConfirm();
 
 const props = defineProps({
   currentUser: {
@@ -421,6 +435,7 @@ const getStatusMeta = (st) => {
     DRAFT: { label: 'Bản nháp', severity: 'secondary' },
     PENDING_APPROVAL: { label: 'Chờ duyệt', severity: 'warn' },
     APPROVED: { label: 'Đã duyệt', severity: 'success' },
+    REJECTED: { label: 'Từ chối', severity: 'danger' },
     CONVERTED: { label: 'Đã tạo đơn bán', severity: 'info' }
   };
   return map[st] || { label: st, severity: 'secondary' };
@@ -582,6 +597,10 @@ const handleSaveQuotation = async () => {
     } else {
       const res = await salesApi.createQuotation(form.value);
       savedQ = res.data;
+      if (savedQ && savedQ.id) {
+        form.value = { ...form.value, ...savedQ };
+        router.replace(`/quotation/${savedQ.id}/edit`);
+      }
     }
 
     toast.add({
@@ -590,13 +609,104 @@ const handleSaveQuotation = async () => {
       detail: `Báo giá ${savedQ?.quotation_number || form.value.quotation_number} đã được lưu thành công vào CSDL.`,
       life: 4000
     });
-    router.push('/quotation');
   } catch (err) {
     toast.add({
       severity: 'error',
       summary: 'Lỗi lưu báo giá',
       detail: err.message || 'Không thể lưu báo giá lên máy chủ.',
       life: 4000
+    });
+  }
+};
+
+// ----------------------------------------------------
+// THAO TÁC XÁC NHẬN QUA CONFIRM DIALOG CỦA PRIMEVUE
+// ----------------------------------------------------
+const confirmSubmitApproval = () => {
+  if (!form.value.customer_id) {
+    alert('Vui lòng chọn khách hàng trước khi gửi duyệt!');
+    return;
+  }
+  if (!form.value.items || form.value.items.length === 0) {
+    alert('Vui lòng thêm ít nhất 1 dòng mặt hàng vào báo giá trước khi gửi duyệt!');
+    return;
+  }
+
+  confirm.require({
+    header: 'Xác Nhận Gửi Xét Duyệt',
+    message: `Bạn có chắc chắn muốn gửi báo giá ${form.value.quotation_number || previewQuotationNumber.value} đi xét duyệt không?`,
+    icon: 'pi pi-send',
+    rejectLabel: 'Hủy bỏ',
+    rejectProps: {
+      severity: 'secondary',
+      outlined: true
+    },
+    acceptLabel: 'Xác nhận gửi duyệt',
+    acceptProps: {
+      severity: 'info'
+    },
+    accept: async () => {
+      await handleSubmitForApproval();
+    }
+  });
+};
+
+const confirmApproveQuotation = () => {
+  confirm.require({
+    header: 'Xác Nhận Phê Duyệt Báo Giá',
+    message: `Bạn có chắc chắn muốn phê duyệt báo giá ${form.value.quotation_number} không? Sau khi duyệt có thể tiến hành tạo Đơn Bán Hàng (SO).`,
+    icon: 'pi pi-check-circle',
+    rejectLabel: 'Hủy bỏ',
+    rejectProps: {
+      severity: 'secondary',
+      outlined: true
+    },
+    acceptLabel: 'Đồng ý phê duyệt',
+    acceptProps: {
+      severity: 'success'
+    },
+    accept: async () => {
+      await handleApproveQuotation();
+    }
+  });
+};
+
+const confirmRejectQuotation = () => {
+  confirm.require({
+    header: 'Xác Nhận Từ Chối Báo Giá',
+    message: `Bạn có chắc chắn muốn từ chối báo giá ${form.value.quotation_number} không? Trạng thái sẽ được chuyển sang 'Từ chối'.`,
+    icon: 'pi pi-exclamation-triangle',
+    rejectLabel: 'Hủy bỏ',
+    rejectProps: {
+      severity: 'secondary',
+      outlined: true
+    },
+    acceptLabel: 'Xác nhận từ chối',
+    acceptProps: {
+      severity: 'danger'
+    },
+    accept: async () => {
+      await handleRejectQuotation();
+    }
+  });
+};
+
+const handleRejectQuotation = async () => {
+  try {
+    await salesApi.rejectQuotation(form.value.id);
+    form.value.status = 'REJECTED';
+    toast.add({
+      severity: 'warn',
+      summary: 'Đã từ chối báo giá',
+      detail: `Báo giá ${form.value.quotation_number} đã chuyển sang trạng thái Từ chối.`,
+      life: 3000
+    });
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Lỗi từ chối báo giá',
+      detail: err.message || 'Không thể từ chối báo giá.',
+      life: 3000
     });
   }
 };
@@ -616,6 +726,10 @@ const handleSubmitForApproval = async () => {
       form.value.status = 'PENDING_APPROVAL';
       const res = await salesApi.createQuotation(form.value);
       savedQ = res.data;
+      if (savedQ && savedQ.id) {
+        form.value = { ...form.value, ...savedQ, status: 'PENDING_APPROVAL' };
+        router.replace(`/quotation/${savedQ.id}/edit`);
+      }
     }
     toast.add({
       severity: 'info',
@@ -623,7 +737,6 @@ const handleSubmitForApproval = async () => {
       detail: `Báo giá ${savedQ?.quotation_number || form.value.quotation_number} đã được chuyển sang trạng thái Chờ duyệt.`,
       life: 3000
     });
-    router.push('/quotation');
   } catch (err) {
     toast.add({
       severity: 'error',

@@ -1,6 +1,7 @@
 <template>
   <div class="min-h-screen bg-slate-50 text-slate-800 font-sans">
     <Toast position="top-right" />
+    <ConfirmDialog />
 
     <!-- A. MÀN HÌNH ĐĂNG NHẬP CHUẨN KHI CHƯA XÁC THỰC -->
     <LoginPage v-if="!currentUser" :loading="loading.login" @login="submitLogin" />
@@ -45,6 +46,7 @@ import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import Toast from 'primevue/toast';
+import ConfirmDialog from 'primevue/confirmdialog';
 
 import LoginPage from './pages/auth/LoginPage.vue';
 import AppSidebar from './components/layout/AppSidebar.vue';

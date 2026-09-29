@@ -50,6 +50,13 @@ export const salesApi = {
     });
   },
 
+  rejectQuotation(id, reason = '') {
+    return apiClient(`/api/v1/sales/quotations/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason })
+    });
+  },
+
   createSOFromQuotation(id, payload = {}) {
     return apiClient(`/api/v1/sales/quotations/${id}/create-so`, {
       method: 'POST',

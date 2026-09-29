@@ -611,9 +611,13 @@ const handleSaveCustomer = async () => {
         detail: `Khách hàng ${res.data?.code || form.value.code} đã được tạo.`,
         life: 3000
       });
-    }
 
-    router.push('/customer');
+      if (res.data && res.data.id) {
+        form.value.id = res.data.id;
+        if (res.data.contacts) form.value.contacts = res.data.contacts;
+        router.replace(`/customer/${res.data.id}/edit`);
+      }
+    }
   } catch (err) {
     toast.add({
       severity: 'error',
