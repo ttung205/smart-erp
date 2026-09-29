@@ -9,12 +9,14 @@ class Customer extends Model
     protected $fillable = [
         'code',
         'name',
+        'customer_type',
         'tax_code',
         'phone',
         'email',
         'address',
         'credit_limit',
         'status',
+        'created_by',
     ];
 
     public function contacts()

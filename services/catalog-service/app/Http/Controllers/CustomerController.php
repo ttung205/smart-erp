@@ -35,26 +35,44 @@ class CustomerController extends Controller
 
     public function store(Request $request)
     {
-        $code = trim($request->input('code', ''));
         $name = trim($request->input('name', ''));
-
-        if (empty($code) || empty($name)) {
-            return response()->json(['success' => false, 'error' => ['code' => 'VALIDATION_FAILED', 'message' => 'Mã và tên khách hàng là bắt buộc']], 422);
+        if (empty($name)) {
+            return response()->json(['success' => false, 'error' => ['code' => 'VALIDATION_FAILED', 'message' => 'Tên khách hàng là bắt buộc']], 422);
         }
 
-        if (Customer::where('code', $code)->exists()) {
+        $type = $request->input('customer_type', 'Retail');
+        $typeMap = [
+            'Retail' => 'RE',
+            'Dealer' => 'DE',
+            'Distributor' => 'DI',
+            'Project / Business' => 'PR',
+            'RE' => 'RE',
+            'DE' => 'DE',
+            'DI' => 'DI',
+            'PR' => 'PR',
+        ];
+        $prefix = $typeMap[$type] ?? 'RE';
+
+        $code = trim($request->input('code', ''));
+        if (empty($code)) {
+            do {
+                $code = $prefix . '-' . mt_rand(10000, 99999);
+            } while (Customer::where('code', $code)->exists());
+        } elseif (Customer::where('code', $code)->exists()) {
             return response()->json(['success' => false, 'error' => ['code' => 'DUPLICATE', 'message' => 'Mã khách hàng đã tồn tại']], 422);
         }
 
         $customer = Customer::create([
             'code' => $code,
             'name' => $name,
+            'customer_type' => $type,
             'tax_code' => $request->input('tax_code'),
             'phone' => $request->input('phone'),
             'email' => $request->input('email'),
             'address' => $request->input('address'),
             'credit_limit' => (float)$request->input('credit_limit', 0),
             'status' => $request->input('status', 'ACTIVE'),
+            'created_by' => $request->input('created_by', 'admin'),
         ]);
 
         if ($request->has('contacts') && is_array($request->input('contacts'))) {
@@ -83,9 +101,39 @@ class CustomerController extends Controller
             return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND', 'message' => 'Không tìm thấy khách hàng']], 404);
         }
 
-        $customer->update($request->only([
-            'name', 'tax_code', 'phone', 'email', 'address', 'credit_limit', 'status'
-        ]));
+        $data = $request->only([
+            'name', 'customer_type', 'tax_code', 'phone', 'email', 'address', 'credit_limit', 'status'
+        ]);
+
+        if ($request->has('code')) {
+            $newCode = trim($request->input('code'));
+            if (!empty($newCode) && $newCode !== $customer->code) {
+                if (Customer::where('code', $newCode)->where('id', '!=', $customer->id)->exists()) {
+                    return response()->json(['success' => false, 'error' => ['code' => 'DUPLICATE', 'message' => 'Mã khách hàng mới đã tồn tại']], 422);
+                }
+                $data['code'] = $newCode;
+            }
+        } elseif ($request->has('customer_type') && $request->input('customer_type') !== $customer->customer_type) {
+            $typeMap = [
+                'Retail' => 'RE',
+                'Dealer' => 'DE',
+                'Distributor' => 'DI',
+                'Project / Business' => 'PR',
+                'RE' => 'RE',
+                'DE' => 'DE',
+                'DI' => 'DI',
+                'PR' => 'PR',
+            ];
+            $prefix = $typeMap[$request->input('customer_type')] ?? 'RE';
+            preg_match('/(\d{5})$/', $customer->code, $matches);
+            $digits = $matches[1] ?? mt_rand(10000, 99999);
+            $newCode = $prefix . '-' . $digits;
+            if (!Customer::where('code', $newCode)->where('id', '!=', $customer->id)->exists()) {
+                $data['code'] = $newCode;
+            }
+        }
+
+        $customer->update($data);
 
         return response()->json(['success' => true, 'data' => $customer->load('contacts')]);
     }
@@ -113,6 +161,20 @@ class CustomerController extends Controller
         ]);
 
         return response()->json(['success' => true, 'data' => $contact], 201);
+    }
+
+    public function updateContact(Request $request, $customerId, $contactId)
+    {
+        $contact = CustomerContact::where('customer_id', $customerId)->where('id', $contactId)->first();
+        if (!$contact) {
+            return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND', 'message' => 'Không tìm thấy người liên hệ']], 404);
+        }
+
+        $contact->update($request->only([
+            'name', 'position', 'phone', 'email', 'is_primary', 'notes'
+        ]));
+
+        return response()->json(['success' => true, 'data' => $contact]);
     }
 
     public function destroy($id)

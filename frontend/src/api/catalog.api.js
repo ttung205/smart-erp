@@ -131,6 +131,13 @@ export const catalogApi = {
     });
   },
 
+  updateCustomerContact(customerId, contactId, contactData) {
+    return apiClient(`/api/v1/catalog/customers/${customerId}/contacts/${contactId}`, {
+      method: 'PUT',
+      body: JSON.stringify(contactData)
+    });
+  },
+
   deleteCustomerContact(customerId, contactId) {
     return apiClient(`/api/v1/catalog/customers/${customerId}/contacts/${contactId}`, {
       method: 'DELETE'

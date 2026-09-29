@@ -14,6 +14,7 @@ import ProductPage from '../pages/product/index.vue';
 import BrandPage from '../pages/brand/index.vue';
 import CategoryPage from '../pages/category/index.vue';
 import CustomerPage from '../pages/customer/index.vue';
+import CustomerFormPage from '../pages/customer/form.vue';
 import SupplierPage from '../pages/supplier/index.vue';
 import InventoryView from '../views/inventory/InventoryView.vue';
 import MasterPage from '../pages/master/index.vue';
@@ -99,6 +100,32 @@ export const routes = [
       permission: 'catalog.view',
       title: 'Quản Lý Khách Hàng'
     }
+  },
+  {
+    path: '/customer/create',
+    name: 'customer-create',
+    component: CustomerFormPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'catalog',
+      permission: 'catalog.view',
+      title: 'Thêm Khách Hàng Mới'
+    }
+  },
+  {
+    path: '/customer/:id/edit',
+    name: 'customer-edit',
+    component: CustomerFormPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'catalog',
+      permission: 'catalog.view',
+      title: 'Chỉnh Sửa Khách Hàng'
+    }
+  },
+  {
+    path: '/customer/:id',
+    redirect: to => `/customer/${to.params.id}/edit`
   },
   {
     path: '/supplier',
