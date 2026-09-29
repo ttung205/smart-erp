@@ -81,23 +81,32 @@ class QuotationController extends Controller
 
         DB::beginTransaction();
         try {
-            $customerCode = $request->input('customer_code', 'KH01');
+            $customerCode = trim($request->input('customer_code', 'KH01'));
             $date = now();
             $d = $date->format('d');
             $m = $date->format('m');
             $y = $date->format('y');
             $dateStr = "{$d}{$m}{$y}";
-            $autoNumber = "QT-{$customerCode}-{$dateStr}";
+            $baseNumber = "QT-{$customerCode}-{$dateStr}";
 
-            // Check if quotation_number provided or auto
-            $qNumber = trim($request->input('quotation_number', '')) ?: $autoNumber;
+            // Quy định số báo giá: QT-mã khách hàng-ddmmyy
+            // Nếu có nhiều báo giá cùng 1 khách trong 1 ngày: thêm -A, -B, -C...
+            if (!Quotation::where('quotation_number', $baseNumber)->exists()) {
+                $qNumber = $baseNumber;
+            } else {
+                $letters = range('A', 'Z');
+                $letterIdx = 0;
+                do {
+                    $letterSuffix = $letters[$letterIdx] ?? ('Z' . ($letterIdx - 25));
+                    $qNumber = "{$baseNumber}-{$letterSuffix}";
+                    $letterIdx++;
+                } while (Quotation::where('quotation_number', $qNumber)->exists());
+            }
 
-            // Make sure unique
-            $suffix = 1;
-            $baseNumber = $qNumber;
-            while (Quotation::where('quotation_number', $qNumber)->exists()) {
-                $qNumber = "{$baseNumber}-{$suffix}";
-                $suffix++;
+            // Nếu người dùng chủ động truyền số báo giá tùy chỉnh hợp lệ (khác auto placeholder)
+            $customNumber = trim($request->input('quotation_number', ''));
+            if ($customNumber && !str_starts_with($customNumber, '(Tự động') && !Quotation::where('quotation_number', $customNumber)->exists()) {
+                $qNumber = $customNumber;
             }
 
             $quotation = Quotation::create([

@@ -94,7 +94,31 @@ export const catalogApi = {
     });
   },
 
-  // 4. Partners & Warehouses
+  // 4. Customers & Contacts
+  getCustomers(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return apiClient(`/api/v1/catalog/customers${qs ? '?' + qs : ''}`);
+  },
+
+  getCustomerById(id) {
+    return apiClient(`/api/v1/catalog/customers/${id}`);
+  },
+
+  createCustomer(data) {
+    return apiClient('/api/v1/catalog/customers', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  addCustomerContact(customerId, contactData) {
+    return apiClient(`/api/v1/catalog/customers/${customerId}/contacts`, {
+      method: 'POST',
+      body: JSON.stringify(contactData)
+    });
+  },
+
+  // 5. Partners & Warehouses
   getPartners() {
     return apiClient('/api/v1/catalog/partners');
   },
