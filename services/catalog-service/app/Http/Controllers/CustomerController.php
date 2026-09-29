@@ -114,4 +114,26 @@ class CustomerController extends Controller
 
         return response()->json(['success' => true, 'data' => $contact], 201);
     }
+
+    public function destroy($id)
+    {
+        $customer = Customer::where('id', $id)->orWhere('code', $id)->first();
+        if (!$customer) {
+            return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND', 'message' => 'Không tìm thấy khách hàng']], 404);
+        }
+
+        $customer->delete();
+        return response()->json(['success' => true, 'message' => 'Đã xóa khách hàng thành công']);
+    }
+
+    public function deleteContact($customerId, $contactId)
+    {
+        $contact = CustomerContact::where('customer_id', $customerId)->where('id', $contactId)->first();
+        if (!$contact) {
+            return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND', 'message' => 'Không tìm thấy người liên hệ']], 404);
+        }
+
+        $contact->delete();
+        return response()->json(['success' => true, 'message' => 'Đã xóa người liên hệ']);
+    }
 }

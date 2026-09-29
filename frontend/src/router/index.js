@@ -13,6 +13,8 @@ import PermissionsPage from '../pages/identity/PermissionsPage.vue';
 import ProductPage from '../pages/product/index.vue';
 import BrandPage from '../pages/brand/index.vue';
 import CategoryPage from '../pages/category/index.vue';
+import CustomerPage from '../pages/customer/index.vue';
+import SupplierPage from '../pages/supplier/index.vue';
 import InventoryView from '../views/inventory/InventoryView.vue';
 import MasterPage from '../pages/master/index.vue';
 import ArchitecturePage from '../pages/architecture/index.vue';
@@ -86,6 +88,32 @@ export const routes = [
       permission: 'permission.view',
       title: 'Quản Lý Quyền Hạn'
     }
+  },
+  {
+    path: '/customer',
+    name: 'customer',
+    component: CustomerPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'catalog',
+      permission: 'catalog.view',
+      title: 'Quản Lý Khách Hàng'
+    }
+  },
+  {
+    path: '/supplier',
+    name: 'supplier',
+    component: SupplierPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'catalog',
+      permission: 'catalog.view',
+      title: 'Quản Lý Nhà Cung Cấp'
+    }
+  },
+  {
+    path: '/partner',
+    redirect: '/customer'
   },
   {
     path: '/product',

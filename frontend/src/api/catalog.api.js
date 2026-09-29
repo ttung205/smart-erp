@@ -111,10 +111,29 @@ export const catalogApi = {
     });
   },
 
+  updateCustomer(id, data) {
+    return apiClient(`/api/v1/catalog/customers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  deleteCustomer(id) {
+    return apiClient(`/api/v1/catalog/customers/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
   addCustomerContact(customerId, contactData) {
     return apiClient(`/api/v1/catalog/customers/${customerId}/contacts`, {
       method: 'POST',
       body: JSON.stringify(contactData)
+    });
+  },
+
+  deleteCustomerContact(customerId, contactId) {
+    return apiClient(`/api/v1/catalog/customers/${customerId}/contacts/${contactId}`, {
+      method: 'DELETE'
     });
   },
 

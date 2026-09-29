@@ -27,7 +27,9 @@ Route::get('/customers', [CustomerController::class, 'index']);
 Route::post('/customers', [CustomerController::class, 'store']);
 Route::get('/customers/{id}', [CustomerController::class, 'show']);
 Route::put('/customers/{id}', [CustomerController::class, 'update']);
+Route::delete('/customers/{id}', [CustomerController::class, 'destroy']);
 Route::post('/customers/{id}/contacts', [CustomerController::class, 'addContact']);
+Route::delete('/customers/{customerId}/contacts/{contactId}', [CustomerController::class, 'deleteContact']);
 
 // 6. Partners & Warehouses
 Route::get('/partners', [PartnerController::class, 'index']);
