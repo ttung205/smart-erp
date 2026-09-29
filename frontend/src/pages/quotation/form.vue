@@ -65,11 +65,11 @@
     <div class="flex flex-col lg:flex-row gap-4 items-stretch">
       <!-- Cột Trái: 65% (Khách hàng, Liên hệ, Số báo giá, Tiền tệ, Tỷ giá) -->
       <div class="w-full lg:w-[65%] bg-white border border-slate-200 rounded-[8px] p-5 shadow-sm flex flex-col justify-between gap-4">
-        <!-- Hàng 1 của cột trái: Khách hàng (7 cols) + Liên hệ (5 cols) -->
+        <!-- Hàng 1 của cột trái: Khách hàng (6 cols) + Liên hệ (6 cols) -->
         <div class="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-start">
           <!-- Chọn khách hàng -->
-          <div class="md:col-span-7 flex flex-col gap-1.5">
-            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
+          <div class="md:col-span-6 flex flex-col gap-1.5 min-w-0">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide truncate">
               Khách hàng <span class="text-red-500">*</span>
             </label>
             <Select
@@ -79,27 +79,47 @@
               optionValue="id"
               filter
               placeholder="-- Chọn khách hàng doanh nghiệp --"
-              class="w-full text-xs rounded-[6px] h-10 flex items-center"
+              class="w-full min-w-0 text-xs rounded-[6px] h-10 flex items-center"
+              :pt="{ label: { class: '!truncate' }, root: { class: '!min-w-0' } }"
               @change="onCustomerChange"
-            />
+            >
+              <template #value="slotProps">
+                <div v-if="slotProps.value" class="truncate text-xs font-medium text-slate-800">
+                  {{ customerOptions.find(c => c.id === slotProps.value)?.label || form.customer_name }}
+                </div>
+                <span v-else class="text-slate-400 text-xs truncate">
+                  {{ slotProps.placeholder }}
+                </span>
+              </template>
+            </Select>
           </div>
 
           <!-- Liên hệ khách -->
-          <div class="md:col-span-5 flex flex-col gap-1.5">
-            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
+          <div class="md:col-span-6 flex flex-col gap-1.5 min-w-0">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide truncate">
               Liên hệ khách hàng <span class="text-red-500">*</span>
             </label>
-            <div class="flex items-center gap-1.5">
+            <div class="flex items-center gap-1.5 w-full min-w-0">
               <Select
                 v-model="form.contact_id"
                 :options="contactOptions"
                 optionLabel="label"
                 optionValue="id"
                 :placeholder="form.customer_id ? '-- Chọn người liên hệ --' : '(Cần chọn khách hàng)'"
-                class="w-full text-xs rounded-[6px] h-10 flex items-center"
+                class="flex-1 min-w-0 text-xs rounded-[6px] h-10 flex items-center"
+                :pt="{ label: { class: '!truncate' }, root: { class: '!min-w-0' } }"
                 :disabled="!form.customer_id"
                 @change="onContactChange"
-              />
+              >
+                <template #value="slotProps">
+                  <div v-if="slotProps.value" class="truncate text-xs font-medium text-slate-800">
+                    {{ contactOptions.find(c => c.id === slotProps.value)?.label || form.contact_name }}
+                  </div>
+                  <span v-else class="text-slate-400 text-xs truncate">
+                    {{ slotProps.placeholder }}
+                  </span>
+                </template>
+              </Select>
               <Button
                 icon="pi pi-plus"
                 size="small"
@@ -336,11 +356,19 @@ const customerOptions = computed(() => {
 const contactOptions = computed(() => {
   const currentCust = customers.value.find((c) => c.id === form.value.customer_id);
   if (!currentCust || !currentCust.contacts) return [];
-  return currentCust.contacts.map((ct) => ({
-    id: ct.id,
-    name: ct.name,
-    label: ct.position ? `${ct.name} (${ct.position})` : (ct.phone ? `${ct.name} (${ct.phone})` : ct.name)
-  }));
+  return currentCust.contacts.map((ct) => {
+    let lbl = ct.name;
+    if (ct.position && !lbl.toLowerCase().includes(ct.position.toLowerCase())) {
+      lbl += ` (${ct.position})`;
+    } else if (ct.phone && !lbl.includes(ct.phone)) {
+      lbl += ` (${ct.phone})`;
+    }
+    return {
+      id: ct.id,
+      name: ct.name,
+      label: lbl
+    };
+  });
 });
 
 // Số báo giá dự kiến hiển thị khi đã chọn khách hàng
