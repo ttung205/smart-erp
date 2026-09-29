@@ -1,128 +1,247 @@
 <template>
-  <div class="space-y-3 pb-10">
+  <div class="space-y-4 pb-12">
     <!-- 1. Header Toolbar -->
-    <div class="flex items-center justify-between bg-white border border-slate-200 rounded-[6px] px-4 py-2.5">
+    <div class="flex items-center justify-between bg-white border border-slate-200 rounded-[8px] px-5 py-3 shadow-sm">
       <div class="flex items-center gap-3">
-        <Button label="Quay lại" icon="pi pi-arrow-left" size="small" severity="secondary" outlined
-          class="!text-xs !py-1 !px-2.5 rounded-[6px] !border-slate-300 !text-slate-700 hover:!bg-slate-100"
-          @click="$router.push('/quotation')" />
+        <Button
+          label="Quay lại"
+          icon="pi pi-arrow-left"
+          size="small"
+          severity="secondary"
+          outlined
+          class="!text-xs !py-1.5 !px-3 rounded-[6px] !border-slate-300 !text-slate-700 hover:!bg-slate-100"
+          @click="$router.push('/quotation')"
+        />
 
         <div class="flex flex-col">
           <h1 class="text-base font-bold text-slate-900 m-0 tracking-tight flex items-center gap-2">
-            <span>{{ isEditMode ? `Edit Quotation - ${form.quotation_number}` : `Tạo Báo Giá Mới -
-              ${form.quotation_number}` }}</span>
-            <Tag :severity="getStatusMeta(form.status).severity" :value="getStatusMeta(form.status).label"
-              class="text-[11px] px-2 py-0.5 rounded-[4px]" />
+            <span>{{ isEditMode ? `Báo Giá: ${form.quotation_number}` : 'Lập Báo Giá Mới' }}</span>
+            <Tag
+              :severity="getStatusMeta(form.status).severity"
+              :value="getStatusMeta(form.status).label"
+              class="text-[11px] px-2 py-0.5 rounded-[4px]"
+            />
           </h1>
-          <span class="text-[11px] text-slate-400">Modify quotation details and items</span>
+          <span class="text-xs text-slate-400">
+            {{ isEditMode ? 'Xem và chỉnh sửa chi tiết báo giá cùng các mặt hàng' : 'Nhập thông tin khách hàng và lựa chọn các mặt hàng cần báo giá' }}
+          </span>
         </div>
       </div>
 
       <!-- Action Buttons -->
-      <div class="flex items-center gap-2">
-        <!-- Nút Gửi xét duyệt -->
-        <Button v-if="form.status === 'DRAFT'" label="Gửi xét duyệt" icon="pi pi-send" size="small"
-          class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !text-xs !py-1 !px-3 rounded-[6px] !font-medium"
-          @click="handleSubmitForApproval" />
-
-        <!-- Nút Phê duyệt (Chỉ hiển thị khi có quyền quotation.approve hoặc Super Admin) -->
-        <Button v-if="canApprove && form.status === 'PENDING_APPROVAL'" label="Duyệt báo giá" icon="pi pi-check-circle"
+      <div class="flex items-center gap-2.5">
+        <!-- Nút Gửi xét duyệt (khi trạng thái DRAFT) -->
+        <Button
+          v-if="form.status === 'DRAFT'"
+          label="Gửi xét duyệt"
+          icon="pi pi-send"
           size="small"
-          class="!bg-emerald-600 hover:!bg-emerald-700 !text-white !border-emerald-600 !text-xs !py-1 !px-3 rounded-[6px] !font-semibold"
-          @click="handleApproveQuotation" />
+          class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !text-xs !py-2 !px-3.5 rounded-[6px] !font-medium"
+          @click="confirmSubmitApproval"
+        />
+
+        <!-- Nút Từ chối (khi PENDING_APPROVAL và canApprove) -->
+        <Button
+          v-if="canApprove && form.status === 'PENDING_APPROVAL'"
+          label="Từ chối"
+          icon="pi pi-times-circle"
+          size="small"
+          severity="danger"
+          outlined
+          class="!text-xs !py-2 !px-3.5 rounded-[6px] !font-semibold !border-red-300 hover:!bg-red-50 !text-red-600"
+          @click="confirmRejectQuotation"
+        />
+
+        <!-- Nút Phê duyệt (khi PENDING_APPROVAL và canApprove) -->
+        <Button
+          v-if="canApprove && form.status === 'PENDING_APPROVAL'"
+          label="Duyệt báo giá"
+          icon="pi pi-check-circle"
+          size="small"
+          class="!bg-emerald-600 hover:!bg-emerald-700 !text-white !border-emerald-600 !text-xs !py-2 !px-3.5 rounded-[6px] !font-semibold"
+          @click="confirmApproveQuotation"
+        />
 
         <!-- Nút Lưu thay đổi -->
-        <Button label="Lưu thay đổi" icon="pi pi-save" size="small"
-          class="!bg-emerald-700 hover:!bg-emerald-800 !text-white !border-emerald-700 !text-xs !py-1 !px-3.5 rounded-[6px] !font-semibold"
-          @click="handleSaveQuotation" />
+        <Button
+          label="Lưu thay đổi"
+          icon="pi pi-save"
+          size="small"
+          class="!bg-emerald-700 hover:!bg-emerald-800 !text-white !border-emerald-700 !text-xs !py-2 !px-4 rounded-[6px] !font-semibold shadow-sm"
+          @click="handleSaveQuotation"
+        />
       </div>
     </div>
 
-    <!-- 2. Form Thông Tin Báo Giá (Bố cục 2 hàng chuẩn ảnh ERP) -->
-    <div class="bg-white border border-slate-200 rounded-[6px] p-4 flex flex-col gap-3.5">
-      <!-- Hàng 1 -->
-      <div class="grid grid-cols-1 md:grid-cols-5 gap-3.5">
-        <!-- Khách hàng * -->
-        <div class="md:col-span-2 flex flex-col gap-1">
-          <label class="text-xs font-semibold text-slate-700">Khách hàng <span class="text-red-500">*</span></label>
-          <Select v-model="form.customer_id" :options="customerOptions" optionLabel="label" optionValue="id"
-            placeholder="Chọn khách hàng doanh nghiệp..." class="w-full text-xs rounded-[6px]" size="small"
-            @change="onCustomerChange" />
+    <!-- 2. Form Thông Tin Báo Giá (Bố cục 2 cột: Trái 65% - Phải 35%) -->
+    <div class="flex flex-col lg:flex-row gap-4 items-stretch">
+      <!-- Cột Trái: 65% (Khách hàng, Liên hệ, Số báo giá, Tiền tệ, Tỷ giá) -->
+      <div class="w-full lg:w-[65%] bg-white border border-slate-200 rounded-[8px] p-5 shadow-sm flex flex-col justify-between gap-4">
+        <!-- Hàng 1 của cột trái: Khách hàng (6 cols) + Liên hệ (6 cols) -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-start">
+          <!-- Chọn khách hàng -->
+          <div class="md:col-span-6 flex flex-col gap-1.5 min-w-0">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide truncate">
+              Khách hàng <span class="text-red-500">*</span>
+            </label>
+            <Select
+              v-model="form.customer_id"
+              :options="customerOptions"
+              optionLabel="label"
+              optionValue="id"
+              filter
+              placeholder="-- Chọn khách hàng doanh nghiệp --"
+              class="w-full min-w-0 text-xs rounded-[6px] h-10 flex items-center"
+              :pt="{ label: { class: '!truncate' }, root: { class: '!min-w-0' } }"
+              @change="onCustomerChange"
+            >
+              <template #value="slotProps">
+                <div v-if="slotProps.value" class="truncate text-xs font-medium text-slate-800">
+                  {{ customerOptions.find(c => c.id === slotProps.value)?.label || form.customer_name }}
+                </div>
+                <span v-else class="text-slate-400 text-xs truncate">
+                  {{ slotProps.placeholder }}
+                </span>
+              </template>
+            </Select>
+          </div>
+
+          <!-- Liên hệ khách -->
+          <div class="md:col-span-6 flex flex-col gap-1.5 min-w-0">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide truncate">
+              Liên hệ khách hàng <span class="text-red-500">*</span>
+            </label>
+            <div class="flex items-center gap-1.5 w-full min-w-0">
+              <Select
+                v-model="form.contact_id"
+                :options="contactOptions"
+                optionLabel="label"
+                optionValue="id"
+                :placeholder="form.customer_id ? '-- Chọn người liên hệ --' : '(Cần chọn khách hàng)'"
+                class="flex-1 min-w-0 text-xs rounded-[6px] h-10 flex items-center"
+                :pt="{ label: { class: '!truncate' }, root: { class: '!min-w-0' } }"
+                :disabled="!form.customer_id"
+                @change="onContactChange"
+              >
+                <template #value="slotProps">
+                  <div v-if="slotProps.value" class="truncate text-xs font-medium text-slate-800">
+                    {{ contactOptions.find(c => c.id === slotProps.value)?.label || form.contact_name }}
+                  </div>
+                  <span v-else class="text-slate-400 text-xs truncate">
+                    {{ slotProps.placeholder }}
+                  </span>
+                </template>
+              </Select>
+              <Button
+                icon="pi pi-plus"
+                size="small"
+                text
+                class="!w-10 !h-10 !p-0 rounded-[6px] shrink-0 border border-slate-300 text-sky-600 hover:!bg-sky-50"
+                :disabled="!form.customer_id"
+                title="Thêm người liên hệ mới cho khách hàng này"
+                @click="showAddContactDialog = true"
+              />
+            </div>
+          </div>
         </div>
 
-        <!-- Liên hệ khách hàng * -->
-        <div class="md:col-span-1 flex flex-col gap-1">
-          <div class="flex items-center justify-between">
-            <label class="text-xs font-semibold text-slate-700">Liên hệ khách hàng <span
-                class="text-red-500">*</span></label>
+        <!-- Hàng 2 của cột trái: Số báo giá (6 cols) + Tiền tệ (3 cols) + Tỷ giá (3 cols) -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-start pt-2 border-t border-slate-100">
+          <!-- Số báo giá -->
+          <div class="md:col-span-6 flex flex-col gap-1.5">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
+              Số báo giá
+            </label>
+            <InputText
+              :value="form.quotation_number || (form.customer_code ? previewQuotationNumber : '(Tự động sinh khi lưu)')"
+              class="w-full text-xs font-mono font-bold text-slate-700 bg-slate-50 rounded-[6px] h-10 px-3 border-slate-200"
+              readonly
+            />
           </div>
-          <div class="flex items-center gap-1.5">
-            <Select v-model="form.contact_id" :options="contactOptions" optionLabel="name" optionValue="id"
-              placeholder="Chọn người liên hệ..." class="w-full text-xs rounded-[6px]" size="small"
-              :disabled="!form.customer_id" @change="onContactChange" />
-            <Button icon="pi pi-plus" size="small" text
-              class="!w-8 !h-8 !p-0 rounded-[6px] shrink-0 border border-slate-300 text-sky-600 hover:!bg-sky-50"
-              title="Thêm người liên hệ mới cho khách hàng này" @click="showAddContactDialog = true" />
-          </div>
-        </div>
 
-        <!-- Số báo giá (Tự động sinh ra dạng QT-mãkháchhàng-ngày ddmmyy) -->
-        <div class="flex flex-col gap-1">
-          <label class="text-xs font-semibold text-slate-700">Số báo giá</label>
-          <InputText v-model="form.quotation_number"
-            class="w-full text-xs font-mono font-bold text-slate-700 bg-slate-50 rounded-[6px]" size="small" readonly />
-        </div>
-
-        <!-- Tiền tệ & Tỷ giá -->
-        <div class="grid grid-cols-2 gap-2">
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-semibold text-slate-700">Tiền tệ</label>
-            <Select v-model="form.currency" :options="['VND', 'USD', 'EUR']" class="w-full text-xs rounded-[6px]"
-              size="small" />
+          <!-- Tiền tệ -->
+          <div class="md:col-span-3 flex flex-col gap-1.5">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">Tiền tệ</label>
+            <Select
+              v-model="form.currency"
+              :options="['VND', 'USD', 'EUR']"
+              class="w-full text-xs rounded-[6px] h-10 flex items-center"
+            />
           </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-semibold text-slate-700">Tỷ giá</label>
-            <InputNumber v-model="form.exchange_rate" class="w-full text-xs font-mono"
-              inputClass="text-xs font-mono py-1 rounded-[6px]" size="small" :disabled="form.currency === 'VND'" />
+
+          <!-- Tỷ giá -->
+          <div class="md:col-span-3 flex flex-col gap-1.5">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">Tỷ giá</label>
+            <InputNumber
+              v-model="form.exchange_rate"
+              class="w-full text-xs font-mono h-10"
+              inputClass="text-xs font-mono py-1 rounded-[6px] h-10"
+              :disabled="form.currency === 'VND'"
+            />
           </div>
         </div>
       </div>
 
-      <!-- Hàng 2 -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-3.5 pt-2 border-t border-slate-100 items-center">
-        <!-- Nhân viên phụ trách (người tạo) -->
-        <div class="flex flex-col gap-1">
-          <span class="text-xs font-semibold text-slate-500">Nhân viên phụ trách:</span>
-          <div class="flex items-center gap-2 mt-0.5">
-            <div
-              class="w-6 h-6 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold font-mono">
-              {{ (form.created_by || 'a').charAt(0).toLowerCase() }}
+      <!-- Cột Phải: 35% (Nhân viên phụ trách, Ngày tạo báo giá, Nhân viên theo dõi, Trạng thái) -->
+      <div class="w-full lg:w-[35%] bg-white border border-slate-200 rounded-[8px] p-5 shadow-sm flex flex-col justify-between gap-4">
+        <!-- Hàng 1 của cột phải: Nhân viên phụ trách (1 col) + Ngày tạo báo giá (1 col) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-start">
+          <!-- Nhân viên phụ trách -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
+              Nhân viên phụ trách
+            </label>
+            <div class="h-10 flex items-center gap-2 px-3 bg-slate-50 border border-slate-200 rounded-[6px]">
+              <div class="w-6 h-6 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold font-mono">
+                {{ (form.created_by || 'A').charAt(0).toUpperCase() }}
+              </div>
+              <span class="text-xs font-semibold text-slate-800 truncate">{{ form.created_by || 'Quản Trị Viên' }}</span>
             </div>
-            <span class="text-xs font-semibold text-slate-800">{{ form.created_by }}</span>
+          </div>
+
+          <!-- Ngày tạo báo giá -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
+              Ngày tạo báo giá
+            </label>
+            <div class="h-10 flex items-center px-3 bg-slate-50 border border-slate-200 rounded-[6px]">
+              <span v-if="form.created_at || form.quotation_date" class="text-xs font-mono font-medium text-slate-800 truncate">
+                {{ form.created_at || form.quotation_date }}
+              </span>
+              <span v-else class="text-[11px] text-slate-400 italic truncate">
+                (Tự động ghi khi tạo)
+              </span>
+            </div>
           </div>
         </div>
 
-        <!-- Ngày tạo báo giá -->
-        <div class="flex flex-col gap-1">
-          <span class="text-xs font-semibold text-slate-500">Ngày tạo báo giá:</span>
-          <span class="text-xs font-mono font-medium text-slate-800 mt-0.5">{{ form.created_at }}</span>
-        </div>
+        <!-- Hàng 2 của cột phải: Nhân viên theo dõi (1 col) + Trạng thái (1 col) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-start pt-2 border-t border-slate-100">
+          <!-- Nhân viên theo dõi -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
+              Nhân viên theo dõi <span class="text-red-500">*</span>
+            </label>
+            <Select
+              v-model="form.assigned_to"
+              :options="['admin', 'sale_lead', 'nv_kinhdoanh_01']"
+              placeholder="Chọn nhân viên..."
+              class="w-full text-xs rounded-[6px] h-10 flex items-center"
+            />
+          </div>
 
-        <!-- Nhân viên theo dõi * -->
-        <div class="flex flex-col gap-1">
-          <label class="text-xs font-semibold text-slate-700">Nhân viên theo dõi <span
-              class="text-red-500">*</span></label>
-          <Select v-model="form.assigned_to" :options="['admin', 'sale_lead', 'nv_kinhdoanh_01']"
-            placeholder="Chọn nhân viên..." class="w-full text-xs rounded-[6px]" size="small" />
-        </div>
-
-        <!-- Trạng thái * (Không cho sửa trực tiếp trong form) -->
-        <div class="flex flex-col gap-1">
-          <label class="text-xs font-semibold text-slate-700">Trạng thái <span class="text-red-500">*</span></label>
-          <div class="h-8 flex items-center px-3 bg-slate-50 border border-slate-200 rounded-[6px]">
-            <Tag :severity="getStatusMeta(form.status).severity" :value="getStatusMeta(form.status).label"
-              class="text-[11px] px-2 py-0.5 rounded-[4px]" />
-            <span class="text-[10px] text-slate-400 ml-2 italic">(Cập nhật qua các nút quy trình)</span>
+          <!-- Trạng thái (Đã bỏ dòng cập nhật qua các nút quy trình) -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
+              Trạng thái <span class="text-red-500">*</span>
+            </label>
+            <div class="h-10 flex items-center justify-center px-3 bg-slate-50 border border-slate-200 rounded-[6px]">
+              <Tag
+                :severity="getStatusMeta(form.status).severity"
+                :value="getStatusMeta(form.status).label"
+                class="text-xs px-3 py-1 rounded-[4px] font-semibold"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -132,32 +251,65 @@
     <ItemDataTable v-model="form.items" @summary-change="onItemsSummaryChange" />
 
     <!-- 4. Modal Thêm Nhanh Người Liên Hệ Mới -->
-    <Dialog v-model:visible="showAddContactDialog" modal header="Thêm Người Liên Hệ Mới" :style="{ width: '420px' }"
-      class="rounded-[6px]">
-      <div class="flex flex-col gap-3 pt-1 text-xs">
-        <div class="flex flex-col gap-1">
-          <label class="font-semibold text-slate-700">Họ và tên người liên hệ <span
-              class="text-red-500">*</span></label>
-          <InputText v-model="newContact.name" placeholder="Ví dụ: Mr. Hùng (Phó phòng kỹ thuật)..."
-            class="w-full text-xs rounded-[6px]" />
+    <Dialog
+      v-model:visible="showAddContactDialog"
+      modal
+      header="Thêm Người Liên Hệ Mới"
+      :style="{ width: '440px' }"
+      class="rounded-[8px]"
+    >
+      <div class="flex flex-col gap-3.5 pt-2 text-xs">
+        <div class="flex flex-col gap-1.5">
+          <label class="font-semibold text-slate-700">Họ và tên người liên hệ <span class="text-red-500">*</span></label>
+          <InputText
+            v-model="newContact.name"
+            placeholder="Ví dụ: Nguyễn Văn Hùng..."
+            class="w-full text-xs rounded-[6px] h-9 px-3"
+          />
         </div>
-        <div class="flex flex-col gap-1">
+        <div class="flex flex-col gap-1.5">
+          <label class="font-semibold text-slate-700">Chức vụ / Phòng ban</label>
+          <InputText
+            v-model="newContact.position"
+            placeholder="Ví dụ: Trưởng phòng Mua hàng, Kỹ sư cơ điện..."
+            class="w-full text-xs rounded-[6px] h-9 px-3"
+          />
+        </div>
+        <div class="flex flex-col gap-1.5">
           <label class="font-semibold text-slate-700">Số điện thoại di động</label>
-          <InputText v-model="newContact.phone" placeholder="09xx xxx xxx..." class="w-full text-xs rounded-[6px]" />
+          <InputText
+            v-model="newContact.phone"
+            placeholder="09xx xxx xxx..."
+            class="w-full text-xs rounded-[6px] h-9 px-3"
+          />
         </div>
-        <div class="flex flex-col gap-1">
+        <div class="flex flex-col gap-1.5">
           <label class="font-semibold text-slate-700">Email công việc</label>
-          <InputText v-model="newContact.email" placeholder="email@doanhnghiep.com..."
-            class="w-full text-xs rounded-[6px]" />
+          <InputText
+            v-model="newContact.email"
+            placeholder="email@doanhnghiep.com..."
+            class="w-full text-xs rounded-[6px] h-9 px-3"
+          />
         </div>
       </div>
 
       <template #footer>
-        <div class="flex justify-end gap-2">
-          <Button label="Hủy" text size="small" severity="secondary" class="rounded-[6px]"
-            @click="showAddContactDialog = false" />
-          <Button label="Lưu người liên hệ" icon="pi pi-check" size="small"
-            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 rounded-[6px]" @click="saveNewContact" />
+        <div class="flex justify-end gap-2 pt-2">
+          <Button
+            label="Hủy"
+            text
+            size="small"
+            severity="secondary"
+            class="rounded-[6px]"
+            @click="showAddContactDialog = false"
+          />
+          <Button
+            label="Lưu người liên hệ"
+            icon="pi pi-check"
+            size="small"
+            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 rounded-[6px]"
+            @click="saveNewContact"
+          />
         </div>
       </template>
     </Dialog>
@@ -168,6 +320,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
+import { useConfirm } from 'primevue/useconfirm';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
@@ -183,6 +336,7 @@ import { isSuperAdmin } from '../../utils/rbac';
 const route = useRoute();
 const router = useRouter();
 const toast = useToast();
+const confirm = useConfirm();
 
 const props = defineProps({
   currentUser: {
@@ -202,7 +356,7 @@ const canApprove = computed(() => {
 
 const customers = ref([]);
 
-// Dropdown khách hàng
+// Dropdown khách hàng (hiển thị Mã - Tên)
 const customerOptions = computed(() => {
   return customers.value.map((c) => ({
     id: c.id,
@@ -212,10 +366,33 @@ const customerOptions = computed(() => {
   }));
 });
 
-// Dropdown người liên hệ theo khách hàng đã chọn
+// Dropdown người liên hệ theo khách hàng đã chọn (Mỗi khách hàng có nhiều người liên hệ)
 const contactOptions = computed(() => {
   const currentCust = customers.value.find((c) => c.id === form.value.customer_id);
-  return currentCust ? currentCust.contacts || [] : [];
+  if (!currentCust || !currentCust.contacts) return [];
+  return currentCust.contacts.map((ct) => {
+    let lbl = ct.name;
+    if (ct.position && !lbl.toLowerCase().includes(ct.position.toLowerCase())) {
+      lbl += ` (${ct.position})`;
+    } else if (ct.phone && !lbl.includes(ct.phone)) {
+      lbl += ` (${ct.phone})`;
+    }
+    return {
+      id: ct.id,
+      name: ct.name,
+      label: lbl
+    };
+  });
+});
+
+// Số báo giá dự kiến hiển thị khi đã chọn khách hàng
+const previewQuotationNumber = computed(() => {
+  if (!form.value.customer_code) return '';
+  const now = new Date();
+  const d = String(now.getDate()).padStart(2, '0');
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const y = String(now.getFullYear()).slice(-2);
+  return `QT-${form.value.customer_code}-${d}${m}${y} (Tự động sinh khi lưu)`;
 });
 
 // Trạng thái form
@@ -247,18 +424,10 @@ const showAddContactDialog = ref(false);
 
 const newContact = ref({
   name: '',
+  position: '',
   phone: '',
   email: ''
 });
-
-// Sinh số báo giá theo quy ước QT-mãkháchhàng-ngày ddmmyy
-const generateQuotationNumber = (customerCode = 'KH01', date = new Date()) => {
-  const d = String(date.getDate()).padStart(2, '0');
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const y = String(date.getFullYear()).slice(-2);
-  const dateStr = `${d}${m}${y}`;
-  return `QT-${customerCode}-${dateStr}`;
-};
 
 // Map trạng thái báo giá
 const getStatusMeta = (st) => {
@@ -266,6 +435,7 @@ const getStatusMeta = (st) => {
     DRAFT: { label: 'Bản nháp', severity: 'secondary' },
     PENDING_APPROVAL: { label: 'Chờ duyệt', severity: 'warn' },
     APPROVED: { label: 'Đã duyệt', severity: 'success' },
+    REJECTED: { label: 'Từ chối', severity: 'danger' },
     CONVERTED: { label: 'Đã tạo đơn bán', severity: 'info' }
   };
   return map[st] || { label: st, severity: 'secondary' };
@@ -286,28 +456,17 @@ watch(
 const initFormData = async () => {
   const qId = route.params.id;
 
-  // Load danh sách khách hàng từ catalog-service
+  // Load danh sách khách hàng từ bảng customers của catalog-service
   try {
-    const resPartners = await catalogApi.getPartners();
-    if (resPartners && resPartners.data) {
-      customers.value = resPartners.data
-        .filter((p) => !p.type || p.type === 'CUSTOMER' || p.type === 'BOTH')
-        .map((p) => ({
-          ...p,
-          contacts: [
-            {
-              id: 1,
-              name: p.phone ? `Người đại diện (${p.phone})` : 'Phòng Vật tư / Mua hàng',
-              phone: p.phone || '',
-              email: p.email || ''
-            }
-          ]
-        }));
+    const resCust = await catalogApi.getCustomers();
+    if (resCust && resCust.data) {
+      customers.value = resCust.data;
     }
   } catch (err) {
     console.warn('Lỗi tải khách hàng từ Catalog Service:', err);
   }
 
+  // Nếu đang chỉnh sửa báo giá có sẵn
   if (isEditMode.value) {
     try {
       const res = await salesApi.getQuotationById(qId);
@@ -320,30 +479,19 @@ const initFormData = async () => {
     }
   }
 
-  // Khởi tạo khi Tạo Mới
-  const now = new Date();
-  const d = String(now.getDate()).padStart(2, '0');
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const y = now.getFullYear();
-  const hh = String(now.getHours()).padStart(2, '0');
-  const mm = String(now.getMinutes()).padStart(2, '0');
-  const formattedDate = `${d}/${m}/${y} ${hh}:${mm}`;
-
-  const firstCust = customers.value[0];
-  const autoNumber = generateQuotationNumber(firstCust?.code || 'KH01', now);
-
+  // Khởi tạo khi Tạo Mới: Không tự động chọn khách hàng, không sinh số trước, không hiển thị ngày tạo trước
   form.value = {
-    id: autoNumber,
-    quotation_number: autoNumber,
-    customer_id: firstCust?.id || null,
-    customer_code: firstCust?.code || '',
-    customer_name: firstCust?.name || '',
-    contact_id: firstCust?.contacts?.[0]?.id || null,
-    contact_name: firstCust?.contacts?.[0]?.name || '',
+    id: '',
+    quotation_number: '',
+    customer_id: null,
+    customer_code: '',
+    customer_name: '',
+    contact_id: null,
+    contact_name: '',
     currency: 'VND',
     exchange_rate: 1,
-    created_by: props.currentUser?.name || 'admin',
-    created_at: formattedDate,
+    created_by: props.currentUser?.name || 'Quản Trị Viên Tối Cao',
+    created_at: '',
     assigned_to: 'admin',
     status: 'DRAFT',
     notes: 'Báo giá thiết bị công nghiệp chính hãng.',
@@ -354,27 +502,27 @@ const initFormData = async () => {
   };
 };
 
-// Đổi khách hàng -> Tự động sinh lại số báo giá theo quy ước QT-mãkháchhàng-ngày ddmmyy
+// Đổi khách hàng -> Cập nhật mã & tên khách hàng, gán người liên hệ đầu tiên
 const onCustomerChange = () => {
   const cust = customers.value.find((c) => c.id === form.value.customer_id);
   if (cust) {
     form.value.customer_code = cust.code;
     form.value.customer_name = cust.name;
 
-    // Sinh số báo giá theo mã khách hàng
-    if (!isEditMode.value) {
-      form.value.quotation_number = generateQuotationNumber(cust.code);
-      form.value.id = form.value.quotation_number;
-    }
-
-    // Gán người liên hệ đầu tiên của khách đó
-    if (cust.contacts && cust.contacts.length > 0) {
-      form.value.contact_id = cust.contacts[0].id;
-      form.value.contact_name = cust.contacts[0].name;
+    // Gán người liên hệ ưu tiên hoặc đầu tiên của khách hàng
+    const primaryContact = (cust.contacts || []).find((c) => c.is_primary) || cust.contacts?.[0];
+    if (primaryContact) {
+      form.value.contact_id = primaryContact.id;
+      form.value.contact_name = primaryContact.name;
     } else {
       form.value.contact_id = null;
       form.value.contact_name = '';
     }
+  } else {
+    form.value.customer_code = '';
+    form.value.customer_name = '';
+    form.value.contact_id = null;
+    form.value.contact_name = '';
   }
 };
 
@@ -385,32 +533,40 @@ const onContactChange = () => {
   }
 };
 
-const saveNewContact = () => {
+const saveNewContact = async () => {
   if (!newContact.value.name) {
     alert('Vui lòng nhập tên người liên hệ!');
     return;
   }
   const currentCust = customers.value.find((c) => c.id === form.value.customer_id);
   if (currentCust) {
-    if (!currentCust.contacts) currentCust.contacts = [];
-    const contactObj = {
-      id: Date.now(),
-      name: newContact.value.name,
-      phone: newContact.value.phone,
-      email: newContact.value.email
-    };
-    currentCust.contacts.push(contactObj);
-    form.value.contact_id = contactObj.id;
-    form.value.contact_name = contactObj.name;
+    try {
+      // Lưu vào CSDL bảng customer_contacts của catalog-service
+      const res = await catalogApi.addCustomerContact(currentCust.id, newContact.value);
+      const savedContact = res.data;
 
-    toast.add({
-      severity: 'success',
-      summary: 'Thêm người liên hệ',
-      detail: `Đã thêm ${contactObj.name} vào danh sách liên hệ của ${currentCust.name}.`,
-      life: 3000
-    });
-    newContact.value = { name: '', phone: '', email: '' };
-    showAddContactDialog.value = false;
+      if (!currentCust.contacts) currentCust.contacts = [];
+      currentCust.contacts.push(savedContact);
+
+      form.value.contact_id = savedContact.id;
+      form.value.contact_name = savedContact.name;
+
+      toast.add({
+        severity: 'success',
+        summary: 'Thêm người liên hệ',
+        detail: `Đã thêm ${savedContact.name} vào danh sách liên hệ của ${currentCust.name}.`,
+        life: 3000
+      });
+      newContact.value = { name: '', position: '', phone: '', email: '' };
+      showAddContactDialog.value = false;
+    } catch (err) {
+      toast.add({
+        severity: 'error',
+        summary: 'Lỗi thêm người liên hệ',
+        detail: err.message || 'Không thể lưu người liên hệ vào máy chủ.',
+        life: 3000
+      });
+    }
   }
 };
 
@@ -434,18 +590,25 @@ const handleSaveQuotation = async () => {
   }
 
   try {
+    let savedQ;
     if (isEditMode.value) {
-      await salesApi.updateQuotation(form.value.id, form.value);
+      const res = await salesApi.updateQuotation(form.value.id, form.value);
+      savedQ = res.data;
     } else {
-      await salesApi.createQuotation(form.value);
+      const res = await salesApi.createQuotation(form.value);
+      savedQ = res.data;
+      if (savedQ && savedQ.id) {
+        form.value = { ...form.value, ...savedQ };
+        router.replace(`/quotation/${savedQ.id}/edit`);
+      }
     }
+
     toast.add({
       severity: 'success',
       summary: 'Lưu báo giá thành công',
-      detail: `Báo giá ${form.value.quotation_number} đã được lưu thành công vào CSDL.`,
-      life: 3000
+      detail: `Báo giá ${savedQ?.quotation_number || form.value.quotation_number} đã được lưu thành công vào CSDL.`,
+      life: 4000
     });
-    router.push('/quotation');
   } catch (err) {
     toast.add({
       severity: 'error',
@@ -456,22 +619,124 @@ const handleSaveQuotation = async () => {
   }
 };
 
-const handleSubmitForApproval = async () => {
+// ----------------------------------------------------
+// THAO TÁC XÁC NHẬN QUA CONFIRM DIALOG CỦA PRIMEVUE
+// ----------------------------------------------------
+const confirmSubmitApproval = () => {
+  if (!form.value.customer_id) {
+    alert('Vui lòng chọn khách hàng trước khi gửi duyệt!');
+    return;
+  }
+  if (!form.value.items || form.value.items.length === 0) {
+    alert('Vui lòng thêm ít nhất 1 dòng mặt hàng vào báo giá trước khi gửi duyệt!');
+    return;
+  }
+
+  confirm.require({
+    header: 'Xác Nhận Gửi Xét Duyệt',
+    message: `Bạn có chắc chắn muốn gửi báo giá ${form.value.quotation_number || previewQuotationNumber.value} đi xét duyệt không?`,
+    icon: 'pi pi-send',
+    rejectLabel: 'Hủy bỏ',
+    rejectProps: {
+      severity: 'secondary',
+      outlined: true
+    },
+    acceptLabel: 'Xác nhận gửi duyệt',
+    acceptProps: {
+      severity: 'info'
+    },
+    accept: async () => {
+      await handleSubmitForApproval();
+    }
+  });
+};
+
+const confirmApproveQuotation = () => {
+  confirm.require({
+    header: 'Xác Nhận Phê Duyệt Báo Giá',
+    message: `Bạn có chắc chắn muốn phê duyệt báo giá ${form.value.quotation_number} không? Sau khi duyệt có thể tiến hành tạo Đơn Bán Hàng (SO).`,
+    icon: 'pi pi-check-circle',
+    rejectLabel: 'Hủy bỏ',
+    rejectProps: {
+      severity: 'secondary',
+      outlined: true
+    },
+    acceptLabel: 'Đồng ý phê duyệt',
+    acceptProps: {
+      severity: 'success'
+    },
+    accept: async () => {
+      await handleApproveQuotation();
+    }
+  });
+};
+
+const confirmRejectQuotation = () => {
+  confirm.require({
+    header: 'Xác Nhận Từ Chối Báo Giá',
+    message: `Bạn có chắc chắn muốn từ chối báo giá ${form.value.quotation_number} không? Trạng thái sẽ được chuyển sang 'Từ chối'.`,
+    icon: 'pi pi-exclamation-triangle',
+    rejectLabel: 'Hủy bỏ',
+    rejectProps: {
+      severity: 'secondary',
+      outlined: true
+    },
+    acceptLabel: 'Xác nhận từ chối',
+    acceptProps: {
+      severity: 'danger'
+    },
+    accept: async () => {
+      await handleRejectQuotation();
+    }
+  });
+};
+
+const handleRejectQuotation = async () => {
   try {
+    await salesApi.rejectQuotation(form.value.id);
+    form.value.status = 'REJECTED';
+    toast.add({
+      severity: 'warn',
+      summary: 'Đã từ chối báo giá',
+      detail: `Báo giá ${form.value.quotation_number} đã chuyển sang trạng thái Từ chối.`,
+      life: 3000
+    });
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Lỗi từ chối báo giá',
+      detail: err.message || 'Không thể từ chối báo giá.',
+      life: 3000
+    });
+  }
+};
+
+const handleSubmitForApproval = async () => {
+  if (!form.value.customer_id) {
+    alert('Vui lòng chọn khách hàng trước khi gửi duyệt!');
+    return;
+  }
+
+  try {
+    let savedQ;
     if (isEditMode.value) {
       await salesApi.submitApproval(form.value.id);
+      form.value.status = 'PENDING_APPROVAL';
     } else {
       form.value.status = 'PENDING_APPROVAL';
-      await salesApi.createQuotation(form.value);
+      const res = await salesApi.createQuotation(form.value);
+      savedQ = res.data;
+      if (savedQ && savedQ.id) {
+        form.value = { ...form.value, ...savedQ, status: 'PENDING_APPROVAL' };
+        router.replace(`/quotation/${savedQ.id}/edit`);
+      }
     }
-    form.value.status = 'PENDING_APPROVAL';
     toast.add({
       severity: 'info',
       summary: 'Đã gửi xét duyệt',
-      detail: `Báo giá ${form.value.quotation_number} đã được chuyển sang trạng thái Chờ duyệt.`,
+      detail: `Báo giá ${savedQ?.quotation_number || form.value.quotation_number} đã được chuyển sang trạng thái Chờ duyệt.`,
       life: 3000
     });
-    router.push('/quotation');
   } catch (err) {
     toast.add({
       severity: 'error',

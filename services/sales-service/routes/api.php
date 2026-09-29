@@ -13,6 +13,7 @@ Route::get('/health', [HealthController::class, 'check']);
 // 2. Quotations (Báo Giá)
 Route::post('/quotations/{id}/submit-approval', [QuotationController::class, 'submitApproval']);
 Route::post('/quotations/{id}/approve', [QuotationController::class, 'approve']);
+Route::post('/quotations/{id}/reject', [QuotationController::class, 'reject']);
 Route::post('/quotations/{id}/create-so', [QuotationController::class, 'createSO']);
 Route::apiResource('quotations', QuotationController::class);
 

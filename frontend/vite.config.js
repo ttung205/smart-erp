@@ -9,6 +9,7 @@ export default defineConfig({
   ],
   server: {
     port: 5173,
+    strictPort: false,
     proxy: {
       '/api/v1/auth': {
         target: 'http://127.0.0.1:8001',

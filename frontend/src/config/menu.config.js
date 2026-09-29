@@ -43,6 +43,30 @@ export const menuCategories = [
         ]
       },
       {
+        id: 'partner-hub',
+        label: 'Đối tác',
+        icon: 'pi pi-users',
+        isFolder: true,
+        children: [
+          {
+            id: 'customer',
+            path: '/customer',
+            resource: 'catalog',
+            permission: 'catalog.view',
+            label: 'Khách hàng',
+            icon: 'pi pi-user'
+          },
+          {
+            id: 'supplier',
+            path: '/supplier',
+            resource: 'catalog',
+            permission: 'catalog.view',
+            label: 'Nhà cung cấp',
+            icon: 'pi pi-truck'
+          }
+        ]
+      },
+      {
         id: 'product-hub',
         label: 'Sản phẩm',
         icon: 'pi pi-box',
@@ -167,7 +191,7 @@ export const menuCategories = [
         path: '/master',
         resource: 'master',
         permission: 'master.view',
-        label: 'Đối tác & Kho bãi',
+        label: 'Kho bãi',
         icon: 'pi pi-building'
       }
     ]

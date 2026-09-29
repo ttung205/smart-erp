@@ -81,23 +81,32 @@ class QuotationController extends Controller
 
         DB::beginTransaction();
         try {
-            $customerCode = $request->input('customer_code', 'KH01');
+            $customerCode = trim($request->input('customer_code', 'KH01'));
             $date = now();
             $d = $date->format('d');
             $m = $date->format('m');
             $y = $date->format('y');
             $dateStr = "{$d}{$m}{$y}";
-            $autoNumber = "QT-{$customerCode}-{$dateStr}";
+            $baseNumber = "QT-{$customerCode}-{$dateStr}";
 
-            // Check if quotation_number provided or auto
-            $qNumber = trim($request->input('quotation_number', '')) ?: $autoNumber;
+            // Quy định số báo giá: QT-mã khách hàng-ddmmyy
+            // Nếu có nhiều báo giá cùng 1 khách trong 1 ngày: thêm -A, -B, -C...
+            if (!Quotation::where('quotation_number', $baseNumber)->exists()) {
+                $qNumber = $baseNumber;
+            } else {
+                $letters = range('A', 'Z');
+                $letterIdx = 0;
+                do {
+                    $letterSuffix = $letters[$letterIdx] ?? ('Z' . ($letterIdx - 25));
+                    $qNumber = "{$baseNumber}-{$letterSuffix}";
+                    $letterIdx++;
+                } while (Quotation::where('quotation_number', $qNumber)->exists());
+            }
 
-            // Make sure unique
-            $suffix = 1;
-            $baseNumber = $qNumber;
-            while (Quotation::where('quotation_number', $qNumber)->exists()) {
-                $qNumber = "{$baseNumber}-{$suffix}";
-                $suffix++;
+            // Nếu người dùng chủ động truyền số báo giá tùy chỉnh hợp lệ (khác auto placeholder)
+            $customNumber = trim($request->input('quotation_number', ''));
+            if ($customNumber && !str_starts_with($customNumber, '(Tự động') && !Quotation::where('quotation_number', $customNumber)->exists()) {
+                $qNumber = $customNumber;
             }
 
             $quotation = Quotation::create([
@@ -252,6 +261,26 @@ class QuotationController extends Controller
         ]);
     }
 
+    public function reject(Request $request, $id)
+    {
+        $q = Quotation::where('id', $id)->orWhere('quotation_number', $id)->first();
+        if (!$q) {
+            return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND']], 404);
+        }
+
+        $reason = trim($request->input('reason', ''));
+        $q->update([
+            'status' => 'REJECTED',
+            'notes' => $reason ? ($q->notes ? $q->notes . "\n[Lý do từ chối: {$reason}]" : "[Lý do từ chối: {$reason}]") : $q->notes
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => $q,
+            'message' => "Báo giá {$q->quotation_number} đã bị từ chối."
+        ]);
+    }
+
     public function createSO(Request $request, $id)
     {
         $q = Quotation::with('items')->where('id', $id)->orWhere('quotation_number', $id)->first();
@@ -284,10 +313,10 @@ class QuotationController extends Controller
                 SalesOrderItem::create([
                     'order_id' => $so->id,
                     'sku' => $it['sku'] ?? $it['product_sku'] ?? '',
-                    'product_name' => $it['description'] ?? $it['product_name'] ?? '',
+                    'product_name' => $it['designation'] ?? $it['description'] ?? $it['product_name'] ?? '',
                     'quantity' => (float)($it['won_quantity'] ?? $it['quantity'] ?? 1),
                     'unit_price' => (float)($it['selling_price'] ?? $it['unit_price'] ?? 0),
-                    'subtotal' => (float)($it['subtotal'] ?? 0),
+                    'subtotal' => (float)($it['subtotal'] ?? $it['amount'] ?? 0),
                 ]);
             }
 

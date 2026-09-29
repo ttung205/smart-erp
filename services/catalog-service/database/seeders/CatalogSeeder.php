@@ -128,5 +128,75 @@ conn.close()
                 'updated_at' => now()
             ]));
         }
+
+        // Seed default customers and multiple contacts per customer
+        $customersData = [
+            [
+                'code' => 'EA-02592',
+                'name' => 'CÔNG TY TNHH LONG SƠN - NHÀ MÁY XI MĂNG',
+                'tax_code' => '2800123456',
+                'phone' => '0912 345 678',
+                'email' => 'hop.procurement@longson.com',
+                'address' => 'Thị xã Bỉm Sơn, Thanh Hóa',
+                'credit_limit' => 500000000,
+                'contacts' => [
+                    ['name' => 'Mr. Hợp (Trưởng phòng Mua hàng)', 'position' => 'Trưởng phòng Mua hàng', 'phone' => '0912 345 678', 'email' => 'hop.procurement@longson.com', 'is_primary' => true],
+                    ['name' => 'Mr. Tuấn (Kỹ sư cơ điện)', 'position' => 'Kỹ sư kỹ thuật', 'phone' => '0988 765 432', 'email' => 'tuan.tech@longson.com', 'is_primary' => false],
+                    ['name' => 'Bà Lê Lan (Kế toán thanh toán)', 'position' => 'Kế toán', 'phone' => '0903 111 222', 'email' => 'lan.le@longson.com', 'is_primary' => false],
+                ]
+            ],
+            [
+                'code' => 'FPT-01',
+                'name' => 'Tập đoàn Công nghệ FPT',
+                'tax_code' => '0101248141',
+                'phone' => '024 7300 7300',
+                'email' => 'namnv@fpt.com.vn',
+                'address' => 'Số 10 Phạm Văn Bạch, Cầu Giấy, Hà Nội',
+                'credit_limit' => 1000000000,
+                'contacts' => [
+                    ['name' => 'Nguyễn Văn Nam (Trưởng phòng Vật tư)', 'position' => 'Trưởng phòng Vật tư', 'phone' => '024 7300 7300', 'email' => 'namnv@fpt.com.vn', 'is_primary' => true],
+                    ['name' => 'Trần Thị Thu (Kế toán công nợ)', 'position' => 'Kế toán', 'phone' => '0915 223 344', 'email' => 'thutt@fpt.com.vn', 'is_primary' => false],
+                ]
+            ],
+            [
+                'code' => 'VTL-01',
+                'name' => 'Tập đoàn Công nghiệp - Viễn thông Quân đội (Viettel)',
+                'tax_code' => '0100109106',
+                'phone' => '024 6255 6789',
+                'email' => 'minhlh@viettel.com.vn',
+                'address' => 'Lô D26 KĐT mới Cầu Giấy, Hà Nội',
+                'credit_limit' => 2000000000,
+                'contacts' => [
+                    ['name' => 'Lê Hoàng Minh (Phụ trách vật tư hạ tầng)', 'position' => 'Chuyên viên mua sắm', 'phone' => '024 6255 6789', 'email' => 'minhlh@viettel.com.vn', 'is_primary' => true],
+                ]
+            ],
+            [
+                'code' => 'HOAPHAT-01',
+                'name' => 'Tập đoàn Hòa Phát',
+                'tax_code' => '0900189284',
+                'phone' => '024 6284 8666',
+                'email' => 'contact@hoaphat.com.vn',
+                'address' => 'KCN Phố Nối A, Hưng Yên',
+                'credit_limit' => 3000000000,
+                'contacts' => [
+                    ['name' => 'Vũ Đình Hải (Giám đốc Mua hàng Nhà máy)', 'position' => 'Giám đốc Mua hàng', 'phone' => '0913 888 999', 'email' => 'hai.vd@hoaphat.com.vn', 'is_primary' => true],
+                    ['name' => 'Ngô Thị Mai (Quản lý hợp đồng)', 'position' => 'Pháp chế & Hợp đồng', 'phone' => '0945 666 777', 'email' => 'mai.nt@hoaphat.com.vn', 'is_primary' => false],
+                ]
+            ]
+        ];
+
+        foreach ($customersData as $cd) {
+            $contacts = $cd['contacts'];
+            unset($cd['contacts']);
+
+            $cust = \App\Models\Customer::updateOrCreate(['code' => $cd['code']], $cd);
+
+            foreach ($contacts as $c) {
+                \App\Models\CustomerContact::updateOrCreate([
+                    'customer_id' => $cust->id,
+                    'name' => $c['name'],
+                ], array_merge($c, ['customer_id' => $cust->id]));
+            }
+        }
     }
 }

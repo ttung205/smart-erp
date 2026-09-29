@@ -94,7 +94,57 @@ export const catalogApi = {
     });
   },
 
-  // 4. Partners & Warehouses
+  // 4. Customers & Contacts
+  getCustomers(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return apiClient(`/api/v1/catalog/customers${qs ? '?' + qs : ''}`);
+  },
+
+  getCustomerById(id) {
+    return apiClient(`/api/v1/catalog/customers/${id}`);
+  },
+
+  createCustomer(data) {
+    return apiClient('/api/v1/catalog/customers', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  updateCustomer(id, data) {
+    return apiClient(`/api/v1/catalog/customers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  deleteCustomer(id) {
+    return apiClient(`/api/v1/catalog/customers/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  addCustomerContact(customerId, contactData) {
+    return apiClient(`/api/v1/catalog/customers/${customerId}/contacts`, {
+      method: 'POST',
+      body: JSON.stringify(contactData)
+    });
+  },
+
+  updateCustomerContact(customerId, contactId, contactData) {
+    return apiClient(`/api/v1/catalog/customers/${customerId}/contacts/${contactId}`, {
+      method: 'PUT',
+      body: JSON.stringify(contactData)
+    });
+  },
+
+  deleteCustomerContact(customerId, contactId) {
+    return apiClient(`/api/v1/catalog/customers/${customerId}/contacts/${contactId}`, {
+      method: 'DELETE'
+    });
+  },
+
+  // 5. Partners & Warehouses
   getPartners() {
     return apiClient('/api/v1/catalog/partners');
   },

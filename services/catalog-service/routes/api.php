@@ -6,6 +6,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\PartnerController;
+use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\WarehouseController;
 
 // 1. Health check
@@ -21,6 +22,16 @@ Route::apiResource('brands', BrandController::class);
 // 4. Categories (Danh mục)
 Route::apiResource('categories', CategoryController::class);
 
-// 5. Partners & Warehouses
+// 5. Customers & Contacts
+Route::get('/customers', [CustomerController::class, 'index']);
+Route::post('/customers', [CustomerController::class, 'store']);
+Route::get('/customers/{id}', [CustomerController::class, 'show']);
+Route::put('/customers/{id}', [CustomerController::class, 'update']);
+Route::delete('/customers/{id}', [CustomerController::class, 'destroy']);
+Route::post('/customers/{id}/contacts', [CustomerController::class, 'addContact']);
+Route::put('/customers/{customerId}/contacts/{contactId}', [CustomerController::class, 'updateContact']);
+Route::delete('/customers/{customerId}/contacts/{contactId}', [CustomerController::class, 'deleteContact']);
+
+// 6. Partners & Warehouses
 Route::get('/partners', [PartnerController::class, 'index']);
 Route::get('/warehouses', [WarehouseController::class, 'index']);
