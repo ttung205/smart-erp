@@ -54,7 +54,7 @@ export function canManage(resource, user) {
 
 /**
  * Kiểm tra mã quyền bất kỳ
- * @param {string} permissionCode - Mã quyền (ví dụ: 'sales.approve', 'inventory.receive')
+ * @param {string} permissionCode - Mã quyền (ví dụ: 'order.approve', 'inventory.receive')
  * @param {Object} user - Object người dùng
  * @returns {boolean}
  */

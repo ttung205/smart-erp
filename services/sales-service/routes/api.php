@@ -18,6 +18,9 @@ Route::post('/quotations/{id}/create-so', [QuotationController::class, 'createSO
 Route::apiResource('quotations', QuotationController::class);
 
 // 3. Sales Orders (Đơn Bán Hàng)
+Route::post('/orders/{id}/submit-approval', [SalesOrderController::class, 'submitApproval']);
+Route::post('/orders/{id}/approve', [SalesOrderController::class, 'approve']);
+Route::post('/orders/{id}/reject', [SalesOrderController::class, 'reject']);
 Route::apiResource('orders', SalesOrderController::class);
 
 // 4. Delivery Requests (Yêu Cầu Giao Hàng)

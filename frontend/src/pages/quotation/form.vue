@@ -62,6 +62,16 @@
           @click="confirmApproveQuotation"
         />
 
+        <!-- Nút Tạo đơn bán (SO) -->
+        <Button
+          v-if="form.status === 'APPROVED' || hasWinItems"
+          label="Tạo đơn bán (SO)"
+          icon="pi pi-shopping-cart"
+          size="small"
+          class="!bg-indigo-600 hover:!bg-indigo-700 !text-white !border-indigo-600 !text-xs !py-2 !px-3.5 rounded-[6px] !font-semibold shadow-sm"
+          @click="handleTopCreateOrder"
+        />
+
         <!-- Nút Lưu thay đổi -->
         <Button
           label="Lưu thay đổi"
@@ -248,7 +258,11 @@
     </div>
 
     <!-- 3. Bảng Mặt Hàng Báo Giá (Sử dụng component ItemDataTable.vue) -->
-    <ItemDataTable v-model="form.items" @summary-change="onItemsSummaryChange" />
+    <ItemDataTable
+      v-model="form.items"
+      @summary-change="onItemsSummaryChange"
+      @create-order="onCreateOrderFromItems"
+    />
 
     <!-- 4. Modal Thêm Nhanh Người Liên Hệ Mới -->
     <Dialog
@@ -331,7 +345,7 @@ import Dialog from 'primevue/dialog';
 import ItemDataTable from '../../components/common/ItemDataTable.vue';
 import { catalogApi } from '../../api/catalog.api';
 import { salesApi } from '../../api/sales.api';
-import { isSuperAdmin } from '../../utils/rbac';
+import { isSuperAdmin, hasPermission } from '../../utils/rbac';
 
 const route = useRoute();
 const router = useRouter();
@@ -349,9 +363,9 @@ const isEditMode = computed(() => !!route.params.id && route.params.id !== 'crea
 
 // Phân quyền duyệt: Super Admin hoặc có quyền quotation.approve
 const canApprove = computed(() => {
-  if (isSuperAdmin(props.currentUser)) return true;
   if (!props.currentUser) return false;
-  return props.currentUser.permissions && props.currentUser.permissions.includes('quotation.approve');
+  if (isSuperAdmin(props.currentUser)) return true;
+  return hasPermission('quotation.approve', props.currentUser);
 });
 
 const customers = ref([]);
@@ -574,6 +588,51 @@ const onItemsSummaryChange = (summary) => {
   form.value.subtotal = summary.subtotal;
   form.value.vat_total = summary.vatTotal;
   form.value.total_amount = summary.grandTotal;
+};
+
+const hasWinItems = computed(() => {
+  return (form.value.items || []).some((it) => it.status === 'WIN' || it.won || it.is_won);
+});
+
+// ----------------------------------------------------
+// TẠO ĐƠN BÁN HÀNG TỪ CÁC ITEM WIN
+// ----------------------------------------------------
+const onCreateOrderFromItems = (winItems) => {
+  if (!winItems || winItems.length === 0) {
+    alert('Vui lòng chọn ít nhất 1 mặt hàng có trạng thái WIN để tạo đơn bán hàng!');
+    return;
+  }
+
+  // Chuẩn bị payload đồng bộ sang đơn bán hàng
+  const payload = {
+    quotation_number: form.value.quotation_number || previewQuotationNumber.value,
+    customer_id: form.value.customer_id,
+    customer_code: form.value.customer_code,
+    customer_name: form.value.customer_name,
+    contact_id: form.value.contact_id,
+    contact_name: form.value.contact_name,
+    currency: form.value.currency || 'VND',
+    exchange_rate: form.value.exchange_rate || 1,
+    assigned_to: form.value.assigned_to || 'admin',
+    items: winItems.map((it) => ({
+      ...it,
+      status: 'WIN',
+      won: true,
+      _selected: false
+    }))
+  };
+
+  sessionStorage.setItem('pending_so_creation', JSON.stringify(payload));
+  router.push('/order/create');
+};
+
+const handleTopCreateOrder = () => {
+  const winItems = (form.value.items || []).filter((it) => it.status === 'WIN' || it.won || it.is_won);
+  if (winItems.length === 0) {
+    alert('Chưa có mặt hàng nào có trạng thái WIN (Trúng thầu). Vui lòng tích chọn các dòng và bấm "Đổi trạng thái" sang WIN trước khi tạo đơn bán hàng!');
+    return;
+  }
+  onCreateOrderFromItems(winItems);
 };
 
 // ----------------------------------------------------

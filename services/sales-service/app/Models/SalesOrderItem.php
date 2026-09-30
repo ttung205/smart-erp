@@ -12,9 +12,21 @@ class SalesOrderItem extends Model
         'order_id',
         'sku',
         'product_name',
+        'designation',
+        'brand',
+        'description',
+        'com',
+        'stock',
+        'unit',
         'quantity',
         'unit_price',
+        'gross_price',
+        'discount_percent',
+        'selling_price',
+        'vat_percent',
+        'lead_time',
         'subtotal',
+        'status',
     ];
 
     public function order()

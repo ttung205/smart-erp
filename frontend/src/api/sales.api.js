@@ -69,10 +69,47 @@ export const salesApi = {
     return apiClient('/api/v1/sales/orders');
   },
 
+  getOrderById(id) {
+    return apiClient(`/api/v1/sales/orders/${id}`);
+  },
+
   createOrder(data) {
     return apiClient('/api/v1/sales/orders', {
       method: 'POST',
       body: JSON.stringify(data)
+    });
+  },
+
+  updateOrder(id, data) {
+    return apiClient(`/api/v1/sales/orders/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  deleteOrder(id) {
+    return apiClient(`/api/v1/sales/orders/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  submitOrderApproval(id) {
+    return apiClient(`/api/v1/sales/orders/${id}/submit-approval`, {
+      method: 'POST'
+    });
+  },
+
+  approveOrder(id, approverId = 6) {
+    return apiClient(`/api/v1/sales/orders/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ approver_id: approverId })
+    });
+  },
+
+  rejectOrder(id, reason = '') {
+    return apiClient(`/api/v1/sales/orders/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason })
     });
   },
 

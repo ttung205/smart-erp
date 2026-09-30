@@ -294,7 +294,8 @@ const canReceive = computed(() => {
 const canReserve = computed(() => {
   if (!props.currentUser) return true
   return props.currentUser?.permissions?.includes('inventory.reserve') || 
-         props.currentUser?.permissions?.includes('sales.create') ||
+         props.currentUser?.permissions?.includes('order.create') ||
+         props.currentUser?.permissions?.includes('quotation.create') ||
          props.currentUser?.department === 'Ban Giám Đốc (BOD)' ||
          props.currentUser?.department === 'Phòng Sales'
 })

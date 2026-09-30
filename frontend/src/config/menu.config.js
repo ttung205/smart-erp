@@ -147,40 +147,40 @@ export const menuCategories = [
           {
             id: 'quotation',
             path: '/quotation',
-            resource: 'sales',
-            permission: 'sales.view',
+            resource: 'quotation',
+            permission: 'quotation.view',
             label: 'Báo giá',
             icon: 'pi pi-file-edit'
           },
           {
             id: 'order',
             path: '/order',
-            resource: 'sales',
-            permission: 'sales.view',
+            resource: 'order',
+            permission: 'order.view',
             label: 'Đơn bán hàng',
             icon: 'pi pi-shopping-bag'
           },
           {
             id: 'delivery',
             path: '/delivery',
-            resource: 'sales',
-            permission: 'sales.view',
+            resource: 'delivery',
+            permission: 'delivery.view',
             label: 'Yêu cầu giao hàng',
             icon: 'pi pi-truck'
           },
           {
             id: 'invoice',
             path: '/invoice',
-            resource: 'sales',
-            permission: 'sales.view',
+            resource: 'invoice',
+            permission: 'invoice.view',
             label: 'Chứng từ & Kho',
             icon: 'pi pi-file'
           },
           {
             id: 'accounting',
             path: '/accounting',
-            resource: 'sales',
-            permission: 'sales.view',
+            resource: 'finance',
+            permission: 'finance.view',
             label: 'Ghi sổ kế toán',
             icon: 'pi pi-book'
           }

@@ -20,14 +20,29 @@ export const SYSTEM_PERMISSIONS = [
   { code: 'inventory.issue', desc: 'Xuất kho hàng hóa thực tế' },
   { code: 'inventory.transfer', desc: 'Điều chuyển kho hàng hóa' },
 
-  // Phân hệ Bán hàng (Sales)
-  { code: 'sales.view', desc: 'Xem danh sách và chi tiết đơn bán hàng SO (Route: /sales)' },
-  { code: 'sales.manage', desc: 'Tạo mới, chỉnh sửa, hủy và duyệt đơn bán hàng' },
-  { code: 'sales.create', desc: 'Tạo mới báo giá và đơn đặt hàng SO' },
-  { code: 'sales.update', desc: 'Cập nhật thông tin đơn bán hàng SO' },
-  { code: 'sales.cancel', desc: 'Hủy đơn đặt hàng SO' },
-  { code: 'sales.approve', desc: 'Phê duyệt chiết khấu hoặc đơn bán hàng' },
+  // Phân hệ Báo giá (Quotation)
+  { code: 'quotation.view', desc: 'Xem danh sách và chi tiết báo giá (Route: /quotation)' },
+  { code: 'quotation.create', desc: 'Tạo mới báo giá' },
+  { code: 'quotation.update', desc: 'Cập nhật thông tin báo giá' },
+  { code: 'quotation.cancel', desc: 'Hủy báo giá' },
+  { code: 'quotation.approve', desc: 'Phê duyệt báo giá' },
+  { code: 'quotation.manage', desc: 'Quản trị nghiệp vụ báo giá' },
+
+  // Phân hệ Đơn bán hàng (Order)
+  { code: 'order.view', desc: 'Xem danh sách và chi tiết đơn bán hàng SO (Route: /order)' },
+  { code: 'order.create', desc: 'Tạo mới đơn bán hàng SO' },
+  { code: 'order.update', desc: 'Cập nhật thông tin đơn bán hàng SO' },
+  { code: 'order.cancel', desc: 'Hủy đơn đặt hàng SO' },
+  { code: 'order.approve', desc: 'Phê duyệt đơn bán hàng SO' },
+  { code: 'order.manage', desc: 'Quản trị nghiệp vụ đơn bán hàng SO' },
+
+  // Phân hệ Giao hàng & Hóa đơn (Delivery & Invoice)
+  { code: 'delivery.view', desc: 'Xem danh sách yêu cầu giao hàng (Route: /delivery)' },
   { code: 'delivery.create', desc: 'Tạo yêu cầu giao hàng Delivery Request' },
+  { code: 'delivery.manage', desc: 'Quản trị giao hàng' },
+  { code: 'invoice.view', desc: 'Xem danh sách chứng từ và hóa đơn (Route: /invoice)' },
+  { code: 'invoice.create', desc: 'Tạo chứng từ xuất hóa đơn' },
+  { code: 'invoice.manage', desc: 'Quản trị chứng từ và hóa đơn' },
 
   // Phân hệ Đối tác & Kho bãi (Master)
   { code: 'master.view', desc: 'Xem danh mục đối tác khách hàng & kho bãi (Route: /master)' },

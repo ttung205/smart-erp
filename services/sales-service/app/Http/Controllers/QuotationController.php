@@ -145,8 +145,9 @@ class QuotationController extends Controller
                     'vat_percent' => (float)($it['vat_percent'] ?? 10),
                     'lead_time' => $it['lead_time'] ?? 'Có sẵn',
                     'subtotal' => (float)($it['subtotal'] ?? 0),
-                    'is_won' => (bool)($it['won'] ?? $it['is_won'] ?? false),
+                    'is_won' => ($it['status'] ?? '') === 'WIN' || (bool)($it['won'] ?? $it['is_won'] ?? false),
                     'won_quantity' => (float)($it['won_quantity'] ?? 0),
+                    'status' => $it['status'] ?? (($it['won'] ?? false) ? 'WIN' : 'PENDING'),
                 ]);
             }
 
@@ -205,8 +206,9 @@ class QuotationController extends Controller
                         'vat_percent' => (float)($it['vat_percent'] ?? 10),
                         'lead_time' => $it['lead_time'] ?? 'Có sẵn',
                         'subtotal' => (float)($it['subtotal'] ?? 0),
-                        'is_won' => (bool)($it['won'] ?? $it['is_won'] ?? false),
+                        'is_won' => ($it['status'] ?? '') === 'WIN' || (bool)($it['won'] ?? $it['is_won'] ?? false),
                         'won_quantity' => (float)($it['won_quantity'] ?? 0),
+                        'status' => $it['status'] ?? (($it['won'] ?? false) ? 'WIN' : 'PENDING'),
                     ]);
                 }
             }
@@ -295,12 +297,19 @@ class QuotationController extends Controller
 
             $so = SalesOrder::create([
                 'order_number' => $soNumber,
-                'quotation_number' => $q->quotation_number,
+                'customer_order_number' => $soNumber,
+                'quotation_id' => $q->id,
                 'customer_id' => $q->customer_id,
-                'customer_name' => $q->customer_name,
-                'order_date' => now()->format('Y-m-d'),
+                'contact_id' => $q->contact_id,
+                'order_date' => now()->format('d/m/Y'),
+                'currency' => $q->currency ?? 'VND',
+                'exchange_rate' => (float)($q->exchange_rate ?? 1.0),
+                'created_by' => is_numeric($q->created_by) ? (int)$q->created_by : 6,
+                'assigned_to' => is_numeric($q->assigned_to) ? (int)$q->assigned_to : 6,
+                'subtotal' => (float)$request->input('subtotal', $q->subtotal),
+                'vat_total' => (float)$request->input('vat_total', $q->vat_total),
                 'total_amount' => (float)$request->input('total_amount', $q->total_amount),
-                'status' => 'CONFIRMED',
+                'status' => 'DRAFT',
                 'notes' => "Sinh tự động từ Báo Giá {$q->quotation_number}",
             ]);
 

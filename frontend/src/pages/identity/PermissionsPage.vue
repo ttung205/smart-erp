@@ -155,7 +155,7 @@
           <label class="block text-xs font-semibold text-slate-700">Mã Quyền (Code) *</label>
           <InputText
             v-model="form.code"
-            placeholder="Ví dụ: inventory.transfer, sales.approve"
+            placeholder="Ví dụ: inventory.transfer, order.approve"
             size="small"
             class="!rounded-[6px] font-mono"
             :disabled="isEditing"

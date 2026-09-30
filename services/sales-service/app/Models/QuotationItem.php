@@ -25,6 +25,7 @@ class QuotationItem extends Model
         'subtotal',
         'is_won',
         'won_quantity',
+        'status',
     ];
 
     protected $casts = [

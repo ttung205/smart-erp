@@ -48,14 +48,29 @@ class IdentitySeeder extends Seeder
             ['code' => 'inventory.issue', 'module' => 'inventory', 'description' => 'Xuất kho thực tế Goods Issue'],
             ['code' => 'inventory.transfer', 'module' => 'inventory', 'description' => 'Điều chuyển kho Stock Transfer'],
 
-            // Phân hệ Bán hàng (Sales)
-            ['code' => 'sales.view', 'module' => 'sales', 'description' => 'Xem danh sách và chi tiết đơn bán hàng SO (Route: /sales)'],
-            ['code' => 'sales.manage', 'module' => 'sales', 'description' => 'Tạo mới, chỉnh sửa, hủy và phê duyệt đơn bán'],
-            ['code' => 'sales.create', 'module' => 'sales', 'description' => 'Tạo mới báo giá và đơn đặt hàng SO'],
-            ['code' => 'sales.update', 'module' => 'sales', 'description' => 'Cập nhật thông tin đơn bán hàng SO'],
-            ['code' => 'sales.cancel', 'module' => 'sales', 'description' => 'Hủy đơn đặt hàng SO'],
-            ['code' => 'sales.approve', 'module' => 'sales', 'description' => 'Phê duyệt chiết khấu hoặc đơn bán hàng'],
-            ['code' => 'delivery.create', 'module' => 'sales', 'description' => 'Tạo yêu cầu giao hàng Delivery Request'],
+            // Phân hệ Báo giá (Quotation)
+            ['code' => 'quotation.view', 'module' => 'quotation', 'description' => 'Xem danh sách và chi tiết báo giá (Route: /quotation)'],
+            ['code' => 'quotation.create', 'module' => 'quotation', 'description' => 'Tạo mới báo giá'],
+            ['code' => 'quotation.update', 'module' => 'quotation', 'description' => 'Cập nhật thông tin báo giá'],
+            ['code' => 'quotation.cancel', 'module' => 'quotation', 'description' => 'Hủy báo giá'],
+            ['code' => 'quotation.approve', 'module' => 'quotation', 'description' => 'Phê duyệt báo giá'],
+            ['code' => 'quotation.manage', 'module' => 'quotation', 'description' => 'Quản trị nghiệp vụ báo giá'],
+
+            // Phân hệ Đơn bán hàng (Order)
+            ['code' => 'order.view', 'module' => 'order', 'description' => 'Xem danh sách và chi tiết đơn bán hàng SO (Route: /order)'],
+            ['code' => 'order.create', 'module' => 'order', 'description' => 'Tạo mới đơn bán hàng SO'],
+            ['code' => 'order.update', 'module' => 'order', 'description' => 'Cập nhật thông tin đơn bán hàng SO'],
+            ['code' => 'order.cancel', 'module' => 'order', 'description' => 'Hủy đơn đặt hàng SO'],
+            ['code' => 'order.approve', 'module' => 'order', 'description' => 'Phê duyệt đơn bán hàng SO'],
+            ['code' => 'order.manage', 'module' => 'order', 'description' => 'Quản trị nghiệp vụ đơn bán hàng SO'],
+
+            // Phân hệ Giao hàng & Hóa đơn (Delivery & Invoice)
+            ['code' => 'delivery.view', 'module' => 'delivery', 'description' => 'Xem danh sách yêu cầu giao hàng (Route: /delivery)'],
+            ['code' => 'delivery.create', 'module' => 'delivery', 'description' => 'Tạo yêu cầu giao hàng Delivery Request'],
+            ['code' => 'delivery.manage', 'module' => 'delivery', 'description' => 'Quản trị giao hàng'],
+            ['code' => 'invoice.view', 'module' => 'invoice', 'description' => 'Xem danh sách chứng từ và hóa đơn (Route: /invoice)'],
+            ['code' => 'invoice.create', 'module' => 'invoice', 'description' => 'Tạo chứng từ xuất hóa đơn'],
+            ['code' => 'invoice.manage', 'module' => 'invoice', 'description' => 'Quản trị chứng từ và hóa đơn'],
 
             // Phân hệ Đối tác & Kho bãi (Master)
             ['code' => 'master.view', 'module' => 'master', 'description' => 'Xem danh mục đối tác khách hàng & kho bãi (Route: /master)'],
@@ -108,7 +123,7 @@ class IdentitySeeder extends Seeder
             DB::table('roles')->updateOrInsert(['code' => $r['code']], $r);
         }
 
-        // 4. Map Permissions: CHỈ SUPER_ADMIN CÓ FULL QUYỀN, TẤT CẢ CÁC ROLE CÒN LẠI ĐỀU CHƯA PHÂN QUYỀN (RỖNG)
+        // 4. Map Permissions: SUPER_ADMIN có full quyền, SALE và SALE_MANAGER có quyền phân hệ bán hàng
         $allPerms = DB::table('permissions')->pluck('id', 'code');
         $superAdminRoleId = DB::table('roles')->where('code', 'SUPER_ADMIN')->value('id');
 
@@ -118,6 +133,45 @@ class IdentitySeeder extends Seeder
                     'role_id' => $superAdminRoleId,
                     'permission_id' => $permId
                 ]);
+            }
+        }
+
+        // Phân quyền cho SALE
+        $saleRoleId = DB::table('roles')->where('code', 'SALE')->value('id');
+        if ($saleRoleId) {
+            $salePermCodes = [
+                'quotation.view', 'quotation.create', 'quotation.update', 'quotation.cancel',
+                'order.view', 'order.create', 'order.update',
+                'delivery.view', 'delivery.create',
+                'invoice.view', 'catalog.view', 'master.view', 'inventory.view'
+            ];
+            foreach ($salePermCodes as $code) {
+                if (isset($allPerms[$code])) {
+                    DB::table('role_permissions')->insert([
+                        'role_id' => $saleRoleId,
+                        'permission_id' => $allPerms[$code]
+                    ]);
+                }
+            }
+        }
+
+        // Phân quyền cho SALE_MANAGER
+        $saleManagerRoleId = DB::table('roles')->where('code', 'SALE_MANAGER')->value('id');
+        if ($saleManagerRoleId) {
+            $smPermCodes = [
+                'quotation.view', 'quotation.create', 'quotation.update', 'quotation.cancel', 'quotation.approve', 'quotation.manage',
+                'order.view', 'order.create', 'order.update', 'order.cancel', 'order.approve', 'order.manage',
+                'delivery.view', 'delivery.create', 'delivery.manage',
+                'invoice.view', 'invoice.create', 'invoice.manage',
+                'catalog.view', 'master.view', 'inventory.view'
+            ];
+            foreach ($smPermCodes as $code) {
+                if (isset($allPerms[$code])) {
+                    DB::table('role_permissions')->insert([
+                        'role_id' => $saleManagerRoleId,
+                        'permission_id' => $allPerms[$code]
+                    ]);
+                }
             }
         }
 

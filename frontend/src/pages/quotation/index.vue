@@ -142,8 +142,8 @@
               size="small"
               text
               class="!text-xs !p-1.5 rounded-[6px] !text-emerald-600 hover:!bg-emerald-50"
-              v-tooltip.bottom="'Chọn Item Win để sinh Đơn bán (SO)'"
-              @click="openWinDialog(data)"
+              v-tooltip.bottom="'Vào báo giá để chọn Item Win và tạo Đơn bán (SO)'"
+              @click="goToEdit(data)"
             />
           </div>
         </template>
@@ -154,13 +154,6 @@
     <QuotationViewDialog
       v-model:visible="showViewDialog"
       :quotation="selectedQuotation"
-    />
-
-    <!-- Win Items Selection Dialog for converting to SO -->
-    <WinForm
-      v-model:visible="showWinDialog"
-      :quotation="selectedQuotation"
-      @create-so="handleCreateSO"
     />
   </div>
 </template>
@@ -180,7 +173,6 @@ import Tag from 'primevue/tag';
 import PageHeader from '../../components/common/PageHeader.vue';
 import CommonDataTable from '../../components/common/CommonDataTable.vue';
 import QuotationViewDialog from './view-dialog.vue';
-import WinForm from './win-form.vue';
 
 import { salesApi } from '../../api/sales.api';
 import { formatCurrency } from '../../utils/format';
@@ -193,7 +185,6 @@ const loading = ref(false);
 const searchQuery = ref('');
 const statusFilter = ref(null);
 const showViewDialog = ref(false);
-const showWinDialog = ref(false);
 const selectedQuotation = ref(null);
 
 // Cấu hình các cột cho CommonDataTable (đã bỏ cột hạn hiệu lực theo yêu cầu)
@@ -265,31 +256,5 @@ const goToEdit = (quotation) => {
 const openViewDialog = (q) => {
   selectedQuotation.value = q;
   showViewDialog.value = true;
-};
-
-const openWinDialog = (q) => {
-  selectedQuotation.value = q;
-  showWinDialog.value = true;
-};
-
-const handleCreateSO = async (payload) => {
-  try {
-    const res = await salesApi.createSOFromQuotation(selectedQuotation.value.id, payload);
-    const newSO = res.data;
-    toast.add({
-      severity: 'success',
-      summary: 'Đã sinh Đơn Bán Hàng (SO)!',
-      detail: `Tạo thành công ${newSO?.order_number || newSO?.id || 'SO'} từ các mặt hàng Item Win. Đang chuyển sang trang Đơn Hàng...`,
-      life: 4000
-    });
-    router.push('/order');
-  } catch (err) {
-    toast.add({
-      severity: 'error',
-      summary: 'Lỗi tạo đơn bán hàng',
-      detail: err.message || 'Không thể tạo đơn bán hàng từ báo giá.',
-      life: 4000
-    });
-  }
 };
 </script>

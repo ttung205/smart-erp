@@ -25,6 +25,7 @@ import ServiceStatusPage from '../pages/system/ServiceStatusPage.vue';
 import QuotationPage from '../pages/quotation/index.vue';
 import QuotationFormPage from '../pages/quotation/form.vue';
 import OrderPage from '../pages/order/index.vue';
+import OrderFormPage from '../pages/order/form.vue';
 import DeliveryPage from '../pages/delivery/index.vue';
 import InvoicePage from '../pages/invoice/index.vue';
 import AccountingPage from '../pages/accounting/index.vue';
@@ -241,8 +242,8 @@ export const routes = [
     component: QuotationPage,
     meta: {
       requiresAuth: true,
-      resource: 'sales',
-      permission: 'sales.view',
+      resource: 'quotation',
+      permission: 'quotation.view',
       title: 'Báo Giá Khách Hàng'
     }
   },
@@ -252,8 +253,8 @@ export const routes = [
     component: QuotationFormPage,
     meta: {
       requiresAuth: true,
-      resource: 'sales',
-      permission: 'sales.view',
+      resource: 'quotation',
+      permission: 'quotation.create',
       title: 'Tạo Báo Giá Mới'
     }
   },
@@ -263,8 +264,8 @@ export const routes = [
     component: QuotationFormPage,
     meta: {
       requiresAuth: true,
-      resource: 'sales',
-      permission: 'sales.view',
+      resource: 'quotation',
+      permission: 'quotation.view',
       title: 'Chỉnh Sửa Báo Giá'
     }
   },
@@ -278,10 +279,36 @@ export const routes = [
     component: OrderPage,
     meta: {
       requiresAuth: true,
-      resource: 'sales',
-      permission: 'sales.view',
+      resource: 'order',
+      permission: 'order.view',
       title: 'Đơn Bán Hàng'
     }
+  },
+  {
+    path: '/order/create',
+    name: 'order-create',
+    component: OrderFormPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'order',
+      permission: 'order.create',
+      title: 'Lập Đơn Bán Hàng Mới'
+    }
+  },
+  {
+    path: '/order/:id/edit',
+    name: 'order-edit',
+    component: OrderFormPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'order',
+      permission: 'order.view',
+      title: 'Chỉnh Sửa Đơn Bán Hàng'
+    }
+  },
+  {
+    path: '/order/:id',
+    redirect: to => `/order/${to.params.id}/edit`
   },
   {
     path: '/delivery',
@@ -289,8 +316,8 @@ export const routes = [
     component: DeliveryPage,
     meta: {
       requiresAuth: true,
-      resource: 'sales',
-      permission: 'sales.view',
+      resource: 'delivery',
+      permission: 'delivery.view',
       title: 'Yêu Cầu Giao Hàng'
     }
   },
@@ -300,8 +327,8 @@ export const routes = [
     component: InvoicePage,
     meta: {
       requiresAuth: true,
-      resource: 'sales',
-      permission: 'sales.view',
+      resource: 'invoice',
+      permission: 'invoice.view',
       title: 'Chứng Từ & Kho'
     }
   },
@@ -311,8 +338,8 @@ export const routes = [
     component: AccountingPage,
     meta: {
       requiresAuth: true,
-      resource: 'sales',
-      permission: 'sales.view',
+      resource: 'finance',
+      permission: 'finance.view',
       title: 'Ghi Sổ Kế Toán'
     }
   },
