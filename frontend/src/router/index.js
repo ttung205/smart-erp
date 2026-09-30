@@ -16,7 +16,7 @@ import CategoryPage from '../pages/category/index.vue';
 import CustomerPage from '../pages/customer/index.vue';
 import CustomerFormPage from '../pages/customer/form.vue';
 import SupplierPage from '../pages/supplier/index.vue';
-import InventoryView from '../views/inventory/InventoryView.vue';
+import InventoryView from '../pages/inventory/InventoryView.vue';
 import MasterPage from '../pages/master/index.vue';
 import ArchitecturePage from '../pages/architecture/index.vue';
 import ServiceStatusPage from '../pages/system/ServiceStatusPage.vue';
