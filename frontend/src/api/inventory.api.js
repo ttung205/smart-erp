@@ -11,8 +11,9 @@ export const inventoryApi = {
     return apiClient('/api/v1/inventory/warehouses');
   },
 
-  getStocks() {
-    return apiClient('/api/v1/inventory/stocks');
+  getStocks(params = {}) {
+    const qs = new URLSearchParams({ pageSize: 1000, ...params }).toString();
+    return apiClient(`/api/v1/inventory/stocks?${qs}`);
   },
 
   reserveStock(payload) {

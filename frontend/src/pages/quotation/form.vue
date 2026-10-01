@@ -62,9 +62,9 @@
           @click="confirmApproveQuotation"
         />
 
-        <!-- Nút Tạo đơn bán (SO) -->
+        <!-- Nút Tạo đơn bán (SO) - Chỉ hiển thị khi báo giá Đã duyệt (APPROVED) -->
         <Button
-          v-if="form.status === 'APPROVED' || hasWinItems"
+          v-if="form.status === 'APPROVED'"
           label="Tạo đơn bán (SO)"
           icon="pi pi-shopping-cart"
           size="small"
@@ -258,8 +258,11 @@
     </div>
 
     <!-- 3. Bảng Mặt Hàng Báo Giá (Sử dụng component ItemDataTable.vue) -->
+    <!-- Đổi trạng thái (Item Win/Lose) và Tạo đơn bán chỉ hiển thị khi báo giá đã duyệt -->
     <ItemDataTable
       v-model="form.items"
+      :show-create-order-button="form.status === 'APPROVED'"
+      :show-item-status="form.status === 'APPROVED'"
       @summary-change="onItemsSummaryChange"
       @create-order="onCreateOrderFromItems"
     />

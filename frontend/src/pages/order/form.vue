@@ -651,31 +651,14 @@ const initFormData = async () => {
     }
   }
 
-  // 4. Nếu tạo mới hoàn toàn
-  form.value = {
-    id: '',
-    order_number: '',
-    customer_order_number: '',
-    quotation_id: null,
-    quotation_number: '',
-    customer_id: null,
-    customer_code: '',
-    customer_name: '',
-    contact_id: null,
-    contact_name: '',
-    currency: 'VND',
-    exchange_rate: 1,
-    created_by: defaultUserId,
-    created_at: '',
-    order_date: nowDateFormat(),
-    assigned_to: defaultUserId,
-    status: 'DRAFT',
-    notes: 'Đơn bán hàng thiết bị công nghiệp chính hãng.',
-    total_amount: 0,
-    subtotal: 0,
-    vat_total: 0,
-    items: []
-  };
+  // 4. Bắt buộc đơn bán hàng phải đi từ Báo giá đã duyệt
+  toast.add({
+    severity: 'warn',
+    summary: 'Yêu cầu đi từ Báo Giá',
+    detail: 'Tất cả đơn bán hàng đều phải đi từ Báo giá đã duyệt. Đang chuyển hướng sang trang Báo Giá...',
+    life: 3500
+  });
+  router.replace('/quotation');
 };
 
 const onCustomerChange = () => {

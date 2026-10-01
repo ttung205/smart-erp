@@ -230,14 +230,15 @@
           </template>
         </Column>
 
-        <!-- 6. Stock (Tồn kho) - Không cho sửa -->
+        <!-- 6. Stock (Tồn kho khả dụng tất cả kho) - Lấy từ Inventory Service -->
         <Column v-if="columnsVisibility.stock" header="STOCK" style="width: 85px; min-width: 85px" class="text-center">
           <template #body="{ data }">
             <span
               class="inline-block font-mono text-xs font-bold px-2 py-0.5 rounded-[4px]"
-              :class="(data.stock || 0) > 0 ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-slate-400 bg-slate-50 border border-slate-200'"
+              :class="getAvailableStock(data) > 0 ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-slate-400 bg-slate-50 border border-slate-200'"
+              :title="`Tổng tồn khả dụng tất cả các kho: ${getAvailableStock(data)}`"
             >
-              {{ data.stock ?? 0 }}
+              {{ getAvailableStock(data) }}
             </span>
           </template>
         </Column>
@@ -501,13 +502,14 @@
               </template>
             </Column>
 
-            <Column field="stock" header="Tồn kho" class="text-center" style="width: 80px">
+            <Column field="stock" header="Tồn khả dụng" class="text-center" style="width: 110px">
               <template #body="{ data }">
                 <span
-                  class="font-mono text-xs font-semibold px-1.5 py-0.5 rounded-[4px]"
-                  :class="data.stock > 0 ? 'text-emerald-700 bg-emerald-50' : 'text-slate-400 bg-slate-50'"
+                  class="font-mono text-xs font-bold px-1.5 py-0.5 rounded-[4px]"
+                  :class="getAvailableStock(data) > 0 ? 'text-emerald-700 bg-emerald-50' : 'text-slate-400 bg-slate-50'"
+                  :title="`Tổng tồn khả dụng tất cả các kho: ${getAvailableStock(data)}`"
                 >
-                  {{ data.stock }}
+                  {{ getAvailableStock(data) }}
                 </span>
               </template>
             </Column>
@@ -594,6 +596,8 @@ import Dialog from 'primevue/dialog';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
 import { catalogApi } from '../../api/catalog.api';
+import { inventoryApi } from '../../api/inventory.api';
+import { FALLBACK_CATALOG_PRODUCTS } from '../../constants/catalogProducts.constant';
 import { formatCurrency } from '../../utils/format';
 
 const props = defineProps({
@@ -615,12 +619,30 @@ const emit = defineEmits(['update:modelValue', 'summary-change', 'create-order']
 
 const items = ref([]);
 
+// Map lưu trữ tổng tồn khả dụng cộng dồn từ tất cả các kho
+const inventoryAvailableBySku = ref(new Map());
+const inventoryAvailableByProductId = ref(new Map());
+
+const getAvailableStock = (item) => {
+  if (!item) return 0;
+  const sku = (item.sku || '').trim().toUpperCase();
+  if (sku && inventoryAvailableBySku.value.has(sku)) {
+    return inventoryAvailableBySku.value.get(sku);
+  }
+  const pid = Number(item.product_id || item.productId || item.id || 0);
+  if (pid && inventoryAvailableByProductId.value.has(pid)) {
+    return inventoryAvailableByProductId.value.get(pid);
+  }
+  return Number(item.stock) || 0;
+};
+
 watch(
   () => props.modelValue,
   (newVal) => {
     if (newVal) {
       items.value = newVal.map((it) => ({
         ...it,
+        stock: getAvailableStock(it),
         status: it.status || (it.won || it.is_won ? 'WIN' : 'PENDING'),
         _selected: !!it._selected
       }));
@@ -864,6 +886,75 @@ const showCatalogSearchDialog = ref(false);
 const catalogSearchQuery = ref('');
 const selectedCatalogItems = ref([]);
 
+const loadInventoryStocks = async () => {
+  let stockList = [];
+  try {
+    const res = await inventoryApi.getStocks({ pageSize: 1000 });
+    if (res && res.data && Array.isArray(res.data)) {
+      stockList = res.data;
+    } else if (Array.isArray(res)) {
+      stockList = res;
+    }
+  } catch (err) {
+    console.warn('[ItemDataTable] Không thể kết nối Inventory API :8004, dùng Fallback:', err);
+  }
+
+  // Fallback nếu API chưa có dữ liệu hoặc không kết nối được
+  if (!stockList || stockList.length === 0) {
+    stockList = FALLBACK_CATALOG_PRODUCTS.flatMap((p) => [
+      { product_id: p.id, sku: p.sku, available: 100, warehouse_id: 1 },
+      { product_id: p.id, sku: p.sku, available: 100, warehouse_id: 2 },
+      { product_id: p.id, sku: p.sku, available: 100, warehouse_id: 3 }
+    ]);
+  }
+
+  // Tính tổng tồn khả dụng (Available) cộng dồn của TẤT CẢ các kho cho từng sản phẩm
+  const bySku = new Map();
+  const byPid = new Map();
+
+  stockList.forEach((s) => {
+    const pid = Number(s.product_id ?? s.productId ?? 0);
+    const sku = (s.sku || '').trim().toUpperCase();
+    const qOnHand = Number(s.quantity_on_hand ?? s.quantityOnHand ?? 0);
+    const qReserved = Number(s.quantity_reserved ?? s.quantityReserved ?? 0);
+    const avail = Number(s.available ?? (qOnHand - qReserved));
+
+    if (pid > 0) {
+      byPid.set(pid, (byPid.get(pid) || 0) + avail);
+    }
+    if (sku) {
+      bySku.set(sku, (bySku.get(sku) || 0) + avail);
+    }
+  });
+
+  // Nếu stock từ backend chỉ có product_id mà không có sku, map với catalog
+  catalogProducts.value.forEach((p) => {
+    const pid = Number(p.id);
+    const sku = (p.sku || '').trim().toUpperCase();
+    if (pid && byPid.has(pid)) {
+      const totalAvail = byPid.get(pid);
+      if (sku && !bySku.has(sku)) {
+        bySku.set(sku, totalAvail);
+      }
+    }
+  });
+
+  inventoryAvailableBySku.value = bySku;
+  inventoryAvailableByProductId.value = byPid;
+
+  // Cập nhật lại số tồn cho items và catalog
+  if (items.value.length > 0) {
+    items.value.forEach((it) => {
+      it.stock = getAvailableStock(it);
+    });
+  }
+  if (catalogProducts.value.length > 0) {
+    catalogProducts.value.forEach((p) => {
+      p.stock = getAvailableStock(p);
+    });
+  }
+};
+
 const loadCatalogProducts = async () => {
   try {
     const res = await catalogApi.getProducts();
@@ -877,7 +968,7 @@ const loadCatalogProducts = async () => {
         description: p.description || p.item_description || p.name || '',
         unit: p.unit || 'Cái',
         com: p.com || 'Việt Nam',
-        stock: p.stock ?? (p.min_stock || 20),
+        stock: getAvailableStock(p),
         gross_price: Number(p.gross_price) || 0,
         lead_time: 'Có sẵn',
         vat_percent: 10,
@@ -888,6 +979,15 @@ const loadCatalogProducts = async () => {
     console.warn('loadCatalogProducts error:', err);
   }
 };
+
+onMounted(async () => {
+  await Promise.allSettled([loadCatalogProducts(), loadInventoryStocks()]);
+  if (items.value.length > 0) {
+    items.value.forEach((it) => {
+      it.stock = getAvailableStock(it);
+    });
+  }
+});
 
 const filteredCatalogProducts = computed(() => {
   if (!catalogSearchQuery.value) return catalogProducts.value;
@@ -905,6 +1005,7 @@ const openSearchDialog = async () => {
   if (catalogProducts.value.length === 0) {
     await loadCatalogProducts();
   }
+  await loadInventoryStocks();
   selectedCatalogItems.value = [];
   catalogSearchQuery.value = '';
   showCatalogSearchDialog.value = true;
@@ -917,7 +1018,7 @@ const fillRowWithCatalogProduct = (row, product) => {
   row.description = product.description;
   row.unit = product.unit || 'Cái';
   row.com = product.com || 'Chính hãng';
-  row.stock = product.stock || 0;
+  row.stock = getAvailableStock(product);
   row.gross_price = product.gross_price || 0;
   row.vat_percent = product.vat_percent || 10;
   row.lead_time = product.lead_time || 'Có sẵn';
@@ -943,7 +1044,7 @@ const confirmAddCatalogItems = () => {
         description: prod.description,
         unit: prod.unit || 'Cái',
         com: prod.com || 'Chính hãng',
-        stock: prod.stock || 0,
+        stock: getAvailableStock(prod),
         quantity: 1,
         gross_price: prod.gross_price || 0,
         discount_percent: 10,

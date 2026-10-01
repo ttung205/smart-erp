@@ -5,17 +5,7 @@
       subtitle="Quản lý danh sách đơn bán hàng chính thức (SO), quy trình xét duyệt và liên kết giao hàng"
       badge="Stage 2: Sales Order"
       badge-severity="info"
-    >
-      <template #actions>
-        <Button
-          label="Lập Đơn Bán Mới"
-          icon="pi pi-plus"
-          size="small"
-          class="!bg-indigo-600 hover:!bg-indigo-700 !text-white !border-indigo-600 rounded-[6px]"
-          @click="$router.push('/order/create')"
-        />
-      </template>
-    </PageHeader>
+    />
 
     <!-- Toolbar Filter -->
     <Toolbar class="bg-white border border-slate-200 rounded-[6px] px-3 py-2 shadow-none">
@@ -202,7 +192,7 @@
           <div class="py-10 text-center flex flex-col items-center gap-2">
             <i class="pi pi-shopping-cart text-3xl text-slate-300"></i>
             <p class="text-xs font-semibold text-slate-700 m-0">Chưa có đơn bán hàng nào</p>
-            <p class="text-[11px] text-slate-400 m-0">Bấm nút "Lập Đơn Bán Mới" ở trên hoặc sang trang Báo Giá chọn Item Win để sinh Đơn bán.</p>
+            <p class="text-[11px] text-slate-400 m-0">Tất cả đơn bán hàng đều phải được tạo từ Báo giá đã duyệt. Vui lòng chuyển sang trang Báo Giá để tiến hành tạo đơn bán.</p>
           </div>
         </template>
       </DataTable>
