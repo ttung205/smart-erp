@@ -203,12 +203,15 @@ watch(
         contact_phone: '0988 123 456',
         shipping_address: 'Tòa nhà văn phòng đối tác B2B, Hà Nội',
         items: (newOrder.items || []).map((i) => ({
+          order_item_id: i.id,
+          delivery_date: i.delivery_date || i.lead_time || '',
           product_id: i.product_id,
-          product_sku: i.product_sku,
+          sku: i.sku || i.product_sku,
+          product_sku: i.sku || i.product_sku,
           product_name: i.product_name,
           order_quantity: i.quantity,
           quantity: i.quantity,
-          unit_price: i.unit_price
+          unit_price: i.unit_price || i.selling_price || 0
         }))
       };
     }

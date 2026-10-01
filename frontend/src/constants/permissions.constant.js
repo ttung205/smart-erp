@@ -37,8 +37,9 @@ export const SYSTEM_PERMISSIONS = [
   { code: 'order.manage', desc: 'Quản trị nghiệp vụ đơn bán hàng SO' },
 
   // Phân hệ Giao hàng & Hóa đơn (Delivery & Invoice)
-  { code: 'delivery.view', desc: 'Xem danh sách yêu cầu giao hàng (Route: /delivery)' },
+  { code: 'delivery.view', desc: 'Xem danh sách giao hàng (Route: /delivery)' },
   { code: 'delivery.create', desc: 'Tạo yêu cầu giao hàng Delivery Request' },
+  { code: 'delivery-request.approve', desc: 'Phê duyệt yêu cầu giao hàng (Delivery Request)' },
   { code: 'delivery.manage', desc: 'Quản trị giao hàng' },
   { code: 'invoice.view', desc: 'Xem danh sách chứng từ và hóa đơn (Route: /invoice)' },
   { code: 'invoice.create', desc: 'Tạo chứng từ xuất hóa đơn' },

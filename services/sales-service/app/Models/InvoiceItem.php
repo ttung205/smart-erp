@@ -10,6 +10,7 @@ class InvoiceItem extends Model
 
     protected $fillable = [
         'invoice_id',
+        'order_item_id',
         'sku',
         'product_name',
         'quantity',
@@ -19,5 +20,10 @@ class InvoiceItem extends Model
     public function invoice()
     {
         return $this->belongsTo(Invoice::class, 'invoice_id');
+    }
+
+    public function orderItem()
+    {
+        return $this->belongsTo(SalesOrderItem::class, 'order_item_id');
     }
 }

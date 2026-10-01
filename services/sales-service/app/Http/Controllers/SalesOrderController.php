@@ -122,21 +122,39 @@ class SalesOrderController extends Controller
                 'total_amount' => $totalAmount,
                 'status' => $request->input('status', 'DRAFT'),
                 'notes' => $request->input('notes'),
+                'shipping_address' => $request->input('shipping_address'),
             ]);
             foreach ($items as $it) {
+                $prodId = $it['product_id'] ?? null;
+                if (!$prodId && !empty($it['sku'])) {
+                    $prod = \App\Models\Product::where('sku', $it['sku'])->first();
+                    $prodId = $prod?->id;
+                }
+
+                $qItemId = $it['quotation_item_id'] ?? null;
+                if (!$qItemId && $quotationId) {
+                    $qItem = \App\Models\QuotationItem::where('quotation_id', $quotationId)
+                        ->where(function ($q) use ($prodId, $it) {
+                            if ($prodId) $q->where('product_id', $prodId);
+                            if (!empty($it['sku'])) $q->orWhere('sku', $it['sku']);
+                        })->first();
+                    $qItemId = $qItem?->id;
+                }
+
+                $grossPrice = (float)($it['gross_price'] ?? 0);
+                if ($grossPrice <= 0 && $prod) {
+                    $grossPrice = (float)($prod->gross_price ?? 0);
+                }
+
                 SalesOrderItem::create([
                     'order_id' => $so->id,
+                    'quotation_item_id' => $qItemId,
+                    'product_id' => $prodId,
                     'sku' => $it['sku'] ?? 'UNKNOWN',
                     'product_name' => $it['product_name'] ?? $it['designation'] ?? $it['description'] ?? 'Sản phẩm',
-                    'designation' => $it['designation'] ?? null,
-                    'brand' => $it['brand'] ?? null,
-                    'description' => $it['description'] ?? null,
-                    'com' => $it['com'] ?? 'Việt Nam',
-                    'stock' => (float)($it['stock'] ?? 0),
-                    'unit' => $it['unit'] ?? 'Cái',
+                    'delivery_date' => $it['delivery_date'] ?? $it['expected_delivery_date'] ?? null,
                     'quantity' => (float)($it['quantity'] ?? 1),
-                    'unit_price' => (float)($it['selling_price'] ?? $it['unit_price'] ?? 0),
-                    'gross_price' => (float)($it['gross_price'] ?? 0),
+                    'gross_price' => $grossPrice,
                     'discount_percent' => (float)($it['discount_percent'] ?? 0),
                     'selling_price' => (float)($it['selling_price'] ?? $it['unit_price'] ?? 0),
                     'vat_percent' => (float)($it['vat_percent'] ?? 10),
@@ -233,24 +251,42 @@ class SalesOrderController extends Controller
                 'total_amount' => $totalAmount,
                 'status' => $request->input('status', $so->status),
                 'notes' => $request->input('notes', $so->notes),
+                'shipping_address' => $request->input('shipping_address', $so->shipping_address),
             ]);
 
             if ($request->has('items')) {
                 SalesOrderItem::where('order_id', $so->id)->delete();
                 foreach ($request->input('items', []) as $it) {
+                    $prodId = $it['product_id'] ?? null;
+                    if (!$prodId && !empty($it['sku'])) {
+                        $prod = \App\Models\Product::where('sku', $it['sku'])->first();
+                        $prodId = $prod?->id;
+                    }
+
+                    $qItemId = $it['quotation_item_id'] ?? null;
+                    if (!$qItemId && $quotationId) {
+                        $qItem = \App\Models\QuotationItem::where('quotation_id', $quotationId)
+                            ->where(function ($q) use ($prodId, $it) {
+                                if ($prodId) $q->where('product_id', $prodId);
+                                if (!empty($it['sku'])) $q->orWhere('sku', $it['sku']);
+                            })->first();
+                        $qItemId = $qItem?->id;
+                    }
+
+                    $grossPrice = (float)($it['gross_price'] ?? 0);
+                    if ($grossPrice <= 0 && $prod) {
+                        $grossPrice = (float)($prod->gross_price ?? 0);
+                    }
+
                     SalesOrderItem::create([
                         'order_id' => $so->id,
+                        'quotation_item_id' => $qItemId,
+                        'product_id' => $prodId,
                         'sku' => $it['sku'] ?? 'UNKNOWN',
                         'product_name' => $it['product_name'] ?? $it['designation'] ?? $it['description'] ?? 'Sản phẩm',
-                        'designation' => $it['designation'] ?? null,
-                        'brand' => $it['brand'] ?? null,
-                        'description' => $it['description'] ?? null,
-                        'com' => $it['com'] ?? 'Việt Nam',
-                        'stock' => (float)($it['stock'] ?? 0),
-                        'unit' => $it['unit'] ?? 'Cái',
+                        'delivery_date' => $it['delivery_date'] ?? $it['expected_delivery_date'] ?? null,
                         'quantity' => (float)($it['quantity'] ?? 1),
-                        'unit_price' => (float)($it['selling_price'] ?? $it['unit_price'] ?? 0),
-                        'gross_price' => (float)($it['gross_price'] ?? 0),
+                        'gross_price' => $grossPrice,
                         'discount_percent' => (float)($it['discount_percent'] ?? 0),
                         'selling_price' => (float)($it['selling_price'] ?? $it['unit_price'] ?? 0),
                         'vat_percent' => (float)($it['vat_percent'] ?? 10),

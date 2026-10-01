@@ -11,10 +11,8 @@ class Quotation extends Model
     protected $fillable = [
         'quotation_number',
         'customer_id',
-        'customer_code',
         'customer_name',
         'contact_id',
-        'contact_name',
         'quotation_date',
         'currency',
         'exchange_rate',
@@ -29,8 +27,34 @@ class Quotation extends Model
         'notes',
     ];
 
+    protected $appends = [
+        'customer_code',
+        'contact_name',
+    ];
+
     public function items()
     {
         return $this->hasMany(QuotationItem::class, 'quotation_id');
+    }
+
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class, 'customer_id');
+    }
+
+    public function contact()
+    {
+        return $this->belongsTo(CustomerContact::class, 'contact_id');
+    }
+
+    // Dynamic Accessors từ Catalog Service
+    public function getCustomerCodeAttribute()
+    {
+        return $this->customer?->code ?? '';
+    }
+
+    public function getContactNameAttribute()
+    {
+        return $this->contact?->name ?? '';
     }
 }

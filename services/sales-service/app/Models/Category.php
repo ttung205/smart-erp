@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Category extends Model
 {
+    protected $connection = 'catalog';
     protected $table = 'categories';
 
     protected $fillable = [

@@ -1,48 +1,51 @@
 <template>
   <div class="flex flex-col gap-2">
-    <!-- 1. Header Toolbar & Statistics Banner (Khớp giao diện ERP thực tế) -->
-    <div class="bg-white border border-slate-200 rounded-[6px] p-2.5 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+    <!-- 1. Header Toolbar & Statistics Summary (Tổng quát cho mọi bảng mặt hàng) -->
+    <div
+      v-if="showToolbar"
+      class="bg-white border border-slate-200 rounded-[6px] p-2.5 flex flex-wrap items-center justify-between gap-3 shadow-sm"
+    >
       <!-- Left: Statistics Summary -->
-      <div class="flex items-center gap-4 flex-wrap">
-        <div class="flex flex-col">
-          <span class="text-xs font-bold text-slate-900 flex items-center gap-1">
-            <i class="pi pi-box text-sky-600 text-xs"></i>
-            Sản phẩm ({{ items.length }})
-          </span>
-          <span v-if="selectedCount > 0" class="text-[11px] font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200">
-            Đã chọn: {{ selectedCount }} dòng
-          </span>
+      <slot name="summary" :summary="summary" :items="items">
+        <div class="flex items-center gap-4 flex-wrap">
+          <div class="flex flex-col">
+            <span class="text-xs font-bold text-slate-900 flex items-center gap-1">
+              <i class="pi pi-box text-sky-600 text-xs"></i>
+              Mặt hàng ({{ items.length }})
+            </span>
+          </div>
+
+          <div class="h-6 w-[1px] bg-slate-200 hidden sm:block"></div>
+
+          <div class="flex items-center gap-4 text-xs font-mono">
+            <div>
+              <span class="text-slate-400 block text-[10px] font-sans">Tiền hàng (Subtotal):</span>
+              <span class="font-bold text-slate-800">{{ formatCurrency(summary.subtotal) }}</span>
+            </div>
+
+            <div>
+              <span class="text-slate-400 block text-[10px] font-sans">Thuế VAT:</span>
+              <span class="font-semibold text-slate-700">{{ formatCurrency(summary.vatTotal) }}</span>
+            </div>
+
+            <div>
+              <span class="text-slate-400 block text-[10px] font-sans">CK Trung Bình:</span>
+              <span class="font-bold text-emerald-600">{{ summary.avgDiscount }}%</span>
+            </div>
+
+            <div class="bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-100">
+              <span class="text-sky-600 block text-[10px] font-sans font-semibold">Tổng cộng (Total):</span>
+              <span class="font-bold text-sky-700 text-sm">{{ formatCurrency(summary.grandTotal) }}</span>
+            </div>
+          </div>
         </div>
-
-        <div class="h-6 w-[1px] bg-slate-200 hidden sm:block"></div>
-
-        <div class="flex items-center gap-4 text-xs font-mono">
-          <div>
-            <span class="text-slate-400 block text-[10px] font-sans">Tiền hàng (Subtotal):</span>
-            <span class="font-bold text-slate-800">{{ formatCurrency(summary.subtotal) }}</span>
-          </div>
-
-          <div>
-            <span class="text-slate-400 block text-[10px] font-sans">Thuế VAT:</span>
-            <span class="font-semibold text-slate-700">{{ formatCurrency(summary.vatTotal) }}</span>
-          </div>
-
-          <div>
-            <span class="text-slate-400 block text-[10px] font-sans">CK Trung Bình:</span>
-            <span class="font-bold text-emerald-600">{{ summary.avgDiscount }}%</span>
-          </div>
-
-          <div class="bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-100">
-            <span class="text-sky-600 block text-[10px] font-sans font-semibold">Tổng cộng (Total):</span>
-            <span class="font-bold text-sky-700 text-sm">{{ formatCurrency(summary.grandTotal) }}</span>
-          </div>
-        </div>
-      </div>
+      </slot>
 
       <!-- Right: Action Buttons -->
       <div class="flex items-center gap-1.5 flex-wrap">
         <!-- Nút Thêm sản phẩm nhanh 1 dòng -->
         <Button
+          v-if="showAddRow"
           label="Thêm sản phẩm"
           icon="pi pi-plus"
           size="small"
@@ -52,6 +55,7 @@
 
         <!-- Nút Tìm & Thêm từ danh mục Catalog -->
         <Button
+          v-if="showCatalogSearch"
           label="Tìm & Thêm"
           icon="pi pi-search"
           size="small"
@@ -61,30 +65,12 @@
           @click="openSearchDialog"
         />
 
-        <!-- Nút Action Set Trạng Thái (Win / Lose / Pending) khi chọn dòng -->
-        <Button
-          v-if="showItemStatus"
-          :label="selectedCount > 0 ? `Đổi trạng thái (${selectedCount})` : 'Đổi trạng thái'"
-          icon="pi pi-sliders-h"
-          size="small"
-          severity="warn"
-          outlined
-          class="!text-xs !py-1 !px-2.5 rounded-[6px] !border-amber-500 !text-amber-700 hover:!bg-amber-50 font-medium"
-          @click="openStatusDialog"
-        />
-
-        <!-- Nút Tạo Đơn Bán Hàng (chỉ cho chọn các item đã có status là WIN) -->
-        <Button
-          v-if="showCreateOrderButton"
-          label="Tạo đơn bán (SO)"
-          icon="pi pi-shopping-cart"
-          size="small"
-          class="!bg-indigo-600 hover:!bg-indigo-700 !text-white !border-indigo-600 !text-xs !py-1 !px-3 rounded-[6px] font-semibold shadow-sm"
-          @click="handleCreateOrderAction"
-        />
+        <!-- Slot cho các nút tác vụ nghiệp vụ đặc thù (do component con truyền vào) -->
+        <slot name="extra-actions" :items="items" :summary="summary" />
 
         <!-- Nút Cài đặt cột (Ẩn/Hiện cột) -->
         <Button
+          v-if="showColumnSetting"
           label="Cài đặt cột"
           icon="pi pi-cog"
           size="small"
@@ -96,6 +82,7 @@
 
         <!-- Nút Xuất Excel -->
         <Button
+          v-if="showExport"
           icon="pi pi-file-excel"
           label="Xuất Excel"
           size="small"
@@ -107,7 +94,7 @@
       </div>
     </div>
 
-    <!-- 2. Main Editable Data Table với scroll ngang min-width chuẩn để hiển thị trọn vẹn -->
+    <!-- 2. Main Generic Data Table (Tương tự CommonDataTable nhưng cho Items) -->
     <div class="bg-white border border-slate-200 rounded-[6px] overflow-hidden shadow-sm">
       <DataTable
         :value="items"
@@ -115,18 +102,18 @@
         class="clean-datatable item-editor-table"
         responsiveLayout="scroll"
         scrollable
-        scrollHeight="580px"
-        :tableStyle="{ minWidth: '1980px' }"
+        :scrollHeight="scrollHeight"
+        :tableStyle="tableStyleComputed"
       >
-        <!-- STT - Frozen -->
-        <Column header="#" style="width: 44px; min-width: 44px" class="text-center" frozen>
+        <!-- STT - Frozen (nếu showIndex) -->
+        <Column v-if="showIndex" header="#" style="width: 44px; min-width: 44px" class="text-center" frozen>
           <template #body="{ index }">
             <span class="text-xs font-mono text-slate-400 font-semibold">{{ index + 1 }}</span>
           </template>
         </Column>
 
-        <!-- Thao tác xóa dòng - Frozen -->
-        <Column style="width: 40px; min-width: 40px" class="text-center" frozen>
+        <!-- Thao tác xóa dòng - Frozen (nếu showDelete) -->
+        <Column v-if="showDelete" style="width: 40px; min-width: 40px" class="text-center" frozen>
           <template #body="{ index }">
             <button
               type="button"
@@ -139,391 +126,122 @@
           </template>
         </Column>
 
-        <!-- CỘT SELECT Ở SAU CỘT XÓA DÒNG ĐỂ SET ITEM WIN/LOSE HOẶC TẠO ĐƠN - Frozen -->
-        <Column v-if="showItemStatus || showCreateOrderButton" style="width: 44px; min-width: 44px" class="text-center" frozen>
-          <template #header>
-            <div class="flex justify-center items-center w-full">
-              <input
-                type="checkbox"
-                :checked="isAllSelected"
-                @change="toggleSelectAll"
-                class="w-4 h-4 rounded text-sky-600 focus:ring-sky-500 cursor-pointer"
-                title="Chọn tất cả các dòng"
-              />
-            </div>
-          </template>
-          <template #body="{ data }">
-            <div class="flex justify-center items-center w-full">
-              <input
-                type="checkbox"
-                v-model="data._selected"
-                class="w-4 h-4 rounded text-sky-600 focus:ring-sky-500 cursor-pointer"
-                title="Chọn dòng này"
-              />
-            </div>
-          </template>
-        </Column>
+        <!-- Slot cho các cột chèn phía trước (ví dụ Checkbox chọn dòng) -->
+        <slot name="prepend-columns" :items="items" :notify-change="notifyChange"></slot>
 
-        <!-- 1. Mã nội bộ (SKU / Internal Code) - Cố định (Frozen) -->
-        <Column
-          v-if="columnsVisibility.sku"
-          header="INTERNAL CODE"
-          style="width: 160px; min-width: 160px"
-          frozen
-          class="!border-r-2 !border-r-slate-300 shadow-[4px_0_8px_-3px_rgba(0,0,0,0.12)]"
-          headerClass="!border-r-2 !border-r-slate-300 shadow-[4px_0_8px_-3px_rgba(0,0,0,0.12)]"
-        >
-          <template #body="{ data }">
-            <span class="font-mono text-xs font-bold text-sky-800 truncate block px-1" :title="data.sku">
-              {{ data.sku || '-' }}
-            </span>
-          </template>
-        </Column>
+        <!-- Dynamic Columns Loop - Render toàn bộ cột dựa theo columns prop -->
+        <template v-if="activeColumns && activeColumns.length > 0">
+          <Column
+            v-for="col in activeColumns"
+            :key="col.field"
+            :field="col.field"
+            :header="col.header"
+            :style="{ width: col.width || 'auto', minWidth: col.minWidth || col.width || 'auto' }"
+            :class="[col.align ? `text-${col.align}` : '', col.class || '']"
+            :headerClass="col.headerClass || ''"
+            :frozen="col.frozen"
+          >
+            <template #body="{ data, field, index }">
+              <slot
+                :name="`col-${col.field}`"
+                :data="data"
+                :field="field"
+                :index="index"
+                :value="data[col.field]"
+                :notify-change="notifyChange"
+              >
+                <!-- Render mặc định dạng văn bản nếu component con không định nghĩa template -->
+                <span class="text-xs text-slate-800">{{ data[col.field] }}</span>
+              </slot>
+            </template>
+          </Column>
+        </template>
 
-        <!-- 2. Designation - Không cho sửa -->
-        <Column v-if="columnsVisibility.designation" header="DESIGNATION" style="width: 160px; min-width: 160px">
-          <template #body="{ data }">
-            <span class="font-mono text-xs text-rose-700 font-semibold truncate block px-1" :title="data.designation">
-              {{ data.designation || '-' }}
-            </span>
-          </template>
-        </Column>
+        <!-- Slot cho các cột chèn phía sau -->
+        <slot name="append-columns" :items="items" :notify-change="notifyChange"></slot>
 
-        <!-- 3. Brand - Không cho sửa -->
-        <Column v-if="columnsVisibility.brand" header="BRAND" style="width: 100px; min-width: 100px">
-          <template #body="{ data }">
-            <span class="text-xs font-semibold text-slate-800 truncate block px-1" :title="data.brand">
-              {{ data.brand || '-' }}
-            </span>
-          </template>
-        </Column>
+        <!-- Dynamic slot cho bất kỳ component Column nào cắm trực tiếp -->
+        <slot :items="items" :notify-change="notifyChange"></slot>
 
-        <!-- 4. Item Description - CHO PHÉP SỬA -->
-        <Column v-if="columnsVisibility.description" header="ITEM DESCRIPTION" style="width: 320px; min-width: 320px">
-          <template #body="{ data }">
-            <InputText
-              v-model="data.description"
-              class="w-full text-xs text-slate-800 !py-1.5 !px-2 rounded-[4px] !border-slate-200 hover:!border-slate-300 focus:!border-sky-500 bg-white"
-              placeholder="Tên / mô tả chi tiết sản phẩm..."
-              :title="data.description"
-              @change="notifyChange"
-            />
-          </template>
-        </Column>
-
-        <!-- 5. COM (Xuất xứ) - CHO PHÉP SỬA -->
-        <Column v-if="columnsVisibility.com" header="COM" style="width: 130px; min-width: 130px">
-          <template #body="{ data }">
-            <InputText
-              v-model="data.com"
-              class="w-full text-xs text-slate-700 !py-1.5 !px-2 rounded-[4px] !border-slate-200 hover:!border-slate-300 focus:!border-sky-500 bg-white"
-              placeholder="Xuất xứ (COM)..."
-              :title="data.com"
-              @change="notifyChange"
-            />
-          </template>
-        </Column>
-
-        <!-- 6. Stock (Tồn kho khả dụng tất cả kho) - Lấy từ Inventory Service -->
-        <Column v-if="columnsVisibility.stock" header="STOCK" style="width: 85px; min-width: 85px" class="text-center">
-          <template #body="{ data }">
-            <span
-              class="inline-block font-mono text-xs font-bold px-2 py-0.5 rounded-[4px]"
-              :class="getAvailableStock(data) > 0 ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-slate-400 bg-slate-50 border border-slate-200'"
-              :title="`Tổng tồn khả dụng tất cả các kho: ${getAvailableStock(data)}`"
-            >
-              {{ getAvailableStock(data) }}
-            </span>
-          </template>
-        </Column>
-
-        <!-- 7. Unit (Đơn vị tính) - CHO PHÉP SỬA -->
-        <Column v-if="columnsVisibility.unit" header="UNIT" style="width: 85px; min-width: 85px" class="text-center">
-          <template #body="{ data }">
-            <InputText
-              v-model="data.unit"
-              class="w-full text-xs text-center !py-1.5 !px-1 rounded-[4px] !border-slate-200 hover:!border-slate-300 focus:!border-sky-500 bg-white"
-              placeholder="Cái"
-              @change="notifyChange"
-            />
-          </template>
-        </Column>
-
-        <!-- 8. Quantity (Số lượng) - CHO PHÉP SỬA -->
-        <Column v-if="columnsVisibility.quantity" header="QTY" style="width: 90px; min-width: 90px" class="text-right">
-          <template #body="{ data }">
-            <InputNumber
-              v-model="data.quantity"
-              :min="1"
-              class="w-full text-xs font-mono font-bold"
-              inputClass="!py-1.5 !px-2 text-right text-xs font-mono font-bold rounded-[4px] !border-slate-200 hover:!border-slate-300 focus:!border-sky-500 bg-white"
-              @update:modelValue="onQuantityChange(data)"
-            />
-          </template>
-        </Column>
-
-        <!-- 9. Discount % (Chiết khấu) - CHO PHÉP SỬA -->
-        <Column v-if="columnsVisibility.discount" header="CK %" style="width: 85px; min-width: 85px" class="text-right">
-          <template #body="{ data }">
-            <InputNumber
-              v-model="data.discount_percent"
-              :min="0"
-              :max="100"
-              suffix="%"
-              class="w-full text-xs font-mono font-bold"
-              inputClass="!py-1.5 !px-2 text-right text-xs font-mono font-bold rounded-[4px] !border-slate-200 hover:!border-slate-300 focus:!border-emerald-500 !text-emerald-700 bg-white"
-              @update:modelValue="onDiscountChange(data)"
-            />
-          </template>
-        </Column>
-
-        <!-- 10. Selling Price (Đơn giá bán thực tế) - CHO PHÉP SỬA -->
-        <Column v-if="columnsVisibility.sellingPrice" header="SELLING PRICE" style="width: 155px; min-width: 155px" class="text-right">
-          <template #body="{ data }">
-            <InputNumber
-              v-model="data.selling_price"
-              :min="0"
-              currency="VND"
-              locale="vi-VN"
-              class="w-full text-xs font-mono font-bold"
-              inputClass="!py-1.5 !px-2 text-right text-xs font-mono font-bold rounded-[4px] !border-slate-200 hover:!border-slate-300 focus:!border-sky-500 !text-sky-700 bg-white"
-              @update:modelValue="onSellingPriceChange(data)"
-            />
-          </template>
-        </Column>
-
-        <!-- 11. Gross Price (Giá niêm yết) - Không cho sửa -->
-        <Column v-if="columnsVisibility.grossPrice" header="GROSS PRICE" style="width: 140px; min-width: 140px" class="text-right">
-          <template #body="{ data }">
-            <span class="font-mono text-xs font-semibold text-slate-700 px-2 py-1 bg-slate-50 border border-slate-100 rounded-[4px] block text-right">
-              {{ formatCurrency(data.gross_price) }}
-            </span>
-          </template>
-        </Column>
-
-        <!-- 12. VAT % - CHO PHÉP SỬA (ở báo giá và đơn hàng) -->
-        <Column v-if="columnsVisibility.vat" header="VAT %" style="width: 80px; min-width: 80px" class="text-center">
-          <template #body="{ data }">
-            <InputNumber
-              v-model="data.vat_percent"
-              :min="0"
-              :max="100"
-              suffix="%"
-              class="w-full text-xs font-mono"
-              inputClass="!py-1.5 !px-1 text-center text-xs font-mono font-semibold rounded-[4px] !border-slate-200 hover:!border-slate-300 focus:!border-sky-500 bg-white"
-              @update:modelValue="onVatChange(data)"
-            />
-          </template>
-        </Column>
-
-        <!-- 13. Lead Time (Giao hàng) - CHO PHÉP SỬA -->
-        <Column v-if="columnsVisibility.leadTime" header="LEAD TIME" style="width: 120px; min-width: 120px">
-          <template #body="{ data }">
-            <InputText
-              v-model="data.lead_time"
-              class="w-full text-xs text-slate-700 !py-1.5 !px-2 rounded-[4px] !border-slate-200 hover:!border-slate-300 focus:!border-sky-500 bg-white"
-              placeholder="VD: Có sẵn..."
-              :title="data.lead_time"
-              @change="notifyChange"
-            />
-          </template>
-        </Column>
-
-        <!-- 14. Subtotal (Thành tiền) - Không cho sửa (Tự động tính) -->
-        <Column v-if="columnsVisibility.subtotal" header="SUBTOTAL" style="width: 160px; min-width: 160px" class="text-right">
-          <template #body="{ data }">
-            <span class="font-mono text-xs font-bold text-slate-900 num-tabular px-2 py-1 bg-slate-50 border border-slate-100 rounded-[4px] block text-right">
-              {{ formatCurrency(data.subtotal || (data.quantity * data.selling_price)) }}
-            </span>
-          </template>
-        </Column>
-
-        <!-- 15. Status (Trạng thái mặt hàng WIN / LOSE / PENDING) - Cột cuối cùng -->
-        <Column v-if="showItemStatus && columnsVisibility.status" header="STATUS" style="width: 110px; min-width: 110px" class="text-center">
-          <template #body="{ data }">
-            <span
-              class="inline-flex items-center justify-center font-bold text-[11px] px-2 py-0.5 rounded-[4px] border uppercase tracking-wider"
-              :class="getStatusBadgeClass(data.status)"
-            >
-              <i :class="getStatusIcon(data.status)" class="mr-1 text-[10px]"></i>
-              {{ getStatusLabel(data.status) }}
-            </span>
-          </template>
-        </Column>
-
+        <!-- Trạng thái bảng rỗng -->
         <template #empty>
-          <div class="py-10 text-center flex flex-col items-center gap-2">
-            <i class="pi pi-box text-3xl text-slate-300"></i>
-            <p class="text-xs font-semibold text-slate-700 m-0">Chưa có sản phẩm nào trong danh sách</p>
-            <p class="text-[11px] text-slate-400 m-0">Bấm nút "Thêm sản phẩm" hoặc "Tìm & Thêm" ở trên để đưa mặt hàng vào bảng.</p>
-          </div>
+          <slot name="empty">
+            <div class="py-10 text-center flex flex-col items-center gap-2">
+              <i class="pi pi-box text-3xl text-slate-300"></i>
+              <p class="text-xs font-semibold text-slate-700 m-0">Chưa có sản phẩm nào trong danh sách</p>
+              <p class="text-[11px] text-slate-400 m-0">Bấm nút "Thêm sản phẩm" hoặc "Tìm & Thêm" ở trên để đưa mặt hàng vào bảng.</p>
+            </div>
+          </slot>
         </template>
       </DataTable>
     </div>
 
-    <!-- 3. Modal Đổi Trạng Thái Mặt Hàng (Win / Lose / Pending) -->
-    <Dialog
-      v-model:visible="showStatusDialog"
-      modal
-      header="Thiết Lập Trạng Thái Mặt Hàng (Win / Lose / Pending)"
-      :style="{ width: '450px' }"
-      class="rounded-[8px]"
-    >
-      <div class="flex flex-col gap-3.5 py-1 text-xs">
-        <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-[6px] text-slate-700 flex items-center justify-between">
-          <span>Số mặt hàng đang chọn:</span>
-          <span class="font-bold font-mono text-sky-700 text-sm bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
-            {{ selectedCount }} mặt hàng
-          </span>
-        </div>
-
-        <div class="flex flex-col gap-2">
-          <label class="font-bold text-slate-700 uppercase tracking-wide text-[11px]">
-            Chọn trạng thái áp dụng cho các dòng đã chọn:
-          </label>
-
-          <div class="flex flex-col gap-2.5">
-            <!-- Option 1: WIN -->
-            <label
-              class="flex items-start gap-2.5 p-3 rounded-[6px] border cursor-pointer transition-colors"
-              :class="newStatusToSet === 'WIN' ? 'bg-emerald-50 border-emerald-400 text-emerald-900' : 'border-slate-200 hover:bg-slate-50 text-slate-700'"
-            >
-              <input type="radio" value="WIN" v-model="newStatusToSet" class="mt-0.5 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
-              <div class="flex flex-col">
-                <span class="font-bold text-xs flex items-center gap-1.5 text-emerald-700">
-                  <i class="pi pi-check-circle"></i> WIN - Trúng thầu (Khách chốt mua)
-                </span>
-                <span class="text-[11px] text-slate-500 mt-0.5">
-                  Mặt hàng khách đồng ý mua, đủ điều kiện để tạo Đơn Bán Hàng (Sales Order).
-                </span>
-              </div>
-            </label>
-
-            <!-- Option 2: PENDING -->
-            <label
-              class="flex items-start gap-2.5 p-3 rounded-[6px] border cursor-pointer transition-colors"
-              :class="newStatusToSet === 'PENDING' ? 'bg-amber-50 border-amber-400 text-amber-900' : 'border-slate-200 hover:bg-slate-50 text-slate-700'"
-            >
-              <input type="radio" value="PENDING" v-model="newStatusToSet" class="mt-0.5 text-amber-600 focus:ring-amber-500 cursor-pointer" />
-              <div class="flex flex-col">
-                <span class="font-bold text-xs flex items-center gap-1.5 text-amber-700">
-                  <i class="pi pi-clock"></i> PENDING - Chờ phản hồi (Đang chào giá)
-                </span>
-                <span class="text-[11px] text-slate-500 mt-0.5">
-                  Mặt hàng đang trong quá trình thương thảo, chờ khách hàng chốt hoặc duyệt giá.
-                </span>
-              </div>
-            </label>
-
-            <!-- Option 3: LOSE -->
-            <label
-              class="flex items-start gap-2.5 p-3 rounded-[6px] border cursor-pointer transition-colors"
-              :class="newStatusToSet === 'LOSE' ? 'bg-rose-50 border-rose-400 text-rose-900' : 'border-slate-200 hover:bg-slate-50 text-slate-700'"
-            >
-              <input type="radio" value="LOSE" v-model="newStatusToSet" class="mt-0.5 text-rose-600 focus:ring-rose-500 cursor-pointer" />
-              <div class="flex flex-col">
-                <span class="font-bold text-xs flex items-center gap-1.5 text-rose-700">
-                  <i class="pi pi-times-circle"></i> LOSE - Trượt thầu (Thua / Không mua)
-                </span>
-                <span class="text-[11px] text-slate-500 mt-0.5">
-                  Khách hàng từ chối mặt hàng này hoặc chọn đối thủ cạnh tranh khác.
-                </span>
-              </div>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex justify-end gap-2 pt-2">
-          <Button
-            label="Hủy bỏ"
-            text
-            size="small"
-            severity="secondary"
-            class="rounded-[6px]"
-            @click="showStatusDialog = false"
-          />
-          <Button
-            label="Xác nhận áp dụng"
-            icon="pi pi-check"
-            size="small"
-            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 rounded-[6px]"
-            @click="applyNewStatus"
-          />
-        </div>
-      </template>
-    </Dialog>
-
-    <!-- 4. Modal Tìm & Thêm Sản Phẩm từ Catalog -->
+    <!-- 3. Modal Tìm & Thêm từ danh mục Catalog chung -->
     <Dialog
       v-model:visible="showCatalogSearchDialog"
       modal
-      header="Tìm & Thêm Sản Phẩm Từ Danh Mục Hàng Hóa"
-      :style="{ width: '880px' }"
+      header="Tìm & Thêm Mặt Hàng Từ Danh Mục Catalog"
+      :style="{ width: '920px' }"
       class="rounded-[6px]"
     >
-      <div class="flex flex-col gap-3 pt-1">
-        <IconField class="w-full">
-          <InputIcon class="pi pi-search" />
-          <InputText
-            v-model="catalogSearchQuery"
-            placeholder="Tìm theo mã SKU, Designation, Thương hiệu hoặc Tên sản phẩm..."
-            class="w-full rounded-[6px]"
-            size="small"
-          />
-        </IconField>
+      <div class="space-y-3 pt-2">
+        <div class="flex items-center gap-2">
+          <IconField class="flex-1">
+            <InputIcon class="pi pi-search" />
+            <InputText
+              v-model="catalogSearchQuery"
+              placeholder="Nhập mã SKU, tên quy cách hoặc mô tả mặt hàng..."
+              class="w-full text-xs rounded-[6px]"
+              autofocus
+            />
+          </IconField>
+          <span class="text-xs text-slate-500 whitespace-nowrap">
+            Tìm thấy: <strong class="text-sky-700 font-mono">{{ filteredCatalogProducts.length }}</strong> sản phẩm
+          </span>
+        </div>
 
-        <div class="border border-slate-200 rounded-[6px] overflow-hidden max-h-[380px] overflow-y-auto">
+        <div class="border border-slate-200 rounded-[6px] overflow-hidden max-h-[420px] overflow-y-auto">
           <DataTable
             :value="filteredCatalogProducts"
             v-model:selection="selectedCatalogItems"
-            dataKey="sku"
-            showGridlines
+            dataKey="id"
             class="clean-datatable"
             responsiveLayout="scroll"
           >
             <Column selectionMode="multiple" headerStyle="width: 3rem" class="text-center"></Column>
-
-            <Column field="sku" header="Mã SKU" style="width: 160px">
+            <Column field="sku" header="Mã SKU" style="width: 150px">
               <template #body="{ data }">
                 <span class="font-mono text-xs font-bold text-sky-700">{{ data.sku }}</span>
               </template>
             </Column>
-
-            <Column field="designation" header="Designation" style="width: 140px">
+            <Column field="designation" header="Designation" style="width: 150px">
               <template #body="{ data }">
-                <span class="font-mono text-xs text-rose-700 font-medium">{{ data.designation }}</span>
+                <span class="font-mono text-xs text-rose-700">{{ data.designation }}</span>
               </template>
             </Column>
-
-            <Column field="brand" header="Hãng" style="width: 80px">
+            <Column field="brand" header="Hãng" style="width: 90px">
               <template #body="{ data }">
-                <span class="text-xs font-semibold text-slate-800">{{ data.brand }}</span>
+                <span class="text-xs font-medium">{{ data.brand }}</span>
               </template>
             </Column>
-
             <Column field="description" header="Mô tả sản phẩm">
               <template #body="{ data }">
-                <span class="text-xs text-slate-700">{{ data.description }}</span>
+                <span class="text-xs text-slate-800 line-clamp-1" :title="data.description">{{ data.description }}</span>
               </template>
             </Column>
-
-            <Column field="stock" header="Tồn khả dụng" class="text-center" style="width: 110px">
+            <Column field="stock" header="Tồn kho" class="text-center" style="width: 100px">
               <template #body="{ data }">
                 <span
-                  class="font-mono text-xs font-bold px-1.5 py-0.5 rounded-[4px]"
-                  :class="getAvailableStock(data) > 0 ? 'text-emerald-700 bg-emerald-50' : 'text-slate-400 bg-slate-50'"
-                  :title="`Tổng tồn khả dụng tất cả các kho: ${getAvailableStock(data)}`"
+                  class="font-mono text-xs font-bold px-2 py-0.5 rounded"
+                  :class="getAvailableStock(data) > 0 ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-slate-400 bg-slate-50 border border-slate-200'"
                 >
                   {{ getAvailableStock(data) }}
                 </span>
               </template>
             </Column>
-
             <Column field="gross_price" header="Giá Niêm Yết" class="text-right" style="width: 130px">
               <template #body="{ data }">
-                <span class="font-mono text-xs font-semibold text-slate-800">{{ formatCurrency(data.gross_price) }}</span>
+                <span class="font-mono text-xs font-bold text-slate-700">{{ formatCurrency(data.gross_price) }}</span>
               </template>
             </Column>
           </DataTable>
@@ -558,22 +276,27 @@
       </template>
     </Dialog>
 
-    <!-- 5. Modal Cài Đặt Cột -->
+    <!-- 4. Modal Cài Đặt Cột Động -->
     <Dialog
       v-model:visible="showColumnConfig"
       modal
-      header="Cài Đặt Ẩn / Hiện Cột Mặt Hàng"
+      header="Cài Đặt Ẩn / Hiện Cột"
       :style="{ width: '450px' }"
       class="rounded-[6px]"
     >
       <div class="grid grid-cols-2 gap-2 pt-1 text-xs">
-        <label v-for="(val, key) in columnsVisibility" :key="key" class="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer">
+        <label
+          v-for="col in allColumns"
+          :key="col.field"
+          class="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer"
+        >
           <input
             type="checkbox"
-            v-model="columnsVisibility[key]"
+            :checked="!hiddenColumns[col.field]"
+            @change="hiddenColumns[col.field] = !hiddenColumns[col.field]"
             class="rounded text-sky-600 focus:ring-sky-500 w-4 h-4 cursor-pointer"
           />
-          <span class="text-slate-700 font-medium">{{ getColumnLabel(key) }}</span>
+          <span class="text-slate-700 font-medium">{{ col.header || col.field }}</span>
         </label>
       </div>
 
@@ -593,12 +316,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue';
+import { ref, computed, reactive, watch, onMounted } from 'vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
-import InputNumber from 'primevue/inputnumber';
 import Dialog from 'primevue/dialog';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
@@ -612,21 +334,71 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
-  showCreateOrderButton: {
+  columns: {
+    type: Array,
+    default: () => []
+  },
+  showToolbar: {
     type: Boolean,
     default: true
   },
-  showItemStatus: {
+  showAddRow: {
     type: Boolean,
     default: true
+  },
+  showCatalogSearch: {
+    type: Boolean,
+    default: true
+  },
+  showColumnSetting: {
+    type: Boolean,
+    default: true
+  },
+  showExport: {
+    type: Boolean,
+    default: true
+  },
+  showIndex: {
+    type: Boolean,
+    default: true
+  },
+  showDelete: {
+    type: Boolean,
+    default: true
+  },
+  scrollHeight: {
+    type: String,
+    default: '580px'
+  },
+  tableStyle: {
+    type: Object,
+    default: () => ({ minWidth: '1800px' })
   }
 });
 
-const emit = defineEmits(['update:modelValue', 'summary-change', 'create-order']);
+const emit = defineEmits(['update:modelValue', 'summary-change', 'add-row']);
 
 const items = ref([]);
 
-// Map lưu trữ tổng tồn khả dụng cộng dồn từ tất cả các kho
+// Quản lý ẩn/hiện cột
+const showColumnConfig = ref(false);
+const hiddenColumns = reactive({});
+
+const allColumns = computed(() => {
+  return props.columns || [];
+});
+
+const activeColumns = computed(() => {
+  return allColumns.value.filter((col) => !hiddenColumns[col.field]);
+});
+
+const tableStyleComputed = computed(() => {
+  if (props.tableStyle) return props.tableStyle;
+  const count = activeColumns.value.length;
+  return { minWidth: `${Math.max(1200, count * 130)}px` };
+});
+
+// Map tồn kho
 const inventoryAvailableBySku = ref(new Map());
 const inventoryAvailableByProductId = ref(new Map());
 
@@ -649,204 +421,16 @@ watch(
     if (newVal) {
       items.value = newVal.map((it) => ({
         ...it,
-        stock: getAvailableStock(it),
-        status: it.status || (it.won || it.is_won ? 'WIN' : 'PENDING'),
-        _selected: !!it._selected
+        stock: getAvailableStock(it)
       }));
     }
   },
   { immediate: true, deep: true }
 );
 
-// ----------------------------------------------------
-// QUẢN LÝ CHỌN DÒNG & TRẠNG THÁI WIN / LOSE / PENDING
-// ----------------------------------------------------
-const showStatusDialog = ref(false);
-const newStatusToSet = ref('WIN');
-
-const selectedCount = computed(() => {
-  return items.value.filter((it) => it._selected).length;
-});
-
-const isAllSelected = computed(() => {
-  return items.value.length > 0 && items.value.every((it) => it._selected);
-});
-
-const toggleSelectAll = (e) => {
-  const isChecked = e.target.checked;
-  items.value.forEach((it) => {
-    it._selected = isChecked;
-  });
-};
-
-const openStatusDialog = () => {
-  if (selectedCount.value === 0) {
-    alert('Vui lòng tích chọn ít nhất 1 dòng mặt hàng trong bảng trước khi đổi trạng thái!');
-    return;
-  }
-  showStatusDialog.value = true;
-};
-
-const applyNewStatus = () => {
-  const targetStatus = newStatusToSet.value;
-  items.value.forEach((it) => {
-    if (it._selected) {
-      it.status = targetStatus;
-      it.won = targetStatus === 'WIN';
-      it.is_won = targetStatus === 'WIN';
-      if (targetStatus === 'WIN' && !it.won_quantity) {
-        it.won_quantity = it.quantity || 1;
-      }
-    }
-  });
-
-  notifyChange();
-  showStatusDialog.value = false;
-};
-
-const getStatusBadgeClass = (status) => {
-  switch (status) {
-    case 'WIN':
-      return 'bg-emerald-50 text-emerald-700 border-emerald-300';
-    case 'LOSE':
-      return 'bg-rose-50 text-rose-700 border-rose-300';
-    case 'PENDING':
-    default:
-      return 'bg-amber-50 text-amber-700 border-amber-300';
-  }
-};
-
-const getStatusLabel = (status) => {
-  switch (status) {
-    case 'WIN':
-      return 'WIN (Trúng)';
-    case 'LOSE':
-      return 'LOSE (Trượt)';
-    case 'PENDING':
-    default:
-      return 'PENDING (Chờ)';
-  }
-};
-
-const getStatusIcon = (status) => {
-  switch (status) {
-    case 'WIN':
-      return 'pi pi-check';
-    case 'LOSE':
-      return 'pi pi-times';
-    case 'PENDING':
-    default:
-      return 'pi pi-clock';
-  }
-};
-
-// ----------------------------------------------------
-// TẠO ĐƠN BÁN (SO) TỪ CÁC ITEM CÓ STATUS LÀ WIN
-// ----------------------------------------------------
-const handleCreateOrderAction = () => {
-  // 1. Nếu người dùng có chọn cụ thể các dòng qua checkbox
-  const selectedRows = items.value.filter((it) => it._selected);
-
-  if (selectedRows.length > 0) {
-    // Kiểm tra xem các dòng được chọn có dòng nào KHÔNG PHẢI WIN không
-    const nonWinRows = selectedRows.filter((it) => it.status !== 'WIN');
-    if (nonWinRows.length > 0) {
-      alert(`Chỉ cho phép chọn các mặt hàng có trạng thái WIN để tạo đơn bán! Bạn đang chọn ${nonWinRows.length} mặt hàng chưa có trạng thái WIN (PENDING hoặc LOSE). Vui lòng cập nhật trạng thái WIN hoặc bỏ chọn các dòng đó.`);
-      return;
-    }
-    // Hợp lệ -> emit các dòng đã chọn
-    emit('create-order', selectedRows);
-  } else {
-    // 2. Nếu người dùng chưa tích checkbox nào -> tự động lọc tất cả các dòng WIN
-    const allWinItems = items.value.filter((it) => it.status === 'WIN');
-    if (allWinItems.length === 0) {
-      alert('Không có mặt hàng nào có trạng thái WIN (Trúng thầu)! Vui lòng chọn các mặt hàng và nhấn "Đổi trạng thái" sang WIN trước khi tạo đơn bán hàng.');
-      return;
-    }
-    emit('create-order', allWinItems);
-  }
-};
-
-// ----------------------------------------------------
-// ẨN / HIỆN CỘT
-// ----------------------------------------------------
-const showColumnConfig = ref(false);
-const columnsVisibility = reactive({
-  sku: true,
-  designation: true,
-  brand: true,
-  description: true,
-  com: true,
-  stock: true,
-  unit: true,
-  quantity: true,
-  discount: true,
-  sellingPrice: true,
-  grossPrice: true,
-  vat: true,
-  leadTime: true,
-  subtotal: true,
-  status: true
-});
-
-const getColumnLabel = (key) => {
-  const map = {
-    sku: 'Internal Code (SKU)',
-    designation: 'Designation (Quy cách)',
-    brand: 'Brand (Thương hiệu)',
-    description: 'Item Description (Mô tả)',
-    com: 'COM (Xuất xứ)',
-    stock: 'Stock (Tồn kho)',
-    unit: 'Unit (Đơn vị tính)',
-    quantity: 'Quantity (Số lượng)',
-    discount: 'Discount (Chiết khấu %)',
-    sellingPrice: 'Selling Price (Giá bán)',
-    grossPrice: 'Gross Price (Giá niêm yết)',
-    vat: 'VAT %',
-    leadTime: 'Lead Time (Giao hàng)',
-    subtotal: 'Subtotal (Thành tiền)',
-    status: 'Status (Trạng thái Win/Lose)'
-  };
-  return map[key] || key;
-};
-
-// ----------------------------------------------------
-// TÍNH TOÁN CÔNG THỨC 2 CHIỀU & THAY ĐỔI GIÁ TRỊ
-// ----------------------------------------------------
-// Khi nhập chiết khấu % -> tính ra selling_price
-const onDiscountChange = (row) => {
-  const gross = Number(row.gross_price) || 0;
-  const disc = Number(row.discount_percent) || 0;
-  row.selling_price = Math.round(gross * (1 - disc / 100));
-  row.subtotal = (Number(row.quantity) || 1) * row.selling_price;
-  notifyChange();
-};
-
-// Khi nhập đơn giá bán selling_price -> tự tính ngược lại chiết khấu %
-const onSellingPriceChange = (row) => {
-  const gross = Number(row.gross_price) || 0;
-  const selling = Number(row.selling_price) || 0;
-  if (gross > 0) {
-    const calculatedDisc = ((gross - selling) / gross) * 100;
-    row.discount_percent = Math.max(0, Math.round(calculatedDisc * 10) / 10);
-  } else {
-    row.discount_percent = 0;
-  }
-  row.subtotal = (Number(row.quantity) || 1) * selling;
-  notifyChange();
-};
-
-// Khi sửa số lượng Quantity
-const onQuantityChange = (row) => {
-  const qty = Number(row.quantity) || 1;
-  const selling = Number(row.selling_price) || 0;
-  row.subtotal = qty * selling;
-  notifyChange();
-};
-
-// Khi sửa VAT %
-const onVatChange = (row) => {
-  notifyChange();
+const notifyChange = () => {
+  emit('update:modelValue', items.value);
+  emit('summary-change', summary.value);
 };
 
 // Thêm dòng mới
@@ -866,12 +450,11 @@ const addNewEmptyRow = () => {
     selling_price: 0,
     vat_percent: 10,
     lead_time: 'Có sẵn',
-    subtotal: 0,
-    status: 'PENDING',
-    won: false,
-    _selected: false
+    delivery_date: '',
+    subtotal: 0
   };
   items.value.push(newRow);
+  emit('add-row', newRow);
   notifyChange();
 };
 
@@ -881,84 +464,54 @@ const removeItemRow = (idx) => {
     items.value.splice(idx, 1);
     notifyChange();
   } else {
-    alert('Danh sách cần có ít nhất 1 dòng sản phẩm!');
+    items.value[0] = {
+      id: Date.now(),
+      sku: '',
+      designation: '',
+      brand: '',
+      description: '',
+      com: 'Việt Nam',
+      stock: 0,
+      unit: 'Cái',
+      quantity: 1,
+      gross_price: 0,
+      discount_percent: 0,
+      selling_price: 0,
+      vat_percent: 10,
+      lead_time: 'Có sẵn',
+      delivery_date: '',
+      subtotal: 0
+    };
+    notifyChange();
   }
 };
 
-// ----------------------------------------------------
-// TÌM & THÊM TỪ CATALOG MODAL
-// ----------------------------------------------------
-const catalogProducts = ref([]);
+// Catalog search & import
 const showCatalogSearchDialog = ref(false);
 const catalogSearchQuery = ref('');
+const catalogProducts = ref([]);
 const selectedCatalogItems = ref([]);
 
 const loadInventoryStocks = async () => {
-  let stockList = [];
   try {
-    const res = await inventoryApi.getStocks({ pageSize: 1000 });
-    if (res && res.data && Array.isArray(res.data)) {
-      stockList = res.data;
-    } else if (Array.isArray(res)) {
-      stockList = res;
-    }
+    const res = await inventoryApi.getStocks();
+    const stocks = res.data || [];
+    const bySku = new Map();
+    const byPid = new Map();
+
+    stocks.forEach((s) => {
+      const avail = Number(s.available_quantity ?? s.quantity ?? 0);
+      const sku = (s.product_sku || s.sku || '').trim().toUpperCase();
+      const pid = Number(s.product_id || s.id || 0);
+
+      if (pid) byPid.set(pid, (byPid.get(pid) || 0) + avail);
+      if (sku) bySku.set(sku, (bySku.get(sku) || 0) + avail);
+    });
+
+    inventoryAvailableBySku.value = bySku;
+    inventoryAvailableByProductId.value = byPid;
   } catch (err) {
-    console.warn('[ItemDataTable] Không thể kết nối Inventory API :8004, dùng Fallback:', err);
-  }
-
-  // Fallback nếu API chưa có dữ liệu hoặc không kết nối được
-  if (!stockList || stockList.length === 0) {
-    stockList = FALLBACK_CATALOG_PRODUCTS.flatMap((p) => [
-      { product_id: p.id, sku: p.sku, available: 100, warehouse_id: 1 },
-      { product_id: p.id, sku: p.sku, available: 100, warehouse_id: 2 },
-      { product_id: p.id, sku: p.sku, available: 100, warehouse_id: 3 }
-    ]);
-  }
-
-  // Tính tổng tồn khả dụng (Available) cộng dồn của TẤT CẢ các kho cho từng sản phẩm
-  const bySku = new Map();
-  const byPid = new Map();
-
-  stockList.forEach((s) => {
-    const pid = Number(s.product_id ?? s.productId ?? 0);
-    const sku = (s.sku || '').trim().toUpperCase();
-    const qOnHand = Number(s.quantity_on_hand ?? s.quantityOnHand ?? 0);
-    const qReserved = Number(s.quantity_reserved ?? s.quantityReserved ?? 0);
-    const avail = Number(s.available ?? (qOnHand - qReserved));
-
-    if (pid > 0) {
-      byPid.set(pid, (byPid.get(pid) || 0) + avail);
-    }
-    if (sku) {
-      bySku.set(sku, (bySku.get(sku) || 0) + avail);
-    }
-  });
-
-  // Nếu stock từ backend chỉ có product_id mà không có sku, map với catalog
-  catalogProducts.value.forEach((p) => {
-    const pid = Number(p.id);
-    const sku = (p.sku || '').trim().toUpperCase();
-    if (pid && byPid.has(pid)) {
-      const totalAvail = byPid.get(pid);
-      if (sku && !bySku.has(sku)) {
-        bySku.set(sku, totalAvail);
-      }
-    }
-  });
-
-  inventoryAvailableBySku.value = bySku;
-  inventoryAvailableByProductId.value = byPid;
-
-  // Cập nhật lại số tồn cho items và catalog
-  if (items.value.length > 0) {
-    items.value.forEach((it) => {
-      it.stock = getAvailableStock(it);
-    });
-  }
-  if (catalogProducts.value.length > 0) {
-    catalogProducts.value.forEach((p) => {
-      p.stock = getAvailableStock(p);
-    });
+    console.warn('loadInventoryStocks fallback:', err);
   }
 };
 
@@ -971,30 +524,20 @@ const loadCatalogProducts = async () => {
         sku: p.sku,
         designation: p.designation || '',
         brand: p.brand || '',
-        category: p.category || '',
-        description: p.description || p.item_description || p.name || '',
+        description: p.name || p.description || '',
+        gross_price: Number(p.gross_price) || Number(p.price) || 0,
         unit: p.unit || 'Cái',
-        com: p.com || 'Việt Nam',
-        stock: getAvailableStock(p),
-        gross_price: Number(p.gross_price) || 0,
+        com: p.com || 'Chính hãng',
+        stock: 0,
         lead_time: 'Có sẵn',
         vat_percent: 10,
         spec: p.spec || ''
       }));
     }
   } catch (err) {
-    console.warn('loadCatalogProducts error:', err);
+    catalogProducts.value = FALLBACK_CATALOG_PRODUCTS;
   }
 };
-
-onMounted(async () => {
-  await Promise.allSettled([loadCatalogProducts(), loadInventoryStocks()]);
-  if (items.value.length > 0) {
-    items.value.forEach((it) => {
-      it.stock = getAvailableStock(it);
-    });
-  }
-});
 
 const filteredCatalogProducts = computed(() => {
   if (!catalogSearchQuery.value) return catalogProducts.value;
@@ -1004,7 +547,7 @@ const filteredCatalogProducts = computed(() => {
       p.sku.toLowerCase().includes(q) ||
       (p.designation && p.designation.toLowerCase().includes(q)) ||
       (p.brand && p.brand.toLowerCase().includes(q)) ||
-      p.description.toLowerCase().includes(q)
+      (p.description && p.description.toLowerCase().includes(q))
   );
 });
 
@@ -1018,32 +561,24 @@ const openSearchDialog = async () => {
   showCatalogSearchDialog.value = true;
 };
 
-const fillRowWithCatalogProduct = (row, product) => {
-  row.sku = product.sku;
-  row.designation = product.designation;
-  row.brand = product.brand;
-  row.description = product.description;
-  row.unit = product.unit || 'Cái';
-  row.com = product.com || 'Chính hãng';
-  row.stock = getAvailableStock(product);
-  row.gross_price = product.gross_price || 0;
-  row.vat_percent = product.vat_percent || 10;
-  row.lead_time = product.lead_time || 'Có sẵn';
-  row.status = row.status || 'PENDING';
-
-  const disc = Number(row.discount_percent) || 0;
-  row.selling_price = Math.round(row.gross_price * (1 - disc / 100));
-  row.subtotal = (Number(row.quantity) || 1) * row.selling_price;
-  notifyChange();
-};
-
 const confirmAddCatalogItems = () => {
   selectedCatalogItems.value.forEach((prod) => {
     const lastItem = items.value[items.value.length - 1];
     if (lastItem && !lastItem.sku && items.value.length === 1) {
-      fillRowWithCatalogProduct(lastItem, prod);
+      lastItem.sku = prod.sku;
+      lastItem.designation = prod.designation;
+      lastItem.brand = prod.brand;
+      lastItem.description = prod.description;
+      lastItem.unit = prod.unit || 'Cái';
+      lastItem.com = prod.com || 'Chính hãng';
+      lastItem.stock = getAvailableStock(prod);
+      lastItem.gross_price = prod.gross_price || 0;
+      lastItem.vat_percent = prod.vat_percent || 10;
+      lastItem.lead_time = prod.lead_time || 'Có sẵn';
+      lastItem.selling_price = Math.round(prod.gross_price * 0.9);
+      lastItem.subtotal = (Number(lastItem.quantity) || 1) * lastItem.selling_price;
     } else {
-      const newLine = {
+      items.value.push({
         id: Date.now() + Math.random(),
         sku: prod.sku,
         designation: prod.designation,
@@ -1058,12 +593,9 @@ const confirmAddCatalogItems = () => {
         selling_price: Math.round(prod.gross_price * 0.9),
         vat_percent: prod.vat_percent || 10,
         lead_time: prod.lead_time || 'Có sẵn',
-        subtotal: Math.round(prod.gross_price * 0.9),
-        status: 'PENDING',
-        won: false,
-        _selected: false
-      };
-      items.value.push(newLine);
+        delivery_date: '',
+        subtotal: Math.round(prod.gross_price * 0.9)
+      });
     }
   });
 
@@ -1071,9 +603,7 @@ const confirmAddCatalogItems = () => {
   showCatalogSearchDialog.value = false;
 };
 
-// ----------------------------------------------------
-// THỐNG KÊ TỔNG HỢP BANNER
-// ----------------------------------------------------
+// Thống kê tổng hợp banner
 const summary = computed(() => {
   let subtotal = 0;
   let vatTotal = 0;
@@ -1081,12 +611,13 @@ const summary = computed(() => {
 
   items.value.forEach((it) => {
     const qty = Number(it.quantity) || 1;
-    const lineSubtotal = Number(it.subtotal) || qty * (Number(it.selling_price) || 0);
+    const selling = Number(it.selling_price) || 0;
+    const lineSubtotal = Number(it.subtotal) || qty * selling;
     const lineVat = Math.round(lineSubtotal * ((Number(it.vat_percent) || 0) / 100));
 
     subtotal += lineSubtotal;
     vatTotal += lineVat;
-    totalGross += (Number(it.gross_price) || Number(it.selling_price) || 0) * qty;
+    totalGross += (Number(it.gross_price) || selling) * qty;
   });
 
   const avgDiscount = totalGross > 0 ? Math.round(((totalGross - subtotal) / totalGross) * 100) : 0;
@@ -1100,24 +631,22 @@ const summary = computed(() => {
   };
 });
 
-watch(
-  summary,
-  (newSum) => {
-    emit('summary-change', newSum);
-  },
-  { immediate: true, deep: true }
-);
-
-const notifyChange = () => {
-  emit('update:modelValue', items.value);
-  emit('summary-change', summary.value);
-};
-
-// Xuất file CSV
+// Xuất Excel CSV
 const exportToExcel = () => {
-  let csv = 'STT,SKU,Designation,Brand,Mô Tả,COM,Tồn Kho,ĐVT,Số Lượng,Chiết Khấu %,Giá Bán,Giá Niêm Yết,VAT %,Giao Hàng,Thành Tiền,Status\n';
+  const cols = activeColumns.value;
+  const headers = ['STT', ...cols.map((c) => c.header || c.field)];
+  let csv = headers.join(',') + '\n';
   items.value.forEach((it, idx) => {
-    csv += `${idx + 1},"${it.sku}","${it.designation}","${it.brand}","${it.description}","${it.com}",${it.stock},"${it.unit}",${it.quantity},${it.discount_percent},${it.selling_price},${it.gross_price},${it.vat_percent},"${it.lead_time}",${it.subtotal},"${it.status || 'PENDING'}"\n`;
+    const row = [
+      idx + 1,
+      ...cols.map((c) => {
+        let val = it[c.field];
+        if (val === undefined || val === null) val = '';
+        if (c.field === 'discount') val = it.discount_percent ?? '';
+        return `"${String(val).replace(/"/g, '""')}"`;
+      })
+    ];
+    csv += row.join(',') + '\n';
   });
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1129,9 +658,20 @@ const exportToExcel = () => {
   document.body.removeChild(link);
 };
 
-onMounted(() => {
-  if (catalogProducts.value.length === 0) {
-    loadCatalogProducts();
+onMounted(async () => {
+  await Promise.allSettled([loadCatalogProducts(), loadInventoryStocks()]);
+  if (items.value.length > 0) {
+    items.value.forEach((it) => {
+      it.stock = getAvailableStock(it);
+    });
   }
+});
+
+defineExpose({
+  items,
+  summary,
+  notifyChange,
+  addNewEmptyRow,
+  getAvailableStock
 });
 </script>

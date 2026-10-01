@@ -165,8 +165,16 @@ export const menuCategories = [
             path: '/delivery',
             resource: 'delivery',
             permission: 'delivery.view',
-            label: 'Yêu cầu giao hàng',
+            label: 'Giao hàng',
             icon: 'pi pi-truck'
+          },
+          {
+            id: 'delivery-request',
+            path: '/delivery-request',
+            resource: 'delivery',
+            permission: 'delivery.view',
+            label: 'Yêu cầu giao hàng',
+            icon: 'pi pi-send'
           },
           {
             id: 'invoice',

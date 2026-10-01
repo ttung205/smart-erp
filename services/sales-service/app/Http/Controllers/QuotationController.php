@@ -112,10 +112,8 @@ class QuotationController extends Controller
             $quotation = Quotation::create([
                 'quotation_number' => $qNumber,
                 'customer_id' => $request->input('customer_id'),
-                'customer_code' => $customerCode,
                 'customer_name' => $customerName,
                 'contact_id' => $request->input('contact_id'),
-                'contact_name' => $request->input('contact_name'),
                 'quotation_date' => $request->input('quotation_date', now()->format('d/m/Y')),
                 'currency' => $request->input('currency', 'VND'),
                 'exchange_rate' => (float)$request->input('exchange_rate', 1.0),
@@ -130,22 +128,29 @@ class QuotationController extends Controller
 
             $items = $request->input('items', []);
             foreach ($items as $it) {
+                $prodId = $it['product_id'] ?? null;
+                if (!$prodId && !empty($it['sku'])) {
+                    $prod = \App\Models\Product::where('sku', $it['sku'])->first();
+                    $prodId = $prod?->id;
+                }
+
+                $grossPrice = (float)($it['gross_price'] ?? 0);
+                if ($grossPrice <= 0 && $prod) {
+                    $grossPrice = (float)($prod->gross_price ?? 0);
+                }
+
                 QuotationItem::create([
                     'quotation_id' => $quotation->id,
+                    'product_id' => $prodId,
                     'sku' => $it['sku'] ?? 'UNKNOWN',
-                    'designation' => $it['designation'] ?? null,
-                    'brand' => $it['brand'] ?? null,
                     'description' => $it['description'] ?? null,
-                    'com' => $it['com'] ?? 'Việt Nam',
-                    'unit' => $it['unit'] ?? 'Cái',
                     'quantity' => (float)($it['quantity'] ?? 1),
-                    'gross_price' => (float)($it['gross_price'] ?? 0),
+                    'gross_price' => $grossPrice,
                     'discount_percent' => (float)($it['discount_percent'] ?? 0),
                     'selling_price' => (float)($it['selling_price'] ?? 0),
                     'vat_percent' => (float)($it['vat_percent'] ?? 10),
                     'lead_time' => $it['lead_time'] ?? 'Có sẵn',
                     'subtotal' => (float)($it['subtotal'] ?? 0),
-                    'is_won' => ($it['status'] ?? '') === 'WIN' || (bool)($it['won'] ?? $it['is_won'] ?? false),
                     'won_quantity' => (float)($it['won_quantity'] ?? 0),
                     'status' => $it['status'] ?? (($it['won'] ?? false) ? 'WIN' : 'PENDING'),
                 ]);
@@ -175,10 +180,8 @@ class QuotationController extends Controller
         try {
             $q->update([
                 'customer_id' => $request->input('customer_id', $q->customer_id),
-                'customer_code' => $request->input('customer_code', $q->customer_code),
                 'customer_name' => $request->input('customer_name', $q->customer_name),
                 'contact_id' => $request->input('contact_id', $q->contact_id),
-                'contact_name' => $request->input('contact_name', $q->contact_name),
                 'currency' => $request->input('currency', $q->currency),
                 'exchange_rate' => (float)$request->input('exchange_rate', $q->exchange_rate),
                 'assigned_to' => $request->input('assigned_to', $q->assigned_to),
@@ -191,22 +194,29 @@ class QuotationController extends Controller
             if ($request->has('items')) {
                 QuotationItem::where('quotation_id', $q->id)->delete();
                 foreach ($request->input('items', []) as $it) {
+                    $prodId = $it['product_id'] ?? null;
+                    if (!$prodId && !empty($it['sku'])) {
+                        $prod = \App\Models\Product::where('sku', $it['sku'])->first();
+                        $prodId = $prod?->id;
+                    }
+
+                    $grossPrice = (float)($it['gross_price'] ?? 0);
+                    if ($grossPrice <= 0 && $prod) {
+                        $grossPrice = (float)($prod->gross_price ?? 0);
+                    }
+
                     QuotationItem::create([
                         'quotation_id' => $q->id,
+                        'product_id' => $prodId,
                         'sku' => $it['sku'] ?? 'UNKNOWN',
-                        'designation' => $it['designation'] ?? null,
-                        'brand' => $it['brand'] ?? null,
                         'description' => $it['description'] ?? null,
-                        'com' => $it['com'] ?? 'Việt Nam',
-                        'unit' => $it['unit'] ?? 'Cái',
                         'quantity' => (float)($it['quantity'] ?? 1),
-                        'gross_price' => (float)($it['gross_price'] ?? 0),
+                        'gross_price' => $grossPrice,
                         'discount_percent' => (float)($it['discount_percent'] ?? 0),
                         'selling_price' => (float)($it['selling_price'] ?? 0),
                         'vat_percent' => (float)($it['vat_percent'] ?? 10),
                         'lead_time' => $it['lead_time'] ?? 'Có sẵn',
                         'subtotal' => (float)($it['subtotal'] ?? 0),
-                        'is_won' => ($it['status'] ?? '') === 'WIN' || (bool)($it['won'] ?? $it['is_won'] ?? false),
                         'won_quantity' => (float)($it['won_quantity'] ?? 0),
                         'status' => $it['status'] ?? (($it['won'] ?? false) ? 'WIN' : 'PENDING'),
                     ]);

@@ -9,7 +9,7 @@ class InvoiceController extends Controller
 {
     public function index()
     {
-        $invoices = Invoice::with('items')->orderBy('id', 'desc')->get();
+        $invoices = Invoice::with(['items', 'deliveryRequest.order.customer'])->orderBy('id', 'desc')->get();
         return response()->json(['success' => true, 'data' => $invoices]);
     }
 
@@ -18,12 +18,17 @@ class InvoiceController extends Controller
         $randNum = rand(100, 999);
         $invNumber = $request->input('invoice_number') ?? "INV-2026-{$randNum}";
 
+        $drId = $request->input('delivery_request_id');
+        $drNumber = $request->input('delivery_request_number');
+        if (!$drId && $drNumber) {
+            $dr = \App\Models\DeliveryRequest::where('request_number', $drNumber)->orWhere('id', $drNumber)->first();
+            $drId = $dr?->id;
+        }
+
         $inv = Invoice::create([
             'invoice_number' => $invNumber,
-            'delivery_request_number' => $request->input('delivery_request_number') ?? $request->input('delivery_request_id'),
-            'order_number' => $request->input('order_number') ?? $request->input('order_id'),
-            'customer_name' => $request->input('customer_name', 'Khách hàng'),
-            'warehouse_name' => $request->input('warehouse_name', 'Kho Tổng Miền Bắc (Hà Nội)'),
+            'delivery_request_id' => $drId,
+            'delivery_request_number' => $drNumber,
             'invoice_date' => $request->input('invoice_date', now()->format('Y-m-d')),
             'payment_terms' => $request->input('payment_terms', 'Công nợ 30 ngày'),
             'total_amount' => (float)$request->input('total_amount', 0),

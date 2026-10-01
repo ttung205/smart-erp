@@ -29,6 +29,15 @@
         </div>
       </div>
 
+      <!-- Địa chỉ giao hàng thực tế -->
+      <div v-if="order.shipping_address" class="flex items-start gap-2 px-3 py-2 bg-amber-50/60 border border-amber-200/70 rounded-[6px] text-xs">
+        <i class="pi pi-map-marker text-rose-500 mt-0.5"></i>
+        <div>
+          <span class="font-semibold text-slate-700">Địa chỉ giao hàng: </span>
+          <span class="text-slate-800">{{ order.shipping_address }}</span>
+        </div>
+      </div>
+
       <!-- Thanh trạng thái & phân công nhân sự -->
       <div class="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-[6px] text-xs">
         <div class="flex items-center gap-3">
@@ -86,6 +95,14 @@
           <Column header="Số lượng" class="text-right" style="width: 90px">
             <template #body="{ data }">
               <span class="font-mono font-bold">{{ data.quantity }}</span>
+            </template>
+          </Column>
+
+          <Column header="Ngày hẹn giao" style="width: 130px" class="text-center">
+            <template #body="{ data }">
+              <span class="font-mono text-xs font-semibold text-sky-800 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
+                {{ data.delivery_date || data.expected_delivery_date || 'Theo đơn' }}
+              </span>
             </template>
           </Column>
 

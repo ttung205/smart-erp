@@ -157,7 +157,33 @@
           </div>
         </div>
 
-        <!-- Hàng 2 của cột trái: Số đơn nội bộ (4 cols) + Số đơn khách (4 cols) + Tiền tệ (2 cols) + Tỷ giá (2 cols) chống vỡ layout -->
+        <!-- Hàng 2 của cột trái: Địa chỉ giao hàng (Cho phép sửa + Nút áp dụng địa chỉ khách hàng) -->
+        <div class="flex flex-col gap-1.5 pt-2 border-t border-slate-100">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5 truncate">
+              <i class="pi pi-map-marker text-rose-500 text-xs"></i>
+              <span>Địa chỉ giao hàng</span>
+              <span class="text-[10px] font-normal text-slate-400 lowercase truncate">(có thể sửa nếu giao kho/công trình khác)</span>
+            </label>
+            <Button
+              type="button"
+              label="Áp dụng địa chỉ của khách hàng"
+              icon="pi pi-copy"
+              size="small"
+              text
+              class="!text-[11px] !py-0.5 !px-2 rounded-[4px] !text-sky-600 hover:!bg-sky-50 !font-semibold shrink-0"
+              :disabled="!form.customer_id"
+              @click="applyCustomerAddress"
+            />
+          </div>
+          <InputText
+            v-model="form.shipping_address"
+            placeholder="Nhập địa chỉ giao hàng hoặc bấm 'Áp dụng địa chỉ của khách hàng'..."
+            class="w-full text-xs rounded-[6px] h-10 px-3 border-slate-300 focus:!border-indigo-500 bg-white"
+          />
+        </div>
+
+        <!-- Hàng 3 của cột trái: Số đơn nội bộ (4 cols) + Số đơn khách (4 cols) + Tiền tệ (2 cols) + Tỷ giá (2 cols) chống vỡ layout -->
         <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-start pt-2 border-t border-slate-100">
           <!-- Số đơn hàng nội bộ (luôn tự sinh để quản lý nội bộ, không sửa) -->
           <div class="md:col-span-4 min-w-0 flex flex-col gap-1.5">
@@ -443,6 +469,7 @@ const form = ref({
   assigned_to_name: '',
   status: 'DRAFT',
   notes: '',
+  shipping_address: '',
   total_amount: 0,
   subtotal: 0,
   vat_total: 0,
@@ -537,8 +564,10 @@ const initFormData = async () => {
           customer_code: so.customer_code || so.customer?.code || '',
           contact_name: so.contact_name || so.contact?.name || '',
           quotation_number: so.quotation_number || so.quotation?.quotation_number || '',
+          shipping_address: so.shipping_address || '',
           items: (so.items || []).map((it) => ({
             ...it,
+            delivery_date: it.delivery_date || it.expected_delivery_date || '',
             status: it.status || 'WIN',
             won: true,
             _selected: false
@@ -584,11 +613,13 @@ const initFormData = async () => {
         assigned_to: parsedAssigned,
         status: 'DRAFT',
         notes: `Đơn bán hàng chuyển đổi từ Báo giá ${parsed.quotation_number || ''}`,
+        shipping_address: parsed.shipping_address || '',
         total_amount: 0,
         subtotal: 0,
         vat_total: 0,
         items: (parsed.items || []).map((it) => ({
           ...it,
+          delivery_date: it.delivery_date || it.expected_delivery_date || '',
           status: 'WIN',
           won: true,
           _selected: false
@@ -637,6 +668,26 @@ const onCustomerChange = () => {
     form.value.customer_name = '';
     form.value.contact_id = null;
     form.value.contact_name = '';
+  }
+};
+
+const applyCustomerAddress = () => {
+  const cust = customers.value.find((c) => c.id === form.value.customer_id);
+  if (cust && cust.address) {
+    form.value.shipping_address = cust.address;
+    toast.add({
+      severity: 'info',
+      summary: 'Địa chỉ giao hàng',
+      detail: `Đã áp dụng địa chỉ khách hàng: ${cust.address}`,
+      life: 3000
+    });
+  } else {
+    toast.add({
+      severity: 'warn',
+      summary: 'Không có địa chỉ',
+      detail: 'Khách hàng này chưa có địa chỉ lưu trong hệ thống.',
+      life: 3000
+    });
   }
 };
 

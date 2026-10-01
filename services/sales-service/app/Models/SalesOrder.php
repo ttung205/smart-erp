@@ -26,6 +26,7 @@ class SalesOrder extends Model
         'total_amount',
         'status',
         'notes',
+        'shipping_address',
     ];
 
     protected $appends = [

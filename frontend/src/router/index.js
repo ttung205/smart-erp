@@ -318,6 +318,17 @@ export const routes = [
       requiresAuth: true,
       resource: 'delivery',
       permission: 'delivery.view',
+      title: 'Giao Hàng'
+    }
+  },
+  {
+    path: '/delivery-request',
+    name: 'delivery-request',
+    component: DeliveryPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'delivery',
+      permission: 'delivery.view',
       title: 'Yêu Cầu Giao Hàng'
     }
   },
