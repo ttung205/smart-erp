@@ -48,109 +48,32 @@ public static class DbInitializer
             await context.SaveChangesAsync();
         }
 
-        // 3. Seed Initial Inventory Stocks
+        // 3. Seed Initial Inventory Stocks (100 products from Catalog, 100 units each)
         if (!await context.InventoryStocks.AnyAsync())
         {
-            var hnWarehouse = await context.Warehouses.FirstOrDefaultAsync(w => w.Code == "WH-HN-01");
-            var hcmWarehouse = await context.Warehouses.FirstOrDefaultAsync(w => w.Code == "WH-HCM-01");
-
-            if (hnWarehouse != null && hcmWarehouse != null)
+            var warehouses = await context.Warehouses.ToListAsync();
+            if (warehouses.Any())
             {
-                var initialStocks = new List<InventoryStock>
+                var initialStocks = new List<InventoryStock>();
+                for (int productId = 1; productId <= 100; productId++)
                 {
-                    // Kho Hà Nội
-                    new()
+                    foreach (var w in warehouses)
                     {
-                        ProductId = 1, // Laptop MacBook Pro 14 M3
-                        WarehouseId = hnWarehouse.Id,
-                        QuantityOnHand = 50,
-                        QuantityReserved = 5,
-                        MinStock = 10,
-                        Version = 1,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    },
-                    new()
-                    {
-                        ProductId = 2, // iPhone 15 Pro Max 256GB
-                        WarehouseId = hnWarehouse.Id,
-                        QuantityOnHand = 80,
-                        QuantityReserved = 10,
-                        MinStock = 15,
-                        Version = 1,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    },
-                    new()
-                    {
-                        ProductId = 3, // Màn hình Dell UltraSharp 27"
-                        WarehouseId = hnWarehouse.Id,
-                        QuantityOnHand = 35,
-                        QuantityReserved = 0,
-                        MinStock = 5,
-                        Version = 1,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    },
-
-                    // Kho TP.HCM
-                    new()
-                    {
-                        ProductId = 1,
-                        WarehouseId = hcmWarehouse.Id,
-                        QuantityOnHand = 40,
-                        QuantityReserved = 2,
-                        MinStock = 10,
-                        Version = 1,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    },
-                    new()
-                    {
-                        ProductId = 2,
-                        WarehouseId = hcmWarehouse.Id,
-                        QuantityOnHand = 60,
-                        QuantityReserved = 5,
-                        MinStock = 15,
-                        Version = 1,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
+                        initialStocks.Add(new InventoryStock
+                        {
+                            ProductId = productId,
+                            WarehouseId = w.Id,
+                            QuantityOnHand = 100,
+                            QuantityReserved = 0,
+                            MinStock = 10,
+                            Version = 1,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        });
                     }
-                };
+                }
 
                 await context.InventoryStocks.AddRangeAsync(initialStocks);
-                await context.SaveChangesAsync();
-
-                // 4. Seed Initial Stock Movement Audit Record
-                var movements = new List<StockMovement>
-                {
-                    new()
-                    {
-                        ProductId = 1,
-                        WarehouseId = hnWarehouse.Id,
-                        MovementType = "PO_RECEIPT",
-                        QuantityDelta = 50,
-                        BalanceOnHandAfter = 50,
-                        BalanceReservedAfter = 0,
-                        ReferenceDoc = "PO-202609-INIT",
-                        CreatedBy = 1,
-                        CreatedAt = DateTime.UtcNow.AddDays(-2)
-                    },
-                    new()
-                    {
-                        ProductId = 1,
-                        WarehouseId = hnWarehouse.Id,
-                        MovementType = "SO_RESERVE",
-                        QuantityDelta = 5,
-                        BalanceOnHandAfter = 50,
-                        BalanceReservedAfter = 5,
-                        ReferenceDoc = "SO-202609-SAMPLE",
-                        CreatedBy = 2,
-                        CreatedAt = DateTime.UtcNow.AddDays(-1)
-                    }
-                };
-
-                await context.StockMovements.AddRangeAsync(movements);
                 await context.SaveChangesAsync();
             }
         }

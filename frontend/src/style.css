@@ -136,6 +136,7 @@ h1, h2, h3, h4, h5, h6 {
   border-top: none !important;
   border-bottom: 1px solid var(--border-subtle) !important;
   padding: 10px 14px !important;
+  white-space: nowrap !important;
 }
 
 /* 2. All Rows: Pure White (No alternating zebra striping or tinted rows) */

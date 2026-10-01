@@ -8,25 +8,11 @@ const FALLBACK_WAREHOUSES = [
   { id: 3, code: 'WH-DN-01', name: 'Kho Trung Chuyển Miền Trung (Đà Nẵng)', location: 'KCN Hòa Khánh, Liên Chiểu, Đà Nẵng', is_active: true }
 ]
 
-// Sinh dữ liệu tồn kho mẫu đầu kỳ cho toàn bộ 100 sản phẩm Catalog
+// Sinh dữ liệu tồn kho mẫu đầu kỳ cho toàn bộ 100 sản phẩm Catalog (mỗi mã tồn 100 chiếc)
 const generateFallbackStocks = () => {
   const list = []
   FALLBACK_CATALOG_PRODUCTS.forEach(p => {
-    // 1. Kho Hà Nội (Kho chính: Đầy đủ 100% sản phẩm)
-    let qOnHandHn = 20 + ((p.id * 7) % 65)
-    let qResHn = (p.id % 4 === 0) ? 5 : 0
-    if ([5, 12, 19, 25, 40, 60, 75].includes(p.id)) {
-      qOnHandHn = 4 + (p.id % 3) // Sắp hết (LOW_STOCK)
-      qResHn = 1
-    } else if ([8, 33].includes(p.id)) {
-      qOnHandHn = 0 // Hết hàng (OUT_OF_STOCK)
-      qResHn = 0
-    }
-    const availHn = Math.max(0, qOnHandHn - qResHn)
-    let statusHn = 'NORMAL'
-    if (availHn === 0) statusHn = 'OUT_OF_STOCK'
-    else if (availHn <= (p.min_stock || 10)) statusHn = 'LOW_STOCK'
-
+    // 1. Kho Hà Nội (Kho chính)
     list.push({
       id: list.length + 1,
       product_id: p.id,
@@ -35,143 +21,57 @@ const generateFallbackStocks = () => {
       warehouse_id: 1,
       warehouse_code: 'WH-HN-01',
       warehouse_name: 'Kho Tổng Hà Nội',
-      quantity_on_hand: qOnHandHn,
-      quantity_reserved: qResHn,
-      available: availHn,
+      quantity_on_hand: 100,
+      quantity_reserved: 0,
+      available: 100,
       min_stock: p.min_stock || 10,
       unit: p.unit || 'Cái',
-      status: statusHn,
+      status: 'NORMAL',
       updated_at: new Date().toISOString()
     })
 
-    // 2. Kho TP.HCM (Kho thứ 2: Phủ 70% danh mục)
-    if (p.id % 3 !== 0) {
-      const qHcm = 15 + ((p.id * 11) % 50)
-      const qResHcm = (p.id % 5 === 0) ? 3 : 0
-      const availHcm = Math.max(0, qHcm - qResHcm)
-      list.push({
-        id: list.length + 1,
-        product_id: p.id,
-        sku: p.sku,
-        product_name: p.name || p.description,
-        warehouse_id: 2,
-        warehouse_code: 'WH-HCM-01',
-        warehouse_name: 'Kho Trung Tâm Miền Nam (TP.HCM)',
-        quantity_on_hand: qHcm,
-        quantity_reserved: qResHcm,
-        available: availHcm,
-        min_stock: p.min_stock || 10,
-        unit: p.unit || 'Cái',
-        status: availHcm <= (p.min_stock || 10) ? 'LOW_STOCK' : 'NORMAL',
-        updated_at: new Date().toISOString()
-      })
-    }
+    // 2. Kho TP.HCM
+    list.push({
+      id: list.length + 1,
+      product_id: p.id,
+      sku: p.sku,
+      product_name: p.name || p.description,
+      warehouse_id: 2,
+      warehouse_code: 'WH-HCM-01',
+      warehouse_name: 'Kho Trung Tâm Miền Nam (TP.HCM)',
+      quantity_on_hand: 100,
+      quantity_reserved: 0,
+      available: 100,
+      min_stock: p.min_stock || 10,
+      unit: p.unit || 'Cái',
+      status: 'NORMAL',
+      updated_at: new Date().toISOString()
+    })
 
-    // 3. Kho Đà Nẵng (Kho thứ 3: Phủ 35% danh mục luân chuyển Miền Trung)
-    if (p.id % 3 === 0) {
-      const qDn = 10 + ((p.id * 5) % 35)
-      const qResDn = (p.id % 6 === 0) ? 2 : 0
-      const availDn = Math.max(0, qDn - qResDn)
-      list.push({
-        id: list.length + 1,
-        product_id: p.id,
-        sku: p.sku,
-        product_name: p.name || p.description,
-        warehouse_id: 3,
-        warehouse_code: 'WH-DN-01',
-        warehouse_name: 'Kho Trung Chuyển Miền Trung (Đà Nẵng)',
-        quantity_on_hand: qDn,
-        quantity_reserved: qResDn,
-        available: availDn,
-        min_stock: p.min_stock || 10,
-        unit: p.unit || 'Cái',
-        status: availDn <= (p.min_stock || 10) ? 'LOW_STOCK' : 'NORMAL',
-        updated_at: new Date().toISOString()
-      })
-    }
+    // 3. Kho Đà Nẵng
+    list.push({
+      id: list.length + 1,
+      product_id: p.id,
+      sku: p.sku,
+      product_name: p.name || p.description,
+      warehouse_id: 3,
+      warehouse_code: 'WH-DN-01',
+      warehouse_name: 'Kho Trung Chuyển Miền Trung (Đà Nẵng)',
+      quantity_on_hand: 100,
+      quantity_reserved: 0,
+      available: 100,
+      min_stock: p.min_stock || 10,
+      unit: p.unit || 'Cái',
+      status: 'NORMAL',
+      updated_at: new Date().toISOString()
+    })
   })
   return list
 }
 
 const FALLBACK_STOCKS = generateFallbackStocks()
 
-const FALLBACK_MOVEMENTS = [
-  {
-    id: 101,
-    reference_doc: 'PO-202609-0015',
-    warehouse_id: 1,
-    warehouse_name: 'Kho Tổng Hà Nội',
-    product_id: 1,
-    product_name: 'Tủ lạnh LG Inverter 654 Lít GR-X247JS',
-    sku: 'TL-LG-654',
-    movement_type: 'PO_RECEIPT',
-    quantity_delta: 50,
-    balance_on_hand_after: 50,
-    balance_reserved_after: 0,
-    notes: 'Nhập kho lô hàng đầu kỳ từ Tổng kho LG Electronics',
-    created_at: '2026-09-18T08:30:00Z'
-  },
-  {
-    id: 102,
-    reference_doc: 'SO-202609-0042',
-    warehouse_id: 1,
-    warehouse_name: 'Kho Tổng Hà Nội',
-    product_id: 1,
-    product_name: 'Tủ lạnh LG Inverter 654 Lít GR-X247JS',
-    sku: 'TL-LG-654',
-    movement_type: 'SO_RESERVE',
-    quantity_delta: 5,
-    balance_on_hand_after: 50,
-    balance_reserved_after: 5,
-    notes: 'Giữ hàng tự động từ Saga Đơn Bán Hàng #SO-202609-0042',
-    created_at: '2026-09-20T10:15:00Z'
-  },
-  {
-    id: 103,
-    reference_doc: 'PO-202609-0018',
-    warehouse_id: 1,
-    warehouse_name: 'Kho Tổng Hà Nội',
-    product_id: 2,
-    product_name: 'Máy giặt Electrolux Inverter 10 Kg EWF1024P5WB',
-    sku: 'MG-EL-104',
-    movement_type: 'PO_RECEIPT',
-    quantity_delta: 20,
-    balance_on_hand_after: 20,
-    balance_reserved_after: 0,
-    notes: 'Nhập kho bổ sung từ Electrolux Việt Nam',
-    created_at: '2026-09-21T09:00:00Z'
-  },
-  {
-    id: 104,
-    reference_doc: 'SO-202609-0051',
-    warehouse_id: 1,
-    warehouse_name: 'Kho Tổng Hà Nội',
-    product_id: 2,
-    product_name: 'Máy giặt Electrolux Inverter 10 Kg EWF1024P5WB',
-    sku: 'MG-EL-104',
-    movement_type: 'SO_RESERVE',
-    quantity_delta: 8,
-    balance_on_hand_after: 20,
-    balance_reserved_after: 8,
-    notes: 'Khóa giữ chỗ đơn hàng dự án khách sạn Vinpearl',
-    created_at: '2026-09-21T14:20:00Z'
-  },
-  {
-    id: 105,
-    reference_doc: 'DEL-202609-0008',
-    warehouse_id: 1,
-    warehouse_name: 'Kho Tổng Hà Nội',
-    product_id: 2,
-    product_name: 'Máy giặt Electrolux Inverter 10 Kg EWF1024P5WB',
-    sku: 'MG-EL-104',
-    movement_type: 'SO_ISSUE',
-    quantity_delta: -8,
-    balance_on_hand_after: 12,
-    balance_reserved_after: 0,
-    notes: 'Xuất kho thực tế bàn giao cho đơn vị vận chuyển Viettel Post',
-    created_at: '2026-09-22T08:00:00Z'
-  }
-]
+const FALLBACK_MOVEMENTS = []
 
 // Module-level reactive state (Shared across all tabs)
 const stocks = ref([])

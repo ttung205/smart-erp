@@ -60,10 +60,10 @@
         :rows="8"
       >
         <!-- 1. Mã đơn nội bộ (OD-...) -->
-        <Column field="order_number" header="Mã Đơn Nội Bộ" :sortable="true" style="width: 170px">
+        <Column field="order_number" header="Mã Đơn Nội Bộ" :sortable="true" style="min-width: 195px; width: 195px" headerClass="whitespace-nowrap" class="whitespace-nowrap">
           <template #body="{ data }">
             <span
-              class="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-[4px] border border-indigo-200 cursor-pointer hover:underline"
+              class="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-[4px] border border-indigo-200 cursor-pointer hover:underline inline-block whitespace-nowrap"
               @click="$router.push(`/order/${data._db_id || data.id}/edit`)"
               title="Nhấp để vào chỉnh sửa đơn bán"
             >
@@ -72,11 +72,11 @@
           </template>
         </Column>
 
-        <!-- 2. Số đơn của khách (customer_order_number) cạnh cột order_number -->
-        <Column field="customer_order_number" header="Số Đơn Khách" :sortable="true" style="width: 170px">
+        <!-- 2. Số đơn của khách (customer_order_number) -->
+        <Column field="customer_order_number" header="Số Đơn Khách" :sortable="true" style="min-width: 165px; width: 165px" headerClass="whitespace-nowrap" class="whitespace-nowrap">
           <template #body="{ data }">
             <span
-              class="font-mono text-xs font-bold text-slate-800 bg-slate-50 px-2 py-0.5 rounded-[4px] border border-slate-200"
+              class="font-mono text-xs font-bold text-slate-800 bg-slate-50 px-2.5 py-1 rounded-[4px] border border-slate-200 inline-block whitespace-nowrap"
               :class="{ '!border-amber-300 !bg-amber-50 !text-amber-800': data.customer_order_number && data.customer_order_number !== data.order_number }"
               :title="data.customer_order_number !== data.order_number ? 'Số đơn riêng do khách hàng yêu cầu' : 'Dùng theo số đơn hệ thống tự sinh'"
             >
@@ -85,18 +85,8 @@
           </template>
         </Column>
 
-        <!-- 3. Nguồn báo giá (quotation_id / quotation_number) -->
-        <Column field="quotation_number" header="Nguồn Báo Giá" style="width: 160px">
-          <template #body="{ data }">
-            <span v-if="data.quotation_number || data.quotation?.quotation_number" class="font-mono text-xs text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-100 font-semibold">
-              {{ data.quotation_number || data.quotation?.quotation_number }}
-            </span>
-            <span v-else class="text-slate-400 text-xs italic">Đơn lập trực tiếp</span>
-          </template>
-        </Column>
-
-        <!-- 4. Khách hàng B2B -->
-        <Column field="customer_name" header="Khách Hàng B2B" :sortable="true">
+        <!-- 3. Khách hàng B2B -->
+        <Column field="customer_name" header="Khách Hàng B2B" :sortable="true" style="min-width: 240px" headerClass="whitespace-nowrap">
           <template #body="{ data }">
             <div class="flex flex-col">
               <span class="font-semibold text-slate-800 text-xs">{{ data.customer_name || data.customer?.name }}</span>
@@ -105,46 +95,46 @@
           </template>
         </Column>
 
-        <!-- 5. Ngày tạo đơn -->
-        <Column field="order_date" header="Ngày Tạo" style="width: 110px">
+        <!-- 4. Ngày tạo đơn -->
+        <Column field="order_date" header="Ngày Tạo" style="min-width: 120px; width: 120px" headerClass="whitespace-nowrap" class="text-center whitespace-nowrap">
           <template #body="{ data }">
-            <span class="text-slate-600 text-xs font-mono">{{ data.order_date }}</span>
+            <span class="text-slate-600 text-xs font-mono whitespace-nowrap">{{ data.order_date }}</span>
           </template>
         </Column>
 
-        <!-- 6. Mặt hàng chốt -->
-        <Column header="Mặt Hàng Chốt" class="text-center" style="width: 110px">
+        <!-- 5. Mặt hàng chốt -->
+        <Column header="Mặt Hàng Chốt" class="text-center whitespace-nowrap" headerClass="whitespace-nowrap" style="min-width: 140px; width: 140px">
           <template #body="{ data }">
-            <span class="text-xs font-mono font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded-[4px]">
+            <span class="text-xs font-mono font-medium text-slate-700 bg-slate-100 px-2.5 py-1 rounded-[4px] inline-block whitespace-nowrap">
               {{ data.items?.length || 0 }} items
             </span>
           </template>
         </Column>
 
-        <!-- 7. Tổng tiền đơn -->
-        <Column field="total_amount" header="Tổng Tiền Đơn" class="text-right" :sortable="true" style="width: 150px">
+        <!-- 6. Tổng tiền đơn -->
+        <Column field="total_amount" header="Tổng Tiền Đơn" class="text-right whitespace-nowrap" headerClass="whitespace-nowrap" :sortable="true" style="min-width: 160px; width: 160px">
           <template #body="{ data }">
-            <span class="font-mono text-xs font-bold text-slate-900 num-tabular">
+            <span class="font-mono text-xs font-bold text-slate-900 num-tabular whitespace-nowrap">
               {{ formatCurrency(data.total_amount) }}
             </span>
           </template>
         </Column>
 
-        <!-- 8. Trạng thái -->
-        <Column header="Trạng Thái" class="text-center" style="width: 130px">
+        <!-- 7. Trạng thái -->
+        <Column header="Trạng Thái" class="text-center whitespace-nowrap" headerClass="whitespace-nowrap" style="min-width: 140px; width: 140px">
           <template #body="{ data }">
             <Tag
               :severity="getStatusMeta(data.status).severity"
               :value="getStatusMeta(data.status).label"
-              class="text-[11px] px-2 py-0.5 rounded-[6px]"
+              class="text-[11px] px-2 py-0.5 rounded-[6px] whitespace-nowrap"
             />
           </template>
         </Column>
 
-        <!-- 9. Thao tác -->
-        <Column header="Thao Tác" class="text-center" style="width: 200px">
+        <!-- 8. Thao tác -->
+        <Column header="Thao Tác" class="text-center whitespace-nowrap" headerClass="whitespace-nowrap" style="min-width: 150px; width: 150px">
           <template #body="{ data }">
-            <div class="flex items-center justify-center gap-1.5">
+            <div class="flex items-center justify-center gap-1.5 whitespace-nowrap">
               <!-- Xem nhanh dialog -->
               <Button
                 icon="pi pi-eye"
