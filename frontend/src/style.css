@@ -175,6 +175,29 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid var(--border-subtle) !important;
 }
 
+/* 6. Frozen / Pinned Columns Support */
+.clean-datatable .p-datatable-thead > tr > th.p-datatable-frozen-column,
+.clean-datatable .p-datatable-thead > tr > th[data-p-frozen-column="true"],
+.p-datatable .p-datatable-thead > tr > th.p-datatable-frozen-column {
+  position: sticky !important;
+  z-index: 10 !important;
+  background: var(--canvas-bg) !important;
+}
+
+.clean-datatable .p-datatable-tbody > tr > td.p-datatable-frozen-column,
+.clean-datatable .p-datatable-tbody > tr > td[data-p-frozen-column="true"],
+.p-datatable .p-datatable-tbody > tr > td.p-datatable-frozen-column {
+  position: sticky !important;
+  z-index: 5 !important;
+  background-color: #ffffff !important;
+}
+
+.clean-datatable .p-datatable-tbody > tr:hover > td.p-datatable-frozen-column,
+.clean-datatable .p-datatable-tbody > tr:hover > td[data-p-frozen-column="true"],
+.p-datatable .p-datatable-tbody > tr:hover > td.p-datatable-frozen-column {
+  background-color: var(--surface-hover) !important;
+}
+
 /* 6. Clean Paginator */
 .p-datatable .p-paginator {
   background-color: #ffffff !important;

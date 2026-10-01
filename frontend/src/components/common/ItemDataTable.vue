@@ -118,15 +118,15 @@
         scrollHeight="580px"
         :tableStyle="{ minWidth: '1980px' }"
       >
-        <!-- STT -->
-        <Column header="#" style="width: 44px; min-width: 44px" class="text-center">
+        <!-- STT - Frozen -->
+        <Column header="#" style="width: 44px; min-width: 44px" class="text-center" frozen>
           <template #body="{ index }">
             <span class="text-xs font-mono text-slate-400 font-semibold">{{ index + 1 }}</span>
           </template>
         </Column>
 
-        <!-- Thao tác xóa dòng -->
-        <Column style="width: 40px; min-width: 40px" class="text-center">
+        <!-- Thao tác xóa dòng - Frozen -->
+        <Column style="width: 40px; min-width: 40px" class="text-center" frozen>
           <template #body="{ index }">
             <button
               type="button"
@@ -139,8 +139,8 @@
           </template>
         </Column>
 
-        <!-- CỘT SELECT Ở SAU CỘT XÓA DÒNG ĐỂ SET ITEM WIN/LOSE HOẶC TẠO ĐƠN -->
-        <Column v-if="showItemStatus || showCreateOrderButton" style="width: 44px; min-width: 44px" class="text-center">
+        <!-- CỘT SELECT Ở SAU CỘT XÓA DÒNG ĐỂ SET ITEM WIN/LOSE HOẶC TẠO ĐƠN - Frozen -->
+        <Column v-if="showItemStatus || showCreateOrderButton" style="width: 44px; min-width: 44px" class="text-center" frozen>
           <template #header>
             <div class="flex justify-center items-center w-full">
               <input
@@ -164,21 +164,15 @@
           </template>
         </Column>
 
-        <!-- CỘT STATUS CHO TỪNG DÒNG (WIN / LOSE / PENDING) -->
-        <Column v-if="showItemStatus && columnsVisibility.status" header="STATUS" style="width: 110px; min-width: 110px" class="text-center">
-          <template #body="{ data }">
-            <span
-              class="inline-flex items-center justify-center font-bold text-[11px] px-2 py-0.5 rounded-[4px] border uppercase tracking-wider"
-              :class="getStatusBadgeClass(data.status)"
-            >
-              <i :class="getStatusIcon(data.status)" class="mr-1 text-[10px]"></i>
-              {{ getStatusLabel(data.status) }}
-            </span>
-          </template>
-        </Column>
-
-        <!-- 1. Mã nội bộ (SKU / Internal Code) - Không cho sửa -->
-        <Column v-if="columnsVisibility.sku" header="INTERNAL CODE" style="width: 160px; min-width: 160px">
+        <!-- 1. Mã nội bộ (SKU / Internal Code) - Cố định (Frozen) -->
+        <Column
+          v-if="columnsVisibility.sku"
+          header="INTERNAL CODE"
+          style="width: 160px; min-width: 160px"
+          frozen
+          class="!border-r-2 !border-r-slate-300 shadow-[4px_0_8px_-3px_rgba(0,0,0,0.12)]"
+          headerClass="!border-r-2 !border-r-slate-300 shadow-[4px_0_8px_-3px_rgba(0,0,0,0.12)]"
+        >
           <template #body="{ data }">
             <span class="font-mono text-xs font-bold text-sky-800 truncate block px-1" :title="data.sku">
               {{ data.sku || '-' }}
@@ -268,16 +262,7 @@
           </template>
         </Column>
 
-        <!-- 9. Gross Price (Giá niêm yết) - Không cho sửa -->
-        <Column v-if="columnsVisibility.grossPrice" header="GROSS PRICE" style="width: 140px; min-width: 140px" class="text-right">
-          <template #body="{ data }">
-            <span class="font-mono text-xs font-semibold text-slate-700 px-2 py-1 bg-slate-50 border border-slate-100 rounded-[4px] block text-right">
-              {{ formatCurrency(data.gross_price) }}
-            </span>
-          </template>
-        </Column>
-
-        <!-- 10. Discount % (Chiết khấu) - CHO PHÉP SỬA -->
+        <!-- 9. Discount % (Chiết khấu) - CHO PHÉP SỬA -->
         <Column v-if="columnsVisibility.discount" header="CK %" style="width: 85px; min-width: 85px" class="text-right">
           <template #body="{ data }">
             <InputNumber
@@ -292,7 +277,7 @@
           </template>
         </Column>
 
-        <!-- 11. Selling Price (Đơn giá bán thực tế) - CHO PHÉP SỬA -->
+        <!-- 10. Selling Price (Đơn giá bán thực tế) - CHO PHÉP SỬA -->
         <Column v-if="columnsVisibility.sellingPrice" header="SELLING PRICE" style="width: 155px; min-width: 155px" class="text-right">
           <template #body="{ data }">
             <InputNumber
@@ -304,6 +289,15 @@
               inputClass="!py-1.5 !px-2 text-right text-xs font-mono font-bold rounded-[4px] !border-slate-200 hover:!border-slate-300 focus:!border-sky-500 !text-sky-700 bg-white"
               @update:modelValue="onSellingPriceChange(data)"
             />
+          </template>
+        </Column>
+
+        <!-- 11. Gross Price (Giá niêm yết) - Không cho sửa -->
+        <Column v-if="columnsVisibility.grossPrice" header="GROSS PRICE" style="width: 140px; min-width: 140px" class="text-right">
+          <template #body="{ data }">
+            <span class="font-mono text-xs font-semibold text-slate-700 px-2 py-1 bg-slate-50 border border-slate-100 rounded-[4px] block text-right">
+              {{ formatCurrency(data.gross_price) }}
+            </span>
           </template>
         </Column>
 
@@ -340,6 +334,19 @@
           <template #body="{ data }">
             <span class="font-mono text-xs font-bold text-slate-900 num-tabular px-2 py-1 bg-slate-50 border border-slate-100 rounded-[4px] block text-right">
               {{ formatCurrency(data.subtotal || (data.quantity * data.selling_price)) }}
+            </span>
+          </template>
+        </Column>
+
+        <!-- 15. Status (Trạng thái mặt hàng WIN / LOSE / PENDING) - Cột cuối cùng -->
+        <Column v-if="showItemStatus && columnsVisibility.status" header="STATUS" style="width: 110px; min-width: 110px" class="text-center">
+          <template #body="{ data }">
+            <span
+              class="inline-flex items-center justify-center font-bold text-[11px] px-2 py-0.5 rounded-[4px] border uppercase tracking-wider"
+              :class="getStatusBadgeClass(data.status)"
+            >
+              <i :class="getStatusIcon(data.status)" class="mr-1 text-[10px]"></i>
+              {{ getStatusLabel(data.status) }}
             </span>
           </template>
         </Column>
@@ -765,7 +772,6 @@ const handleCreateOrderAction = () => {
 // ----------------------------------------------------
 const showColumnConfig = ref(false);
 const columnsVisibility = reactive({
-  status: true,
   sku: true,
   designation: true,
   brand: true,
@@ -774,17 +780,17 @@ const columnsVisibility = reactive({
   stock: true,
   unit: true,
   quantity: true,
-  grossPrice: true,
   discount: true,
   sellingPrice: true,
+  grossPrice: true,
   vat: true,
   leadTime: true,
-  subtotal: true
+  subtotal: true,
+  status: true
 });
 
 const getColumnLabel = (key) => {
   const map = {
-    status: 'Status (Trạng thái Win/Lose)',
     sku: 'Internal Code (SKU)',
     designation: 'Designation (Quy cách)',
     brand: 'Brand (Thương hiệu)',
@@ -793,12 +799,13 @@ const getColumnLabel = (key) => {
     stock: 'Stock (Tồn kho)',
     unit: 'Unit (Đơn vị tính)',
     quantity: 'Quantity (Số lượng)',
-    grossPrice: 'Gross Price (Giá niêm yết)',
     discount: 'Discount (Chiết khấu %)',
     sellingPrice: 'Selling Price (Giá bán)',
+    grossPrice: 'Gross Price (Giá niêm yết)',
     vat: 'VAT %',
     leadTime: 'Lead Time (Giao hàng)',
-    subtotal: 'Subtotal (Thành tiền)'
+    subtotal: 'Subtotal (Thành tiền)',
+    status: 'Status (Trạng thái Win/Lose)'
   };
   return map[key] || key;
 };
@@ -1108,9 +1115,9 @@ const notifyChange = () => {
 
 // Xuất file CSV
 const exportToExcel = () => {
-  let csv = 'STT,Status,SKU,Designation,Brand,Mô Tả,COM,Tồn Kho,ĐVT,Số Lượng,Giá Niêm Yết,Chiết Khấu %,Giá Bán,VAT %,Giao Hàng,Thành Tiền\n';
+  let csv = 'STT,SKU,Designation,Brand,Mô Tả,COM,Tồn Kho,ĐVT,Số Lượng,Chiết Khấu %,Giá Bán,Giá Niêm Yết,VAT %,Giao Hàng,Thành Tiền,Status\n';
   items.value.forEach((it, idx) => {
-    csv += `${idx + 1},"${it.status || 'PENDING'}","${it.sku}","${it.designation}","${it.brand}","${it.description}","${it.com}",${it.stock},"${it.unit}",${it.quantity},${it.gross_price},${it.discount_percent},${it.selling_price},${it.vat_percent},"${it.lead_time}",${it.subtotal}\n`;
+    csv += `${idx + 1},"${it.sku}","${it.designation}","${it.brand}","${it.description}","${it.com}",${it.stock},"${it.unit}",${it.quantity},${it.discount_percent},${it.selling_price},${it.gross_price},${it.vat_percent},"${it.lead_time}",${it.subtotal},"${it.status || 'PENDING'}"\n`;
   });
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

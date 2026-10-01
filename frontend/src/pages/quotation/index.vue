@@ -172,7 +172,7 @@ import Button from 'primevue/button';
 import Tag from 'primevue/tag';
 import PageHeader from '../../components/common/PageHeader.vue';
 import CommonDataTable from '../../components/common/CommonDataTable.vue';
-import QuotationViewDialog from './view-dialog.vue';
+import QuotationViewDialog from '../../components/quotation/QuotationViewDialog.vue';
 
 import { salesApi } from '../../api/sales.api';
 import { formatCurrency } from '../../utils/format';

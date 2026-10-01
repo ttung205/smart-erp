@@ -1,23 +1,24 @@
 <template>
-  <div class="flex flex-col gap-4 pb-10">
+  <div class="space-y-3 pb-8">
+    <!-- Header -->
     <PageHeader
-      title="Quản Lý Danh Mục Ngành Hàng (Category Master)"
-      subtitle="Phân loại hàng hóa, nhóm sản phẩm và danh mục kinh doanh"
-      badge="Catalog Service"
+      title="Danh Mục Sản Phẩm (Categories)"
+      subtitle="Quản lý phân loại hệ thống thiết bị công nghiệp, vật tư và nhóm sản phẩm kinh doanh"
+      badge="Catalog"
       badge-severity="info"
     >
       <template #actions>
         <Button
-          label="Thêm danh mục mới"
+          label="Thêm Danh Mục Mới"
           icon="pi pi-plus"
           size="small"
-          class="rounded-[6px] !text-xs !py-1.5 !px-3 !bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 font-medium"
+          class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 rounded-[6px]"
           @click="openCreateModal"
         />
       </template>
     </PageHeader>
 
-    <!-- Toolbar -->
+    <!-- Toolbar Tìm kiếm & Thống kê -->
     <Toolbar class="bg-white border border-slate-200 rounded-[6px] px-3 py-2 shadow-none">
       <template #start>
         <div class="flex items-center gap-2">
@@ -26,7 +27,7 @@
             <InputText
               v-model="searchQuery"
               placeholder="Tìm theo tên hoặc mã danh mục..."
-              class="w-72 rounded-[6px]"
+              class="w-80 rounded-[6px]"
               size="small"
             />
           </IconField>
@@ -36,12 +37,12 @@
       <template #end>
         <div class="flex items-center gap-2">
           <Button
-            label="Làm mới"
             icon="pi pi-refresh"
-            severity="secondary"
-            outlined
+            text
             size="small"
-            class="rounded-[6px] !text-xs !py-1 !px-2.5"
+            severity="secondary"
+            class="rounded-[6px]"
+            v-tooltip.bottom="'Tải lại dữ liệu'"
             @click="fetchCategories"
           />
           <Tag
@@ -53,103 +54,92 @@
       </template>
     </Toolbar>
 
-    <!-- Data Table -->
-    <div class="bg-white border border-slate-200 rounded-[6px] overflow-hidden shadow-none">
-      <DataTable
-        :value="filteredCategories"
-        showGridlines
-        class="clean-datatable"
-        responsiveLayout="scroll"
-        :paginator="filteredCategories.length > 10"
-        :rows="10"
-        :loading="loading"
-      >
+    <!-- Data Table using CommonDataTable -->
+    <CommonDataTable
+      :value="filteredCategories"
+      :columns="tableColumns"
+      :loading="loading"
+      :rows="10"
+      :paginator="filteredCategories.length > 10"
+      emptyIcon="pi pi-th-large"
+      emptyTitle="Chưa có danh mục nào"
+      emptySubtitle="Bấm nút 'Thêm danh mục mới' ở trên để khởi tạo."
+    >
+      <!-- Prepend column for STT -->
+      <template #prepend-columns>
         <Column header="#" style="width: 50px" class="text-center">
           <template #body="{ index }">
             <span class="text-xs font-mono text-slate-400 font-semibold">{{ index + 1 }}</span>
           </template>
         </Column>
+      </template>
 
-        <Column field="name" header="Tên Danh Mục" :sortable="true" style="width: 220px">
-          <template #body="{ data }">
-            <span class="font-bold text-slate-900 text-xs">{{ data.name }}</span>
-          </template>
-        </Column>
+      <!-- Custom column: name -->
+      <template #col-name="{ data }">
+        <span class="font-bold text-slate-900 text-xs">{{ data.name }}</span>
+      </template>
 
-        <Column field="code" header="Mã Code" :sortable="true" style="width: 160px">
-          <template #body="{ data }">
-            <span class="font-mono text-xs text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-200">
-              {{ data.code }}
-            </span>
-          </template>
-        </Column>
+      <!-- Custom column: code -->
+      <template #col-code="{ data }">
+        <span class="font-mono text-xs text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-200">
+          {{ data.code }}
+        </span>
+      </template>
 
-        <Column field="description" header="Mô Tả Danh Mục" style="min-width: 250px">
-          <template #body="{ data }">
-            <span class="text-xs text-slate-600">{{ data.description || '-' }}</span>
-          </template>
-        </Column>
+      <!-- Custom column: description -->
+      <template #col-description="{ data }">
+        <span class="text-xs text-slate-600">{{ data.description || '-' }}</span>
+      </template>
 
-        <Column field="products_count" header="Số Lượng Sản Phẩm" :sortable="true" style="width: 170px" class="text-center">
-          <template #body="{ data }">
-            <Tag
-              :severity="data.products_count > 0 ? 'info' : 'secondary'"
-              :value="`${data.products_count || 0} sản phẩm`"
-              class="text-[11px] px-2 py-0.5 rounded-[4px]"
+      <!-- Custom column: products_count -->
+      <template #col-products_count="{ data }">
+        <div class="text-center">
+          <Tag
+            :severity="data.products_count > 0 ? 'info' : 'secondary'"
+            :value="`${data.products_count || 0} sản phẩm`"
+            class="text-[11px] px-2 py-0.5 rounded-[4px]"
+          />
+        </div>
+      </template>
+
+      <!-- Custom column: created_at -->
+      <template #col-created_at="{ data }">
+        <span class="text-xs text-slate-500 font-mono">{{ formatDate(data.created_at) }}</span>
+      </template>
+
+      <!-- Thao tác -->
+      <Column header="Thao Tác" style="width: 130px" class="text-center">
+        <template #body="{ data }">
+          <div class="flex items-center justify-center gap-1">
+            <Button
+              icon="pi pi-pencil"
+              size="small"
+              text
+              class="!text-xs !p-1.5 rounded-[6px] !text-sky-600 hover:!bg-sky-50"
+              v-tooltip.bottom="'Chỉnh sửa danh mục'"
+              @click="openEditModal(data)"
             />
-          </template>
-        </Column>
 
-        <Column field="created_at" header="Ngày Tạo" :sortable="true" style="width: 170px">
-          <template #body="{ data }">
-            <span class="text-xs text-slate-500 font-mono">{{ formatDate(data.created_at) }}</span>
-          </template>
-        </Column>
-
-        <!-- Thao tác -->
-        <Column header="Thao Tác" style="width: 130px" class="text-center">
-          <template #body="{ data }">
-            <div class="flex items-center justify-center gap-1">
-              <!-- Sửa -->
-              <Button
-                icon="pi pi-pencil"
-                size="small"
-                text
-                class="!text-xs !p-1.5 rounded-[6px] !text-sky-600 hover:!bg-sky-50"
-                v-tooltip.bottom="'Chỉnh sửa danh mục'"
-                @click="openEditModal(data)"
-              />
-
-              <!-- Xóa -->
-              <Button
-                icon="pi pi-trash"
-                size="small"
-                text
-                class="!text-xs !p-1.5 rounded-[6px] !text-red-500 hover:!bg-red-50"
-                :disabled="data.products_count > 0"
-                v-tooltip.bottom="data.products_count > 0 ? 'Không thể xóa danh mục đang có sản phẩm' : 'Xóa danh mục'"
-                @click="confirmDeleteCategory(data)"
-              />
-            </div>
-          </template>
-        </Column>
-
-        <template #empty>
-          <div class="py-10 text-center flex flex-col items-center gap-2">
-            <i class="pi pi-th-large text-3xl text-slate-300"></i>
-            <p class="text-xs font-semibold text-slate-700 m-0">Chưa có danh mục nào</p>
-            <p class="text-[11px] text-slate-400 m-0">Bấm nút "Thêm danh mục mới" ở trên để khởi tạo.</p>
+            <Button
+              icon="pi pi-trash"
+              size="small"
+              text
+              class="!text-xs !p-1.5 rounded-[6px] !text-red-500 hover:!bg-red-50"
+              :disabled="data.products_count > 0"
+              v-tooltip.bottom="data.products_count > 0 ? 'Không thể xóa danh mục đang có sản phẩm' : 'Xóa danh mục'"
+              @click="confirmDeleteCategory(data)"
+            />
           </div>
         </template>
-      </DataTable>
-    </div>
+      </Column>
+    </CommonDataTable>
 
     <!-- Create / Edit Dialog -->
     <Dialog
       v-model:visible="showModal"
       modal
       :header="editingCat ? 'Chỉnh Sửa Danh Mục' : 'Thêm Mới Danh Mục'"
-      :style="{ width: '480px' }"
+      :style="{ width: '460px' }"
       class="rounded-[6px]"
     >
       <div class="flex flex-col gap-3 pt-1 text-xs">
@@ -158,7 +148,7 @@
           <InputText
             id="cat-name"
             v-model="catForm.name"
-            placeholder="Ví dụ: Tủ lạnh, Máy giặt, Vòng bi..."
+            placeholder="Ví dụ: Vòng bi & Bạc đạn, Động cơ điện..."
             class="w-full rounded-[6px]"
             size="small"
           />
@@ -170,17 +160,16 @@
             id="cat-desc"
             v-model="catForm.description"
             rows="3"
-            placeholder="Mô tả ngành hàng, đặc tính hoặc ghi chú phân loại..."
+            placeholder="Mô tả phạm vi sản phẩm thuộc nhóm này..."
             class="w-full rounded-[6px] text-xs"
           />
         </div>
       </div>
 
       <template #footer>
-        <div class="flex justify-end gap-2">
+        <div class="flex justify-end gap-2 pt-2">
           <Button
             label="Hủy bỏ"
-            icon="pi pi-times"
             text
             size="small"
             severity="secondary"
@@ -204,7 +193,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useToast } from 'primevue/usetoast';
-import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Toolbar from 'primevue/toolbar';
 import IconField from 'primevue/iconfield';
@@ -215,6 +203,7 @@ import Button from 'primevue/button';
 import Tag from 'primevue/tag';
 import Dialog from 'primevue/dialog';
 import PageHeader from '../../components/common/PageHeader.vue';
+import CommonDataTable from '../../components/common/CommonDataTable.vue';
 import { catalogApi } from '../../api/catalog.api';
 
 const toast = useToast();
@@ -227,6 +216,14 @@ const showModal = ref(false);
 const editingCat = ref(null);
 const saving = ref(false);
 const catForm = ref({ name: '', description: '' });
+
+const tableColumns = [
+  { field: 'name', header: 'Tên Danh Mục', sortable: true, width: '220px' },
+  { field: 'code', header: 'Mã Code', sortable: true, width: '160px' },
+  { field: 'description', header: 'Mô Tả Danh Mục', sortable: false, width: 'auto' },
+  { field: 'products_count', header: 'Số Lượng Sản Phẩm', sortable: true, width: '170px', align: 'center' },
+  { field: 'created_at', header: 'Ngày Tạo', sortable: true, width: '170px' }
+];
 
 const filteredCategories = computed(() => {
   if (!searchQuery.value) return categories.value;
@@ -274,16 +271,16 @@ const openCreateModal = () => {
   showModal.value = true;
 };
 
-const openEditModal = (c) => {
-  editingCat.value = c;
-  catForm.value = { name: c.name, description: c.description || '' };
+const openEditModal = (cat) => {
+  editingCat.value = cat;
+  catForm.value = { name: cat.name, description: cat.description || '' };
   showModal.value = true;
 };
 
 const saveCategory = async () => {
   const name = catForm.value.name.trim();
   if (!name) {
-    toast.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Tên danh mục không được để trống.', life: 3000 });
+    alert('Vui lòng nhập tên danh mục!');
     return;
   }
 
@@ -294,32 +291,58 @@ const saveCategory = async () => {
         name,
         description: catForm.value.description
       });
-      toast.add({ severity: 'success', summary: 'Thành công', detail: `Đã cập nhật danh mục "${name}".`, life: 3000 });
+      toast.add({
+        severity: 'success',
+        summary: 'Thành công',
+        detail: `Đã cập nhật danh mục "${name}"`,
+        life: 3000
+      });
     } else {
       await catalogApi.createCategory({
         name,
         description: catForm.value.description
       });
-      toast.add({ severity: 'success', summary: 'Thành công', detail: `Đã tạo mới danh mục "${name}".`, life: 3000 });
+      toast.add({
+        severity: 'success',
+        summary: 'Thành công',
+        detail: `Đã tạo danh mục mới "${name}"`,
+        life: 3000
+      });
     }
     showModal.value = false;
     await fetchCategories();
   } catch (err) {
-    toast.add({ severity: 'error', summary: 'Lỗi', detail: err.message || 'Không thể lưu danh mục.', life: 3000 });
+    console.error('Save category error:', err);
+    toast.add({
+      severity: 'error',
+      summary: 'Lỗi lưu danh mục',
+      detail: err.message || 'Không thể lưu danh mục.',
+      life: 3000
+    });
   } finally {
     saving.value = false;
   }
 };
 
-const confirmDeleteCategory = async (c) => {
-  if (!confirm(`Bạn có chắc chắn muốn xóa danh mục "${c.name}" không?`)) return;
-
-  try {
-    await catalogApi.deleteCategory(c.id);
-    toast.add({ severity: 'success', summary: 'Đã xóa', detail: `Đã xóa danh mục "${c.name}".`, life: 3000 });
-    await fetchCategories();
-  } catch (err) {
-    toast.add({ severity: 'error', summary: 'Lỗi xóa', detail: err.message || 'Không thể xóa danh mục này.', life: 3000 });
+const confirmDeleteCategory = async (cat) => {
+  if (confirm(`Bạn có chắc chắn muốn xóa danh mục "${cat.name}"?`)) {
+    try {
+      await catalogApi.deleteCategory(cat.id);
+      toast.add({
+        severity: 'success',
+        summary: 'Đã xóa',
+        detail: `Đã xóa danh mục "${cat.name}"`,
+        life: 3000
+      });
+      await fetchCategories();
+    } catch (err) {
+      toast.add({
+        severity: 'error',
+        summary: 'Lỗi xóa',
+        detail: err.message || 'Không thể xóa danh mục.',
+        life: 3000
+      });
+    }
   }
 };
 

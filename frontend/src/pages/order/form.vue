@@ -285,60 +285,17 @@
       </div>
     </div>
 
-    <!-- 3. Bảng Mặt Hàng Đơn Bán (Đơn bán không cần cột status từng dòng nữa) -->
-    <ItemDataTable
+    <!-- 3. Bảng Mặt Hàng Đơn Bán (Sử dụng component OrderItemTable.vue) -->
+    <OrderItemTable
       v-model="form.items"
-      :show-create-order-button="false"
-      :show-item-status="false"
       @summary-change="onItemsSummaryChange"
     />
 
     <!-- Dialog Thêm Người Liên Hệ Nhanh -->
-    <Dialog
+    <OrderAddContactDialog
       v-model:visible="showAddContactDialog"
-      header="Thêm Người Liên Hệ Khách Hàng"
-      :style="{ width: '450px' }"
-      modal
-      class="rounded-[8px]"
-    >
-      <div class="flex flex-col gap-3 pt-2 text-xs">
-        <div class="flex flex-col gap-1">
-          <label class="font-bold text-slate-700">Họ và tên <span class="text-red-500">*</span></label>
-          <InputText v-model="newContact.name" placeholder="Ví dụ: Nguyễn Văn A" class="text-xs" />
-        </div>
-        <div class="flex flex-col gap-1">
-          <label class="font-bold text-slate-700">Chức vụ / Phòng ban</label>
-          <InputText v-model="newContact.position" placeholder="Ví dụ: Trưởng phòng Thu mua" class="text-xs" />
-        </div>
-        <div class="flex flex-col gap-1">
-          <label class="font-bold text-slate-700">Số điện thoại</label>
-          <InputText v-model="newContact.phone" placeholder="Ví dụ: 0912 345 678" class="text-xs" />
-        </div>
-        <div class="flex flex-col gap-1">
-          <label class="font-bold text-slate-700">Email</label>
-          <InputText v-model="newContact.email" placeholder="Ví dụ: procurement@company.com" class="text-xs" />
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <Button
-            label="Hủy bỏ"
-            size="small"
-            severity="secondary"
-            class="rounded-[6px]"
-            @click="showAddContactDialog = false"
-          />
-          <Button
-            label="Lưu người liên hệ"
-            icon="pi pi-check"
-            size="small"
-            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 rounded-[6px]"
-            @click="saveNewContact"
-          />
-        </div>
-      </template>
-    </Dialog>
+      @save="saveNewContact"
+    />
   </div>
 </template>
 
@@ -354,7 +311,8 @@ import Select from 'primevue/select';
 import Tag from 'primevue/tag';
 import Dialog from 'primevue/dialog';
 
-import ItemDataTable from '../../components/common/ItemDataTable.vue';
+import OrderItemTable from '../../components/order/OrderItemTable.vue';
+import OrderAddContactDialog from '../../components/order/OrderAddContactDialog.vue';
 import { catalogApi } from '../../api/catalog.api';
 import { salesApi } from '../../api/sales.api';
 import { identityApi } from '../../api/identity.api';
@@ -689,15 +647,16 @@ const onContactChange = () => {
   }
 };
 
-const saveNewContact = async () => {
-  if (!newContact.value.name) {
+const saveNewContact = async (contactData) => {
+  const data = contactData || newContact.value;
+  if (!data || !data.name) {
     alert('Vui lòng nhập tên người liên hệ!');
     return;
   }
   const currentCust = customers.value.find((c) => c.id === form.value.customer_id);
   if (currentCust) {
     try {
-      const res = await catalogApi.addCustomerContact(currentCust.id, newContact.value);
+      const res = await catalogApi.addCustomerContact(currentCust.id, data);
       const savedContact = res.data;
       if (!currentCust.contacts) currentCust.contacts = [];
       currentCust.contacts.push(savedContact);

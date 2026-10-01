@@ -59,115 +59,107 @@
       </template>
     </Toolbar>
 
-    <!-- Data Table -->
-    <div class="bg-white border border-slate-200 rounded-[6px] overflow-hidden">
-      <DataTable
-        :value="filteredInvoices"
-        showGridlines
-        class="clean-datatable"
-        responsiveLayout="scroll"
-        :paginator="filteredInvoices.length > 8"
-        :rows="8"
-      >
-        <Column field="invoice_number" header="Mã Chứng Từ (INV)" :sortable="true" style="width: 160px">
-          <template #body="{ data }">
-            <span class="font-mono text-xs font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-[4px] border border-indigo-200">
-              {{ data.invoice_number }}
-            </span>
-          </template>
-        </Column>
+    <!-- Data Table using CommonDataTable -->
+    <CommonDataTable
+      :value="filteredInvoices"
+      :columns="tableColumns"
+      :rows="8"
+      :paginator="filteredInvoices.length > 8"
+      emptyIcon="pi pi-calculator"
+      emptyTitle="Chưa có chứng từ nào sẵn sàng ghi sổ"
+      emptySubtitle="Chứng từ cần được chuyển qua kho và giao hàng thành công trước khi kế toán ghi sổ."
+    >
+      <!-- Custom column: invoice_number -->
+      <template #col-invoice_number="{ data }">
+        <span class="font-mono text-xs font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-[4px] border border-indigo-200">
+          {{ data.invoice_number }}
+        </span>
+      </template>
 
-        <Column field="customer_name" header="Khách Hàng B2B" :sortable="true">
-          <template #body="{ data }">
-            <span class="font-semibold text-slate-800 text-xs">{{ data.customer_name }}</span>
-          </template>
-        </Column>
+      <!-- Custom column: customer_name -->
+      <template #col-customer_name="{ data }">
+        <span class="font-semibold text-slate-800 text-xs">{{ data.customer_name }}</span>
+      </template>
 
-        <Column field="warehouse_name" header="Kho Xuất Trừ">
-          <template #body="{ data }">
-            <span class="text-slate-600 text-xs">{{ data.warehouse_name }}</span>
-          </template>
-        </Column>
+      <!-- Custom column: warehouse_name -->
+      <template #col-warehouse_name="{ data }">
+        <span class="text-slate-600 text-xs">{{ data.warehouse_name }}</span>
+      </template>
 
-        <Column header="Tình Trạng Giao" class="text-center" style="width: 150px">
-          <template #body="{ data }">
+      <!-- Custom column: warehouse_status -->
+      <template #col-warehouse_status="{ data }">
+        <div class="text-center">
+          <Tag
+            v-if="data.warehouse_status === 'DELIVERED'"
+            severity="success"
+            value="Giao thành công"
+            icon="pi pi-check"
+            class="text-[10px] px-1.5 py-0.5 rounded-[4px]"
+          />
+          <Tag
+            v-else
+            severity="warn"
+            value="Đang xử lý tại kho"
+            icon="pi pi-clock"
+            class="text-[10px] px-1.5 py-0.5 rounded-[4px]"
+          />
+        </div>
+      </template>
+
+      <!-- Custom column: total_amount -->
+      <template #col-total_amount="{ data }">
+        <div class="text-right">
+          <span class="font-mono text-xs font-bold text-slate-900 num-tabular">
+            {{ formatCurrency(data.total_amount) }}
+          </span>
+        </div>
+      </template>
+
+      <!-- Custom column: accounting_status -->
+      <template #col-accounting_status="{ data }">
+        <div class="text-center">
+          <div v-if="data.accounting_status === 'POSTED'" class="flex flex-col items-center gap-0.5">
             <Tag
-              v-if="data.warehouse_status === 'DELIVERED'"
               severity="success"
-              value="Giao thành công"
-              icon="pi pi-check"
-              class="text-[10px] px-1.5 py-0.5 rounded-[4px]"
-            />
-            <Tag
-              v-else
-              severity="warn"
-              value="Đang xử lý tại kho"
-              class="text-[10px] px-1.5 py-0.5 rounded-[4px]"
-            />
-          </template>
-        </Column>
-
-        <Column field="total_amount" header="Tổng Doanh Thu" class="text-right" :sortable="true" style="width: 140px">
-          <template #body="{ data }">
-            <span class="font-mono text-xs font-bold text-slate-900 num-tabular">
-              {{ formatCurrency(data.total_amount) }}
-            </span>
-          </template>
-        </Column>
-
-        <Column header="Trạng Thái Sổ Cái" class="text-center" style="width: 180px">
-          <template #body="{ data }">
-            <div v-if="data.accounting_status === 'POSTED'" class="flex flex-col items-center gap-0.5">
-              <Tag
-                severity="success"
-                value="Đã ghi sổ & Trừ kho"
-                icon="pi pi-check-circle"
-                class="text-[11px] px-2 py-0.5 rounded-[4px]"
-              />
-              <span class="text-[10px] font-mono text-slate-400">{{ data.posted_at }}</span>
-            </div>
-            <Tag
-              v-else
-              severity="danger"
-              value="Chưa ghi sổ (Chưa trừ tồn)"
-              icon="pi pi-exclamation-circle"
+              value="Đã ghi sổ & Trừ kho"
+              icon="pi pi-check-circle"
               class="text-[11px] px-2 py-0.5 rounded-[4px]"
             />
-          </template>
-        </Column>
+            <span class="text-[10px] font-mono text-slate-400">{{ data.posted_at }}</span>
+          </div>
+          <Tag
+            v-else
+            severity="danger"
+            value="Chưa ghi sổ (Chưa trừ tồn)"
+            icon="pi pi-exclamation-circle"
+            class="text-[11px] px-2 py-0.5 rounded-[4px]"
+          />
+        </div>
+      </template>
 
-        <Column header="Thao Tác Kế Toán" class="text-center" style="width: 190px">
-          <template #body="{ data }">
-            <div class="flex items-center justify-center gap-1">
-              <!-- Nút Ghi sổ -->
-              <Button
-                v-if="data.accounting_status !== 'POSTED'"
-                label="Ghi Sổ & Trừ Kho"
-                icon="pi pi-file-edit"
-                size="small"
-                :disabled="data.warehouse_status !== 'DELIVERED'"
-                class="!text-xs !py-1 !px-2.5 rounded-[6px] !bg-emerald-600 hover:!bg-emerald-700 !text-white !border-emerald-600 !font-semibold disabled:!opacity-40"
-                v-tooltip.bottom="data.warehouse_status === 'DELIVERED' ? 'Bấm để ghi sổ kế toán và kích hoạt trừ tồn kho thực tế' : 'Cần đợi kho hoàn tất giao hàng thành công'"
-                @click="openAccountingDialog(data)"
-              />
+      <!-- Column Thao Tác Kế Toán -->
+      <Column header="Thao Tác Kế Toán" class="text-center" style="width: 190px">
+        <template #body="{ data }">
+          <div class="flex items-center justify-center gap-1">
+            <Button
+              v-if="data.accounting_status !== 'POSTED'"
+              label="Ghi Sổ & Trừ Kho"
+              icon="pi pi-file-edit"
+              size="small"
+              :disabled="data.warehouse_status !== 'DELIVERED'"
+              class="!text-xs !py-1 !px-2.5 rounded-[6px] !bg-emerald-600 hover:!bg-emerald-700 !text-white !border-emerald-600 !font-semibold disabled:!opacity-40"
+              v-tooltip.bottom="data.warehouse_status === 'DELIVERED' ? 'Bấm để ghi sổ kế toán và kích hoạt trừ tồn kho thực tế' : 'Cần đợi kho hoàn tất giao hàng thành công'"
+              @click="openAccountingDialog(data)"
+            />
 
-              <div v-else class="text-xs text-emerald-700 font-semibold flex items-center gap-1">
-                <i class="pi pi-lock text-[11px]"></i>
-                <span>Đã khóa chứng từ</span>
-              </div>
+            <div v-else class="text-xs text-emerald-700 font-semibold flex items-center gap-1">
+              <i class="pi pi-lock text-[11px]"></i>
+              <span>Đã khóa chứng từ</span>
             </div>
-          </template>
-        </Column>
-
-        <template #empty>
-          <div class="py-10 text-center flex flex-col items-center gap-2">
-            <i class="pi pi-calculator text-3xl text-slate-300"></i>
-            <p class="text-xs font-semibold text-slate-700 m-0">Chưa có chứng từ nào sẵn sàng ghi sổ</p>
-            <p class="text-[11px] text-slate-400 m-0">Chứng từ cần được chuyển qua kho và giao hàng thành công trước khi kế toán ghi sổ.</p>
           </div>
         </template>
-      </DataTable>
-    </div>
+      </Column>
+    </CommonDataTable>
 
     <!-- Modals -->
     <AccountingPostForm
@@ -182,7 +174,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useToast } from 'primevue/usetoast';
-import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Toolbar from 'primevue/toolbar';
 import IconField from 'primevue/iconfield';
@@ -192,6 +183,7 @@ import Select from 'primevue/select';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
 import PageHeader from '../../components/common/PageHeader.vue';
+import CommonDataTable from '../../components/common/CommonDataTable.vue';
 
 import AccountingPostForm from './form.vue';
 import { salesApi } from '../../api/sales.api';
@@ -213,6 +205,15 @@ const filterStatus = ref(null);
 const showConfirmDialog = ref(false);
 const selectedInvoice = ref(null);
 const loadingPosting = ref(false);
+
+const tableColumns = [
+  { field: 'invoice_number', header: 'Mã Chứng Từ (INV)', sortable: true, width: '160px' },
+  { field: 'customer_name', header: 'Khách Hàng B2B', sortable: true },
+  { field: 'warehouse_name', header: 'Kho Xuất Trừ', sortable: false },
+  { field: 'warehouse_status', header: 'Tình Trạng Giao', sortable: true, width: '150px', align: 'center' },
+  { field: 'total_amount', header: 'Tổng Doanh Thu', sortable: true, width: '140px', align: 'right' },
+  { field: 'accounting_status', header: 'Trạng Thái Sổ Cái', sortable: true, width: '180px', align: 'center' }
+];
 
 const filterOptions = [
   { label: 'Tất cả chứng từ', value: null },

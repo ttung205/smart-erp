@@ -1,23 +1,24 @@
 <template>
-  <div class="flex flex-col gap-4 pb-10">
+  <div class="space-y-3 pb-8">
+    <!-- Header -->
     <PageHeader
-      title="Quản Lý Thương Hiệu (Brand Master)"
-      subtitle="Quản lý các thương hiệu sản phẩm và hãng sản xuất trong toàn hệ thống"
-      badge="Catalog Service"
+      title="Thương Hiệu (Brands)"
+      subtitle="Quản lý danh sách các thương hiệu & hãng sản xuất thiết bị công nghiệp trong catalog"
+      badge="Catalog"
       badge-severity="info"
     >
       <template #actions>
         <Button
-          label="Thêm thương hiệu mới"
+          label="Thêm Thương Hiệu Mới"
           icon="pi pi-plus"
           size="small"
-          class="rounded-[6px] !text-xs !py-1.5 !px-3 !bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 font-medium"
+          class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 rounded-[6px]"
           @click="openCreateModal"
         />
       </template>
     </PageHeader>
 
-    <!-- Toolbar -->
+    <!-- Toolbar Tìm kiếm & Thống kê -->
     <Toolbar class="bg-white border border-slate-200 rounded-[6px] px-3 py-2 shadow-none">
       <template #start>
         <div class="flex items-center gap-2">
@@ -36,12 +37,12 @@
       <template #end>
         <div class="flex items-center gap-2">
           <Button
-            label="Làm mới"
             icon="pi pi-refresh"
-            severity="secondary"
-            outlined
+            text
             size="small"
-            class="rounded-[6px] !text-xs !py-1 !px-2.5"
+            severity="secondary"
+            class="rounded-[6px]"
+            v-tooltip.bottom="'Tải lại dữ liệu'"
             @click="fetchBrands"
           />
           <Tag
@@ -53,87 +54,78 @@
       </template>
     </Toolbar>
 
-    <!-- Data Table -->
-    <div class="bg-white border border-slate-200 rounded-[6px] overflow-hidden shadow-none">
-      <DataTable
-        :value="filteredBrands"
-        showGridlines
-        class="clean-datatable"
-        responsiveLayout="scroll"
-        :paginator="filteredBrands.length > 10"
-        :rows="10"
-        :loading="loading"
-      >
+    <!-- Data Table using CommonDataTable -->
+    <CommonDataTable
+      :value="filteredBrands"
+      :columns="tableColumns"
+      :loading="loading"
+      :rows="10"
+      :paginator="filteredBrands.length > 10"
+      emptyIcon="pi pi-bookmark"
+      emptyTitle="Chưa có thương hiệu nào"
+      emptySubtitle="Bấm nút 'Thêm Thương Hiệu Mới' ở trên để tạo thương hiệu đầu tiên."
+    >
+      <!-- Prepend column for STT -->
+      <template #prepend-columns>
         <Column header="#" style="width: 50px" class="text-center">
           <template #body="{ index }">
             <span class="text-xs font-mono text-slate-400 font-semibold">{{ index + 1 }}</span>
           </template>
         </Column>
+      </template>
 
-        <Column field="name" header="Tên Thương Hiệu" :sortable="true" style="min-width: 220px">
-          <template #body="{ data }">
-            <div class="flex items-center gap-2">
-              <div class="w-7 h-7 rounded bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700 font-bold text-xs">
-                {{ data.name.charAt(0).toUpperCase() }}
-              </div>
-              <span class="font-bold text-slate-900 text-xs">{{ data.name }}</span>
-            </div>
-          </template>
-        </Column>
+      <!-- Custom column: name -->
+      <template #col-name="{ data }">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700 font-bold text-xs">
+            {{ data.name.charAt(0).toUpperCase() }}
+          </div>
+          <span class="font-bold text-slate-900 text-xs">{{ data.name }}</span>
+        </div>
+      </template>
 
-        <Column field="products_count" header="Số Lượng Sản Phẩm" :sortable="true" style="width: 180px" class="text-center">
-          <template #body="{ data }">
-            <Tag
-              :severity="data.products_count > 0 ? 'info' : 'secondary'"
-              :value="`${data.products_count || 0} sản phẩm`"
-              class="text-[11px] px-2 py-0.5 rounded-[4px]"
+      <!-- Custom column: products_count -->
+      <template #col-products_count="{ data }">
+        <div class="text-center">
+          <Tag
+            :severity="data.products_count > 0 ? 'info' : 'secondary'"
+            :value="`${data.products_count || 0} sản phẩm`"
+            class="text-[11px] px-2 py-0.5 rounded-[4px]"
+          />
+        </div>
+      </template>
+
+      <!-- Custom column: created_at -->
+      <template #col-created_at="{ data }">
+        <span class="text-xs text-slate-500 font-mono">{{ formatDate(data.created_at) }}</span>
+      </template>
+
+      <!-- Thao tác -->
+      <Column header="Thao Tác" style="width: 130px" class="text-center">
+        <template #body="{ data }">
+          <div class="flex items-center justify-center gap-1">
+            <Button
+              icon="pi pi-pencil"
+              size="small"
+              text
+              class="!text-xs !p-1.5 rounded-[6px] !text-sky-600 hover:!bg-sky-50"
+              v-tooltip.bottom="'Chỉnh sửa tên thương hiệu'"
+              @click="openEditModal(data)"
             />
-          </template>
-        </Column>
 
-        <Column field="created_at" header="Ngày Tạo" :sortable="true" style="width: 180px">
-          <template #body="{ data }">
-            <span class="text-xs text-slate-500 font-mono">{{ formatDate(data.created_at) }}</span>
-          </template>
-        </Column>
-
-        <!-- Thao tác -->
-        <Column header="Thao Tác" style="width: 130px" class="text-center">
-          <template #body="{ data }">
-            <div class="flex items-center justify-center gap-1">
-              <!-- Sửa -->
-              <Button
-                icon="pi pi-pencil"
-                size="small"
-                text
-                class="!text-xs !p-1.5 rounded-[6px] !text-sky-600 hover:!bg-sky-50"
-                v-tooltip.bottom="'Chỉnh sửa tên thương hiệu'"
-                @click="openEditModal(data)"
-              />
-
-              <!-- Xóa -->
-              <Button
-                icon="pi pi-trash"
-                size="small"
-                text
-                class="!text-xs !p-1.5 rounded-[6px] !text-red-500 hover:!bg-red-50"
-                :disabled="data.products_count > 0"
-                v-tooltip.bottom="data.products_count > 0 ? 'Không thể xóa thương hiệu đang có sản phẩm' : 'Xóa thương hiệu'"
-                @click="confirmDeleteBrand(data)"
-              />
-            </div>
-          </template>
-        </Column>
-
-        <template #empty>
-          <div class="py-10 text-center flex flex-col items-center gap-2">
-            <i class="pi pi-bookmark text-3xl text-slate-300"></i>
-            <p class="text-xs font-semibold text-slate-700 m-0">Chưa có thương hiệu nào</p>
-            <p class="text-[11px] text-slate-400 m-0">Bấm nút "Thêm thương hiệu mới" ở trên để tạo thương hiệu đầu tiên.</p>
+            <Button
+              icon="pi pi-trash"
+              size="small"
+              text
+              class="!text-xs !p-1.5 rounded-[6px] !text-red-500 hover:!bg-red-50"
+              :disabled="data.products_count > 0"
+              v-tooltip.bottom="data.products_count > 0 ? 'Không thể xóa thương hiệu đang có sản phẩm' : 'Xóa thương hiệu'"
+              @click="confirmDeleteBrand(data)"
+            />
           </div>
         </template>
-      </DataTable>
-    </div>
+      </Column>
+    </CommonDataTable>
 
     <!-- Create / Edit Dialog -->
     <Dialog
@@ -158,10 +150,9 @@
       </div>
 
       <template #footer>
-        <div class="flex justify-end gap-2">
+        <div class="flex justify-end gap-2 pt-2">
           <Button
             label="Hủy bỏ"
-            icon="pi pi-times"
             text
             size="small"
             severity="secondary"
@@ -169,11 +160,11 @@
             @click="showModal = false"
           />
           <Button
-            :label="editingBrand ? 'Lưu thay đổi' : 'Tạo thương hiệu'"
+            :label="editingBrand ? 'Cập Nhật' : 'Lưu Thương Hiệu'"
             icon="pi pi-check"
             size="small"
-            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 rounded-[6px] !text-xs font-semibold"
             :loading="saving"
+            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 rounded-[6px]"
             @click="saveBrand"
           />
         </div>
@@ -185,7 +176,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useToast } from 'primevue/usetoast';
-import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Toolbar from 'primevue/toolbar';
 import IconField from 'primevue/iconfield';
@@ -195,6 +185,7 @@ import Button from 'primevue/button';
 import Tag from 'primevue/tag';
 import Dialog from 'primevue/dialog';
 import PageHeader from '../../components/common/PageHeader.vue';
+import CommonDataTable from '../../components/common/CommonDataTable.vue';
 import { catalogApi } from '../../api/catalog.api';
 
 const toast = useToast();
@@ -207,6 +198,12 @@ const showModal = ref(false);
 const editingBrand = ref(null);
 const saving = ref(false);
 const brandForm = ref({ name: '' });
+
+const tableColumns = [
+  { field: 'name', header: 'Tên Thương Hiệu', sortable: true, width: 'auto' },
+  { field: 'products_count', header: 'Số Lượng Sản Phẩm', sortable: true, width: '180px', align: 'center' },
+  { field: 'created_at', header: 'Ngày Tạo', sortable: true, width: '180px' }
+];
 
 const filteredBrands = computed(() => {
   if (!searchQuery.value) return brands.value;
@@ -249,16 +246,16 @@ const openCreateModal = () => {
   showModal.value = true;
 };
 
-const openEditModal = (b) => {
-  editingBrand.value = b;
-  brandForm.value = { name: b.name };
+const openEditModal = (brand) => {
+  editingBrand.value = brand;
+  brandForm.value = { name: brand.name };
   showModal.value = true;
 };
 
 const saveBrand = async () => {
   const name = brandForm.value.name.trim();
   if (!name) {
-    toast.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Tên thương hiệu không được để trống.', life: 3000 });
+    alert('Vui lòng nhập tên thương hiệu!');
     return;
   }
 
@@ -266,29 +263,55 @@ const saveBrand = async () => {
   try {
     if (editingBrand.value) {
       await catalogApi.updateBrand(editingBrand.value.id, { name });
-      toast.add({ severity: 'success', summary: 'Thành công', detail: `Đã cập nhật thương hiệu "${name}".`, life: 3000 });
+      toast.add({
+        severity: 'success',
+        summary: 'Thành công',
+        detail: `Đã cập nhật thương hiệu "${name}"`,
+        life: 3000
+      });
     } else {
       await catalogApi.createBrand({ name });
-      toast.add({ severity: 'success', summary: 'Thành công', detail: `Đã tạo mới thương hiệu "${name}".`, life: 3000 });
+      toast.add({
+        severity: 'success',
+        summary: 'Thành công',
+        detail: `Đã tạo thương hiệu mới "${name}"`,
+        life: 3000
+      });
     }
     showModal.value = false;
     await fetchBrands();
   } catch (err) {
-    toast.add({ severity: 'error', summary: 'Lỗi', detail: err.message || 'Không thể lưu thương hiệu.', life: 3000 });
+    console.error('Save brand error:', err);
+    toast.add({
+      severity: 'error',
+      summary: 'Lỗi lưu thương hiệu',
+      detail: err.message || 'Không thể lưu thương hiệu.',
+      life: 3000
+    });
   } finally {
     saving.value = false;
   }
 };
 
-const confirmDeleteBrand = async (b) => {
-  if (!confirm(`Bạn có chắc chắn muốn xóa thương hiệu "${b.name}" không?`)) return;
-
-  try {
-    await catalogApi.deleteBrand(b.id);
-    toast.add({ severity: 'success', summary: 'Đã xóa', detail: `Đã xóa thương hiệu "${b.name}".`, life: 3000 });
-    await fetchBrands();
-  } catch (err) {
-    toast.add({ severity: 'error', summary: 'Lỗi xóa', detail: err.message || 'Không thể xóa thương hiệu này.', life: 3000 });
+const confirmDeleteBrand = async (brand) => {
+  if (confirm(`Bạn có chắc chắn muốn xóa thương hiệu "${brand.name}"?`)) {
+    try {
+      await catalogApi.deleteBrand(brand.id);
+      toast.add({
+        severity: 'success',
+        summary: 'Đã xóa',
+        detail: `Đã xóa thương hiệu "${brand.name}"`,
+        life: 3000
+      });
+      await fetchBrands();
+    } catch (err) {
+      toast.add({
+        severity: 'error',
+        summary: 'Lỗi xóa',
+        detail: err.message || 'Không thể xóa thương hiệu.',
+        life: 3000
+      });
+    }
   }
 };
 

@@ -2,9 +2,9 @@
   <div class="space-y-3 pb-8">
     <PageHeader
       title="Đơn Bán Hàng (Sales Orders)"
-      subtitle="Quản lý danh sách đơn bán hàng chính thức (SO), quy trình xét duyệt và liên kết giao hàng"
+      subtitle="Theo dõi tiến độ đơn hàng đã ký kết, điều phối giao hàng và đối soát hóa đơn GTGT"
       badge="Stage 2: Sales Order"
-      badge-severity="info"
+      badge-severity="success"
     />
 
     <!-- Toolbar Filter -->
@@ -15,7 +15,7 @@
             <InputIcon class="pi pi-search" />
             <InputText
               v-model="searchQuery"
-              placeholder="Tìm theo mã đơn nội bộ, số đơn khách, khách hàng..."
+              placeholder="Tìm theo mã đơn, số đơn khách hoặc tên đối tác..."
               class="w-80 rounded-[6px]"
               size="small"
             />
@@ -39,164 +39,147 @@
       </template>
     </Toolbar>
 
-    <!-- Data Table -->
-    <div class="bg-white border border-slate-200 rounded-[6px] overflow-hidden shadow-sm">
-      <DataTable
-        :value="filteredOrders"
-        showGridlines
-        class="clean-datatable"
-        responsiveLayout="scroll"
-        :paginator="filteredOrders.length > 8"
-        :rows="8"
-      >
-        <!-- 1. Mã đơn nội bộ (OD-...) -->
-        <Column field="order_number" header="Mã Đơn Nội Bộ" :sortable="true" style="min-width: 195px; width: 195px" headerClass="whitespace-nowrap" class="whitespace-nowrap">
-          <template #body="{ data }">
-            <span
-              class="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-[4px] border border-indigo-200 cursor-pointer hover:underline inline-block whitespace-nowrap"
-              @click="$router.push(`/order/${data._db_id || data.id}/edit`)"
-              title="Nhấp để vào chỉnh sửa đơn bán"
-            >
-              {{ data.order_number || data.id }}
-            </span>
-          </template>
-        </Column>
+    <!-- Data Table using CommonDataTable -->
+    <CommonDataTable
+      :value="filteredOrders"
+      :columns="tableColumns"
+      :rows="8"
+      :paginator="filteredOrders.length > 8"
+      emptyIcon="pi pi-shopping-cart"
+      emptyTitle="Chưa có đơn bán hàng nào"
+      emptySubtitle="Tất cả đơn bán hàng đều phải được tạo từ Báo giá đã duyệt. Vui lòng chuyển sang trang Báo Giá để tiến hành tạo đơn bán."
+    >
+      <!-- 1. Mã đơn nội bộ (OD-...) -->
+      <template #col-order_number="{ data }">
+        <span
+          class="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-[4px] border border-indigo-200 cursor-pointer hover:underline inline-block whitespace-nowrap"
+          @click="$router.push(`/order/${data._db_id || data.id}/edit`)"
+          title="Nhấp để vào chỉnh sửa đơn bán"
+        >
+          {{ data.order_number || data.id }}
+        </span>
+      </template>
 
-        <!-- 2. Số đơn của khách (customer_order_number) -->
-        <Column field="customer_order_number" header="Số Đơn Khách" :sortable="true" style="min-width: 165px; width: 165px" headerClass="whitespace-nowrap" class="whitespace-nowrap">
-          <template #body="{ data }">
-            <span
-              class="font-mono text-xs font-bold text-slate-800 bg-slate-50 px-2.5 py-1 rounded-[4px] border border-slate-200 inline-block whitespace-nowrap"
-              :class="{ '!border-amber-300 !bg-amber-50 !text-amber-800': data.customer_order_number && data.customer_order_number !== data.order_number }"
-              :title="data.customer_order_number !== data.order_number ? 'Số đơn riêng do khách hàng yêu cầu' : 'Dùng theo số đơn hệ thống tự sinh'"
-            >
-              {{ data.customer_order_number || data.order_number || data.id }}
-            </span>
-          </template>
-        </Column>
+      <!-- 2. Số đơn của khách (customer_order_number) -->
+      <template #col-customer_order_number="{ data }">
+        <span
+          class="font-mono text-xs font-bold text-slate-800 bg-slate-50 px-2.5 py-1 rounded-[4px] border border-slate-200 inline-block whitespace-nowrap"
+          :class="{ '!border-amber-300 !bg-amber-50 !text-amber-800': data.customer_order_number && data.customer_order_number !== data.order_number }"
+          :title="data.customer_order_number !== data.order_number ? 'Số đơn riêng do khách hàng yêu cầu' : 'Dùng theo số đơn hệ thống tự sinh'"
+        >
+          {{ data.customer_order_number || data.order_number || data.id }}
+        </span>
+      </template>
 
-        <!-- 3. Khách hàng B2B -->
-        <Column field="customer_name" header="Khách Hàng B2B" :sortable="true" style="min-width: 240px" headerClass="whitespace-nowrap">
-          <template #body="{ data }">
-            <div class="flex flex-col">
-              <span class="font-semibold text-slate-800 text-xs">{{ data.customer_name || data.customer?.name }}</span>
-              <span v-if="data.contact_name || data.contact?.name" class="text-[11px] text-slate-400">LH: {{ data.contact_name || data.contact?.name }}</span>
-            </div>
-          </template>
-        </Column>
+      <!-- 3. Khách hàng B2B -->
+      <template #col-customer_name="{ data }">
+        <div class="flex flex-col">
+          <span class="font-semibold text-slate-800 text-xs">{{ data.customer_name || data.customer?.name }}</span>
+          <span v-if="data.contact_name || data.contact?.name" class="text-[11px] text-slate-400">LH: {{ data.contact_name || data.contact?.name }}</span>
+        </div>
+      </template>
 
-        <!-- 4. Ngày tạo đơn -->
-        <Column field="order_date" header="Ngày Tạo" style="min-width: 120px; width: 120px" headerClass="whitespace-nowrap" class="text-center whitespace-nowrap">
-          <template #body="{ data }">
-            <span class="text-slate-600 text-xs font-mono whitespace-nowrap">{{ data.order_date }}</span>
-          </template>
-        </Column>
+      <!-- 4. Ngày tạo đơn -->
+      <template #col-order_date="{ data }">
+        <span class="text-slate-600 text-xs font-mono whitespace-nowrap">{{ data.order_date }}</span>
+      </template>
 
-        <!-- 5. Mặt hàng chốt -->
-        <Column header="Mặt Hàng Chốt" class="text-center whitespace-nowrap" headerClass="whitespace-nowrap" style="min-width: 140px; width: 140px">
-          <template #body="{ data }">
-            <span class="text-xs font-mono font-medium text-slate-700 bg-slate-100 px-2.5 py-1 rounded-[4px] inline-block whitespace-nowrap">
-              {{ data.items?.length || 0 }} items
-            </span>
-          </template>
-        </Column>
+      <!-- 5. Mặt hàng chốt -->
+      <template #col-items_count="{ data }">
+        <div class="text-center">
+          <span class="text-xs font-mono font-medium text-slate-700 bg-slate-100 px-2.5 py-1 rounded-[4px] inline-block whitespace-nowrap">
+            {{ data.items?.length || 0 }} items
+          </span>
+        </div>
+      </template>
 
-        <!-- 6. Tổng tiền đơn -->
-        <Column field="total_amount" header="Tổng Tiền Đơn" class="text-right whitespace-nowrap" headerClass="whitespace-nowrap" :sortable="true" style="min-width: 160px; width: 160px">
-          <template #body="{ data }">
-            <span class="font-mono text-xs font-bold text-slate-900 num-tabular whitespace-nowrap">
-              {{ formatCurrency(data.total_amount) }}
-            </span>
-          </template>
-        </Column>
+      <!-- 6. Tổng tiền đơn -->
+      <template #col-total_amount="{ data }">
+        <div class="text-right">
+          <span class="font-mono text-xs font-bold text-slate-900 num-tabular whitespace-nowrap">
+            {{ formatCurrency(data.total_amount) }}
+          </span>
+        </div>
+      </template>
 
-        <!-- 7. Trạng thái -->
-        <Column header="Trạng Thái" class="text-center whitespace-nowrap" headerClass="whitespace-nowrap" style="min-width: 140px; width: 140px">
-          <template #body="{ data }">
-            <Tag
-              :severity="getStatusMeta(data.status).severity"
-              :value="getStatusMeta(data.status).label"
-              class="text-[11px] px-2 py-0.5 rounded-[6px] whitespace-nowrap"
+      <!-- 7. Trạng thái -->
+      <template #col-status="{ data }">
+        <div class="text-center">
+          <Tag
+            :severity="getStatusMeta(data.status).severity"
+            :value="getStatusMeta(data.status).label"
+            class="text-[11px] px-2 py-0.5 rounded-[6px] whitespace-nowrap"
+          />
+        </div>
+      </template>
+
+      <!-- 8. Thao tác -->
+      <Column header="Thao Tác" class="text-center whitespace-nowrap" headerClass="whitespace-nowrap" style="min-width: 150px; width: 150px">
+        <template #body="{ data }">
+          <div class="flex items-center justify-center gap-1.5 whitespace-nowrap">
+            <!-- Xem nhanh dialog -->
+            <Button
+              icon="pi pi-eye"
+              text
+              size="small"
+              severity="secondary"
+              class="!w-7 !h-7 !p-0 rounded-[6px] hover:!bg-slate-100"
+              v-tooltip.bottom="'Xem nhanh chi tiết đơn'"
+              @click="openViewOrder(data)"
             />
-          </template>
-        </Column>
-
-        <!-- 8. Thao tác -->
-        <Column header="Thao Tác" class="text-center whitespace-nowrap" headerClass="whitespace-nowrap" style="min-width: 150px; width: 150px">
-          <template #body="{ data }">
-            <div class="flex items-center justify-center gap-1.5 whitespace-nowrap">
-              <!-- Xem nhanh dialog -->
-              <Button
-                icon="pi pi-eye"
-                text
-                size="small"
-                severity="secondary"
-                class="!w-7 !h-7 !p-0 rounded-[6px] hover:!bg-slate-100"
-                v-tooltip.bottom="'Xem nhanh chi tiết đơn'"
-                @click="openViewOrder(data)"
-              />
-              <!-- Chỉnh sửa trang riêng -->
-              <Button
-                icon="pi pi-pencil"
-                text
-                size="small"
-                class="!w-7 !h-7 !p-0 rounded-[6px] !text-indigo-600 hover:!bg-indigo-50"
-                v-tooltip.bottom="'Chỉnh sửa đơn bán (Trang riêng)'"
-                @click="$router.push(`/order/${data._db_id || data.id}/edit`)"
-              />
-              <!-- Gửi xét duyệt khi DRAFT -->
-              <Button
-                v-if="data.status === 'DRAFT'"
-                icon="pi pi-send"
-                text
-                size="small"
-                class="!w-7 !h-7 !p-0 rounded-[6px] !text-sky-600 hover:!bg-sky-50"
-                v-tooltip.bottom="'Gửi xét duyệt đơn hàng'"
-                @click="confirmSubmitApproval(data)"
-              />
-              <!-- Duyệt nhanh khi PENDING_APPROVAL -->
-              <Button
-                v-if="data.status === 'PENDING_APPROVAL' && canApprove"
-                icon="pi pi-check-circle"
-                text
-                size="small"
-                class="!w-7 !h-7 !p-0 rounded-[6px] !text-emerald-600 hover:!bg-emerald-50"
-                v-tooltip.bottom="'Phê duyệt đơn bán hàng'"
-                @click="confirmApproveOrder(data)"
-              />
-              <!-- Từ chối duyệt khi PENDING_APPROVAL -->
-              <Button
-                v-if="data.status === 'PENDING_APPROVAL' && canApprove"
-                icon="pi pi-times-circle"
-                text
-                size="small"
-                class="!w-7 !h-7 !p-0 rounded-[6px] !text-red-500 hover:!bg-red-50"
-                v-tooltip.bottom="'Từ chối phê duyệt đơn'"
-                @click="confirmRejectOrder(data)"
-              />
-              <!-- Lập yêu cầu giao hàng khi đã duyệt -->
-              <Button
-                v-if="data.status === 'APPROVED' || data.status === 'CONFIRMED'"
-                icon="pi pi-truck"
-                size="small"
-                text
-                class="!w-7 !h-7 !p-0 rounded-[6px] !text-sky-600 hover:!bg-sky-50"
-                v-tooltip.bottom="'Lập lệnh yêu cầu giao hàng'"
-                @click="openDeliveryDialog(data)"
-              />
-            </div>
-          </template>
-        </Column>
-
-        <template #empty>
-          <div class="py-10 text-center flex flex-col items-center gap-2">
-            <i class="pi pi-shopping-cart text-3xl text-slate-300"></i>
-            <p class="text-xs font-semibold text-slate-700 m-0">Chưa có đơn bán hàng nào</p>
-            <p class="text-[11px] text-slate-400 m-0">Tất cả đơn bán hàng đều phải được tạo từ Báo giá đã duyệt. Vui lòng chuyển sang trang Báo Giá để tiến hành tạo đơn bán.</p>
+            <!-- Chỉnh sửa trang riêng -->
+            <Button
+              icon="pi pi-pencil"
+              text
+              size="small"
+              class="!w-7 !h-7 !p-0 rounded-[6px] !text-indigo-600 hover:!bg-indigo-50"
+              v-tooltip.bottom="'Chỉnh sửa đơn bán (Trang riêng)'"
+              @click="$router.push(`/order/${data._db_id || data.id}/edit`)"
+            />
+            <!-- Gửi xét duyệt khi DRAFT -->
+            <Button
+              v-if="data.status === 'DRAFT'"
+              icon="pi pi-send"
+              text
+              size="small"
+              class="!w-7 !h-7 !p-0 rounded-[6px] !text-sky-600 hover:!bg-sky-50"
+              v-tooltip.bottom="'Gửi xét duyệt đơn hàng'"
+              @click="confirmSubmitApproval(data)"
+            />
+            <!-- Duyệt nhanh khi PENDING_APPROVAL -->
+            <Button
+              v-if="data.status === 'PENDING_APPROVAL' && canApprove"
+              icon="pi pi-check-circle"
+              text
+              size="small"
+              class="!w-7 !h-7 !p-0 rounded-[6px] !text-emerald-600 hover:!bg-emerald-50"
+              v-tooltip.bottom="'Phê duyệt đơn bán hàng'"
+              @click="confirmApproveOrder(data)"
+            />
+            <!-- Từ chối duyệt khi PENDING_APPROVAL -->
+            <Button
+              v-if="data.status === 'PENDING_APPROVAL' && canApprove"
+              icon="pi pi-times-circle"
+              text
+              size="small"
+              class="!w-7 !h-7 !p-0 rounded-[6px] !text-red-500 hover:!bg-red-50"
+              v-tooltip.bottom="'Từ chối phê duyệt đơn'"
+              @click="confirmRejectOrder(data)"
+            />
+            <!-- Lập yêu cầu giao hàng khi đã duyệt -->
+            <Button
+              v-if="data.status === 'APPROVED' || data.status === 'CONFIRMED'"
+              icon="pi pi-truck"
+              text
+              size="small"
+              class="!w-7 !h-7 !p-0 rounded-[6px] !text-sky-600 hover:!bg-sky-50"
+              v-tooltip.bottom="'Lập lệnh yêu cầu giao hàng'"
+              @click="openDeliveryDialog(data)"
+            />
           </div>
         </template>
-      </DataTable>
-    </div>
+      </Column>
+    </CommonDataTable>
 
     <!-- Modals -->
     <OrderDetailDialog
@@ -222,7 +205,6 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
-import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Toolbar from 'primevue/toolbar';
 import IconField from 'primevue/iconfield';
@@ -232,9 +214,10 @@ import Select from 'primevue/select';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
 import PageHeader from '../../components/common/PageHeader.vue';
+import CommonDataTable from '../../components/common/CommonDataTable.vue';
 
-import OrderDetailDialog from './view-dialog.vue';
-import CreateDeliveryDialog from './delivery-dialog.vue';
+import OrderDetailDialog from '../../components/order/OrderDetailDialog.vue';
+import CreateDeliveryDialog from '../../components/order/OrderDeliveryDialog.vue';
 import { salesApi } from '../../api/sales.api';
 import { formatCurrency } from '../../utils/format';
 import { isSuperAdmin, hasPermission } from '../../utils/rbac';
@@ -261,6 +244,17 @@ const statusFilter = ref(null);
 const showViewDialog = ref(false);
 const showDeliveryDialog = ref(false);
 const selectedOrder = ref(null);
+
+// Cấu hình các cột cho CommonDataTable (đồng bộ với các trang danh sách khác)
+const tableColumns = [
+  { field: 'order_number', header: 'Mã Đơn Nội Bộ', sortable: true, width: '195px' },
+  { field: 'customer_order_number', header: 'Số Đơn Khách', sortable: true, width: '165px' },
+  { field: 'customer_name', header: 'Khách Hàng B2B', sortable: true },
+  { field: 'order_date', header: 'Ngày Tạo', sortable: true, width: '120px', align: 'center' },
+  { field: 'items_count', header: 'Mặt Hàng Chốt', sortable: false, width: '140px', align: 'center' },
+  { field: 'total_amount', header: 'Tổng Tiền Đơn', sortable: true, width: '160px', align: 'right' },
+  { field: 'status', header: 'Trạng Thái', sortable: true, width: '140px', align: 'center' }
+];
 
 const canApprove = computed(() => {
   if (!props.currentUser) return false;

@@ -32,55 +32,45 @@
         />
       </div>
 
-      <DataTable
+      <CommonDataTable
         :value="systemRoles"
-        showGridlines
-        class="clean-datatable"
-        responsiveLayout="scroll"
+        :columns="tableColumns"
+        :paginator="false"
       >
-        <Column field="name" header="Tên Vai Trò" :sortable="true">
-          <template #body="{ data }">
-            <span class="font-semibold text-slate-900">{{ data.name }}</span>
-          </template>
-        </Column>
+        <template #col-name="{ data }">
+          <span class="font-semibold text-slate-900">{{ data.name }}</span>
+        </template>
 
-        <Column field="code" header="Mã Role">
-          <template #body="{ data }">
-            <span class="font-mono text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-[4px] border border-indigo-200">{{ data.code }}</span>
-          </template>
-        </Column>
+        <template #col-code="{ data }">
+          <span class="font-mono text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-[4px] border border-indigo-200">{{ data.code }}</span>
+        </template>
 
-        <Column field="sampleEmail" header="Tài Khoản Đại Diện">
-          <template #body="{ data }">
-            <span class="font-mono text-xs text-slate-500">{{ data.sampleEmail }}</span>
-          </template>
-        </Column>
+        <template #col-sampleEmail="{ data }">
+          <span class="font-mono text-xs text-slate-500">{{ data.sampleEmail }}</span>
+        </template>
 
-        <Column field="desc" header="Mô Tả Chức Năng">
-          <template #body="{ data }">
-            <span class="text-slate-700 text-xs">{{ data.desc }}</span>
-          </template>
-        </Column>
+        <template #col-desc="{ data }">
+          <span class="text-slate-700 text-xs">{{ data.desc }}</span>
+        </template>
 
-        <Column header="Phân Quyền" class="text-center">
-          <template #body="{ data }">
+        <template #col-permissions="{ data }">
+          <div class="text-center">
             <Tag
               :severity="data.hasFullPermissions ? 'success' : 'secondary'"
               :value="data.hasFullPermissions ? '24/24 Quyền (Toàn quyền)' : '0 Quyền (Chưa phân quyền)'"
               class="text-[11px] px-2 py-0.5 rounded-[6px]"
             />
-          </template>
-        </Column>
-      </DataTable>
+          </div>
+        </template>
+      </CommonDataTable>
     </div>
   </div>
 </template>
 
 <script setup>
-import DataTable from 'primevue/datatable';
-import Column from 'primevue/column';
 import Tag from 'primevue/tag';
 import PageHeader from '../../components/common/PageHeader.vue';
+import CommonDataTable from '../../components/common/CommonDataTable.vue';
 import ClaimsInspector from './components/ClaimsInspector.vue';
 import PermissionMatrix from './components/PermissionMatrix.vue';
 import { SYSTEM_ROLES } from '../../constants/permissions.constant';
@@ -99,4 +89,12 @@ defineProps({
 defineEmits(['copy-token']);
 
 const systemRoles = SYSTEM_ROLES;
+
+const tableColumns = [
+  { field: 'name', header: 'Tên Vai Trò', sortable: true },
+  { field: 'code', header: 'Mã Role', sortable: true },
+  { field: 'sampleEmail', header: 'Tài Khoản Đại Diện', sortable: false },
+  { field: 'desc', header: 'Mô Tả Chức Năng', sortable: false },
+  { field: 'permissions', header: 'Phân Quyền', sortable: false, align: 'center' }
+];
 </script>

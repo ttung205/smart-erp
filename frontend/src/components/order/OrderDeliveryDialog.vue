@@ -70,66 +70,61 @@
           />
         </div>
 
-        <div class="flex flex-col gap-1 md:col-span-2">
-          <label class="text-xs font-semibold text-slate-700">Địa chỉ giao hàng chi tiết <span class="text-red-500">*</span></label>
+        <div class="col-span-2 flex flex-col gap-1">
+          <label class="text-xs font-semibold text-slate-700">Địa chỉ giao hàng thực tế</label>
           <InputText
             v-model="form.shipping_address"
             class="w-full rounded-[6px]"
             size="small"
-            placeholder="Số nhà, đường phố, phường/xã, quận/huyện, tỉnh/thành..."
+            placeholder="Địa chỉ công trình / nhà máy..."
           />
         </div>
       </div>
 
-      <!-- 3. Bảng số lượng giao -->
-      <div class="border border-slate-200 rounded-[6px] overflow-hidden">
-        <div class="bg-slate-100 px-3 py-1.5 border-b border-slate-200 text-xs font-semibold text-slate-700">
-          Danh Sách Mặt Hàng Xuất Giao
+      <!-- 3. Bảng phân phối số lượng giao -->
+      <div>
+        <span class="text-xs font-semibold text-slate-700 block mb-2">Chi tiết số lượng xuất kho:</span>
+        <div class="border border-slate-200 rounded-[6px] overflow-hidden">
+          <DataTable :value="form.items" showGridlines class="clean-datatable" responsiveLayout="scroll">
+            <Column header="#" style="width: 40px" class="text-center">
+              <template #body="{ index }">
+                <span class="font-mono text-slate-400">{{ index + 1 }}</span>
+              </template>
+            </Column>
+
+            <Column field="product_sku" header="Mã SKU" style="width: 140px">
+              <template #body="{ data }">
+                <span class="font-mono text-xs font-semibold text-sky-700">{{ data.product_sku }}</span>
+              </template>
+            </Column>
+
+            <Column field="product_name" header="Tên mặt hàng"></Column>
+
+            <Column field="order_quantity" header="Số lượng đơn" style="width: 100px" class="text-right">
+              <template #body="{ data }">
+                <span class="font-mono text-slate-600">{{ data.order_quantity }}</span>
+              </template>
+            </Column>
+
+            <Column header="SL giao đợt này" style="width: 120px" class="text-right">
+              <template #body="{ data }">
+                <InputNumber
+                  v-model="data.quantity"
+                  :min="1"
+                  :max="data.order_quantity"
+                  inputClass="w-20 text-right text-xs py-1 px-2 border rounded"
+                />
+              </template>
+            </Column>
+          </DataTable>
         </div>
-        <DataTable
-          :value="form.items"
-          showGridlines
-          class="clean-datatable"
-          responsiveLayout="scroll"
-        >
-          <Column field="product_sku" header="SKU" style="width: 140px">
-            <template #body="{ data }">
-              <span class="font-mono text-xs font-semibold text-slate-700">{{ data.product_sku }}</span>
-            </template>
-          </Column>
-
-          <Column field="product_name" header="Tên Sản Phẩm">
-            <template #body="{ data }">
-              <span class="text-xs font-semibold text-slate-800">{{ data.product_name }}</span>
-            </template>
-          </Column>
-
-          <Column header="SL Đơn Bán" class="text-center" style="width: 110px">
-            <template #body="{ data }">
-              <span class="font-mono text-xs text-slate-500">{{ data.order_quantity }}</span>
-            </template>
-          </Column>
-
-          <Column header="SL Xuất Đợt Này" class="text-center" style="width: 140px">
-            <template #body="{ data }">
-              <InputNumber
-                v-model="data.quantity"
-                :min="1"
-                :max="data.order_quantity"
-                class="w-24 rounded-[6px]"
-                size="small"
-              />
-            </template>
-          </Column>
-        </DataTable>
       </div>
     </div>
 
     <template #footer>
-      <div class="flex justify-end gap-2">
+      <div class="flex justify-end gap-2 pt-2">
         <Button
-          label="Hủy bỏ"
-          icon="pi pi-times"
+          label="Hủy"
           text
           size="small"
           severity="secondary"
@@ -137,10 +132,10 @@
           @click="$emit('update:visible', false)"
         />
         <Button
-          label="Phát Hành Lệnh Yêu Cầu Giao Hàng"
-          icon="pi pi-truck"
+          label="Tạo Yêu Cầu Giao Hàng"
+          icon="pi pi-check"
           size="small"
-          class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 rounded-[6px] !font-semibold"
+          class="!bg-emerald-600 hover:!bg-emerald-700 !text-white !border-emerald-600 rounded-[6px]"
           @click="submitDeliveryRequest"
         />
       </div>
@@ -149,14 +144,14 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, watch } from 'vue';
 import Dialog from 'primevue/dialog';
+import DataTable from 'primevue/datatable';
+import Column from 'primevue/column';
+import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
 import Select from 'primevue/select';
-import Button from 'primevue/button';
-import DataTable from 'primevue/datatable';
-import Column from 'primevue/column';
 
 const props = defineProps({
   visible: {
@@ -166,36 +161,25 @@ const props = defineProps({
   order: {
     type: Object,
     default: null
-  },
-  warehouses: {
-    type: Array,
-    default: () => []
   }
 });
 
 const emit = defineEmits(['update:visible', 'create-delivery-request']);
 
-const warehouseOptions = computed(() => {
-  if (props.warehouses && props.warehouses.length > 0) {
-    return props.warehouses.map((w) => ({
-      id: w.id,
-      name: w.name,
-      label: `${w.code ? w.code + ' - ' : ''}${w.name}`
-    }));
-  }
-  return [
-    { id: 1, name: 'Kho Tổng Miền Bắc (Hà Nội)', label: 'WH-HN - Kho Tổng Miền Bắc (Hà Nội)' },
-    { id: 2, name: 'Kho Trung Chuyển Miền Nam (TP.HCM)', label: 'WH-HCM - Kho Trung Chuyển Miền Nam (TP.HCM)' }
-  ];
-});
+const warehouseOptions = ref([
+  { id: 1, name: 'Kho Tổng Miền Bắc (Hà Nội)', label: 'WH-HN-01: Kho Tổng Hà Nội' },
+  { id: 2, name: 'Kho Trung Chuyển Đà Nẵng', label: 'WH-DN-01: Kho Đà Nẵng' },
+  { id: 3, name: 'Kho Phía Nam (TP. Hồ Chí Minh)', label: 'WH-HCM-01: Kho TP.HCM' }
+]);
 
 const generateRequestNumber = () => {
+  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   const rand = Math.floor(1000 + Math.random() * 9000);
-  return `DR-2026-${rand}`;
+  return `DR-${dateStr}-${rand}`;
 };
 
 const form = ref({
-  request_number: generateRequestNumber(),
+  request_number: '',
   warehouse_id: 1,
   warehouse_name: 'Kho Tổng Miền Bắc (Hà Nội)',
   expected_delivery_date: '',

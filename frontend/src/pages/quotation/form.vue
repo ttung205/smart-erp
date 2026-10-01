@@ -257,79 +257,19 @@
       </div>
     </div>
 
-    <!-- 3. Bảng Mặt Hàng Báo Giá (Sử dụng component ItemDataTable.vue) -->
-    <!-- Đổi trạng thái (Item Win/Lose) và Tạo đơn bán chỉ hiển thị khi báo giá đã duyệt -->
-    <ItemDataTable
+    <!-- 3. Bảng Mặt Hàng Báo Giá (Sử dụng component QuotationItemTable.vue) -->
+    <QuotationItemTable
       v-model="form.items"
-      :show-create-order-button="form.status === 'APPROVED'"
-      :show-item-status="form.status === 'APPROVED'"
+      :is-approved="form.status === 'APPROVED'"
       @summary-change="onItemsSummaryChange"
       @create-order="onCreateOrderFromItems"
     />
 
     <!-- 4. Modal Thêm Nhanh Người Liên Hệ Mới -->
-    <Dialog
+    <QuotationAddContactDialog
       v-model:visible="showAddContactDialog"
-      modal
-      header="Thêm Người Liên Hệ Mới"
-      :style="{ width: '440px' }"
-      class="rounded-[8px]"
-    >
-      <div class="flex flex-col gap-3.5 pt-2 text-xs">
-        <div class="flex flex-col gap-1.5">
-          <label class="font-semibold text-slate-700">Họ và tên người liên hệ <span class="text-red-500">*</span></label>
-          <InputText
-            v-model="newContact.name"
-            placeholder="Ví dụ: Nguyễn Văn Hùng..."
-            class="w-full text-xs rounded-[6px] h-9 px-3"
-          />
-        </div>
-        <div class="flex flex-col gap-1.5">
-          <label class="font-semibold text-slate-700">Chức vụ / Phòng ban</label>
-          <InputText
-            v-model="newContact.position"
-            placeholder="Ví dụ: Trưởng phòng Mua hàng, Kỹ sư cơ điện..."
-            class="w-full text-xs rounded-[6px] h-9 px-3"
-          />
-        </div>
-        <div class="flex flex-col gap-1.5">
-          <label class="font-semibold text-slate-700">Số điện thoại di động</label>
-          <InputText
-            v-model="newContact.phone"
-            placeholder="09xx xxx xxx..."
-            class="w-full text-xs rounded-[6px] h-9 px-3"
-          />
-        </div>
-        <div class="flex flex-col gap-1.5">
-          <label class="font-semibold text-slate-700">Email công việc</label>
-          <InputText
-            v-model="newContact.email"
-            placeholder="email@doanhnghiep.com..."
-            class="w-full text-xs rounded-[6px] h-9 px-3"
-          />
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex justify-end gap-2 pt-2">
-          <Button
-            label="Hủy"
-            text
-            size="small"
-            severity="secondary"
-            class="rounded-[6px]"
-            @click="showAddContactDialog = false"
-          />
-          <Button
-            label="Lưu người liên hệ"
-            icon="pi pi-check"
-            size="small"
-            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 rounded-[6px]"
-            @click="saveNewContact"
-          />
-        </div>
-      </template>
-    </Dialog>
+      @save="saveNewContact"
+    />
   </div>
 </template>
 
@@ -345,7 +285,8 @@ import Select from 'primevue/select';
 import Tag from 'primevue/tag';
 import Dialog from 'primevue/dialog';
 
-import ItemDataTable from '../../components/common/ItemDataTable.vue';
+import QuotationItemTable from '../../components/quotation/QuotationItemTable.vue';
+import QuotationAddContactDialog from '../../components/quotation/QuotationAddContactDialog.vue';
 import { catalogApi } from '../../api/catalog.api';
 import { salesApi } from '../../api/sales.api';
 import { isSuperAdmin, hasPermission } from '../../utils/rbac';
@@ -550,8 +491,9 @@ const onContactChange = () => {
   }
 };
 
-const saveNewContact = async () => {
-  if (!newContact.value.name) {
+const saveNewContact = async (contactData) => {
+  const data = contactData || newContact.value;
+  if (!data || !data.name) {
     alert('Vui lòng nhập tên người liên hệ!');
     return;
   }
@@ -559,7 +501,7 @@ const saveNewContact = async () => {
   if (currentCust) {
     try {
       // Lưu vào CSDL bảng customer_contacts của catalog-service
-      const res = await catalogApi.addCustomerContact(currentCust.id, newContact.value);
+      const res = await catalogApi.addCustomerContact(currentCust.id, data);
       const savedContact = res.data;
 
       if (!currentCust.contacts) currentCust.contacts = [];

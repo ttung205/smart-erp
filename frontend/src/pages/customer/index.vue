@@ -58,136 +58,113 @@
       </template>
     </Toolbar>
 
-    <!-- Data Table -->
-    <div class="bg-white border border-slate-200 rounded-[8px] overflow-hidden shadow-sm">
-      <DataTable
-        :value="filteredCustomers"
-        :loading="loading"
-        paginator
-        :rows="10"
-        :rowsPerPageOptions="[10, 20, 50]"
-        responsiveLayout="scroll"
-        class="clean-datatable text-xs"
-        showGridlines
-      >
-        <!-- 1. Mã khách hàng -->
-        <Column field="code" header="Mã Khách Hàng" style="width: 140px" sortable>
-          <template #body="{ data }">
-            <span
-              class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-[4px] border border-sky-200 cursor-pointer hover:underline"
+    <!-- Data Table using CommonDataTable -->
+    <CommonDataTable
+      :value="filteredCustomers"
+      :columns="tableColumns"
+      :loading="loading"
+      :rows="10"
+      :rowsPerPageOptions="[10, 20, 50]"
+      emptyIcon="pi pi-users"
+      emptyTitle="Chưa có khách hàng nào"
+      emptySubtitle="Nhấn nút 'Thêm Khách Hàng Mới' để tạo hồ sơ khách hàng doanh nghiệp."
+    >
+      <!-- 1. Mã khách hàng -->
+      <template #col-code="{ data }">
+        <span
+          class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-[4px] border border-sky-200 cursor-pointer hover:underline"
+          @click="$router.push(`/customer/${data.id}/edit`)"
+        >
+          {{ data.code }}
+        </span>
+      </template>
+
+      <!-- 2. Tên khách hàng -->
+      <template #col-name="{ data }">
+        <span
+          class="font-bold text-slate-800 text-xs hover:text-sky-700 cursor-pointer"
+          @click="$router.push(`/customer/${data.id}/edit`)"
+        >
+          {{ data.name }}
+        </span>
+      </template>
+
+      <!-- 3. MST -->
+      <template #col-tax_code="{ data }">
+        <span v-if="data.tax_code" class="font-mono text-xs text-slate-700">
+          {{ data.tax_code }}
+        </span>
+        <span v-else class="text-slate-400 italic text-[11px]">-</span>
+      </template>
+
+      <!-- 4. Loại khách hàng -->
+      <template #col-customer_type="{ data }">
+        <Tag
+          :value="getCustomerTypeLabel(data.customer_type)"
+          :severity="getCustomerTypeSeverity(data.customer_type)"
+          class="text-[11px] px-2 py-0.5 rounded-[4px] font-medium"
+        />
+      </template>
+
+      <!-- 5. Người tạo -->
+      <template #col-created_by="{ data }">
+        <div class="flex items-center gap-1.5 text-xs text-slate-700">
+          <i class="pi pi-user text-slate-400 text-[11px]"></i>
+          <span class="font-medium">{{ data.created_by || 'admin' }}</span>
+        </div>
+      </template>
+
+      <!-- 6. Liên hệ (Chỉ hiển thị số count, click mở Dialog) -->
+      <template #col-contacts_count="{ data }">
+        <div class="text-center">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 font-bold font-mono text-xs text-sky-700 bg-sky-50 hover:bg-sky-100 px-2.5 py-1 rounded-[6px] border border-sky-200 transition-colors cursor-pointer"
+            title="Nhấn để xem danh sách người liên hệ"
+            @click="openContactsDialog(data)"
+          >
+            <i class="pi pi-users text-xs text-sky-600"></i>
+            <span>{{ data.contacts?.length || 0 }}</span>
+            <span class="text-[10px] text-slate-500 font-sans font-normal">(Xem)</span>
+          </button>
+        </div>
+      </template>
+
+      <!-- 7. Trạng thái khách -->
+      <template #col-status="{ data }">
+        <div class="text-center">
+          <Tag
+            :severity="data.status === 'ACTIVE' ? 'success' : 'danger'"
+            :value="data.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm khóa'"
+            class="text-[11px] px-2 py-0.5 rounded-[4px]"
+          />
+        </div>
+      </template>
+
+      <!-- 8. Thao tác -->
+      <Column header="Thao Tác" style="width: 100px" align="center">
+        <template #body="{ data }">
+          <div class="flex items-center justify-center gap-1">
+            <Button
+              icon="pi pi-pencil"
+              size="small"
+              text
+              class="!text-xs !p-1.5 rounded-[6px] !text-emerald-600 hover:!bg-emerald-50"
+              v-tooltip.bottom="'Chỉnh sửa thông tin khách hàng'"
               @click="$router.push(`/customer/${data.id}/edit`)"
-            >
-              {{ data.code }}
-            </span>
-          </template>
-        </Column>
-
-        <!-- 2. Tên khách hàng -->
-        <Column field="name" header="Tên Khách Hàng" sortable style="min-width: 250px">
-          <template #body="{ data }">
-            <span
-              class="font-bold text-slate-800 text-xs hover:text-sky-700 cursor-pointer"
-              @click="$router.push(`/customer/${data.id}/edit`)"
-            >
-              {{ data.name }}
-            </span>
-          </template>
-        </Column>
-
-        <!-- 3. MST -->
-        <Column field="tax_code" header="MST" style="width: 140px" sortable>
-          <template #body="{ data }">
-            <span v-if="data.tax_code" class="font-mono text-xs text-slate-700">
-              {{ data.tax_code }}
-            </span>
-            <span v-else class="text-slate-400 italic text-[11px]">-</span>
-          </template>
-        </Column>
-
-        <!-- 4. Loại khách hàng -->
-        <Column field="customer_type" header="Loại Khách Hàng" style="width: 160px" sortable>
-          <template #body="{ data }">
-            <Tag
-              :value="getCustomerTypeLabel(data.customer_type)"
-              :severity="getCustomerTypeSeverity(data.customer_type)"
-              class="text-[11px] px-2 py-0.5 rounded-[4px] font-medium"
             />
-          </template>
-        </Column>
-
-        <!-- 5. Người tạo -->
-        <Column field="created_by" header="Người Tạo" style="width: 140px" sortable>
-          <template #body="{ data }">
-            <div class="flex items-center gap-1.5 text-xs text-slate-700">
-              <i class="pi pi-user text-slate-400 text-[11px]"></i>
-              <span class="font-medium">{{ data.created_by || 'admin' }}</span>
-            </div>
-          </template>
-        </Column>
-
-        <!-- 6. Liên hệ (Chỉ hiển thị số count, click mở Dialog) -->
-        <Column header="Liên Hệ" style="width: 110px" align="center">
-          <template #body="{ data }">
-            <button
-              type="button"
-              class="inline-flex items-center gap-1.5 font-bold font-mono text-xs text-sky-700 bg-sky-50 hover:bg-sky-100 px-2.5 py-1 rounded-[6px] border border-sky-200 transition-colors cursor-pointer"
-              title="Nhấn để xem danh sách người liên hệ"
-              @click="openContactsDialog(data)"
-            >
-              <i class="pi pi-users text-xs text-sky-600"></i>
-              <span>{{ data.contacts?.length || 0 }}</span>
-              <span class="text-[10px] text-slate-500 font-sans font-normal">(Xem)</span>
-            </button>
-          </template>
-        </Column>
-
-        <!-- 7. Trạng thái khách -->
-        <Column field="status" header="Trạng Thái" style="width: 120px" align="center" sortable>
-          <template #body="{ data }">
-            <Tag
-              :severity="data.status === 'ACTIVE' ? 'success' : 'danger'"
-              :value="data.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm khóa'"
-              class="text-[11px] px-2 py-0.5 rounded-[4px]"
+            <Button
+              icon="pi pi-trash"
+              size="small"
+              text
+              class="!text-xs !p-1.5 rounded-[6px] !text-red-600 hover:!bg-red-50"
+              v-tooltip.bottom="'Xóa khách hàng'"
+              @click="confirmDeleteCustomer(data)"
             />
-          </template>
-        </Column>
-
-        <!-- 8. Thao tác -->
-        <Column header="Thao Tác" style="width: 100px" align="center">
-          <template #body="{ data }">
-            <div class="flex items-center justify-center gap-1">
-              <!-- Nút Sửa -> chuyển sang trang form -->
-              <Button
-                icon="pi pi-pencil"
-                size="small"
-                text
-                class="!text-xs !p-1.5 rounded-[6px] !text-emerald-600 hover:!bg-emerald-50"
-                v-tooltip.bottom="'Chỉnh sửa thông tin khách hàng'"
-                @click="$router.push(`/customer/${data.id}/edit`)"
-              />
-
-              <!-- Nút Xóa -->
-              <Button
-                icon="pi pi-trash"
-                size="small"
-                text
-                class="!text-xs !p-1.5 rounded-[6px] !text-red-600 hover:!bg-red-50"
-                v-tooltip.bottom="'Xóa khách hàng'"
-                @click="confirmDeleteCustomer(data)"
-              />
-            </div>
-          </template>
-        </Column>
-
-        <template #empty>
-          <div class="py-12 text-center flex flex-col items-center gap-2">
-            <i class="pi pi-users text-4xl text-slate-300"></i>
-            <p class="text-sm font-semibold text-slate-700 m-0">Chưa có khách hàng nào</p>
-            <p class="text-xs text-slate-400 m-0">Nhấn nút "Thêm Khách Hàng Mới" để tạo hồ sơ khách hàng doanh nghiệp.</p>
           </div>
         </template>
-      </DataTable>
-    </div>
+      </Column>
+    </CommonDataTable>
 
     <!-- Modal: Xem danh sách người liên hệ (Contacts) khi click vào số count -->
     <Dialog
@@ -303,10 +280,21 @@ import Tag from 'primevue/tag';
 import Dialog from 'primevue/dialog';
 
 import PageHeader from '../../components/common/PageHeader.vue';
+import CommonDataTable from '../../components/common/CommonDataTable.vue';
 import { catalogApi } from '../../api/catalog.api';
 
 const router = useRouter();
 const toast = useToast();
+
+const tableColumns = [
+  { field: 'code', header: 'Mã Khách Hàng', sortable: true, width: '140px' },
+  { field: 'name', header: 'Tên Khách Hàng', sortable: true },
+  { field: 'tax_code', header: 'MST', sortable: true, width: '140px' },
+  { field: 'customer_type', header: 'Loại Khách Hàng', sortable: true, width: '160px' },
+  { field: 'created_by', header: 'Người Tạo', sortable: true, width: '140px' },
+  { field: 'contacts_count', header: 'Liên Hệ', sortable: false, width: '110px', align: 'center' },
+  { field: 'status', header: 'Trạng Thái', sortable: true, width: '120px', align: 'center' }
+];
 
 const customers = ref([]);
 const loading = ref(false);

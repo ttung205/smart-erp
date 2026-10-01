@@ -83,130 +83,103 @@
       </template>
     </Toolbar>
 
-    <!-- Products DataTable với scroll ngang chuẩn -->
-    <div class="bg-white border border-slate-200 rounded-[6px] overflow-hidden shadow-none">
-      <DataTable
-        :value="filteredProducts"
-        showGridlines
-        class="clean-datatable"
-        responsiveLayout="scroll"
-        scrollable
-        scrollHeight="600px"
-        :tableStyle="{ minWidth: '1720px' }"
-        :paginator="filteredProducts.length > 15"
-        :rows="15"
-        :rowsPerPageOptions="[15, 30, 50, 100]"
-        :loading="loadingProducts"
-      >
-        <!-- 1. SKU -->
-        <Column field="sku" header="MÃ SKU" :sortable="true" style="width: 170px; min-width: 170px">
-          <template #body="{ data }">
-            <span class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-200">
-              {{ data.sku }}
-            </span>
-          </template>
-        </Column>
+    <!-- Products DataTable với scroll ngang chuẩn sử dụng CommonDataTable -->
+    <CommonDataTable
+      :value="filteredProducts"
+      :columns="tableColumns"
+      scrollable
+      scrollHeight="600px"
+      :tableStyle="{ minWidth: '1720px' }"
+      :rows="15"
+      :rowsPerPageOptions="[15, 30, 50, 100]"
+      :paginator="filteredProducts.length > 15"
+      :loading="loadingProducts"
+      emptyIcon="pi pi-box"
+      emptyTitle="Không tìm thấy sản phẩm nào"
+      emptySubtitle="Nhấn nút 'Import Excel' để nạp dữ liệu mẫu hoặc 'Tạo sản phẩm mới'."
+    >
+      <!-- 1. SKU -->
+      <template #col-sku="{ data }">
+        <span class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-200">
+          {{ data.sku }}
+        </span>
+      </template>
 
-        <!-- 2. Designation -->
-        <Column field="designation" header="DESIGNATION" :sortable="true" style="width: 150px; min-width: 150px">
-          <template #body="{ data }">
-            <span class="font-mono text-xs font-semibold text-rose-700">
-              {{ data.designation || '-' }}
-            </span>
-          </template>
-        </Column>
+      <!-- 2. Designation -->
+      <template #col-designation="{ data }">
+        <span class="font-mono text-xs font-semibold text-rose-700">
+          {{ data.designation || '-' }}
+        </span>
+      </template>
 
-        <!-- 3. Brand -->
-        <Column field="brand" header="BRAND" :sortable="true" style="width: 110px; min-width: 110px">
-          <template #body="{ data }">
-            <span class="text-xs font-bold text-slate-800">{{ data.brand || '-' }}</span>
-          </template>
-        </Column>
+      <!-- 3. Brand -->
+      <template #col-brand="{ data }">
+        <span class="text-xs font-bold text-slate-800">{{ data.brand || '-' }}</span>
+      </template>
 
-        <!-- 4. Category -->
-        <Column field="category" header="DANH MỤC" :sortable="true" style="width: 130px; min-width: 130px">
-          <template #body="{ data }">
-            <Tag severity="secondary" :value="data.category || 'Mặc định'" class="text-[11px] px-2 py-0.5 rounded-[4px]" />
-          </template>
-        </Column>
+      <!-- 4. Category -->
+      <template #col-category="{ data }">
+        <Tag severity="secondary" :value="data.category || 'Mặc định'" class="text-[11px] px-2 py-0.5 rounded-[4px]" />
+      </template>
 
-        <!-- 5. Item Description -->
-        <Column field="description" header="ITEM DESCRIPTION" style="width: 300px; min-width: 300px">
-          <template #body="{ data }">
-            <span class="text-xs font-semibold text-slate-900 block truncate" :title="data.description || data.name">
-              {{ data.description || data.name || '-' }}
-            </span>
-          </template>
-        </Column>
+      <!-- 5. Item Description -->
+      <template #col-description="{ data }">
+        <span class="text-xs font-semibold text-slate-900 block truncate" :title="data.description || data.name">
+          {{ data.description || data.name || '-' }}
+        </span>
+      </template>
 
-        <!-- 6. COM (Xuất xứ) -->
-        <Column field="com" header="COM" style="width: 110px; min-width: 110px">
-          <template #body="{ data }">
-            <span class="text-xs text-slate-600">{{ data.com || 'Việt Nam' }}</span>
-          </template>
-        </Column>
+      <!-- 6. COM (Xuất xứ) -->
+      <template #col-com="{ data }">
+        <span class="text-xs text-slate-600">{{ data.com || 'Việt Nam' }}</span>
+      </template>
 
-        <!-- 7. Unit -->
-        <Column field="unit" header="UNIT" class="text-center" style="width: 75px; min-width: 75px">
-          <template #body="{ data }">
-            <span class="text-xs text-slate-600 font-medium">{{ data.unit || 'Cái' }}</span>
-          </template>
-        </Column>
+      <!-- 7. Unit -->
+      <template #col-unit="{ data }">
+        <span class="text-xs text-slate-600 font-medium">{{ data.unit || 'Cái' }}</span>
+      </template>
 
-        <!-- 8. Gross Price -->
-        <Column field="gross_price" header="GROSS PRICE" class="text-right" :sortable="true" style="width: 150px; min-width: 150px">
-          <template #body="{ data }">
-            <span class="font-bold text-slate-900 font-mono text-xs num-tabular">
-              {{ formatCurrency(data.gross_price) }}
-            </span>
-          </template>
-        </Column>
+      <!-- 8. Gross Price -->
+      <template #col-gross_price="{ data }">
+        <span class="font-bold text-slate-900 font-mono text-xs num-tabular">
+          {{ formatCurrency(data.gross_price) }}
+        </span>
+      </template>
 
-        <!-- 9. Specs (Thông số kỹ thuật) -->
-        <Column field="spec" header="THÔNG SỐ KỸ THUẬT (SPECS)" style="width: 360px; min-width: 360px">
-          <template #body="{ data }">
-            <span class="text-[11px] text-slate-500 font-mono block truncate" :title="data.spec">
-              {{ data.spec || '-' }}
-            </span>
-          </template>
-        </Column>
+      <!-- 9. Specs (Thông số kỹ thuật) -->
+      <template #col-spec="{ data }">
+        <span class="text-[11px] text-slate-500 font-mono block truncate" :title="data.spec">
+          {{ data.spec || '-' }}
+        </span>
+      </template>
 
-        <!-- 10. Thao tác (Sửa / Xóa) -->
-        <Column header="THAO TÁC" style="width: 120px; min-width: 120px" class="text-center" frozen alignFrozen="right">
-          <template #body="{ data }">
-            <div class="flex items-center justify-center gap-1">
-              <!-- Sửa -->
-              <Button
-                icon="pi pi-pencil"
-                size="small"
-                text
-                class="!text-xs !p-1.5 rounded-[6px] !text-sky-600 hover:!bg-sky-50"
-                v-tooltip.bottom="'Chỉnh sửa sản phẩm'"
-                @click="openEditModal(data)"
-              />
+      <!-- 10. Thao tác (Sửa / Xóa) -->
+      <Column header="THAO TÁC" style="width: 120px; min-width: 120px" class="text-center" frozen alignFrozen="right">
+        <template #body="{ data }">
+          <div class="flex items-center justify-center gap-1">
+            <!-- Sửa -->
+            <Button
+              icon="pi pi-pencil"
+              size="small"
+              text
+              class="!text-xs !p-1.5 rounded-[6px] !text-sky-600 hover:!bg-sky-50"
+              v-tooltip.bottom="'Chỉnh sửa sản phẩm'"
+              @click="openEditModal(data)"
+            />
 
-              <!-- Xóa -->
-              <Button
-                icon="pi pi-trash"
-                size="small"
-                text
-                class="!text-xs !p-1.5 rounded-[6px] !text-red-500 hover:!bg-red-50"
-                v-tooltip.bottom="'Xóa sản phẩm'"
-                @click="confirmDeleteProduct(data)"
-              />
-            </div>
-          </template>
-        </Column>
-
-        <template #empty>
-          <div class="py-10 text-center flex flex-col items-center gap-2">
-            <i class="pi pi-box text-3xl text-slate-300"></i>
-            <p class="text-xs font-semibold text-slate-700 m-0">Không tìm thấy sản phẩm nào</p>
-            <p class="text-[11px] text-slate-400 m-0">Nhấn nút "Import Excel" để nạp dữ liệu mẫu hoặc "Tạo sản phẩm mới".</p>
+            <!-- Xóa -->
+            <Button
+              icon="pi pi-trash"
+              size="small"
+              text
+              class="!text-xs !p-1.5 rounded-[6px] !text-red-500 hover:!bg-red-50"
+              v-tooltip.bottom="'Xóa sản phẩm'"
+              @click="confirmDeleteProduct(data)"
+            />
           </div>
         </template>
-      </DataTable>
-    </div>
+      </Column>
+    </CommonDataTable>
 
     <!-- Product Create / Edit Form Modal -->
     <ProductForm
@@ -330,12 +303,25 @@ import Button from 'primevue/button';
 import Tag from 'primevue/tag';
 import Dialog from 'primevue/dialog';
 import PageHeader from '../../components/common/PageHeader.vue';
+import CommonDataTable from '../../components/common/CommonDataTable.vue';
 import ProductForm from './form.vue';
 import { catalogApi } from '../../api/catalog.api';
 import { formatCurrency } from '../../utils/format';
 import * as XLSX from 'xlsx';
 
 const toast = useToast();
+
+const tableColumns = [
+  { field: 'sku', header: 'MÃ SKU', sortable: true, width: '170px' },
+  { field: 'designation', header: 'DESIGNATION', sortable: true, width: '150px' },
+  { field: 'brand', header: 'BRAND', sortable: true, width: '110px' },
+  { field: 'category', header: 'DANH MỤC', sortable: true, width: '130px' },
+  { field: 'description', header: 'ITEM DESCRIPTION', sortable: false, width: '300px' },
+  { field: 'com', header: 'COM', sortable: false, width: '110px' },
+  { field: 'unit', header: 'UNIT', sortable: false, width: '75px', align: 'center' },
+  { field: 'gross_price', header: 'GROSS PRICE', sortable: true, width: '150px', align: 'right' },
+  { field: 'spec', header: 'THÔNG SỐ KỸ THUẬT (SPECS)', sortable: false, width: '360px' }
+];
 
 const products = ref([]);
 const loadingProducts = ref(false);
