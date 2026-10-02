@@ -225,6 +225,15 @@
               v-tooltip.top="'Nhập thêm hàng'" 
               @click="emit('quick-receive', data)" 
             />
+            <Button 
+              icon="pi pi-file-plus" 
+              size="small" 
+              text 
+              severity="info" 
+              class="!w-7 !h-7 !p-0 !rounded-[6px] !text-sky-600 hover:!bg-sky-50" 
+              v-tooltip.top="'Tạo Đề Nghị Mua (PR)'" 
+              @click="createPurchaseRequisition(data)" 
+            />
           </div>
         </template>
       </Column>
@@ -234,6 +243,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
@@ -241,6 +251,12 @@ import Checkbox from 'primevue/checkbox'
 import Column from 'primevue/column'
 import CommonDataTable from '../../components/common/CommonDataTable.vue'
 import { useInventory } from '../../composables/useInventory'
+
+const router = useRouter()
+const createPurchaseRequisition = (item) => {
+  const qtyNeeded = Math.max(10, (item.min_stock || 10) - (item.available || 0))
+  router.push(`/purchase/requisitions/create?sku=${item.sku}&warehouseId=${item.warehouse_id}&name=${encodeURIComponent(item.product_name || '')}&qty=${qtyNeeded}`)
+}
 
 const props = defineProps({
   currentUser: {

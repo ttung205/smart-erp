@@ -139,6 +139,46 @@ export const menuCategories = [
         ]
       },
       {
+        id: 'purchase-hub',
+        label: 'Thu mua',
+        icon: 'pi pi-shopping-bag',
+        isFolder: true,
+        children: [
+          {
+            id: 'purchase-requisition',
+            path: '/purchase/requisitions',
+            resource: 'purchase',
+            permission: 'purchase.view',
+            label: 'Đề nghị mua (PR)',
+            icon: 'pi pi-file-plus'
+          },
+          {
+            id: 'purchase-order',
+            path: '/purchase/orders',
+            resource: 'purchase',
+            permission: 'purchase.view',
+            label: 'Đơn đặt mua (PO)',
+            icon: 'pi pi-shopping-cart'
+          },
+          {
+            id: 'purchase-receipt',
+            path: '/purchase/receipts',
+            resource: 'purchase',
+            permission: 'purchase.view',
+            label: 'Nhập kho (GRN)',
+            icon: 'pi pi-inbox'
+          },
+          {
+            id: 'purchase-invoice',
+            path: '/purchase/invoices',
+            resource: 'purchase',
+            permission: 'purchase.view',
+            label: 'Hóa đơn & Đối chiếu',
+            icon: 'pi pi-receipt'
+          }
+        ]
+      },
+      {
         id: 'sales',
         label: 'Bán hàng',
         icon: 'pi pi-shopping-cart',

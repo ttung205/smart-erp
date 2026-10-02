@@ -21,14 +21,18 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/v1\/catalog/, '/api')
       },
-      '/api/v1/sales': {
+      '/api/v1/purchase': {
         target: 'http://127.0.0.1:8003',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/v1\/sales/, '/api')
+        changeOrigin: true
       },
       '/api/v1/inventory': {
         target: 'http://127.0.0.1:8004',
         changeOrigin: true
+      },
+      '/api/v1/sales': {
+        target: 'http://127.0.0.1:8005',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/v1\/sales/, '/api')
       }
     }
   }
