@@ -30,6 +30,16 @@ import DeliveryPage from '../pages/delivery/index.vue';
 import InvoicePage from '../pages/invoice/index.vue';
 import AccountingPage from '../pages/accounting/index.vue';
 
+// Purchase sub-pages
+import PurchaseRequisitionPage from '../pages/purchase/requisition/index.vue';
+import PurchaseRequisitionFormPage from '../pages/purchase/requisition/form.vue';
+import PurchaseOrderPage from '../pages/purchase/order/index.vue';
+import PurchaseOrderFormPage from '../pages/purchase/order/form.vue';
+import PurchaseReceiptPage from '../pages/purchase/receipt/index.vue';
+import PurchaseReceiptFormPage from '../pages/purchase/receipt/form.vue';
+import PurchaseInvoicePage from '../pages/purchase/invoice/index.vue';
+import PurchaseInvoiceFormPage from '../pages/purchase/invoice/form.vue';
+
 export const routes = [
   {
     path: '/login',
@@ -230,6 +240,142 @@ export const routes = [
       resource: 'inventory',
       permission: 'inventory.view',
       title: 'Sổ Cái Thẻ Kho'
+    }
+  },
+  {
+    path: '/purchase',
+    redirect: '/purchase/requisitions'
+  },
+  {
+    path: '/purchase/requisitions',
+    name: 'purchase-requisitions',
+    component: PurchaseRequisitionPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'purchase',
+      permission: 'purchase.view',
+      title: 'Đề Nghị Mua Sắm (PR)'
+    }
+  },
+  {
+    path: '/purchase/requisitions/create',
+    name: 'purchase-requisitions-create',
+    component: PurchaseRequisitionFormPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'purchase',
+      permission: 'purchase.create',
+      title: 'Tạo Đề Nghị Mua Sắm Mới'
+    }
+  },
+  {
+    path: '/purchase/requisitions/:id',
+    name: 'purchase-requisitions-detail',
+    component: PurchaseRequisitionFormPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'purchase',
+      permission: 'purchase.view',
+      title: 'Chi Tiết Đề Nghị Mua Sắm'
+    }
+  },
+  {
+    path: '/purchase/orders',
+    name: 'purchase-orders',
+    component: PurchaseOrderPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'purchase',
+      permission: 'purchase.view',
+      title: 'Đơn Đặt Mua Hàng (PO)'
+    }
+  },
+  {
+    path: '/purchase/orders/create',
+    name: 'purchase-orders-create',
+    component: PurchaseOrderFormPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'purchase',
+      permission: 'purchase.create',
+      title: 'Lập Đơn Mua Hàng Mới'
+    }
+  },
+  {
+    path: '/purchase/orders/:id',
+    name: 'purchase-orders-detail',
+    component: PurchaseOrderFormPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'purchase',
+      permission: 'purchase.view',
+      title: 'Chi Tiết Đơn Đặt Mua Hàng'
+    }
+  },
+  {
+    path: '/purchase/receipts',
+    name: 'purchase-receipts',
+    component: PurchaseReceiptPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'purchase',
+      permission: 'purchase.view',
+      title: 'Phiếu Nhập Kho (GRN)'
+    }
+  },
+  {
+    path: '/purchase/receipts/create',
+    name: 'purchase-receipts-create',
+    component: PurchaseReceiptFormPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'purchase',
+      permission: 'purchase.create',
+      title: 'Tạo Phiếu Nhập Kho Mới'
+    }
+  },
+  {
+    path: '/purchase/receipts/:id',
+    name: 'purchase-receipts-detail',
+    component: PurchaseReceiptFormPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'purchase',
+      permission: 'purchase.view',
+      title: 'Chi Tiết Phiếu Nhập Kho'
+    }
+  },
+  {
+    path: '/purchase/invoices',
+    name: 'purchase-invoices',
+    component: PurchaseInvoicePage,
+    meta: {
+      requiresAuth: true,
+      resource: 'purchase',
+      permission: 'purchase.view',
+      title: 'Hóa Đơn & Đối Chiếu 3 Bên'
+    }
+  },
+  {
+    path: '/purchase/invoices/create',
+    name: 'purchase-invoices-create',
+    component: PurchaseInvoiceFormPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'purchase',
+      permission: 'purchase.create',
+      title: 'Nhập Hóa Đơn Mua Hàng Mới'
+    }
+  },
+  {
+    path: '/purchase/invoices/:id',
+    name: 'purchase-invoices-detail',
+    component: PurchaseInvoiceFormPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'purchase',
+      permission: 'purchase.view',
+      title: 'Chi Tiết Hóa Đơn & Đối Chiếu'
     }
   },
   {

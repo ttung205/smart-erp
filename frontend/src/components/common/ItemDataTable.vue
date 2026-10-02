@@ -137,8 +137,8 @@
             :field="col.field"
             :header="col.header"
             :style="{ width: col.width || 'auto', minWidth: col.minWidth || col.width || 'auto' }"
-            :class="[col.align ? `text-${col.align}` : '', col.class || '']"
-            :headerClass="col.headerClass || ''"
+            :class="[col.align ? `text-${col.align}` : '', col.class || '', 'break-words whitespace-normal leading-normal']"
+            :headerClass="[col.headerClass || '', 'break-words whitespace-normal leading-snug']"
             :frozen="col.frozen"
           >
             <template #body="{ data, field, index }">
@@ -150,8 +150,86 @@
                 :value="data[col.field]"
                 :notify-change="notifyChange"
               >
-                <!-- Render mặc định dạng văn bản nếu component con không định nghĩa template -->
-                <span class="text-xs text-slate-800">{{ data[col.field] }}</span>
+                <!-- Render mặc định nếu component con không định nghĩa template tùy biến -->
+                <template v-if="col.field === 'sku'">
+                  <span class="font-mono text-xs font-bold text-sky-800 px-1 break-words whitespace-normal block" :title="data.sku">
+                    {{ data.sku || '-' }}
+                  </span>
+                </template>
+                <template v-else-if="col.field === 'item_name' || col.field === 'description' || col.field === 'product_name'">
+                  <InputText
+                    v-model="data[col.field]"
+                    class="w-full text-xs text-slate-800 !py-1 !px-2 rounded-[4px] !border-slate-200 hover:!border-slate-300 focus:!border-sky-500 bg-white"
+                    placeholder="Tên mặt hàng..."
+                    @change="onDefaultFieldChange(data, col.field)"
+                  />
+                </template>
+                <template v-else-if="col.field === 'unit'">
+                  <InputText
+                    v-model="data.unit"
+                    class="w-full text-xs text-center !py-1 !px-1 rounded-[4px] !border-slate-200 hover:!border-slate-300 focus:!border-sky-500 bg-white"
+                    placeholder="Cái"
+                    @change="notifyChange && notifyChange()"
+                  />
+                </template>
+                <template v-else-if="col.field === 'quantity'">
+                  <InputNumber
+                    v-model="data.quantity"
+                    :min="1"
+                    class="w-full text-xs font-mono font-bold"
+                    inputClass="!py-1 !px-2 text-right text-xs font-mono font-bold rounded-[4px] !border-slate-200 hover:!border-slate-300 focus:!border-sky-500 bg-white"
+                    @update:modelValue="onDefaultQuantityChange(data)"
+                  />
+                </template>
+                <template v-else-if="col.field === 'unit_price' || col.field === 'selling_price' || col.field === 'gross_price'">
+                  <InputNumber
+                    v-model="data[col.field]"
+                    :min="0"
+                    mode="currency"
+                    currency="VND"
+                    locale="vi-VN"
+                    class="w-full text-xs font-mono font-bold"
+                    inputClass="!py-1 !px-2 text-right text-xs font-mono font-bold rounded-[4px] !border-slate-200 hover:!border-slate-300 focus:!border-sky-500 bg-white"
+                    @update:modelValue="onDefaultPriceChange(data, col.field)"
+                  />
+                </template>
+                <template v-else-if="col.field === 'discount_percent' || col.field === 'discount'">
+                  <InputNumber
+                    v-model="data[col.field]"
+                    :min="0"
+                    :max="100"
+                    suffix="%"
+                    class="w-full text-xs font-mono font-bold"
+                    inputClass="!py-1 !px-2 text-right text-xs font-mono font-bold rounded-[4px] !border-slate-200 hover:!border-slate-300 focus:!border-emerald-500 !text-emerald-700 bg-white"
+                    @update:modelValue="onDefaultDiscountChange(data, col.field)"
+                  />
+                </template>
+                <template v-else-if="col.field === 'vat_percent' || col.field === 'vat'">
+                  <InputNumber
+                    v-model="data[col.field]"
+                    suffix="%"
+                    class="w-full text-xs font-mono"
+                    inputClass="!py-1 !px-2 text-center text-xs font-mono rounded-[4px] !border-slate-200 bg-white"
+                    @update:modelValue="onDefaultVatChange(data, col.field)"
+                  />
+                </template>
+                <template v-else-if="col.field === 'stock'">
+                  <span
+                    class="font-mono text-xs font-bold px-2 py-0.5 rounded-[4px] inline-block tabular-nums"
+                    :class="(data.stock !== undefined ? data.stock : getAvailableStock(data)) > 0 ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-slate-400 bg-slate-50 border border-slate-200'"
+                    :title="`Tồn kho khả dụng: ${data.stock !== undefined ? data.stock : getAvailableStock(data)}`"
+                  >
+                    {{ data.stock !== undefined ? data.stock : getAvailableStock(data) }}
+                  </span>
+                </template>
+                <template v-else-if="col.field === 'subtotal'">
+                  <span class="font-mono text-xs font-bold text-slate-900 num-tabular px-2 py-1 bg-slate-50 border border-slate-100 rounded-[4px] block text-right">
+                    {{ formatCurrency(data.subtotal || calculateLineSubtotal(data)) }}
+                  </span>
+                </template>
+                <template v-else>
+                  <span class="text-xs text-slate-800 break-words whitespace-normal">{{ data[col.field] }}</span>
+                </template>
               </slot>
             </template>
           </Column>
@@ -321,9 +399,11 @@ import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
+import InputNumber from 'primevue/inputnumber';
 import Dialog from 'primevue/dialog';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
+import * as XLSX from 'xlsx';
 import { catalogApi } from '../../api/catalog.api';
 import { inventoryApi } from '../../api/inventory.api';
 import { FALLBACK_CATALOG_PRODUCTS } from '../../constants/catalogProducts.constant';
@@ -372,7 +452,7 @@ const props = defineProps({
   },
   tableStyle: {
     type: Object,
-    default: () => ({ minWidth: '1800px' })
+    default: () => ({ minWidth: '100%', width: '100%' })
   }
 });
 
@@ -384,8 +464,23 @@ const items = ref([]);
 const showColumnConfig = ref(false);
 const hiddenColumns = reactive({});
 
+const DEFAULT_STANDARD_COLUMNS = [
+  { field: 'sku', header: 'MÃ SKU', width: '120px' },
+  { field: 'item_name', header: 'TÊN MẶT HÀNG / MÔ TẢ', width: '240px' },
+  { field: 'stock', header: 'TỒN KHO', width: '85px', align: 'center' },
+  { field: 'unit', header: 'ĐVT', width: '70px', align: 'center' },
+  { field: 'quantity', header: 'SỐ LƯỢNG', width: '90px', align: 'right' },
+  { field: 'unit_price', header: 'ĐƠN GIÁ (VNĐ)', width: '130px', align: 'right' },
+  { field: 'discount_percent', header: 'CK %', width: '75px', align: 'right' },
+  { field: 'vat_percent', header: 'VAT %', width: '75px', align: 'center' },
+  { field: 'subtotal', header: 'THÀNH TIỀN', width: '135px', align: 'right' }
+];
+
 const allColumns = computed(() => {
-  return props.columns || [];
+  if (props.columns && props.columns.length > 0) {
+    return props.columns;
+  }
+  return DEFAULT_STANDARD_COLUMNS;
 });
 
 const activeColumns = computed(() => {
@@ -393,9 +488,10 @@ const activeColumns = computed(() => {
 });
 
 const tableStyleComputed = computed(() => {
-  if (props.tableStyle) return props.tableStyle;
-  const count = activeColumns.value.length;
-  return { minWidth: `${Math.max(1200, count * 130)}px` };
+  if (props.tableStyle && props.tableStyle.minWidth && props.tableStyle.minWidth !== '1800px') {
+    return props.tableStyle;
+  }
+  return { minWidth: '100%', width: '100%' };
 });
 
 // Map tồn kho
@@ -412,21 +508,94 @@ const getAvailableStock = (item) => {
   if (pid && inventoryAvailableByProductId.value.has(pid)) {
     return inventoryAvailableByProductId.value.get(pid);
   }
-  return Number(item.stock) || 0;
+  if (item.stock !== undefined && item.stock !== null && Number(item.stock) > 0) {
+    return Number(item.stock);
+  }
+  return 0;
 };
 
 watch(
   () => props.modelValue,
   (newVal) => {
     if (newVal) {
-      items.value = newVal.map((it) => ({
-        ...it,
-        stock: getAvailableStock(it)
-      }));
+      items.value = newVal.map((it) => {
+        const price = Number(it.unit_price ?? it.selling_price ?? it.gross_price ?? 0);
+        const disc = Number(it.discount_percent ?? it.discount ?? 0);
+        const qty = Number(it.quantity ?? 1);
+        const vat = Number(it.vat_percent ?? it.vat ?? 10);
+        const sub = Number(it.subtotal ?? Math.round(qty * price * (1 - disc / 100)));
+        const name = it.item_name || it.description || it.product_name || '';
+        return {
+          ...it,
+          sku: it.sku || '',
+          item_name: name,
+          description: name,
+          unit: it.unit || 'Cái',
+          quantity: qty,
+          unit_price: price,
+          selling_price: price,
+          gross_price: Number(it.gross_price || price),
+          discount_percent: disc,
+          discount: disc,
+          vat_percent: vat,
+          vat: vat,
+          subtotal: sub,
+          stock: getAvailableStock(it)
+        };
+      });
     }
   },
   { immediate: true, deep: true }
 );
+
+const onDefaultQuantityChange = (row) => {
+  const qty = Number(row.quantity) || 1;
+  const price = Number(row.unit_price ?? row.selling_price ?? 0);
+  const disc = Number(row.discount_percent ?? row.discount ?? 0);
+  row.subtotal = Math.round(qty * price * (1 - disc / 100));
+  notifyChange();
+};
+
+const onDefaultPriceChange = (row, field) => {
+  const price = Number(row[field]) || 0;
+  row.unit_price = price;
+  row.selling_price = price;
+  const qty = Number(row.quantity) || 1;
+  const disc = Number(row.discount_percent ?? row.discount ?? 0);
+  row.subtotal = Math.round(qty * price * (1 - disc / 100));
+  notifyChange();
+};
+
+const onDefaultDiscountChange = (row, field) => {
+  const disc = Number(row[field]) || 0;
+  row.discount_percent = disc;
+  row.discount = disc;
+  const qty = Number(row.quantity) || 1;
+  const price = Number(row.unit_price ?? row.selling_price ?? 0);
+  row.subtotal = Math.round(qty * price * (1 - disc / 100));
+  notifyChange();
+};
+
+const onDefaultVatChange = (row, field) => {
+  const vat = Number(row[field]) || 0;
+  row.vat_percent = vat;
+  row.vat = vat;
+  notifyChange();
+};
+
+const onDefaultFieldChange = (row, field) => {
+  const val = row[field];
+  if (field === 'item_name') row.description = val;
+  if (field === 'description') row.item_name = val;
+  notifyChange();
+};
+
+const calculateLineSubtotal = (row) => {
+  const qty = Number(row.quantity) || 1;
+  const price = Number(row.unit_price ?? row.selling_price ?? 0);
+  const disc = Number(row.discount_percent ?? row.discount ?? 0);
+  return Math.round(qty * price * (1 - disc / 100));
+};
 
 const notifyChange = () => {
   emit('update:modelValue', items.value);
@@ -494,15 +663,33 @@ const selectedCatalogItems = ref([]);
 
 const loadInventoryStocks = async () => {
   try {
-    const res = await inventoryApi.getStocks();
+    if (catalogProducts.value.length === 0) {
+      await loadCatalogProducts();
+    }
+    const pidToSkuMap = new Map();
+    const skuToPidMap = new Map();
+    catalogProducts.value.forEach((p) => {
+      const pSku = (p.sku || '').trim().toUpperCase();
+      const pId = Number(p.id || 0);
+      if (pId && pSku) {
+        pidToSkuMap.set(pId, pSku);
+        skuToPidMap.set(pSku, pId);
+      }
+    });
+
+    const res = await inventoryApi.getStocks({ pageSize: 1000 });
     const stocks = res.data || [];
     const bySku = new Map();
     const byPid = new Map();
 
     stocks.forEach((s) => {
-      const avail = Number(s.available_quantity ?? s.quantity ?? 0);
-      const sku = (s.product_sku || s.sku || '').trim().toUpperCase();
-      const pid = Number(s.product_id || s.id || 0);
+      const avail = Number(s.available ?? s.quantity_on_hand ?? s.available_quantity ?? s.quantity ?? 0);
+      const pid = Number(s.product_id || s.productId || s.id || 0);
+      let sku = (s.product_sku || s.sku || '').trim().toUpperCase();
+
+      if (!sku && pid && pidToSkuMap.has(pid)) {
+        sku = pidToSkuMap.get(pid);
+      }
 
       if (pid) byPid.set(pid, (byPid.get(pid) || 0) + avail);
       if (sku) bySku.set(sku, (bySku.get(sku) || 0) + avail);
@@ -510,8 +697,19 @@ const loadInventoryStocks = async () => {
 
     inventoryAvailableBySku.value = bySku;
     inventoryAvailableByProductId.value = byPid;
+
+    // Tự động gán tồn kho chính xác vào danh sách mặt hàng đang mở
+    if (items.value && items.value.length > 0) {
+      items.value.forEach((it) => {
+        const itSku = (it.sku || '').trim().toUpperCase();
+        if (!it.product_id && skuToPidMap.has(itSku)) {
+          it.product_id = skuToPidMap.get(itSku);
+        }
+        it.stock = getAvailableStock(it);
+      });
+    }
   } catch (err) {
-    console.warn('loadInventoryStocks fallback:', err);
+    console.warn('loadInventoryStocks error:', err);
   }
 };
 
@@ -631,35 +829,65 @@ const summary = computed(() => {
   };
 });
 
-// Xuất Excel CSV
+// Xuất file Excel (.xlsx) chuẩn chia cột, định dạng ô và tiêu đề sắc nét
 const exportToExcel = () => {
   const cols = activeColumns.value;
-  const headers = ['STT', ...cols.map((c) => c.header || c.field)];
-  let csv = headers.join(',') + '\n';
-  items.value.forEach((it, idx) => {
-    const row = [
+  const headerLabels = ['STT', ...cols.map((c) => c.header || c.field)];
+
+  const dataRows = items.value.map((it, idx) => {
+    return [
       idx + 1,
       ...cols.map((c) => {
+        if (c.field === 'stock') {
+          return it.stock !== undefined ? it.stock : getAvailableStock(it);
+        }
+        if (c.field === 'discount') {
+          return Number(it.discount_percent ?? it.discount ?? 0);
+        }
+        if (c.field === 'subtotal') {
+          return Number(it.subtotal || calculateLineSubtotal(it));
+        }
+        if (c.field === 'quantity') {
+          return Number(it.quantity || 1);
+        }
+        if (c.field === 'unit_price' || c.field === 'selling_price' || c.field === 'gross_price') {
+          return Number(it[c.field] || 0);
+        }
         let val = it[c.field];
         if (val === undefined || val === null) val = '';
-        if (c.field === 'discount') val = it.discount_percent ?? '';
-        return `"${String(val).replace(/"/g, '""')}"`;
+        return val;
       })
     ];
-    csv += row.join(',') + '\n';
   });
 
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.setAttribute('download', `Items_${Date.now()}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  const wsData = [headerLabels, ...dataRows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Tính toán độ rộng từng cột tự động
+  const colWidths = headerLabels.map((h, i) => {
+    let maxLen = String(h).length;
+    dataRows.forEach((row) => {
+      const cellVal = String(row[i] ?? '');
+      if (cellVal.length > maxLen) maxLen = cellVal.length;
+    });
+    return { wch: Math.max(maxLen + 4, 12) };
+  });
+  ws['!cols'] = colWidths;
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Danh Sách Mặt Hàng');
+
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const timeStr = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+  const filename = `Items_${dateStr}_${timeStr}.xlsx`;
+
+  XLSX.writeFile(wb, filename);
 };
 
 onMounted(async () => {
-  await Promise.allSettled([loadCatalogProducts(), loadInventoryStocks()]);
+  await loadCatalogProducts();
+  await loadInventoryStocks();
   if (items.value.length > 0) {
     items.value.forEach((it) => {
       it.stock = getAvailableStock(it);
@@ -675,3 +903,21 @@ defineExpose({
   getAvailableStock
 });
 </script>
+
+<style scoped>
+:deep(.clean-datatable.item-editor-table th),
+:deep(.clean-datatable.item-editor-table td) {
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  vertical-align: middle;
+  padding: 6px 8px !important;
+}
+
+:deep(.clean-datatable.item-editor-table .p-datatable-thead > tr > th) {
+  font-size: 11px !important;
+  line-height: 1.25 !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+}
+</style>
