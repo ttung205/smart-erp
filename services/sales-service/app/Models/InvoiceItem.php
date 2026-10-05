@@ -25,6 +25,16 @@ class InvoiceItem extends Model
     protected $appends = [
         'unit',
         'subtotal',
+        'designation',
+        'brand',
+        'com',
+        'discount_percent',
+        'gross_price',
+        'selling_price',
+        'vat_percent',
+        'lead_time',
+        'delivery_date',
+        'order_quantity',
     ];
 
     public function invoice()
@@ -49,11 +59,61 @@ class InvoiceItem extends Model
 
     public function getUnitAttribute()
     {
-        return $this->orderItem?->unit ?? 'Cái';
+        return $this->orderItem?->unit ?? $this->product?->unit ?? 'Cái';
     }
 
     public function getSubtotalAttribute()
     {
-        return (float)($this->quantity * $this->unit_price);
+        return (float)($this->quantity * ($this->unit_price ?: ($this->orderItem?->selling_price ?? 0)));
+    }
+
+    public function getDesignationAttribute()
+    {
+        return $this->orderItem?->designation ?? $this->product?->designation ?? '';
+    }
+
+    public function getBrandAttribute()
+    {
+        return $this->orderItem?->brand ?? $this->product?->brand?->name ?? '';
+    }
+
+    public function getComAttribute()
+    {
+        return $this->orderItem?->com ?? $this->product?->com ?? 'Việt Nam';
+    }
+
+    public function getDiscountPercentAttribute()
+    {
+        return (float)($this->orderItem?->discount_percent ?? 0);
+    }
+
+    public function getGrossPriceAttribute()
+    {
+        return (float)($this->orderItem?->gross_price ?? $this->product?->gross_price ?? $this->unit_price);
+    }
+
+    public function getSellingPriceAttribute()
+    {
+        return (float)($this->unit_price ?: ($this->orderItem?->selling_price ?? 0));
+    }
+
+    public function getVatPercentAttribute()
+    {
+        return (float)($this->orderItem?->vat_percent ?? 0);
+    }
+
+    public function getLeadTimeAttribute()
+    {
+        return $this->orderItem?->lead_time ?? '';
+    }
+
+    public function getDeliveryDateAttribute()
+    {
+        return $this->orderItem?->delivery_date ?? '';
+    }
+
+    public function getOrderQuantityAttribute()
+    {
+        return (float)($this->orderItem?->quantity ?? 0);
     }
 }

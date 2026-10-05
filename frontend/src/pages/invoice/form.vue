@@ -264,147 +264,35 @@
         <div class="bg-slate-50 border border-slate-200 rounded-[6px] p-3 space-y-2 text-xs">
           <div class="flex justify-between items-center">
             <span class="text-slate-500">Tiến độ kho:</span>
-            <Tag :severity="getWarehouseStatusMeta(form.warehouse_status).severity" :value="getWarehouseStatusMeta(form.warehouse_status).label" class="text-[10px] px-2 py-0.5 rounded" />
+            <Badge :severity="getWarehouseStatusMeta(form.warehouse_status).severity" :value="getWarehouseStatusMeta(form.warehouse_status).label" />
           </div>
           <div class="flex justify-between items-center">
             <span class="text-slate-500">Sổ cái kế toán:</span>
-            <Tag :severity="form.accounting_status === 'POSTED' ? 'success' : 'secondary'" :value="form.accounting_status === 'POSTED' ? 'Đã ghi sổ' : 'Chưa ghi sổ'" class="text-[10px] px-2 py-0.5 rounded" />
+            <Badge :severity="form.accounting_status === 'POSTED' ? 'success' : 'secondary'" :value="form.accounting_status === 'POSTED' ? 'Đã ghi sổ' : 'Chưa ghi sổ'" />
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 3. Bảng Danh Sách Mặt Hàng (Hiển thị Real-time Tồn Kho & Giữ Chỗ) -->
-    <div class="bg-white border border-slate-200 rounded-[8px] shadow-sm overflow-hidden">
-      <div class="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
+    <!-- 3. Bảng Danh Sách Mặt Hàng (Đồng bộ Order Items & Tình trạng Tồn Kho Giữ Chỗ) -->
+    <div class="space-y-2">
+      <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <i class="pi pi-list text-slate-600"></i>
-          <span class="text-xs font-bold text-slate-800 uppercase tracking-wide">
-            Bảng Mặt Hàng Xuất Hóa Đơn & Tình Trạng Tồn Kho
+          <i class="pi pi-list text-slate-700 text-sm"></i>
+          <span class="text-xs font-bold text-slate-900 uppercase tracking-wide">
+            Bảng Mặt Hàng Chứng Từ Bán Hàng & Tồn Kho Thực Tế
           </span>
           <span class="text-[11px] text-slate-500 font-normal">
             (Hệ thống tự động kiểm tra tồn kho tại <strong>{{ form.warehouse_name }}</strong>)
           </span>
         </div>
-        <span class="text-xs font-mono font-semibold text-slate-600">
-          Tổng cộng: <strong>{{ form.items.length }}</strong> mặt hàng
-        </span>
       </div>
 
-      <DataTable
-        :value="form.items"
-        showGridlines
-        responsiveLayout="scroll"
-        class="clean-datatable text-xs"
-      >
-        <Column header="#" style="width: 40px" class="text-center">
-          <template #body="{ index }">
-            <span class="font-mono text-slate-400">{{ index + 1 }}</span>
-          </template>
-        </Column>
-
-        <Column field="sku" header="SKU" style="width: 130px">
-          <template #body="{ data }">
-            <span class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200">
-              {{ data.sku }}
-            </span>
-          </template>
-        </Column>
-
-        <Column field="product_name" header="Tên Mặt Hàng" style="min-width: 150px">
-          <template #body="{ data }">
-            <span class="font-semibold text-slate-800">{{ data.product_name }}</span>
-          </template>
-        </Column>
-
-        <!-- Tình trạng Tồn Kho Thực Tế & Khả Dụng tại Kho Xuất -->
-        <Column header="Tồn Kho Hiện Tại" style="width: 150px" class="text-center">
-          <template #body="{ data }">
-            <div v-if="stockMap[data.sku]" class="flex flex-col items-center gap-0.5 text-[11px]">
-              <div class="flex items-center gap-1 font-mono">
-                <span class="text-slate-500">Tồn: <strong>{{ stockMap[data.sku].quantity_on_hand }}</strong></span>
-                <span>•</span>
-                <span class="text-amber-600 font-semibold">Giữ: {{ stockMap[data.sku].quantity_reserved }}</span>
-              </div>
-              <div class="font-mono text-xs font-bold" :class="stockMap[data.sku].available >= data.quantity ? 'text-emerald-700' : 'text-red-600'">
-                Khả dụng: {{ stockMap[data.sku].available }} {{ data.unit || 'Cái' }}
-              </div>
-            </div>
-            <div v-else class="text-slate-400 text-[11px] font-mono">
-              Đang tải...
-            </div>
-          </template>
-        </Column>
-
-        <!-- CỘT 1 ĐƯỢC PHÉP ĐIỀU CHỈNH: Item Description -->
-        <Column header="Mô Tả Chi Tiết" style="min-width: 180px">
-          <template #body="{ data }">
-            <InputText
-              v-model="data.description"
-              placeholder="Mô tả / ghi chú mặt hàng..."
-              class="w-full text-xs rounded py-1 px-2 border-slate-300 focus:border-indigo-500"
-              size="small"
-            />
-          </template>
-        </Column>
-
-        <Column field="unit" header="ĐVT" style="width: 60px" class="text-center">
-          <template #body="{ data }">
-            <span class="text-slate-600">{{ data.unit || 'Cái' }}</span>
-          </template>
-        </Column>
-
-        <!-- Cột Yêu Cầu Xuất ở Yêu Cầu Giao Hàng (Readonly) -->
-        <Column header="Yêu Cầu Xuất" style="width: 100px" class="text-center">
-          <template #body="{ data }">
-            <span class="font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-              {{ data.requested_quantity }}
-            </span>
-          </template>
-        </Column>
-
-        <!-- CỘT 2 ĐƯỢC PHÉP ĐIỀU CHỈNH: Số lượng xuất thực tế trên chứng từ -->
-        <Column header="SL Giữ Chỗ & Xuất" style="width: 130px" class="text-center">
-          <template #body="{ data }">
-            <InputNumber
-              v-model="data.quantity"
-              :min="0"
-              :max="data.requested_quantity * 2"
-              :maxFractionDigits="2"
-              class="w-full text-center font-mono font-bold text-indigo-700"
-              inputClass="text-center font-mono font-bold text-indigo-700 py-1 px-1 text-xs border-indigo-300 focus:border-indigo-600"
-              size="small"
-            />
-          </template>
-        </Column>
-
-        <Column header="Đơn Giá" style="width: 120px" class="text-right">
-          <template #body="{ data }">
-            <span class="font-mono text-xs text-slate-700">{{ formatCurrency(data.unit_price) }}</span>
-          </template>
-        </Column>
-
-        <Column header="Thành Tiền" style="width: 130px" class="text-right">
-          <template #body="{ data }">
-            <span class="font-mono text-xs font-bold text-indigo-700">
-              {{ formatCurrency((data.quantity || 0) * (data.unit_price || 0)) }}
-            </span>
-          </template>
-        </Column>
-      </DataTable>
-
-      <!-- Footer Tổng Giá Trị -->
-      <div class="flex justify-between items-center p-4 bg-slate-50 border-t border-slate-200">
-        <div class="text-xs text-slate-500">
-          * Số lượng xuất thực tế sẽ là căn cứ giữ chỗ tồn kho (Reserve) và gửi xuống phòng Logistics nhặt hàng.
-        </div>
-        <div class="flex items-center gap-4 text-xs font-mono">
-          <span class="text-slate-600">Tổng Giá Trị Chứng Từ:</span>
-          <span class="text-lg font-bold text-indigo-700 num-tabular">
-            {{ formatCurrency(calculatedTotal) }} {{ form.currency }}
-          </span>
-        </div>
-      </div>
+      <InvoiceItemTable
+        v-model="form.items"
+        :stock-map="stockMap"
+        :readonly="form.accounting_status === 'POSTED'"
+      />
     </div>
   </div>
 </template>
@@ -419,8 +307,7 @@ import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
 import Textarea from 'primevue/textarea';
 import Select from 'primevue/select';
-import DataTable from 'primevue/datatable';
-import Column from 'primevue/column';
+import InvoiceItemTable from '../../components/invoice/InvoiceItemTable.vue';
 
 import { salesApi } from '../../api/sales.api';
 import { inventoryApi } from '../../api/inventory.api';
@@ -543,6 +430,39 @@ const refreshStockInfo = async () => {
   }
 };
 
+const enrichInvoiceItem = (it, matchedOrderItem = null) => {
+  const oItem = matchedOrderItem || it.orderItem || it.order_item || {};
+  const reqQty = Number(it.requested_quantity != null ? it.requested_quantity : (it.quantity != null ? it.quantity : (it.request_quantity || 1)));
+  const invQty = Number(it.quantity != null ? it.quantity : reqQty);
+  const price = Number(it.unit_price != null ? it.unit_price : (it.selling_price != null ? it.selling_price : (oItem.selling_price || 0)));
+  const gross = Number(it.gross_price != null ? it.gross_price : (oItem.gross_price || price));
+  const disc = Number(it.discount_percent != null ? it.discount_percent : (oItem.discount_percent || 0));
+
+  return {
+    id: it.id,
+    delivery_request_item_id: it.delivery_request_item_id || (it.delivery_request_id ? it.id : null),
+    order_item_id: it.order_item_id || oItem.id || null,
+    product_id: it.product_id || oItem.product_id,
+    sku: it.sku || oItem.sku || '',
+    designation: it.designation || oItem.designation || '',
+    brand: it.brand || oItem.brand || '',
+    description: it.description || oItem.description || it.product_name || '',
+    com: it.com || oItem.com || 'Việt Nam',
+    unit: it.unit || oItem.unit || 'Cái',
+    order_quantity: Number(it.order_quantity != null ? it.order_quantity : (oItem.quantity != null ? oItem.quantity : reqQty)),
+    requested_quantity: reqQty,
+    quantity: invQty,
+    discount_percent: disc,
+    selling_price: price,
+    unit_price: price,
+    gross_price: gross,
+    vat_percent: Number(it.vat_percent != null ? it.vat_percent : (oItem.vat_percent || 0)),
+    lead_time: it.lead_time || oItem.lead_time || '',
+    delivery_date: it.delivery_date || oItem.delivery_date || '',
+    subtotal: Number(it.subtotal || (invQty * price))
+  };
+};
+
 // Load dữ liệu khi mở form
 const initFormData = async () => {
   const user = props.currentUser || JSON.parse(localStorage.getItem('user') || '{}');
@@ -554,6 +474,21 @@ const initFormData = async () => {
       const res = await salesApi.getInvoiceById(route.params.id);
       const inv = res.data;
       if (inv) {
+        let orderItemsMap = new Map();
+        const orderId = inv.order_id || inv.deliveryRequest?.order_id;
+        if (orderId) {
+          try {
+            const orderRes = await salesApi.getOrderById(orderId);
+            const o = orderRes.data;
+            if (o && Array.isArray(o.items)) {
+              o.items.forEach(oi => {
+                if (oi.id) orderItemsMap.set(oi.id, oi);
+                if (oi.sku) orderItemsMap.set(oi.sku, oi);
+              });
+            }
+          } catch {}
+        }
+
         form.value = {
           id: inv.id,
           invoice_number: inv.invoice_number,
@@ -565,26 +500,17 @@ const initFormData = async () => {
           notes: inv.notes || '',
           delivery_request_id: inv.delivery_request_id,
           delivery_request_number: inv.delivery_request_number,
-          order_id: inv.order_id,
-          order_number: inv.order_number,
-          customer_order_number: inv.customer_order_number,
-          customer_name: inv.customer_name,
-          warehouse_name: inv.warehouse_name || 'Kho Tổng Miền Bắc (Hà Nội)',
+          order_id: inv.order_id || inv.deliveryRequest?.order_id,
+          order_number: inv.order_number || inv.deliveryRequest?.order_number,
+          customer_order_number: inv.customer_order_number || inv.deliveryRequest?.customer_order_number,
+          customer_name: inv.customer_name || inv.deliveryRequest?.customer_name,
+          warehouse_name: inv.warehouse_name || inv.deliveryRequest?.warehouse_name || 'Kho Tổng Miền Bắc (Hà Nội)',
           warehouse_status: inv.warehouse_status || 'PENDING_WAREHOUSE',
           accounting_status: inv.accounting_status || 'UNPOSTED',
-          items: (inv.items || []).map((it) => ({
-            id: it.id,
-            delivery_request_item_id: it.delivery_request_item_id,
-            order_item_id: it.order_item_id,
-            product_id: it.product_id || it.orderItem?.product_id,
-            sku: it.sku,
-            product_name: it.product_name,
-            description: it.description || it.product_name,
-            unit: it.unit || 'Cái',
-            requested_quantity: Number(it.requested_quantity || it.quantity),
-            quantity: Number(it.quantity),
-            unit_price: Number(it.unit_price)
-          }))
+          items: (inv.items || []).map((it) => {
+            const matchedOrderItem = it.order_item_id ? orderItemsMap.get(it.order_item_id) : (it.sku ? orderItemsMap.get(it.sku) : null);
+            return enrichInvoiceItem(it, matchedOrderItem);
+          })
         };
         refreshStockInfo();
       }
@@ -607,7 +533,21 @@ const initFormData = async () => {
       const res = await salesApi.getDeliveries();
       const dr = (res.data || []).find((d) => String(d.id) === String(drId) || String(d.request_number) === String(drId));
       if (dr) {
-        const order = dr.order || {};
+        let order = dr.order || {};
+        let orderItemsMap = new Map();
+        if (dr.order_id) {
+          try {
+            const oRes = await salesApi.getOrderById(dr.order_id);
+            if (oRes.data) {
+              order = oRes.data;
+              (order.items || []).forEach(oi => {
+                if (oi.id) orderItemsMap.set(oi.id, oi);
+                if (oi.sku) orderItemsMap.set(oi.sku, oi);
+              });
+            }
+          } catch {}
+        }
+
         form.value = {
           id: null,
           invoice_number: generateRandomInvoiceNumber(),
@@ -627,19 +567,8 @@ const initFormData = async () => {
           warehouse_status: 'PENDING_WAREHOUSE',
           accounting_status: 'UNPOSTED',
           items: (dr.items || []).map((it) => {
-            const reqQty = Number(it.quantity || it.request_quantity || 1);
-            return {
-              delivery_request_item_id: it.id,
-              order_item_id: it.order_item_id,
-              product_id: it.product_id || it.orderItem?.product_id,
-              sku: it.sku,
-              product_name: it.product_name,
-              description: it.description || it.product_name || '',
-              unit: it.unit || it.orderItem?.unit || 'Cái',
-              requested_quantity: reqQty,
-              quantity: reqQty,
-              unit_price: Number(it.unit_price || it.orderItem?.selling_price || 0)
-            };
+            const matchedOrderItem = it.order_item_id ? orderItemsMap.get(it.order_item_id) : (it.sku ? orderItemsMap.get(it.sku) : null);
+            return enrichInvoiceItem(it, matchedOrderItem);
           })
         };
         refreshStockInfo();
