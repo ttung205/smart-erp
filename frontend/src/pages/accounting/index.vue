@@ -89,19 +89,15 @@
       <!-- Custom column: warehouse_status -->
       <template #col-warehouse_status="{ data }">
         <div class="text-center">
-          <Tag
+          <Badge
             v-if="data.warehouse_status === 'DELIVERED'"
             severity="success"
-            value="Giao thành công"
-            icon="pi pi-check"
-            class="text-[10px] px-1.5 py-0.5 rounded-[4px]"
+            value="Đã giao"
           />
-          <Tag
+          <Badge
             v-else
             severity="warn"
-            value="Đang xử lý tại kho"
-            icon="pi pi-clock"
-            class="text-[10px] px-1.5 py-0.5 rounded-[4px]"
+            value="Đang xử lý"
           />
         </div>
       </template>
@@ -119,43 +115,35 @@
       <template #col-accounting_status="{ data }">
         <div class="text-center">
           <div v-if="data.accounting_status === 'POSTED'" class="flex flex-col items-center gap-0.5">
-            <Tag
+            <Badge
               severity="success"
-              value="Đã ghi sổ & Trừ kho"
-              icon="pi pi-check-circle"
-              class="text-[11px] px-2 py-0.5 rounded-[4px]"
+              value="Đã ghi sổ"
             />
             <span class="text-[10px] font-mono text-slate-400">{{ data.posted_at }}</span>
           </div>
-          <Tag
+          <Badge
             v-else
-            severity="danger"
-            value="Chưa ghi sổ (Chưa trừ tồn)"
-            icon="pi pi-exclamation-circle"
-            class="text-[11px] px-2 py-0.5 rounded-[4px]"
+            severity="warn"
+            value="Chưa ghi sổ"
           />
         </div>
       </template>
 
       <!-- Column Thao Tác Kế Toán -->
-      <Column header="Thao Tác Kế Toán" class="text-center" style="width: 190px">
+      <Column header="Thao Tác" class="text-center" style="width: 100px">
         <template #body="{ data }">
           <div class="flex items-center justify-center gap-1">
             <Button
               v-if="data.accounting_status !== 'POSTED'"
-              label="Ghi Sổ & Trừ Kho"
               icon="pi pi-file-edit"
+              outlined
               size="small"
+              severity="success"
+              class="!w-7 !h-7 !p-0 rounded-[6px]"
               :disabled="data.warehouse_status !== 'DELIVERED'"
-              class="!text-xs !py-1 !px-2.5 rounded-[6px] !bg-emerald-600 hover:!bg-emerald-700 !text-white !border-emerald-600 !font-semibold disabled:!opacity-40"
-              v-tooltip.bottom="data.warehouse_status === 'DELIVERED' ? 'Bấm để ghi sổ kế toán và kích hoạt trừ tồn kho thực tế' : 'Cần đợi kho hoàn tất giao hàng thành công'"
+              v-tooltip.bottom="data.warehouse_status === 'DELIVERED' ? 'Ghi sổ kế toán & trừ tồn kho' : 'Cần đợi kho hoàn tất giao hàng'"
               @click="openAccountingDialog(data)"
             />
-
-            <div v-else class="text-xs text-emerald-700 font-semibold flex items-center gap-1">
-              <i class="pi pi-lock text-[11px]"></i>
-              <span>Đã khóa chứng từ</span>
-            </div>
           </div>
         </template>
       </Column>
@@ -181,7 +169,7 @@ import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Button from 'primevue/button';
-import Tag from 'primevue/tag';
+import Badge from 'primevue/badge';
 import PageHeader from '../../components/common/PageHeader.vue';
 import CommonDataTable from '../../components/common/CommonDataTable.vue';
 

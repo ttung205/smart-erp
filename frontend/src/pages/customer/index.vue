@@ -99,10 +99,9 @@
 
       <!-- 4. Loại khách hàng -->
       <template #col-customer_type="{ data }">
-        <Tag
+        <Badge
           :value="getCustomerTypeLabel(data.customer_type)"
           :severity="getCustomerTypeSeverity(data.customer_type)"
-          class="text-[11px] px-2 py-0.5 rounded-[4px] font-medium"
         />
       </template>
 
@@ -133,10 +132,9 @@
       <!-- 7. Trạng thái khách -->
       <template #col-status="{ data }">
         <div class="text-center">
-          <Tag
+          <Badge
             :severity="data.status === 'ACTIVE' ? 'success' : 'danger'"
             :value="data.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm khóa'"
-            class="text-[11px] px-2 py-0.5 rounded-[4px]"
           />
         </div>
       </template>
@@ -144,20 +142,22 @@
       <!-- 8. Thao tác -->
       <Column header="Thao Tác" style="width: 100px" align="center">
         <template #body="{ data }">
-          <div class="flex items-center justify-center gap-1">
+          <div class="flex items-center justify-center gap-1.5">
             <Button
               icon="pi pi-pencil"
+              outlined
               size="small"
-              text
-              class="!text-xs !p-1.5 rounded-[6px] !text-emerald-600 hover:!bg-emerald-50"
+              severity="info"
+              class="!w-7 !h-7 !p-0 rounded-[6px]"
               v-tooltip.bottom="'Chỉnh sửa thông tin khách hàng'"
               @click="$router.push(`/customer/${data.id}/edit`)"
             />
             <Button
               icon="pi pi-trash"
+              outlined
               size="small"
-              text
-              class="!text-xs !p-1.5 rounded-[6px] !text-red-600 hover:!bg-red-50"
+              severity="danger"
+              class="!w-7 !h-7 !p-0 rounded-[6px]"
               v-tooltip.bottom="'Xóa khách hàng'"
               @click="confirmDeleteCustomer(data)"
             />
@@ -276,7 +276,7 @@ import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Button from 'primevue/button';
-import Tag from 'primevue/tag';
+import Badge from 'primevue/badge';
 import Dialog from 'primevue/dialog';
 
 import PageHeader from '../../components/common/PageHeader.vue';

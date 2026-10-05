@@ -28,6 +28,10 @@ Route::put('/deliveries/{id}/status', [DeliveryController::class, 'updateStatus'
 Route::apiResource('deliveries', DeliveryController::class);
 
 // 5. Invoices (Chứng Từ & Kế Toán Kho)
+Route::post('/invoices/{id}/send-to-warehouse', [InvoiceController::class, 'sendToWarehouse']);
+Route::post('/invoices/{id}/sync-reserve', [InvoiceController::class, 'syncReserve']);
+Route::put('/invoices/{id}/assign-logistics', [InvoiceController::class, 'assignLogistics']);
+Route::post('/invoices/{id}/warehouse-post', [InvoiceController::class, 'warehousePost']);
 Route::put('/invoices/{id}/warehouse-status', [InvoiceController::class, 'updateWarehouseStatus']);
 Route::post('/invoices/{id}/post-accounting', [InvoiceController::class, 'postAccounting']);
 Route::apiResource('invoices', InvoiceController::class);

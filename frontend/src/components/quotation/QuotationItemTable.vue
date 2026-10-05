@@ -181,13 +181,12 @@
 
       <!-- 15. Trạng thái mặt hàng (Status: WIN / LOSE / PENDING) - Nghiệp vụ đặc thù Báo giá -->
       <template #col-status="{ data }">
-        <span
-          class="inline-flex items-center justify-center font-bold text-[11px] px-2 py-0.5 rounded-[4px] border uppercase tracking-wider"
-          :class="getStatusBadgeClass(data.status)"
-        >
-          <i :class="getStatusIcon(data.status)" class="mr-1 text-[10px]"></i>
-          {{ getStatusLabel(data.status) }}
-        </span>
+        <div class="text-center">
+          <Badge
+            :severity="getItemStatusSeverity(data.status)"
+            :value="getItemStatusLabel(data.status)"
+          />
+        </div>
       </template>
 
       <!-- Thao tác nghiệp vụ đặc thù của Báo Giá -->
@@ -294,6 +293,7 @@ import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
 import Dialog from 'primevue/dialog';
+import Badge from 'primevue/badge';
 import ItemDataTable from '../common/ItemDataTable.vue';
 import { formatCurrency } from '../../utils/format';
 
@@ -414,28 +414,22 @@ const handleCreateOrderAction = (items) => {
   }
   const allWinItems = (items || []).filter((it) => it.status === 'WIN');
   if (allWinItems.length === 0) {
-    alert('Không có mặt hàng nào có trạng thái WIN (Trúng thầu)! Vui lòng chọn các mặt hàng và nhấn "Đổi trạng thái" sang WIN trước khi tạo đơn bán hàng.');
+    alert('Không có mặt hàng nào có trạng thái WIN! Vui lòng chọn các mặt hàng và nhấn "Đổi trạng thái" sang WIN trước khi tạo đơn bán hàng.');
     return;
   }
   emit('create-order', allWinItems);
 };
 
 // Helpers hiển thị status badge
-const getStatusLabel = (st) => {
-  if (st === 'WIN') return 'WIN (Trúng)';
-  if (st === 'LOSE') return 'LOSE (Trượt)';
+const getItemStatusLabel = (st) => {
+  if (st === 'WIN') return 'WIN';
+  if (st === 'LOSE') return 'LOSE';
   return 'PENDING';
 };
 
-const getStatusBadgeClass = (st) => {
-  if (st === 'WIN') return 'bg-emerald-50 text-emerald-700 border-emerald-300';
-  if (st === 'LOSE') return 'bg-rose-50 text-rose-700 border-rose-300';
-  return 'bg-amber-50 text-amber-700 border-amber-300';
-};
-
-const getStatusIcon = (st) => {
-  if (st === 'WIN') return 'pi pi-check';
-  if (st === 'LOSE') return 'pi pi-times';
-  return 'pi pi-clock';
+const getItemStatusSeverity = (st) => {
+  if (st === 'WIN') return 'success';
+  if (st === 'LOSE') return 'danger';
+  return 'warn';
 };
 </script>

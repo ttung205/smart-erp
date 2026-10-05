@@ -11,8 +11,10 @@ class DeliveryRequestItem extends Model
     protected $fillable = [
         'delivery_request_id',
         'order_item_id',
+        'product_id',
         'sku',
         'quantity',
+        'delivered_quantity',
     ];
 
     protected $appends = [
@@ -20,7 +22,6 @@ class DeliveryRequestItem extends Model
         'product_name',
         'ordered_quantity',
         'unit_price',
-        'delivered_quantity',
     ];
 
     public function deliveryRequest()
@@ -33,6 +34,11 @@ class DeliveryRequestItem extends Model
         return $this->belongsTo(SalesOrderItem::class, 'order_item_id');
     }
 
+    public function product()
+    {
+        return $this->belongsTo(Product::class, 'product_id');
+    }
+
     // Dynamic Accessors truy xuất trực tiếp từ SalesOrderItem qua order_item_id
     public function getDeliveryDateAttribute()
     {
@@ -43,7 +49,7 @@ class DeliveryRequestItem extends Model
 
     public function getProductNameAttribute()
     {
-        return $this->orderItem?->product_name ?? $this->sku;
+        return $this->product?->designation ?? $this->orderItem?->product_name ?? $this->sku;
     }
 
     public function getOrderedQuantityAttribute()
@@ -54,10 +60,5 @@ class DeliveryRequestItem extends Model
     public function getUnitPriceAttribute()
     {
         return (float)($this->orderItem?->selling_price ?? $this->orderItem?->unit_price ?? 0);
-    }
-
-    public function getDeliveredQuantityAttribute()
-    {
-        return 0;
     }
 }

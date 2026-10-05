@@ -127,12 +127,11 @@
           <template #body="{ data }">
             <div class="flex flex-wrap gap-1">
               <template v-if="data.roles && data.roles.length > 0">
-                <Tag
+                <Badge
                   v-for="r in data.roles"
                   :key="r.role_id"
                   :value="r.name"
                   severity="secondary"
-                  class="!text-[10px] !px-1.5 !py-0.5 !rounded-[4px]"
                 />
               </template>
               <span v-else class="text-xs text-slate-400 italic">Chưa gán vai trò</span>
@@ -141,12 +140,11 @@
         </Column>
 
         <!-- Cột 4: Trạng thái tài khoản -->
-        <Column header="Trạng Thái" style="width: 140px; text-align: center">
+        <Column header="Trạng Thái" style="width: 130px; text-align: center">
           <template #body="{ data }">
-            <Tag
-              :value="data.is_active ? 'Đang hoạt động' : 'Tạm khóa'"
+            <Badge
+              :value="data.is_active ? 'Hoạt động' : 'Tạm khóa'"
               :severity="data.is_active ? 'success' : 'danger'"
-              class="!text-xs !rounded-[6px]"
             />
           </template>
         </Column>
@@ -159,13 +157,13 @@
         </Column>
 
         <!-- Cột 6: Thao tác -->
-        <Column v-if="canManageEmployees" header="Hành Động" style="width: 120px; text-align: center">
+        <Column v-if="canManageEmployees" header="Hành Động" style="width: 100px; text-align: center">
           <template #body="{ data }">
             <Button
               icon="pi pi-user-edit"
               size="small"
-              text
-              severity="secondary"
+              outlined
+              severity="info"
               class="!w-7 !h-7 !p-0 !rounded-[6px]"
               v-tooltip.top="'Chỉnh sửa thông tin nhân viên'"
               @click="openEditDialog(data)"
@@ -293,7 +291,7 @@ import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import MultiSelect from 'primevue/multiselect';
 import Checkbox from 'primevue/checkbox';
-import Tag from 'primevue/tag';
+import Badge from 'primevue/badge';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Dialog from 'primevue/dialog';

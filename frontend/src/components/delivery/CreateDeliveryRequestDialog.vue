@@ -229,6 +229,8 @@ import Select from 'primevue/select';
 import { useToast } from 'primevue/usetoast';
 import { salesApi } from '../../api/sales.api';
 import { inventoryApi } from '../../api/inventory.api';
+import { catalogApi } from '../../api/catalog.api';
+import { FALLBACK_CATALOG_PRODUCTS } from '../../constants/catalogProducts.constant';
 
 const props = defineProps({
   visible: {
@@ -250,12 +252,14 @@ const emit = defineEmits(['update:visible', 'created']);
 const toast = useToast();
 const submitting = ref(false);
 const orderItems = ref([]);
-const stockMap = ref(new Map());
+const rawStocks = ref([]);
+const pidToSkuMap = ref(new Map());
+const skuToPidMap = ref(new Map());
 
 const warehouseOptions = [
   { id: 1, name: 'Kho Tổng Miền Bắc (Hà Nội)', label: 'WH-HN-01: Kho Tổng Miền Bắc (Hà Nội)' },
-  { id: 2, name: 'Kho Trung Chuyển Đà Nẵng', label: 'WH-DN-02: Kho Trung Chuyển Đà Nẵng' },
-  { id: 3, name: 'Kho Tổng Miền Nam (TP.HCM)', label: 'WH-HCM-03: Kho Tổng Miền Nam (TP.HCM)' }
+  { id: 2, name: 'Kho Trung Tâm Miền Nam (TP.HCM)', label: 'WH-HCM-01: Kho Trung Tâm Miền Nam (TP.HCM)' },
+  { id: 3, name: 'Kho Trung Chuyển Miền Trung (Đà Nẵng)', label: 'WH-DN-01: Kho Trung Chuyển Miền Trung (Đà Nẵng)' }
 ];
 
 const form = ref({
@@ -266,23 +270,98 @@ const form = ref({
   shipping_address: ''
 });
 
-// Tải tồn kho khả dụng từ Inventory API
-const loadStockMap = async () => {
+// Tải danh mục Catalog để ánh xạ ID <-> SKU
+const loadCatalogMapping = async () => {
+  const pMap = new Map();
+  const sMap = new Map();
+
+  // Khởi tạo từ Fallback trước
+  FALLBACK_CATALOG_PRODUCTS.forEach(p => {
+    const sku = (p.sku || '').trim().toUpperCase();
+    const pid = Number(p.id);
+    if (pid && sku) {
+      pMap.set(pid, sku);
+      sMap.set(sku, pid);
+    }
+  });
+
   try {
-    const res = await inventoryApi.getStocks({ pageSize: 1000 });
-    const list = res?.data || res || [];
-    const map = new Map();
-    if (Array.isArray(list)) {
-      list.forEach((s) => {
-        const sku = (s.sku || '').trim().toUpperCase();
-        const available = Number(s.quantity_available ?? s.quantityAvailable ?? s.available ?? (Number(s.quantity_on_hand ?? 0) - Number(s.quantity_reserved ?? 0)));
-        map.set(sku, (map.get(sku) || 0) + available);
+    const res = await catalogApi.getProducts({ limit: 500 });
+    const list = res?.data || (Array.isArray(res) ? res : []);
+    if (Array.isArray(list) && list.length > 0) {
+      list.forEach(p => {
+        const sku = (p.sku || p.code || '').trim().toUpperCase();
+        const pid = Number(p.id);
+        if (pid && sku) {
+          pMap.set(pid, sku);
+          sMap.set(sku, pid);
+        }
       });
     }
-    stockMap.value = map;
+  } catch (err) {
+    console.warn('[CreateDeliveryRequestDialog] Dùng Fallback Catalog mapping:', err);
+  }
+
+  pidToSkuMap.value = pMap;
+  skuToPidMap.value = sMap;
+};
+
+// Tải toàn bộ danh sách tồn kho từ Inventory API (:8004)
+const loadStockMap = async () => {
+  await loadCatalogMapping();
+  try {
+    const res = await inventoryApi.getStocks({ pageSize: 1000 });
+    const list = res?.data || (Array.isArray(res) ? res : []);
+    rawStocks.value = Array.isArray(list) ? list : [];
   } catch (err) {
     console.warn('Không thể tải tồn kho cho popup giao hàng:', err);
+    rawStocks.value = [];
   }
+};
+
+// Tính toán tồn kho khả dụng cho 1 item dựa trên kho đang chọn
+const getItemAvailableStock = (item, targetWarehouseId) => {
+  const targetSku = (item.sku || '').trim().toUpperCase();
+  const targetPid = Number(item.product_id || skuToPidMap.value.get(targetSku) || 0);
+
+  const matchedStocks = rawStocks.value.filter(s => {
+    const wid = Number(s.warehouse_id ?? s.warehouseId ?? 0);
+    if (targetWarehouseId && wid !== Number(targetWarehouseId)) {
+      return false;
+    }
+    const pid = Number(s.product_id ?? s.productId ?? 0);
+    const sku = (s.sku || pidToSkuMap.value.get(pid) || '').trim().toUpperCase();
+    return (targetPid && pid === targetPid) || (targetSku && sku === targetSku);
+  });
+
+  if (matchedStocks.length === 0) {
+    // Nếu không lọc theo kho hoặc chưa tìm thấy, lấy tổng tồn của SKU đó
+    const allWhStocks = rawStocks.value.filter(s => {
+      const pid = Number(s.product_id ?? s.productId ?? 0);
+      const sku = (s.sku || pidToSkuMap.value.get(pid) || '').trim().toUpperCase();
+      return (targetPid && pid === targetPid) || (targetSku && sku === targetSku);
+    });
+    if (allWhStocks.length > 0) {
+      return allWhStocks.reduce((sum, s) => {
+        const avail = Number(s.available ?? (Number(s.quantity_on_hand || 0) - Number(s.quantity_reserved || 0)));
+        return sum + avail;
+      }, 0);
+    }
+    return 100; // Fallback an toàn nếu chưa có bản ghi kho
+  }
+
+  return matchedStocks.reduce((sum, s) => {
+    const avail = Number(s.available ?? (Number(s.quantity_on_hand || 0) - Number(s.quantity_reserved || 0)));
+    return sum + avail;
+  }, 0);
+};
+
+// Cập nhật lại tồn kho hiển thị cho tất cả items
+const updateOrderItemsStock = () => {
+  if (!orderItems.value || orderItems.value.length === 0) return;
+  orderItems.value.forEach(it => {
+    it.stock = getItemAvailableStock(it, form.value.warehouse_id);
+  });
 };
 
 watch(
@@ -333,10 +412,13 @@ const initItems = () => {
     const ordered = Number(it.quantity || 1);
     const delivered = deliveredMap.get(sku) || Number(it.delivered_quantity || 0);
     const remaining = Math.max(0, ordered - delivered);
-    const stock = stockMap.value.get(sku) ?? Number(it.stock || 0);
+    const pid = it.product_id || skuToPidMap.value.get(sku) || null;
+    const itemObj = { ...it, sku, product_id: pid };
+    const stock = getItemAvailableStock(itemObj, form.value.warehouse_id);
 
     return {
       order_item_id: it.id,
+      product_id: pid,
       delivery_date: it.delivery_date || it.lead_time || '',
       sku: it.sku,
       product_name: it.product_name || it.description || 'Sản phẩm',
@@ -346,7 +428,7 @@ const initItems = () => {
       delivered_quantity: delivered,
       remaining_quantity: remaining,
       stock: stock,
-      request_quantity: remaining, // Mặc định là số lượng còn lại, cho phép người dùng sửa
+      request_quantity: remaining,
       unit_price: Number(it.selling_price || it.unit_price || 0)
     };
   });
@@ -355,6 +437,7 @@ const initItems = () => {
 const onWarehouseChange = () => {
   const w = warehouseOptions.find((item) => item.id === form.value.warehouse_id);
   if (w) form.value.warehouse_name = w.name;
+  updateOrderItemsStock();
 };
 
 const totalRequestQuantity = computed(() => {
@@ -401,6 +484,7 @@ const submitDeliveryRequest = async () => {
       expected_delivery_date: form.value.expected_delivery_date,
       items: validItems.map((it) => ({
         order_item_id: it.order_item_id,
+        product_id: it.product_id,
         sku: it.sku,
         product_name: it.description || it.product_name,
         ordered_quantity: it.ordered_quantity,

@@ -105,10 +105,9 @@
       <!-- 7. Trạng thái -->
       <template #col-status="{ data }">
         <div class="text-center">
-          <Tag
+          <Badge
             :severity="getStatusMeta(data.status).severity"
             :value="getStatusMeta(data.status).label"
-            class="text-[11px] px-2 py-0.5 rounded-[6px] whitespace-nowrap"
           />
         </div>
       </template>
@@ -120,19 +119,20 @@
             <!-- Xem nhanh dialog -->
             <Button
               icon="pi pi-eye"
-              text
+              outlined
               size="small"
               severity="secondary"
-              class="!w-7 !h-7 !p-0 rounded-[6px] hover:!bg-slate-100"
+              class="!w-7 !h-7 !p-0 rounded-[6px]"
               v-tooltip.bottom="'Xem nhanh chi tiết đơn'"
               @click="openViewOrder(data)"
             />
             <!-- Chỉnh sửa trang riêng -->
             <Button
               icon="pi pi-pencil"
-              text
+              outlined
               size="small"
-              class="!w-7 !h-7 !p-0 rounded-[6px] !text-indigo-600 hover:!bg-indigo-50"
+              severity="info"
+              class="!w-7 !h-7 !p-0 rounded-[6px]"
               v-tooltip.bottom="'Chỉnh sửa đơn bán (Trang riêng)'"
               @click="$router.push(`/order/${data._db_id || data.id}/edit`)"
             />
@@ -140,9 +140,10 @@
             <Button
               v-if="data.status === 'DRAFT'"
               icon="pi pi-send"
-              text
+              outlined
               size="small"
-              class="!w-7 !h-7 !p-0 rounded-[6px] !text-sky-600 hover:!bg-sky-50"
+              severity="warn"
+              class="!w-7 !h-7 !p-0 rounded-[6px]"
               v-tooltip.bottom="'Gửi xét duyệt đơn hàng'"
               @click="confirmSubmitApproval(data)"
             />
@@ -150,9 +151,10 @@
             <Button
               v-if="data.status === 'PENDING_APPROVAL' && canApprove"
               icon="pi pi-check-circle"
-              text
+              outlined
               size="small"
-              class="!w-7 !h-7 !p-0 rounded-[6px] !text-emerald-600 hover:!bg-emerald-50"
+              severity="success"
+              class="!w-7 !h-7 !p-0 rounded-[6px]"
               v-tooltip.bottom="'Phê duyệt đơn bán hàng'"
               @click="confirmApproveOrder(data)"
             />
@@ -160,9 +162,10 @@
             <Button
               v-if="data.status === 'PENDING_APPROVAL' && canApprove"
               icon="pi pi-times-circle"
-              text
+              outlined
               size="small"
-              class="!w-7 !h-7 !p-0 rounded-[6px] !text-red-500 hover:!bg-red-50"
+              severity="danger"
+              class="!w-7 !h-7 !p-0 rounded-[6px]"
               v-tooltip.bottom="'Từ chối phê duyệt đơn'"
               @click="confirmRejectOrder(data)"
             />
@@ -170,9 +173,10 @@
             <Button
               v-if="data.status === 'APPROVED' || data.status === 'CONFIRMED'"
               icon="pi pi-truck"
-              text
+              outlined
               size="small"
-              class="!w-7 !h-7 !p-0 rounded-[6px] !text-sky-600 hover:!bg-sky-50"
+              severity="help"
+              class="!w-7 !h-7 !p-0 rounded-[6px]"
               v-tooltip.bottom="'Lập lệnh yêu cầu giao hàng'"
               @click="openDeliveryDialog(data)"
             />
@@ -212,7 +216,7 @@ import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Button from 'primevue/button';
-import Tag from 'primevue/tag';
+import Badge from 'primevue/badge';
 import PageHeader from '../../components/common/PageHeader.vue';
 import CommonDataTable from '../../components/common/CommonDataTable.vue';
 
@@ -253,7 +257,7 @@ const tableColumns = [
   { field: 'order_date', header: 'Ngày Tạo', sortable: true, width: '120px', align: 'center' },
   { field: 'items_count', header: 'Mặt Hàng Chốt', sortable: false, width: '140px', align: 'center' },
   { field: 'total_amount', header: 'Tổng Tiền Đơn', sortable: true, width: '160px', align: 'right' },
-  { field: 'status', header: 'Trạng Thái', sortable: true, width: '140px', align: 'center' }
+  { field: 'status', header: 'Trạng Thái', sortable: true, width: '130px', align: 'center' }
 ];
 
 const canApprove = computed(() => {
@@ -279,7 +283,7 @@ const getStatusMeta = (st) => {
     DRAFT: { label: 'Bản nháp', severity: 'secondary' },
     PENDING_APPROVAL: { label: 'Chờ duyệt', severity: 'warn' },
     APPROVED: { label: 'Đã duyệt', severity: 'info' },
-    CONFIRMED: { label: 'Đã xác nhận (SO)', severity: 'success' },
+    CONFIRMED: { label: 'Đã xác nhận', severity: 'success' },
     PROCESSING: { label: 'Đang xử lý', severity: 'warn' },
     COMPLETED: { label: 'Đã hoàn tất', severity: 'success' },
     REJECTED: { label: 'Từ chối', severity: 'danger' },

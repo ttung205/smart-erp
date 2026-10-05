@@ -137,8 +137,39 @@ export const salesApi = {
     return apiClient('/api/v1/sales/invoices');
   },
 
+  getInvoiceById(id) {
+    return apiClient(`/api/v1/sales/invoices/${id}`);
+  },
+
   createInvoice(data) {
     return apiClient('/api/v1/sales/invoices', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  sendInvoiceToWarehouse(id) {
+    return apiClient(`/api/v1/sales/invoices/${id}/send-to-warehouse`, {
+      method: 'POST'
+    });
+  },
+
+  syncReserve(id, warehouseName = null) {
+    return apiClient(`/api/v1/sales/invoices/${id}/sync-reserve`, {
+      method: 'POST',
+      body: JSON.stringify({ warehouse_name: warehouseName })
+    });
+  },
+
+  assignLogistics(id, data) {
+    return apiClient(`/api/v1/sales/invoices/${id}/assign-logistics`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  warehousePost(id, data = {}) {
+    return apiClient(`/api/v1/sales/invoices/${id}/warehouse-post`, {
       method: 'POST',
       body: JSON.stringify(data)
     });

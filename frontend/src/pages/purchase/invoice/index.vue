@@ -162,42 +162,33 @@
       <!-- Cột Trạng Thái Đối Chiếu 3 Bên -->
       <template #col-matching_status="{ data }">
         <div class="text-center">
-          <span
-            class="text-[11px] font-semibold px-2 py-0.5 rounded-[6px] inline-block whitespace-nowrap"
-            :class="getMatchingStatusClass(data.matching_status)"
-          >
-            {{ getMatchingStatusLabel(data.matching_status) }}
-          </span>
+          <Badge
+            :severity="getMatchingStatusSeverity(data.matching_status)"
+            :value="getMatchingStatusLabel(data.matching_status)"
+          />
         </div>
       </template>
 
       <!-- Cột Trạng Thái Ghi Sổ -->
       <template #col-is_posted="{ data }">
         <div class="text-center">
-          <span
-            v-if="data.is_posted"
-            class="text-[11px] font-semibold px-2 py-0.5 rounded-[6px] bg-emerald-50 text-emerald-700 border border-emerald-200 inline-block"
-          >
-            Đã Ghi Sổ
-          </span>
-          <span
-            v-else
-            class="text-[11px] font-medium px-2 py-0.5 rounded-[6px] bg-slate-100 text-slate-500 border border-slate-200 inline-block"
-          >
-            Chưa Ghi Sổ
-          </span>
+          <Badge
+            :severity="data.is_posted ? 'success' : 'secondary'"
+            :value="data.is_posted ? 'Đã ghi sổ' : 'Chưa ghi sổ'"
+          />
         </div>
       </template>
 
       <!-- Cột Thao Tác (Slot Mặc Định) -->
-      <Column header="Thao Tác" style="width: 140px" class="text-center">
+      <Column header="Thao Tác" style="width: 110px" class="text-center">
         <template #body="{ data }">
-          <div class="flex items-center justify-center gap-1">
+          <div class="flex items-center justify-center gap-1.5">
             <Button
               icon="pi pi-search-plus"
               size="small"
-              text
-              class="!w-7 !h-7 !p-0 !rounded-[6px] !text-slate-600 hover:!bg-slate-100"
+              outlined
+              severity="secondary"
+              class="!w-7 !h-7 !p-0 !rounded-[6px]"
               v-tooltip.top="'Xem đối chiếu 3 bên'"
               @click="$router.push(`/purchase/invoices/${data.id}`)"
             />
@@ -205,9 +196,9 @@
               v-if="data.matching_status === 'MATCHED' && !data.is_posted"
               icon="pi pi-book"
               size="small"
-              text
+              outlined
               severity="success"
-              class="!w-7 !h-7 !p-0 !rounded-[6px] !text-emerald-600 hover:!bg-emerald-50"
+              class="!w-7 !h-7 !p-0 !rounded-[6px]"
               v-tooltip.top="'Ghi sổ kế toán ngay'"
               @click="postInvoice(data)"
             />
@@ -223,6 +214,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import Button from 'primevue/button';
+import Badge from 'primevue/badge';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import IconField from 'primevue/iconfield';
@@ -246,9 +238,9 @@ const statusFilter = ref(null);
 const statusOptions = [
   { label: 'Tất cả trạng thái', value: null },
   { label: 'Chờ đối chiếu', value: 'PENDING' },
-  { label: 'Khớp 3 bên (3-Way OK)', value: 'MATCHED' },
-  { label: 'Lệch số liệu (Discrepancy)', value: 'DISCREPANCY' },
-  { label: 'Đã ghi sổ kế toán', value: 'POSTED' }
+  { label: 'Khớp', value: 'MATCHED' },
+  { label: 'Lệch', value: 'DISCREPANCY' },
+  { label: 'Đã ghi sổ', value: 'POSTED' }
 ];
 
 const tableColumns = [
@@ -340,8 +332,8 @@ const resetFilters = () => {
   statusFilter.value = null;
 };
 
-const getMatchingStatusClass = (status) => {
-  return MATCHING_STATUS[status]?.class || 'bg-slate-100 text-slate-700 border border-slate-200';
+const getMatchingStatusSeverity = (status) => {
+  return MATCHING_STATUS[status]?.severity || 'secondary';
 };
 
 const getMatchingStatusLabel = (status) => {

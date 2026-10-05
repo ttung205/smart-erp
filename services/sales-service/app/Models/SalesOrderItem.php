@@ -16,6 +16,7 @@ class SalesOrderItem extends Model
         'product_name',
         'delivery_date',
         'quantity',
+        'delivered_quantity',
         'gross_price',
         'discount_percent',
         'selling_price',

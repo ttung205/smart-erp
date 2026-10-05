@@ -17,7 +17,7 @@
         v-tooltip.bottom="'Xem trang chi tiết Trạng thái dịch vụ'"
       >
         <span class="w-2 h-2 rounded-full" :class="isAllOnline ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'"></span>
-        <span>Hệ thống: {{ onlineCount }}/3 Dịch vụ Online</span>
+        <span>Hệ thống: {{ onlineCount }}/{{ totalCount }} Dịch vụ Online</span>
         <i class="pi pi-arrow-up-right text-[10px] text-slate-400"></i>
       </router-link>
     </div>
@@ -74,12 +74,18 @@ const props = defineProps({
 
 defineEmits(['refresh-health', 'logout']);
 
+const totalCount = computed(() => {
+  if (!props.health) return 5;
+  const count = Object.keys(props.health).length;
+  return count > 0 ? count : 5;
+});
+
 const onlineCount = computed(() => {
   if (!props.health) return 0;
   return Object.values(props.health).filter(Boolean).length;
 });
 
 const isAllOnline = computed(() => {
-  return onlineCount.value >= 3;
+  return totalCount.value > 0 && onlineCount.value === totalCount.value;
 });
 </script>

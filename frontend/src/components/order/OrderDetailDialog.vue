@@ -42,10 +42,9 @@
       <div class="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-[6px] text-xs">
         <div class="flex items-center gap-3">
           <span class="text-slate-500">Trạng thái:</span>
-          <Tag
+          <Badge
             :severity="getStatusMeta(order.status).severity"
             :value="getStatusMeta(order.status).label"
-            class="text-[11px] px-2 py-0.5 rounded-[4px]"
           />
         </div>
 
@@ -185,7 +184,7 @@ import Dialog from 'primevue/dialog';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Button from 'primevue/button';
-import Tag from 'primevue/tag';
+import Badge from 'primevue/badge';
 import { formatCurrency } from '../../utils/format';
 
 const props = defineProps({

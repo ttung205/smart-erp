@@ -45,21 +45,40 @@ class DeliveryController extends Controller
         foreach ($request->input('items', []) as $it) {
             $reqQty = (float)($it['quantity'] ?? $it['request_quantity'] ?? 1);
             $orderItemId = $it['order_item_id'] ?? null;
-            if (!$orderItemId && $so) {
-                $sku = $it['sku'] ?? $it['product_sku'] ?? '';
-                $soItem = $so->items()->where('sku', $sku)->first();
+            $productId = $it['product_id'] ?? null;
+            $sku = $it['sku'] ?? $it['product_sku'] ?? '';
+
+            if ($orderItemId && $so) {
+                $soItem = $so->items->firstWhere('id', $orderItemId);
+                if ($soItem) {
+                    $productId = $productId ?: $soItem->product_id;
+                    $sku = $sku ?: $soItem->sku;
+                }
+            } elseif ($so) {
+                if ($productId) {
+                    $soItem = $so->items()->where('product_id', $productId)->first();
+                } else {
+                    $soItem = $so->items()->where('sku', $sku)->first();
+                }
                 $orderItemId = $soItem?->id;
+                $productId = $productId ?: $soItem?->product_id;
+                $sku = $sku ?: ($soItem?->sku ?? '');
+            }
+
+            if (!$productId && !empty($sku)) {
+                $productId = \App\Models\Product::where('sku', $sku)->value('id');
             }
 
             DeliveryRequestItem::create([
                 'delivery_request_id' => $dr->id,
                 'order_item_id' => $orderItemId,
-                'sku' => $it['sku'] ?? $it['product_sku'] ?? '',
+                'product_id' => $productId,
+                'sku' => $sku,
                 'quantity' => $reqQty,
             ]);
         }
 
-        return response()->json(['success' => true, 'data' => $dr->load('items.orderItem')], 201);
+        return response()->json(['success' => true, 'data' => $dr->load(['items.orderItem', 'items.product'])], 201);
     }
 
     public function updateStatus(Request $request, $id)
@@ -71,37 +90,6 @@ class DeliveryController extends Controller
 
         $nextStatus = $request->input('status', 'APPROVED');
         $dr->update(['status' => $nextStatus]);
-
-        // Nếu duyệt giao hàng thành công (APPROVED) -> tự động sinh Chứng Từ Bán Hàng (Invoice)
-        if ($nextStatus === 'APPROVED') {
-            $invExists = Invoice::where('delivery_request_id', $dr->id)
-                ->orWhere('delivery_request_number', $dr->request_number)
-                ->first();
-            if (!$invExists) {
-                $randNum = rand(100, 999);
-                $inv = Invoice::create([
-                    'invoice_number' => "INV-2026-{$randNum}",
-                    'delivery_request_id' => $dr->id,
-                    'delivery_request_number' => $dr->request_number,
-                    'invoice_date' => now()->format('Y-m-d'),
-                    'payment_terms' => 'Công nợ 30 ngày',
-                    'total_amount' => $dr->items->sum(fn($it) => $it->quantity * $it->unit_price),
-                    'warehouse_status' => 'DELIVERED',
-                    'accounting_status' => 'UNPOSTED',
-                ]);
-
-                foreach ($dr->items as $it) {
-                    InvoiceItem::create([
-                        'invoice_id' => $inv->id,
-                        'order_item_id' => $it->order_item_id,
-                        'sku' => $it->sku,
-                        'product_name' => $it->product_name,
-                        'quantity' => $it->quantity,
-                        'unit_price' => $it->unit_price,
-                    ]);
-                }
-            }
-        }
 
         return response()->json(['success' => true, 'data' => $dr]);
     }

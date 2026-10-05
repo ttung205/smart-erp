@@ -199,7 +199,7 @@
             <Button 
               icon="pi pi-history" 
               size="small" 
-              text 
+              outlined 
               severity="secondary" 
               class="!w-7 !h-7 !p-0 !rounded-[6px]" 
               v-tooltip.top="'Xem lịch sử thẻ kho'" 
@@ -209,7 +209,7 @@
               v-if="canReserve && (data.quantity_reserved > 0)"
               icon="pi pi-lock-open" 
               size="small" 
-              text 
+              outlined 
               severity="warn" 
               class="!w-7 !h-7 !p-0 !rounded-[6px]" 
               v-tooltip.top="'Hủy giải phóng lượng đang giữ chỗ'" 
@@ -219,7 +219,7 @@
               v-if="canReceive"
               icon="pi pi-plus" 
               size="small" 
-              text 
+              outlined 
               severity="success" 
               class="!w-7 !h-7 !p-0 !rounded-[6px]" 
               v-tooltip.top="'Nhập thêm hàng'" 
@@ -228,9 +228,9 @@
             <Button 
               icon="pi pi-file-plus" 
               size="small" 
-              text 
+              outlined 
               severity="info" 
-              class="!w-7 !h-7 !p-0 !rounded-[6px] !text-sky-600 hover:!bg-sky-50" 
+              class="!w-7 !h-7 !p-0 !rounded-[6px]" 
               v-tooltip.top="'Tạo Đề Nghị Mua (PR)'" 
               @click="createPurchaseRequisition(data)" 
             />

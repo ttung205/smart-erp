@@ -74,10 +74,9 @@
             class="rounded-[6px] !text-xs !py-1 !px-2.5"
             @click="fetchProducts"
           />
-          <Tag
+          <Badge
             severity="secondary"
             :value="filteredProducts.length + ' Sản phẩm'"
-            class="text-[11px] px-2 py-1 rounded-[6px]"
           />
         </div>
       </template>
@@ -119,7 +118,7 @@
 
       <!-- 4. Category -->
       <template #col-category="{ data }">
-        <Tag severity="secondary" :value="data.category || 'Mặc định'" class="text-[11px] px-2 py-0.5 rounded-[4px]" />
+        <Badge severity="secondary" :value="data.category || 'Mặc định'" />
       </template>
 
       <!-- 5. Item Description -->
@@ -154,15 +153,16 @@
       </template>
 
       <!-- 10. Thao tác (Sửa / Xóa) -->
-      <Column header="THAO TÁC" style="width: 120px; min-width: 120px" class="text-center" frozen alignFrozen="right">
+      <Column header="THAO TÁC" style="width: 100px; min-width: 100px" class="text-center" frozen alignFrozen="right">
         <template #body="{ data }">
-          <div class="flex items-center justify-center gap-1">
+          <div class="flex items-center justify-center gap-1.5">
             <!-- Sửa -->
             <Button
               icon="pi pi-pencil"
+              outlined
               size="small"
-              text
-              class="!text-xs !p-1.5 rounded-[6px] !text-sky-600 hover:!bg-sky-50"
+              severity="info"
+              class="!w-7 !h-7 !p-0 rounded-[6px]"
               v-tooltip.bottom="'Chỉnh sửa sản phẩm'"
               @click="openEditModal(data)"
             />
@@ -170,9 +170,10 @@
             <!-- Xóa -->
             <Button
               icon="pi pi-trash"
+              outlined
               size="small"
-              text
-              class="!text-xs !p-1.5 rounded-[6px] !text-red-500 hover:!bg-red-50"
+              severity="danger"
+              class="!w-7 !h-7 !p-0 rounded-[6px]"
               v-tooltip.bottom="'Xóa sản phẩm'"
               @click="confirmDeleteProduct(data)"
             />
@@ -300,7 +301,7 @@ import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Button from 'primevue/button';
-import Tag from 'primevue/tag';
+import Badge from 'primevue/badge';
 import Dialog from 'primevue/dialog';
 import PageHeader from '../../components/common/PageHeader.vue';
 import CommonDataTable from '../../components/common/CommonDataTable.vue';

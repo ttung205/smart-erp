@@ -102,25 +102,24 @@
       <!-- Custom column: status -->
       <template #col-status="{ data }">
         <div class="text-center">
-          <Tag
+          <Badge
             :severity="getStatusMeta(data.status).severity"
             :value="getStatusMeta(data.status).label"
-            class="text-[11px] px-2 py-0.5 rounded-[6px]"
           />
         </div>
       </template>
 
       <!-- Column Thao Tác (Actions) -->
-      <Column header="Thao Tác" class="text-center" style="width: 170px">
+      <Column header="Thao Tác" class="text-center" style="width: 110px">
         <template #body="{ data }">
-          <div class="flex items-center justify-center gap-1">
+          <div class="flex items-center justify-center gap-1.5">
             <!-- Nút View báo giá qua dialog -->
             <Button
               icon="pi pi-eye"
+              outlined
               size="small"
-              text
               severity="secondary"
-              class="!text-xs !p-1.5 rounded-[6px] hover:!bg-slate-100"
+              class="!w-7 !h-7 !p-0 rounded-[6px]"
               v-tooltip.bottom="'Xem chi tiết báo giá'"
               @click="openViewDialog(data)"
             />
@@ -128,9 +127,10 @@
             <!-- Nút Chỉnh sửa báo giá sang trang riêng form.vue -->
             <Button
               icon="pi pi-pencil"
+              outlined
               size="small"
-              text
-              class="!text-xs !p-1.5 rounded-[6px] !text-sky-600 hover:!bg-sky-50"
+              severity="info"
+              class="!w-7 !h-7 !p-0 rounded-[6px]"
               v-tooltip.bottom="'Chỉnh sửa báo giá (Trang riêng)'"
               @click="goToEdit(data)"
             />
@@ -139,9 +139,10 @@
             <Button
               v-if="data.status === 'APPROVED'"
               icon="pi pi-cart-plus"
+              outlined
               size="small"
-              text
-              class="!text-xs !p-1.5 rounded-[6px] !text-emerald-600 hover:!bg-emerald-50"
+              severity="success"
+              class="!w-7 !h-7 !p-0 rounded-[6px]"
               v-tooltip.bottom="'Vào báo giá để chọn Item Win và tạo Đơn bán (SO)'"
               @click="goToEdit(data)"
             />
@@ -169,7 +170,7 @@ import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Button from 'primevue/button';
-import Tag from 'primevue/tag';
+import Badge from 'primevue/badge';
 import PageHeader from '../../components/common/PageHeader.vue';
 import CommonDataTable from '../../components/common/CommonDataTable.vue';
 import QuotationViewDialog from '../../components/quotation/QuotationViewDialog.vue';
@@ -194,7 +195,7 @@ const tableColumns = [
   { field: 'created_at', header: 'Ngày Tạo', sortable: true, width: '140px' },
   { field: 'items_count', header: 'Số Item', sortable: false, width: '100px', align: 'center' },
   { field: 'total_amount', header: 'Tổng Số Tiền', sortable: true, width: '160px', align: 'right' },
-  { field: 'status', header: 'Trạng Thái', sortable: true, width: '140px', align: 'center' }
+  { field: 'status', header: 'Trạng Thái', sortable: true, width: '130px', align: 'center' }
 ];
 
 const statusOptions = [
@@ -202,7 +203,7 @@ const statusOptions = [
   { label: 'Bản nháp', value: 'DRAFT' },
   { label: 'Chờ duyệt', value: 'PENDING_APPROVAL' },
   { label: 'Đã duyệt', value: 'APPROVED' },
-  { label: 'Đã tạo đơn bán', value: 'CONVERTED' }
+  { label: 'Đã tạo đơn', value: 'CONVERTED' }
 ];
 
 const getStatusMeta = (st) => {
@@ -210,7 +211,7 @@ const getStatusMeta = (st) => {
     DRAFT: { label: 'Bản nháp', severity: 'secondary' },
     PENDING_APPROVAL: { label: 'Chờ duyệt', severity: 'warn' },
     APPROVED: { label: 'Đã duyệt', severity: 'info' },
-    CONVERTED: { label: 'Đã tạo đơn bán', severity: 'success' },
+    CONVERTED: { label: 'Đã tạo đơn', severity: 'success' },
     REJECTED: { label: 'Từ chối', severity: 'danger' }
   };
   return map[st] || { label: st, severity: 'secondary' };

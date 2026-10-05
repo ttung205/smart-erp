@@ -258,15 +258,16 @@
         </Column>
 
         <!-- Thao tác: Sửa bằng Dialog, Xóa -->
-        <Column header="Thao Tác" style="width: 110px" align="center">
+        <Column header="Thao Tác" style="width: 100px" align="center">
           <template #body="{ data, index }">
-            <div class="flex items-center justify-center gap-1">
+            <div class="flex items-center justify-center gap-1.5">
               <!-- Nút Sửa qua Dialog -->
               <Button
                 icon="pi pi-pencil"
                 size="small"
-                text
-                class="!text-xs !p-1.5 rounded-[6px] !text-emerald-600 hover:!bg-emerald-50"
+                outlined
+                severity="info"
+                class="!w-7 !h-7 !p-0 rounded-[6px]"
                 v-tooltip.bottom="'Chỉnh sửa người liên hệ'"
                 @click="openEditContactDialog(data, index)"
               />
@@ -274,8 +275,9 @@
               <Button
                 icon="pi pi-trash"
                 size="small"
-                text
-                class="!text-xs !p-1.5 rounded-[6px] !text-red-500 hover:!bg-red-50"
+                outlined
+                severity="danger"
+                class="!w-7 !h-7 !p-0 rounded-[6px]"
                 v-tooltip.bottom="'Xóa người liên hệ'"
                 @click="handleRemoveContact(data, index)"
               />

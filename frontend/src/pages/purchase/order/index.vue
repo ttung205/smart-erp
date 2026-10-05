@@ -172,24 +172,23 @@
       <!-- Cột Trạng Thái -->
       <template #col-status="{ data }">
         <div class="text-center">
-          <span
-            class="text-[11px] font-semibold px-2 py-0.5 rounded-[6px] inline-block whitespace-nowrap"
-            :class="getStatusClass(data.status)"
-          >
-            {{ getStatusLabel(data.status) }}
-          </span>
+          <Badge
+            :severity="getStatusSeverity(data.status)"
+            :value="getStatusLabel(data.status)"
+          />
         </div>
       </template>
 
       <!-- Cột Thao Tác (Slot Mặc Định) -->
-      <Column header="Thao Tác" style="width: 140px" class="text-center">
+      <Column header="Thao Tác" style="width: 150px" class="text-center">
         <template #body="{ data }">
-          <div class="flex items-center justify-center gap-1">
+          <div class="flex items-center justify-center gap-1.5">
             <Button
               icon="pi pi-eye"
               size="small"
-              text
-              class="!w-7 !h-7 !p-0 !rounded-[6px] !text-slate-600 hover:!bg-slate-100"
+              outlined
+              severity="secondary"
+              class="!w-7 !h-7 !p-0 !rounded-[6px]"
               v-tooltip.top="'Xem chi tiết đơn mua'"
               @click="$router.push(`/purchase/orders/${data.id}`)"
             />
@@ -198,9 +197,9 @@
               v-if="data.status === 'DRAFT'"
               icon="pi pi-send"
               size="small"
-              text
+              outlined
               severity="warn"
-              class="!w-7 !h-7 !p-0 !rounded-[6px] !text-amber-600 hover:!bg-amber-50"
+              class="!w-7 !h-7 !p-0 !rounded-[6px]"
               v-tooltip.top="'Gửi duyệt đơn PO'"
               @click="submitPo(data)"
             />
@@ -209,9 +208,9 @@
               v-if="data.status === 'SUBMITTED' && canApprove"
               icon="pi pi-check"
               size="small"
-              text
+              outlined
               severity="success"
-              class="!w-7 !h-7 !p-0 !rounded-[6px] !text-emerald-600 hover:!bg-emerald-50"
+              class="!w-7 !h-7 !p-0 !rounded-[6px]"
               v-tooltip.top="'Phê duyệt đơn PO'"
               @click="quickApprovePo(data)"
             />
@@ -220,9 +219,9 @@
               v-if="data.status === 'SUBMITTED' && canApprove"
               icon="pi pi-ban"
               size="small"
-              text
+              outlined
               severity="danger"
-              class="!w-7 !h-7 !p-0 !rounded-[6px] !text-rose-600 hover:!bg-rose-50"
+              class="!w-7 !h-7 !p-0 !rounded-[6px]"
               v-tooltip.top="'Từ chối / Hủy đơn PO'"
               @click="openCancelDialog(data)"
             />
@@ -231,9 +230,9 @@
               v-if="data.status === 'APPROVED' || data.status === 'PARTIALLY_RECEIVED'"
               icon="pi pi-inbox"
               size="small"
-              text
+              outlined
               severity="info"
-              class="!w-7 !h-7 !p-0 !rounded-[6px] !text-sky-600 hover:!bg-sky-50"
+              class="!w-7 !h-7 !p-0 !rounded-[6px]"
               v-tooltip.top="'Tạo Phiếu Nhập Kho (GRN)'"
               @click="$router.push(`/purchase/receipts/create?poId=${data.id}`)"
             />
@@ -295,6 +294,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import Button from 'primevue/button';
+import Badge from 'primevue/badge';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Dialog from 'primevue/dialog';
@@ -592,8 +592,8 @@ const getWarehouseName = (id) => {
   return found ? found.name : `Kho #${id}`;
 };
 
-const getStatusClass = (status) => {
-  return PURCHASE_ORDER_STATUS[status]?.class || 'bg-slate-100 text-slate-700 border border-slate-200';
+const getStatusSeverity = (status) => {
+  return PURCHASE_ORDER_STATUS[status]?.severity || 'secondary';
 };
 
 const getStatusLabel = (status) => {

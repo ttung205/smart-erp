@@ -81,10 +81,10 @@
         <!-- Cột 4: Số lượng quyền hạn (Permissions Count) -->
         <Column header="Quyền Hạn Được Cấp" style="width: 170px; text-align: center">
           <template #body="{ data }">
-            <Tag
-              :value="`${data.permission_ids ? data.permission_ids.length : 0} quyền hạn`"
+            <Badge
+              :value="`${data.permission_ids ? data.permission_ids.length : 0} quyền`"
               :severity="data.permission_ids && data.permission_ids.length > 0 ? 'info' : 'secondary'"
-              class="!text-xs !rounded-[6px] cursor-pointer"
+              class="cursor-pointer"
               v-tooltip.top="'Click để xem và phân chia quyền'"
               @click="openPermissionsModal(data)"
             />
@@ -98,7 +98,7 @@
               <Button
                 icon="pi pi-key"
                 size="small"
-                text
+                outlined
                 severity="warn"
                 class="!w-7 !h-7 !p-0 !rounded-[6px]"
                 v-tooltip.top="'Phân quyền cho vai trò'"
@@ -107,8 +107,8 @@
               <Button
                 icon="pi pi-pencil"
                 size="small"
-                text
-                severity="secondary"
+                outlined
+                severity="info"
                 class="!w-7 !h-7 !p-0 !rounded-[6px]"
                 v-tooltip.top="'Chỉnh sửa tên & mô tả'"
                 @click="openEditRoleDialog(data)"
@@ -117,7 +117,7 @@
                 v-if="data.code !== 'SUPER_ADMIN'"
                 icon="pi pi-trash"
                 size="small"
-                text
+                outlined
                 severity="danger"
                 class="!w-7 !h-7 !p-0 !rounded-[6px]"
                 v-tooltip.top="'Xóa vai trò'"
@@ -289,7 +289,7 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
-import Tag from 'primevue/tag';
+import Badge from 'primevue/badge';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Dialog from 'primevue/dialog';

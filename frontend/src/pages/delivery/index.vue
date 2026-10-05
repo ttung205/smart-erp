@@ -118,19 +118,31 @@
         </template>
 
         <!-- Cột Thao Tác cho Đơn Bán -->
-        <Column header="Thao Tác" class="text-center" style="width: 200px">
+        <Column header="Thao Tác" class="text-center" style="width: 100px">
           <template #body="{ data }">
             <div class="flex items-center justify-center gap-1.5">
               <!-- Nút xem dialog đơn hàng (dùng luôn dialog order) -->
-              <Button icon="pi pi-eye" text size="small" severity="secondary" class="!w-7 !h-7 !p-0 rounded-[6px]"
-                v-tooltip.bottom="'Xem chi tiết đơn bán hàng'" @click="openOrderViewDialog(data)" />
+              <Button
+                icon="pi pi-eye"
+                outlined
+                size="small"
+                severity="secondary"
+                class="!w-7 !h-7 !p-0 rounded-[6px]"
+                v-tooltip.bottom="'Xem chi tiết đơn bán hàng'"
+                @click="openOrderViewDialog(data)"
+              />
 
               <!-- Nút Gửi yêu cầu giao -->
-              <Button v-if="data.total_remaining_qty > 0" label="Gửi yêu cầu giao" icon="pi pi-send" size="small"
-                class="!text-xs !py-1 !px-2 rounded-[6px] !bg-emerald-600 hover:!bg-emerald-700 !text-white !border-emerald-600 !font-semibold shadow-sm"
+              <Button
+                v-if="data.total_remaining_qty > 0"
+                icon="pi pi-send"
+                outlined
+                size="small"
+                severity="success"
+                class="!w-7 !h-7 !p-0 rounded-[6px]"
                 v-tooltip.bottom="'Lập phiếu yêu cầu giao hàng theo đơn bán này'"
-                @click="openCreateDeliveryDialog(data)" />
-              <Tag v-else severity="success" value="Đã giao đủ" class="text-[10px] px-2 py-0.5 rounded-[4px]" />
+                @click="openCreateDeliveryDialog(data)"
+              />
             </div>
           </template>
         </Column>
@@ -231,33 +243,49 @@
         <!-- Custom column: status -->
         <template #col-status="{ data }">
           <div class="text-center">
-            <Tag :severity="getStatusMeta(data.status).severity" :value="getStatusMeta(data.status).label"
-              class="text-[11px] px-2 py-0.5 rounded-[6px]" />
+            <Badge :severity="getStatusMeta(data.status).severity" :value="getStatusMeta(data.status).label" />
           </div>
         </template>
 
         <!-- Cột Thao Tác cho Yêu Cầu Giao Hàng -->
-        <Column header="Thao Tác" class="text-center" style="width: 220px">
+        <Column header="Thao Tác" class="text-center" style="width: 110px">
           <template #body="{ data }">
             <div class="flex items-center justify-center gap-1.5">
               <!-- Nút View Dialog xem các mã hàng yêu cầu giao -->
-              <Button icon="pi pi-eye" text size="small" severity="secondary" class="!w-7 !h-7 !p-0 rounded-[6px]"
-                v-tooltip.bottom="'Xem các mã hàng yêu cầu giao'" @click="openRequestDetailDialog(data)" />
+              <Button
+                icon="pi pi-eye"
+                outlined
+                size="small"
+                severity="secondary"
+                class="!w-7 !h-7 !p-0 rounded-[6px]"
+                v-tooltip.bottom="'Xem các mã hàng yêu cầu giao'"
+                @click="openRequestDetailDialog(data)"
+              />
 
               <!-- Nút Duyệt yêu cầu (Quyền delivery-request.approve) -->
-              <Button v-if="data.status === 'PENDING'" label="Duyệt yêu cầu" icon="pi pi-check" size="small"
-                class="!text-xs !py-1 !px-2 rounded-[6px] !bg-emerald-600 hover:!bg-emerald-700 !text-white !border-emerald-600 !font-semibold"
+              <Button
+                v-if="data.status === 'PENDING'"
+                icon="pi pi-check"
+                outlined
+                size="small"
+                severity="success"
+                class="!w-7 !h-7 !p-0 rounded-[6px]"
                 :disabled="!canApproveRequest"
                 v-tooltip.bottom="canApproveRequest ? 'Phê duyệt lệnh giao hàng này' : 'Cần quyền delivery-request.approve để duyệt'"
-                @click="confirmApproveRequest(data)" />
+                @click="confirmApproveRequest(data)"
+              />
 
               <!-- Nút Lập chứng từ bán hàng (khi đã duyệt và chưa tạo chứng từ) -->
-              <Button v-else-if="data.status === 'APPROVED'" label="Lập Chứng Từ" icon="pi pi-file" size="small"
-                class="!text-xs !py-1 !px-2 rounded-[6px] !bg-indigo-600 hover:!bg-indigo-700 !text-white !border-indigo-600 !font-semibold"
-                v-tooltip.bottom="'Tạo chứng từ bán hàng để kho xuất hàng'" @click="openInvoiceDialog(data)" />
-
-              <Tag v-else-if="data.status === 'INVOICED'" severity="success" value="Đã lập chứng từ"
-                class="text-[10px] px-2 py-0.5 rounded-[4px]" />
+              <Button
+                v-else-if="data.status === 'APPROVED'"
+                icon="pi pi-file-plus"
+                outlined
+                size="small"
+                severity="info"
+                class="!w-7 !h-7 !p-0 rounded-[6px]"
+                v-tooltip.bottom="'Tạo chứng từ bán hàng để kho xuất hàng'"
+                @click="openInvoiceDialog(data)"
+              />
             </div>
           </template>
         </Column>
@@ -276,10 +304,6 @@
 
     <!-- 3. Xem chi tiết các mã hàng của yêu cầu giao -->
     <DeliveryRequestDetailDialog v-model:visible="showRequestDetailDialog" :delivery-request="selectedRequest" />
-
-    <!-- 4. Lập chứng từ bán hàng từ yêu cầu giao đã duyệt -->
-    <DeliveryInvoiceDialog v-model:visible="showInvoiceDialog" :delivery-request="selectedRequest"
-      @create-invoice="handleCreateInvoice" />
   </div>
 </template>
 
@@ -294,14 +318,13 @@ import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
 import Button from 'primevue/button';
-import Tag from 'primevue/tag';
+import Badge from 'primevue/badge';
 
 import PageHeader from '../../components/common/PageHeader.vue';
 import CommonDataTable from '../../components/common/CommonDataTable.vue';
 import OrderDetailDialog from '../../components/order/OrderDetailDialog.vue';
 import CreateDeliveryRequestDialog from '../../components/delivery/CreateDeliveryRequestDialog.vue';
 import DeliveryRequestDetailDialog from '../../components/delivery/DeliveryRequestDetailDialog.vue';
-import DeliveryInvoiceDialog from '../../components/delivery/DeliveryInvoiceDialog.vue';
 
 import { salesApi } from '../../api/sales.api';
 import { isSuperAdmin, hasPermission } from '../../utils/rbac';
@@ -361,7 +384,6 @@ const requestSearchQuery = ref('');
 const showOrderDialog = ref(false);
 const showCreateDeliveryDialog = ref(false);
 const showRequestDetailDialog = ref(false);
-const showInvoiceDialog = ref(false);
 const selectedOrder = ref(null);
 const selectedRequest = ref(null);
 
@@ -369,9 +391,10 @@ const selectedRequest = ref(null);
 const getStatusMeta = (st) => {
   const map = {
     PENDING: { label: 'Chờ duyệt', severity: 'warn' },
-    APPROVED: { label: 'Đã duyệt (Chờ xuất)', severity: 'info' },
-    INVOICED: { label: 'Đã lập chứng từ', severity: 'success' },
-    DELIVERED: { label: 'Đã giao hàng', severity: 'success' },
+    APPROVED: { label: 'Đã duyệt', severity: 'info' },
+    INVOICED: { label: 'Đã lập CT', severity: 'secondary' },
+    PARTIAL: { label: 'Giao 1 phần', severity: 'warn' },
+    DELIVERED: { label: 'Đã giao', severity: 'success' },
     REJECTED: { label: 'Từ chối', severity: 'danger' },
     CANCELLED: { label: 'Đã hủy', severity: 'danger' }
   };
@@ -385,7 +408,7 @@ const orderColumns = [
   { field: 'salesperson', header: 'Nhân Viên KD', sortable: true, width: '160px' },
   { field: 'items_count', header: 'Số Item', sortable: true, width: '110px', align: 'center' },
   { field: 'total_ordered_qty', header: 'SL Đặt', sortable: true, width: '100px', align: 'center' },
-  { field: 'total_delivered_qty', header: 'SL Đã Giao', sortable: true, width: '110px', align: 'center' },
+  { field: 'total_delivered_qty', header: 'SL Đã Giao (Thật)', sortable: true, width: '130px', align: 'center' },
   { field: 'total_remaining_qty', header: 'SL Chưa Giao', sortable: true, width: '120px', align: 'center' }
 ];
 
@@ -398,9 +421,9 @@ const requestColumns = [
   { field: 'shipping_address', header: 'Địa Chỉ Giao Hàng', sortable: false, width: '180px' },
   { field: 'items_count', header: 'Số Item', sortable: true, width: '90px', align: 'center' },
   { field: 'total_requested_qty', header: 'SL Yêu Cầu', sortable: true, width: '110px', align: 'center' },
-  { field: 'total_delivered_qty', header: 'SL Đã Giao', sortable: true, width: '110px', align: 'center' },
+  { field: 'total_delivered_qty', header: 'SL Đã Giao (Thật)', sortable: true, width: '130px', align: 'center' },
   { field: 'total_remaining_qty', header: 'SL Chưa Giao', sortable: true, width: '120px', align: 'center' },
-  { field: 'status', header: 'Trạng Thái', sortable: true, width: '140px', align: 'center' }
+  { field: 'status', header: 'Trạng Thái', sortable: true, width: '160px', align: 'center' }
 ];
 
 // Tải dữ liệu Đơn Bán Hàng
@@ -441,24 +464,12 @@ const approvedOrders = computed(() => {
     .filter((o) => allowedStatuses.includes(o.status))
     .map((o) => {
       const orderNumber = o.order_number || o.id;
-      // Tìm các delivery requests thuộc về đơn này
-      const relatedDrs = deliveryRequests.value.filter(
-        (dr) => (dr.order_number === orderNumber || dr.order_id === o.id) && dr.status !== 'CANCELLED'
-      );
 
       // Tính tổng số lượng đặt của đơn
       const totalOrdered = (o.items || []).reduce((sum, it) => sum + (Number(it.quantity) || 1), 0);
 
-      // Tính tổng số lượng đã giao qua các phiếu đã duyệt hoặc đã giao
-      let totalDelivered = 0;
-      relatedDrs.forEach((dr) => {
-        if (['APPROVED', 'INVOICED', 'DELIVERED'].includes(dr.status)) {
-          (dr.items || []).forEach((it) => {
-            totalDelivered += Number(it.quantity || 0);
-          });
-        }
-      });
-
+      // Tính tổng số lượng đã giao THỰC TẾ (khi kho đã ghi sổ trừ tồn)
+      const totalDelivered = (o.items || []).reduce((sum, it) => sum + (Number(it.delivered_quantity) || 0), 0);
       const totalRemaining = Math.max(0, totalOrdered - totalDelivered);
 
       return {
@@ -491,16 +502,11 @@ const filteredOrders = computed(() => {
 // Tính toán danh sách Yêu Cầu Giao Hàng với 2 cột đã giao và chưa giao tính theo số lượng yêu cầu
 const enrichedDeliveryRequests = computed(() => {
   return deliveryRequests.value.map((dr) => {
-    const isCompleted = ['DELIVERED', 'INVOICED'].includes(dr.status);
     const items = dr.items || [];
     const totalRequested = items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
 
-    let totalDelivered = 0;
-    if (isCompleted) {
-      totalDelivered = totalRequested;
-    } else {
-      totalDelivered = items.reduce((sum, it) => sum + (Number(it.delivered_quantity) || 0), 0);
-    }
+    // Tính tổng số lượng đã giao thực tế từ delivered_quantity của từng item
+    const totalDelivered = items.reduce((sum, it) => sum + (Number(it.delivered_quantity) || 0), 0);
     const totalRemaining = Math.max(0, totalRequested - totalDelivered);
 
     // Join trực tiếp từ đơn bán hàng theo order_id chuẩn quan hệ ID (không lưu trùng lặp)
@@ -592,7 +598,7 @@ const confirmApproveRequest = (req) => {
         toast.add({
           severity: 'success',
           summary: 'Đã duyệt yêu cầu',
-          detail: `Phiếu yêu cầu ${req.request_number || req.id} đã được phê duyệt thành công!`,
+          detail: `Phiếu yêu cầu ${req.request_number || req.id} đã được phê duyệt thành công! Bạn có thể lập chứng từ bán hàng.`,
           life: 3000
         });
         loadDeliveries();
@@ -610,33 +616,12 @@ const confirmApproveRequest = (req) => {
 };
 
 const openInvoiceDialog = (req) => {
-  selectedRequest.value = req;
-  showInvoiceDialog.value = true;
-};
-
-const handleCreateInvoice = async (newInv) => {
-  try {
-    const res = await salesApi.createInvoice(newInv);
-    const inv = res.data;
-    if (selectedRequest.value?.id) {
-      await salesApi.updateDeliveryStatus(selectedRequest.value.id, 'INVOICED');
+  router.push({
+    path: '/invoice/create',
+    query: {
+      delivery_request_id: req.id,
+      from: 'delivery'
     }
-    toast.add({
-      severity: 'success',
-      summary: 'Đã lập chứng từ bán hàng',
-      detail: `Chứng từ ${inv?.invoice_number || 'INV'} đã lập thành công. Đang chuyển sang trang Chứng Từ & Kho...`,
-      life: 3000
-    });
-    loadDeliveries();
-    loadOrders();
-    router.push('/invoice');
-  } catch (err) {
-    toast.add({
-      severity: 'error',
-      summary: 'Lỗi lập chứng từ',
-      detail: err.message || 'Không thể tạo chứng từ.',
-      life: 3000
-    });
-  }
+  });
 };
 </script>

@@ -126,7 +126,10 @@ class SalesOrderController extends Controller
             ]);
             foreach ($items as $it) {
                 $prodId = $it['product_id'] ?? null;
-                if (!$prodId && !empty($it['sku'])) {
+                $prod = null;
+                if ($prodId) {
+                    $prod = \App\Models\Product::find($prodId);
+                } elseif (!empty($it['sku'])) {
                     $prod = \App\Models\Product::where('sku', $it['sku'])->first();
                     $prodId = $prod?->id;
                 }
@@ -150,8 +153,8 @@ class SalesOrderController extends Controller
                     'order_id' => $so->id,
                     'quotation_item_id' => $qItemId,
                     'product_id' => $prodId,
-                    'sku' => $it['sku'] ?? 'UNKNOWN',
-                    'product_name' => $it['product_name'] ?? $it['designation'] ?? $it['description'] ?? 'Sản phẩm',
+                    'sku' => $it['sku'] ?? $prod?->sku ?? 'UNKNOWN',
+                    'product_name' => $it['product_name'] ?? $it['designation'] ?? $it['description'] ?? ($prod?->designation ?? 'Sản phẩm'),
                     'delivery_date' => $it['delivery_date'] ?? $it['expected_delivery_date'] ?? null,
                     'quantity' => (float)($it['quantity'] ?? 1),
                     'gross_price' => $grossPrice,
@@ -173,7 +176,7 @@ class SalesOrderController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $so->load(['items', 'customer', 'contact', 'quotation', 'creator', 'assignee', 'approver']),
+                'data' => $so->load(['items.product', 'customer', 'contact', 'quotation', 'creator', 'assignee', 'approver']),
                 'message' => "Tạo đơn bán hàng {$so->order_number} thành công."
             ], 201);
         } catch (\Throwable $e) {
@@ -258,7 +261,10 @@ class SalesOrderController extends Controller
                 SalesOrderItem::where('order_id', $so->id)->delete();
                 foreach ($request->input('items', []) as $it) {
                     $prodId = $it['product_id'] ?? null;
-                    if (!$prodId && !empty($it['sku'])) {
+                    $prod = null;
+                    if ($prodId) {
+                        $prod = \App\Models\Product::find($prodId);
+                    } elseif (!empty($it['sku'])) {
                         $prod = \App\Models\Product::where('sku', $it['sku'])->first();
                         $prodId = $prod?->id;
                     }
@@ -282,8 +288,8 @@ class SalesOrderController extends Controller
                         'order_id' => $so->id,
                         'quotation_item_id' => $qItemId,
                         'product_id' => $prodId,
-                        'sku' => $it['sku'] ?? 'UNKNOWN',
-                        'product_name' => $it['product_name'] ?? $it['designation'] ?? $it['description'] ?? 'Sản phẩm',
+                        'sku' => $it['sku'] ?? $prod?->sku ?? 'UNKNOWN',
+                        'product_name' => $it['product_name'] ?? $it['designation'] ?? $it['description'] ?? ($prod?->designation ?? 'Sản phẩm'),
                         'delivery_date' => $it['delivery_date'] ?? $it['expected_delivery_date'] ?? null,
                         'quantity' => (float)($it['quantity'] ?? 1),
                         'gross_price' => $grossPrice,

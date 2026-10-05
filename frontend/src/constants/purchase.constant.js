@@ -1,33 +1,33 @@
 // Constants and presets for Purchase Hub (SCM / Enterprise Procurement)
 
 export const REQUISITION_STATUS = {
-  DRAFT: { label: 'Bản nháp', class: 'bg-slate-100 text-slate-700 border border-slate-200' },
-  SUBMITTED: { label: 'Chờ duyệt', class: 'bg-amber-50 text-amber-700 border border-amber-200' },
-  APPROVED: { label: 'Đã duyệt', class: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
-  PARTIALLY_ORDERED: { label: 'Đang lên đơn PO', class: 'bg-sky-50 text-sky-700 border border-sky-200' },
-  ORDERED: { label: 'Đã đặt hàng hết', class: 'bg-slate-100 text-slate-700 border border-slate-300' },
-  REJECTED: { label: 'Từ chối duyệt', class: 'bg-rose-50 text-rose-700 border border-rose-200' }
+  DRAFT: { label: 'Bản nháp', severity: 'secondary' },
+  SUBMITTED: { label: 'Chờ duyệt', severity: 'warn' },
+  APPROVED: { label: 'Đã duyệt', severity: 'info' },
+  PARTIALLY_ORDERED: { label: 'Đang lên đơn', severity: 'warn' },
+  ORDERED: { label: 'Đã đặt hàng', severity: 'success' },
+  REJECTED: { label: 'Từ chối', severity: 'danger' }
 };
 
 export const PURCHASE_ORDER_STATUS = {
-  DRAFT: { label: 'Bản nháp', class: 'bg-slate-100 text-slate-700 border border-slate-200' },
-  SUBMITTED: { label: 'Chờ duyệt PO', class: 'bg-amber-50 text-amber-700 border border-amber-200' },
-  APPROVED: { label: 'Đã duyệt PO', class: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
-  PARTIALLY_RECEIVED: { label: 'Đã nhận một phần', class: 'bg-sky-50 text-sky-700 border border-sky-200' },
-  RECEIVED: { label: 'Đã nhận đủ', class: 'bg-slate-100 text-slate-700 border border-slate-300' },
-  CANCELLED: { label: 'Đã hủy', class: 'bg-rose-50 text-rose-700 border border-rose-200' }
+  DRAFT: { label: 'Bản nháp', severity: 'secondary' },
+  SUBMITTED: { label: 'Chờ duyệt', severity: 'warn' },
+  APPROVED: { label: 'Đã duyệt', severity: 'info' },
+  PARTIALLY_RECEIVED: { label: 'Nhận 1 phần', severity: 'warn' },
+  RECEIVED: { label: 'Đã nhận đủ', severity: 'success' },
+  CANCELLED: { label: 'Đã hủy', severity: 'danger' }
 };
 
 export const GOODS_RECEIPT_STATUS = {
-  DRAFT: { label: 'Bản nháp', class: 'bg-slate-100 text-slate-700 border border-slate-200' },
-  CONFIRMED: { label: 'Đã nhập kho', class: 'bg-emerald-50 text-emerald-700 border border-emerald-200' }
+  DRAFT: { label: 'Bản nháp', severity: 'secondary' },
+  CONFIRMED: { label: 'Đã nhập kho', severity: 'success' }
 };
 
 export const MATCHING_STATUS = {
-  PENDING: { label: 'Chờ đối chiếu', class: 'bg-slate-100 text-slate-700 border border-slate-200' },
-  MATCHED: { label: 'Khớp 3 bên (3-Way OK)', class: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
-  DISCREPANCY: { label: 'Lệch số liệu', class: 'bg-rose-50 text-rose-700 border border-rose-200' },
-  POSTED: { label: 'Đã ghi sổ kế toán', class: 'bg-sky-50 text-sky-700 border border-sky-200' }
+  PENDING: { label: 'Chờ đối chiếu', severity: 'secondary' },
+  MATCHED: { label: 'Khớp', severity: 'success' },
+  DISCREPANCY: { label: 'Lệch', severity: 'danger' },
+  POSTED: { label: 'Đã ghi sổ', severity: 'info' }
 };
 
 export const DEFAULT_SUPPLIERS = [

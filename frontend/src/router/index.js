@@ -28,6 +28,8 @@ import OrderPage from '../pages/order/index.vue';
 import OrderFormPage from '../pages/order/form.vue';
 import DeliveryPage from '../pages/delivery/index.vue';
 import InvoicePage from '../pages/invoice/index.vue';
+import InvoiceFormPage from '../pages/invoice/form.vue';
+import WarehouseRequestSalePage from '../pages/warehouse-request-sale/index.vue';
 import AccountingPage from '../pages/accounting/index.vue';
 
 // Purchase sub-pages
@@ -486,7 +488,44 @@ export const routes = [
       requiresAuth: true,
       resource: 'invoice',
       permission: 'invoice.view',
-      title: 'Chứng Từ & Kho'
+      title: 'Chứng Từ Bán Hàng'
+    }
+  },
+  {
+    path: '/invoice/create',
+    name: 'invoice-create',
+    component: InvoiceFormPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'invoice',
+      permission: 'invoice.create',
+      title: 'Lập Chứng Từ Bán Hàng'
+    }
+  },
+  {
+    path: '/invoice/:id/edit',
+    name: 'invoice-edit',
+    component: InvoiceFormPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'invoice',
+      permission: 'invoice.view',
+      title: 'Chỉnh Sửa Chứng Từ Bán Hàng'
+    }
+  },
+  {
+    path: '/invoice/:id',
+    redirect: to => `/invoice/${to.params.id}/edit`
+  },
+  {
+    path: '/warehouse-request-sale',
+    name: 'warehouse-request-sale',
+    component: WarehouseRequestSalePage,
+    meta: {
+      requiresAuth: true,
+      resource: 'inventory',
+      permission: 'inventory.view',
+      title: 'Yêu Cầu Xuất Kho Bán Hàng'
     }
   },
   {

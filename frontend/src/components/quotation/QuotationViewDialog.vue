@@ -24,10 +24,9 @@
         </div>
         <div>
           <span class="text-slate-400 block text-[11px]">Trạng thái:</span>
-          <Tag
+          <Badge
             :severity="getStatusMeta(quotation.status).severity"
             :value="getStatusMeta(quotation.status).label"
-            class="text-[11px] px-2 py-0.5 rounded-[4px]"
           />
         </div>
       </div>
@@ -128,7 +127,7 @@ import Dialog from 'primevue/dialog';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Button from 'primevue/button';
-import Tag from 'primevue/tag';
+import Badge from 'primevue/badge';
 import { formatCurrency } from '../../utils/format';
 
 const props = defineProps({
@@ -150,7 +149,7 @@ const getStatusMeta = (st) => {
     DRAFT: { label: 'Bản nháp', severity: 'secondary' },
     PENDING_APPROVAL: { label: 'Chờ duyệt', severity: 'warn' },
     APPROVED: { label: 'Đã duyệt', severity: 'success' },
-    CONVERTED: { label: 'Đã tạo đơn bán', severity: 'info' }
+    CONVERTED: { label: 'Đã tạo đơn', severity: 'info' }
   };
   return map[st] || { label: st, severity: 'secondary' };
 };

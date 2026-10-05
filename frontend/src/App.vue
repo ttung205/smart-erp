@@ -55,7 +55,9 @@ import AiAssistant from './components/common/AiAssistant.vue';
 
 import { authApi } from './api/auth.api';
 import { catalogApi } from './api/catalog.api';
+import { purchaseApi } from './api/purchase.api';
 import { inventoryApi } from './api/inventory.api';
+import { salesApi } from './api/sales.api';
 import { storage } from './utils/storage';
 import { parseJwt } from './utils/jwt';
 
@@ -69,7 +71,9 @@ const isSidebarCollapsed = ref(false);
 const health = reactive({
   identity: false,
   catalog: false,
-  inventory: false
+  purchase: false,
+  inventory: false,
+  sales: false
 });
 
 // User Session State
@@ -90,11 +94,20 @@ const customers = computed(() => {
   return partners.value.filter((p) => p.type === 'CUSTOMER');
 });
 
-// Check Services Health
+// Check Services Health Concurrently
 const checkHealth = async () => {
-  health.identity = await authApi.checkHealth();
-  health.catalog = await catalogApi.checkHealth();
-  health.inventory = await inventoryApi.checkHealth();
+  const [hIdentity, hCatalog, hPurchase, hInventory, hSales] = await Promise.all([
+    authApi.checkHealth(),
+    catalogApi.checkHealth(),
+    purchaseApi.checkHealth(),
+    inventoryApi.checkHealth(),
+    salesApi.checkHealth()
+  ]);
+  health.identity = hIdentity;
+  health.catalog = hCatalog;
+  health.purchase = hPurchase;
+  health.inventory = hInventory;
+  health.sales = hSales;
 };
 
 // Submit Login Action

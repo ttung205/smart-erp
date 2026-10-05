@@ -8,14 +8,32 @@
       badge-severity="info"
     >
       <template #actions>
-        <Button
-          label="Kiểm tra lại toàn bộ"
-          icon="pi pi-refresh"
-          size="small"
-          :loading="loadingAll"
-          class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px]"
-          @click="checkAllServices"
-        />
+        <div class="flex items-center gap-2">
+          <!-- Auto-refresh interval dropdown -->
+          <div class="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-[6px] border border-slate-200 text-xs text-slate-600 font-medium shadow-xs">
+            <i class="pi pi-sync text-slate-400 text-xs" :class="{ 'animate-spin': autoRefreshInterval > 0 && isRefreshing }"></i>
+            <span>Tự động:</span>
+            <select
+              v-model="autoRefreshInterval"
+              class="bg-transparent text-xs font-semibold text-sky-700 outline-none cursor-pointer border-none p-0 focus:ring-0"
+              @change="setupAutoRefresh"
+            >
+              <option :value="0">Tắt</option>
+              <option :value="10">10 giây</option>
+              <option :value="30">30 giây</option>
+              <option :value="60">60 giây</option>
+            </select>
+          </div>
+
+          <Button
+            label="Kiểm tra lại toàn bộ"
+            icon="pi pi-refresh"
+            size="small"
+            :loading="loadingAll"
+            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px]"
+            @click="checkAllServices"
+          />
+        </div>
       </template>
     </PageHeader>
 
@@ -76,7 +94,7 @@
         responsiveLayout="scroll"
       >
         <!-- Cột 1: Tên dịch vụ -->
-        <Column header="Dịch Vụ (Service Name)" style="min-width: 200px">
+        <Column header="Dịch Vụ (Service Name)" style="min-width: 220px">
           <template #body="{ data }">
             <div class="flex items-center gap-2.5">
               <div class="w-8 h-8 rounded-[6px] flex items-center justify-center shrink-0" :class="data.iconBg">
@@ -91,12 +109,13 @@
         </Column>
 
         <!-- Cột 2: Công nghệ & Phân hệ -->
-        <Column header="Công Nghệ & Nhiệm Vụ" style="min-width: 220px">
+        <Column header="Công Nghệ & Nhiệm Vụ" style="min-width: 260px">
           <template #body="{ data }">
             <div class="flex flex-col gap-0.5">
-              <div class="flex items-center gap-1.5">
+              <div class="flex items-center gap-1.5 flex-wrap">
                 <span class="text-xs font-semibold text-slate-800">{{ data.tech }}</span>
                 <span class="text-[10px] px-1.5 py-0.2 rounded border bg-slate-50 text-slate-600 font-mono border-slate-200">{{ data.runtime }}</span>
+                <span v-if="data.swagger" class="text-[10px] px-1.5 py-0.2 rounded border bg-emerald-50 text-emerald-700 font-mono border-emerald-200 font-bold">Swagger UI</span>
               </div>
               <span class="text-[11px] text-slate-500 leading-tight">{{ data.scope }}</span>
             </div>
@@ -106,19 +125,24 @@
         <!-- Cột 3: Cổng mạng & URL Endpoint -->
         <Column header="Cổng & Endpoint" style="min-width: 200px">
           <template #body="{ data }">
-            <div class="flex flex-col">
+            <div class="flex flex-col gap-1">
               <div class="flex items-center gap-1.5">
                 <span class="font-mono text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 px-1.5 py-0.5 rounded-[4px]">
                   :{{ data.port }}
                 </span>
                 <span class="text-xs font-mono text-slate-600 truncate">{{ data.endpoint }}</span>
               </div>
+              <div v-if="data.payload" class="text-[10px] text-slate-400 font-mono flex items-center gap-1.5 truncate">
+                <span v-if="data.payload.framework" class="text-slate-500">{{ data.payload.framework }}</span>
+                <span v-if="data.payload.version" class="text-slate-500">v{{ data.payload.version }}</span>
+                <span v-if="data.payload.status" :class="data.online ? 'text-emerald-600 font-semibold' : 'text-red-500'">[{{ data.payload.status }}]</span>
+              </div>
             </div>
           </template>
         </Column>
 
         <!-- Cột 4: Độ trễ phản hồi -->
-        <Column header="Độ Trễ (Latency)" style="width: 140px; text-align: center">
+        <Column header="Độ Trễ" style="width: 120px; text-align: center">
           <template #body="{ data }">
             <span v-if="data.online" class="font-mono text-xs font-bold text-slate-700">
               {{ data.latency }} ms
@@ -128,37 +152,69 @@
         </Column>
 
         <!-- Cột 5: Trạng thái -->
-        <Column header="Trạng Thái" style="width: 150px; text-align: center">
+        <Column header="Trạng Thái" style="width: 160px; text-align: center">
           <template #body="{ data }">
             <Tag
               :value="data.online ? 'Sẵn sàng (Online)' : 'Mất kết nối (Offline)'"
               :severity="data.online ? 'success' : 'danger'"
-              class="!text-xs !rounded-[6px] !px-2.5 !py-1"
+              class="!text-xs !rounded-[6px] !px-2.5 !py-1 font-medium"
             />
           </template>
         </Column>
 
         <!-- Cột 6: Hành động -->
-        <Column header="Kiểm Tra" style="width: 110px; text-align: center">
+        <Column header="Kiểm Tra" style="width: 100px; text-align: center">
           <template #body="{ data }">
-            <Button
-              icon="pi pi-refresh"
-              size="small"
-              text
-              severity="secondary"
-              :loading="data.loading"
-              class="!w-7 !h-7 !p-0 !rounded-[6px]"
-              v-tooltip.top="'Kiểm tra kết nối tới dịch vụ này'"
-              @click="pingService(data)"
-            />
+            <div class="flex items-center justify-center gap-1">
+              <Button
+                icon="pi pi-refresh"
+                size="small"
+                text
+                severity="secondary"
+                :loading="data.loading"
+                class="!w-7 !h-7 !p-0 !rounded-[6px]"
+                v-tooltip.top="'Kiểm tra kết nối tới dịch vụ này'"
+                @click="pingService(data)"
+              />
+            </div>
           </template>
         </Column>
       </DataTable>
     </div>
 
-    <!-- 4. Hạ Tầng Bổ Trợ (Message Broker & Database) -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-      <!-- Box 1: RabbitMQ Message Broker -->
+    <!-- 4. Hạ Tầng Bổ Trợ (Message Broker, Database & Gateway) -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <!-- Box 1: API Gateway Reverse Proxy -->
+      <div class="bg-white border border-slate-200 rounded-[6px] p-3.5 flex flex-col gap-2">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-200">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-[4px] bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center font-bold text-xs">
+              <i class="pi pi-compass"></i>
+            </div>
+            <div class="flex flex-col leading-tight">
+              <span class="text-xs font-bold text-slate-900">API Gateway Nginx</span>
+              <span class="text-[11px] text-slate-500 font-mono">Port :8000 • Reverse Proxy</span>
+            </div>
+          </div>
+          <Tag severity="success" value="Active Proxy" class="!text-[10px] !rounded-[4px]" />
+        </div>
+        <div class="text-xs text-slate-600 leading-relaxed">
+          Cổng điều phối tập trung, quản lý định tuyến HTTP, xử lý CORS và tự động đính kèm mã định danh vết <code>X-Correlation-ID</code>.
+        </div>
+        <div class="flex items-center gap-2 pt-1 text-[11px] text-slate-500 font-mono flex-wrap">
+          <span>/api/v1/auth</span>
+          <span>•</span>
+          <span>/api/v1/catalog</span>
+          <span>•</span>
+          <span>/api/v1/purchase</span>
+          <span>•</span>
+          <span>/api/v1/inventory</span>
+          <span>•</span>
+          <span>/api/v1/sales</span>
+        </div>
+      </div>
+
+      <!-- Box 2: RabbitMQ Message Broker -->
       <div class="bg-white border border-slate-200 rounded-[6px] p-3.5 flex flex-col gap-2">
         <div class="flex items-center justify-between pb-2 border-b border-slate-200">
           <div class="flex items-center gap-2">
@@ -175,14 +231,14 @@
         <div class="text-xs text-slate-600 leading-relaxed">
           Đảm nhận vai trò truyền tin phi đồng bộ cho sự kiện nghiệp vụ (Transactional Outbox) giữa các service độc lập.
         </div>
-        <div class="flex items-center gap-2 pt-1 text-[11px] text-slate-500 font-mono">
-          <span>Exchange: <strong>erp.events</strong> (Topic)</span>
+        <div class="flex items-center gap-2 pt-1 text-[11px] text-slate-500 font-mono flex-wrap">
+          <span>Exchange: <strong>erp.events</strong></span>
           <span>•</span>
-          <span>Queue: <strong>erp.inventory.events</strong></span>
+          <span>Queue: <strong>erp.*.events</strong></span>
         </div>
       </div>
 
-      <!-- Box 2: Database Storage -->
+      <!-- Box 3: Database Storage -->
       <div class="bg-white border border-slate-200 rounded-[6px] p-3.5 flex flex-col gap-2">
         <div class="flex items-center justify-between pb-2 border-b border-slate-200">
           <div class="flex items-center gap-2">
@@ -191,7 +247,7 @@
             </div>
             <div class="flex flex-col leading-tight">
               <span class="text-xs font-bold text-slate-900">Database per Service</span>
-              <span class="text-[11px] text-slate-500 font-mono">SQLite (Local) / MySQL 8.0 (Docker)</span>
+              <span class="text-[11px] text-slate-500 font-mono">SQLite (Local) / MySQL 8.0</span>
             </div>
           </div>
           <Tag severity="success" value="Isolated Schemas" class="!text-[10px] !rounded-[4px]" />
@@ -199,12 +255,12 @@
         <div class="text-xs text-slate-600 leading-relaxed">
           Mỗi microservice sở hữu cơ sở dữ liệu riêng biệt. Tuyệt đối không JOIN trực tiếp qua database của nhau.
         </div>
-        <div class="flex items-center gap-2 pt-1 text-[11px] text-slate-500 font-mono">
-          <span>Identity DB</span>
-          <span>•</span>
-          <span>Catalog DB</span>
-          <span>•</span>
-          <span>Inventory DB</span>
+        <div class="flex items-center gap-1.5 pt-1 text-[10px] text-slate-500 font-mono flex-wrap">
+          <span class="bg-slate-100 px-1 py-0.5 rounded">identity.sqlite</span>
+          <span class="bg-slate-100 px-1 py-0.5 rounded">catalog.sqlite</span>
+          <span class="bg-slate-100 px-1 py-0.5 rounded">purchase.db</span>
+          <span class="bg-slate-100 px-1 py-0.5 rounded">inventory.db</span>
+          <span class="bg-slate-100 px-1 py-0.5 rounded">sales.sqlite</span>
         </div>
       </div>
     </div>
@@ -212,7 +268,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
 import DataTable from 'primevue/datatable';
@@ -220,13 +276,16 @@ import Column from 'primevue/column';
 import PageHeader from '../../components/common/PageHeader.vue';
 
 const loadingAll = ref(false);
+const isRefreshing = ref(false);
 const lastCheckedTime = ref('Đang kiểm tra...');
+const autoRefreshInterval = ref(30);
+let timerId = null;
 
 const services = ref([
   {
     id: 'identity-service',
     name: 'Identity & Access Management',
-    tech: 'Laravel 13 PHP',
+    tech: 'Laravel 12 / 13 PHP',
     runtime: 'PHP 8.2+ / SQLite',
     port: 8001,
     endpoint: '/api/v1/auth/health',
@@ -236,22 +295,41 @@ const services = ref([
     iconColor: 'text-indigo-600',
     online: false,
     latency: 0,
-    loading: false
+    loading: false,
+    payload: null
   },
   {
     id: 'catalog-service',
     name: 'Catalog Master Data Service',
-    tech: 'Laravel 13 PHP',
+    tech: 'Laravel 12 / 13 PHP',
     runtime: 'PHP 8.2+ / SQLite',
     port: 8002,
     endpoint: '/api/v1/catalog/health',
-    scope: 'Quản lý mã SKU sản phẩm, danh mục hàng hóa, bảng giá và dữ liệu đối tác B2B',
+    scope: 'Quản lý mã SKU sản phẩm, danh mục hàng hóa, thương hiệu, đối tác & bảng giá',
     icon: 'pi pi-box',
     iconBg: 'bg-emerald-50 border border-emerald-200',
     iconColor: 'text-emerald-600',
     online: false,
     latency: 0,
-    loading: false
+    loading: false,
+    payload: null
+  },
+  {
+    id: 'purchase-service',
+    name: 'Purchase & Procurement Engine',
+    tech: '.NET 10 Web API',
+    runtime: 'C# 13 / EF Core / SQLite',
+    port: 8003,
+    endpoint: '/api/v1/purchase/health',
+    scope: 'Quản lý yêu cầu mua sắm (PR), đơn mua hàng (PO), nhập kho mua hàng (GRPO) & công nợ NCC',
+    icon: 'pi pi-shopping-cart',
+    iconBg: 'bg-violet-50 border border-violet-200',
+    iconColor: 'text-violet-600',
+    swagger: true,
+    online: false,
+    latency: 0,
+    loading: false,
+    payload: null
   },
   {
     id: 'inventory-service',
@@ -264,24 +342,43 @@ const services = ref([
     icon: 'pi pi-server',
     iconBg: 'bg-sky-50 border border-sky-200',
     iconColor: 'text-sky-600',
+    swagger: true,
     online: false,
     latency: 0,
-    loading: false
+    loading: false,
+    payload: null
+  },
+  {
+    id: 'sales-service',
+    name: 'Sales & Distribution Service',
+    tech: 'Laravel 12 / 13 PHP',
+    runtime: 'PHP 8.2+ / SQLite',
+    port: 8005,
+    endpoint: '/api/v1/sales/health',
+    scope: 'Quản lý báo giá (Quotation), đơn bán hàng (Sales Order), xuất kho bán lẻ & hóa đơn VAT',
+    icon: 'pi pi-chart-line',
+    iconBg: 'bg-rose-50 border border-rose-200',
+    iconColor: 'text-rose-600',
+    online: false,
+    latency: 0,
+    loading: false,
+    payload: null
   },
   {
     id: 'frontend-service',
     name: 'Frontend Web Application',
-    tech: 'Vue 3 + PrimeVue',
-    runtime: 'Vite 8 / Tailwind CSS',
+    tech: 'Vue 3 + PrimeVue 4',
+    runtime: 'Vite 6 / Tailwind CSS',
     port: 5173,
     endpoint: '/',
-    scope: 'Giao diện bảng điều khiển ERP tập trung theo chuẩn kiến trúc phẳng',
+    scope: 'Giao diện bảng điều khiển ERP tập trung theo chuẩn kiến trúc phẳng SPA',
     icon: 'pi pi-desktop',
     iconBg: 'bg-amber-50 border border-amber-200',
     iconColor: 'text-amber-600',
     online: true,
-    latency: 2,
-    loading: false
+    latency: 1,
+    loading: false,
+    payload: { status: 'READY', framework: 'Vue 3' }
   }
 ]);
 
@@ -293,13 +390,28 @@ const pingService = async (service) => {
   const start = performance.now();
   try {
     const res = await fetch(service.endpoint, {
-      signal: AbortSignal.timeout(3000)
+      signal: AbortSignal.timeout(3000),
+      cache: 'no-cache'
     });
     service.latency = Math.round(performance.now() - start);
     service.online = res.ok;
+    if (res.ok) {
+      try {
+        const json = await res.json();
+        service.payload = json.data || json;
+      } catch {
+        // Non-JSON response like frontend index HTML
+        if (service.id === 'frontend-service') {
+          service.payload = { status: 'READY', framework: 'Vue 3' };
+        }
+      }
+    } else {
+      service.payload = null;
+    }
   } catch {
     service.online = false;
     service.latency = 0;
+    service.payload = null;
   } finally {
     service.loading = false;
   }
@@ -307,12 +419,38 @@ const pingService = async (service) => {
 
 const checkAllServices = async () => {
   loadingAll.value = true;
-  await Promise.all(services.value.map(s => pingService(s)));
-  lastCheckedTime.value = new Date().toLocaleTimeString('vi-VN');
-  loadingAll.value = false;
+  isRefreshing.value = true;
+  try {
+    await Promise.all(services.value.map(s => pingService(s)));
+    lastCheckedTime.value = new Date().toLocaleTimeString('vi-VN');
+  } finally {
+    loadingAll.value = false;
+    setTimeout(() => {
+      isRefreshing.value = false;
+    }, 400);
+  }
+};
+
+const setupAutoRefresh = () => {
+  if (timerId) {
+    clearInterval(timerId);
+    timerId = null;
+  }
+  if (autoRefreshInterval.value > 0) {
+    timerId = setInterval(() => {
+      checkAllServices();
+    }, autoRefreshInterval.value * 1000);
+  }
 };
 
 onMounted(() => {
   checkAllServices();
+  setupAutoRefresh();
+});
+
+onUnmounted(() => {
+  if (timerId) {
+    clearInterval(timerId);
+  }
 });
 </script>

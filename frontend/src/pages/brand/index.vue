@@ -45,10 +45,9 @@
             v-tooltip.bottom="'Tải lại dữ liệu'"
             @click="fetchBrands"
           />
-          <Tag
+          <Badge
             severity="secondary"
             :value="filteredBrands.length + ' Thương hiệu'"
-            class="text-[11px] px-2 py-1 rounded-[6px]"
           />
         </div>
       </template>
@@ -87,10 +86,9 @@
       <!-- Custom column: products_count -->
       <template #col-products_count="{ data }">
         <div class="text-center">
-          <Tag
+          <Badge
             :severity="data.products_count > 0 ? 'info' : 'secondary'"
             :value="`${data.products_count || 0} sản phẩm`"
-            class="text-[11px] px-2 py-0.5 rounded-[4px]"
           />
         </div>
       </template>
@@ -101,23 +99,25 @@
       </template>
 
       <!-- Thao tác -->
-      <Column header="Thao Tác" style="width: 130px" class="text-center">
+      <Column header="Thao Tác" style="width: 100px" class="text-center">
         <template #body="{ data }">
-          <div class="flex items-center justify-center gap-1">
+          <div class="flex items-center justify-center gap-1.5">
             <Button
               icon="pi pi-pencil"
+              outlined
               size="small"
-              text
-              class="!text-xs !p-1.5 rounded-[6px] !text-sky-600 hover:!bg-sky-50"
+              severity="info"
+              class="!w-7 !h-7 !p-0 rounded-[6px]"
               v-tooltip.bottom="'Chỉnh sửa tên thương hiệu'"
               @click="openEditModal(data)"
             />
 
             <Button
               icon="pi pi-trash"
+              outlined
               size="small"
-              text
-              class="!text-xs !p-1.5 rounded-[6px] !text-red-500 hover:!bg-red-50"
+              severity="danger"
+              class="!w-7 !h-7 !p-0 rounded-[6px]"
               :disabled="data.products_count > 0"
               v-tooltip.bottom="data.products_count > 0 ? 'Không thể xóa thương hiệu đang có sản phẩm' : 'Xóa thương hiệu'"
               @click="confirmDeleteBrand(data)"
@@ -182,7 +182,7 @@ import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
 import Button from 'primevue/button';
-import Tag from 'primevue/tag';
+import Badge from 'primevue/badge';
 import Dialog from 'primevue/dialog';
 import PageHeader from '../../components/common/PageHeader.vue';
 import CommonDataTable from '../../components/common/CommonDataTable.vue';

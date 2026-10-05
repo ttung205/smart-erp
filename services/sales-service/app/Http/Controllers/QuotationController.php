@@ -129,7 +129,10 @@ class QuotationController extends Controller
             $items = $request->input('items', []);
             foreach ($items as $it) {
                 $prodId = $it['product_id'] ?? null;
-                if (!$prodId && !empty($it['sku'])) {
+                $prod = null;
+                if ($prodId) {
+                    $prod = \App\Models\Product::find($prodId);
+                } elseif (!empty($it['sku'])) {
                     $prod = \App\Models\Product::where('sku', $it['sku'])->first();
                     $prodId = $prod?->id;
                 }
@@ -142,8 +145,8 @@ class QuotationController extends Controller
                 QuotationItem::create([
                     'quotation_id' => $quotation->id,
                     'product_id' => $prodId,
-                    'sku' => $it['sku'] ?? 'UNKNOWN',
-                    'description' => $it['description'] ?? null,
+                    'sku' => $it['sku'] ?? $prod?->sku ?? 'UNKNOWN',
+                    'description' => $it['description'] ?? $prod?->description ?? null,
                     'quantity' => (float)($it['quantity'] ?? 1),
                     'gross_price' => $grossPrice,
                     'discount_percent' => (float)($it['discount_percent'] ?? 0),
@@ -195,7 +198,10 @@ class QuotationController extends Controller
                 QuotationItem::where('quotation_id', $q->id)->delete();
                 foreach ($request->input('items', []) as $it) {
                     $prodId = $it['product_id'] ?? null;
-                    if (!$prodId && !empty($it['sku'])) {
+                    $prod = null;
+                    if ($prodId) {
+                        $prod = \App\Models\Product::find($prodId);
+                    } elseif (!empty($it['sku'])) {
                         $prod = \App\Models\Product::where('sku', $it['sku'])->first();
                         $prodId = $prod?->id;
                     }
@@ -208,8 +214,8 @@ class QuotationController extends Controller
                     QuotationItem::create([
                         'quotation_id' => $q->id,
                         'product_id' => $prodId,
-                        'sku' => $it['sku'] ?? 'UNKNOWN',
-                        'description' => $it['description'] ?? null,
+                        'sku' => $it['sku'] ?? $prod?->sku ?? 'UNKNOWN',
+                        'description' => $it['description'] ?? $prod?->description ?? null,
                         'quantity' => (float)($it['quantity'] ?? 1),
                         'gross_price' => $grossPrice,
                         'discount_percent' => (float)($it['discount_percent'] ?? 0),
@@ -329,13 +335,42 @@ class QuotationController extends Controller
             }
 
             foreach ($wonItems as $it) {
+                $qItemId = is_object($it) ? $it->id : ($it['id'] ?? $it['quotation_item_id'] ?? null);
+                $prodId = is_object($it) ? $it->product_id : ($it['product_id'] ?? null);
+                $sku = is_object($it) ? $it->sku : ($it['sku'] ?? $it['product_sku'] ?? '');
+                
+                $prod = null;
+                if ($prodId) {
+                    $prod = \App\Models\Product::find($prodId);
+                } elseif (!empty($sku)) {
+                    $prod = \App\Models\Product::where('sku', $sku)->first();
+                    $prodId = $prod?->id;
+                }
+                
+                $grossPrice = (float)(is_object($it) ? $it->gross_price : ($it['gross_price'] ?? 0));
+                if ($grossPrice <= 0 && $prod) {
+                    $grossPrice = (float)($prod->gross_price ?? 0);
+                }
+
+                $qty = (float)(is_object($it) ? ($it->won_quantity ?: $it->quantity) : ($it['won_quantity'] ?? $it['quantity'] ?? 1));
+                $sellingPrice = (float)(is_object($it) ? $it->selling_price : ($it['selling_price'] ?? $it['unit_price'] ?? 0));
+                $subtotal = (float)(is_object($it) ? $it->subtotal : ($it['subtotal'] ?? ($qty * $sellingPrice)));
+
                 SalesOrderItem::create([
                     'order_id' => $so->id,
-                    'sku' => $it['sku'] ?? $it['product_sku'] ?? '',
-                    'product_name' => $it['designation'] ?? $it['description'] ?? $it['product_name'] ?? '',
-                    'quantity' => (float)($it['won_quantity'] ?? $it['quantity'] ?? 1),
-                    'unit_price' => (float)($it['selling_price'] ?? $it['unit_price'] ?? 0),
-                    'subtotal' => (float)($it['subtotal'] ?? $it['amount'] ?? 0),
+                    'quotation_item_id' => $qItemId,
+                    'product_id' => $prodId,
+                    'sku' => $sku ?: ($prod?->sku ?? 'UNKNOWN'),
+                    'product_name' => (is_object($it) ? ($it->designation ?: $it->description) : ($it['designation'] ?? $it['description'] ?? $it['product_name'] ?? '')) ?: ($prod?->designation ?? 'Sản phẩm'),
+                    'delivery_date' => is_object($it) ? ($it->delivery_date ?? null) : ($it['delivery_date'] ?? $it['expected_delivery_date'] ?? null),
+                    'quantity' => $qty,
+                    'gross_price' => $grossPrice,
+                    'discount_percent' => (float)(is_object($it) ? $it->discount_percent : ($it['discount_percent'] ?? 0)),
+                    'selling_price' => $sellingPrice,
+                    'vat_percent' => (float)(is_object($it) ? $it->vat_percent : ($it['vat_percent'] ?? 10)),
+                    'lead_time' => (is_object($it) ? $it->lead_time : ($it['lead_time'] ?? '')) ?: 'Có sẵn',
+                    'subtotal' => $subtotal,
+                    'status' => 'WIN',
                 ]);
             }
 
@@ -345,7 +380,7 @@ class QuotationController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $so->load('items'),
+                'data' => $so->load(['items.product', 'customer']),
                 'message' => "Đã sinh Đơn Bán Hàng {$so->order_number} thành công từ Item Win."
             ], 201);
         } catch (\Throwable $e) {

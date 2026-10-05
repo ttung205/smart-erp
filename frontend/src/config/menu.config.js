@@ -135,6 +135,14 @@ export const menuCategories = [
             permission: 'inventory.view',
             label: 'Sổ cái thẻ kho',
             icon: 'pi pi-history'
+          },
+          {
+            id: 'warehouse-request-sale',
+            path: '/warehouse-request-sale',
+            resource: 'inventory',
+            permission: 'inventory.view',
+            label: 'Yêu cầu xuất kho',
+            icon: 'pi pi-dolly'
           }
         ]
       },
@@ -221,16 +229,16 @@ export const menuCategories = [
             path: '/invoice',
             resource: 'invoice',
             permission: 'invoice.view',
-            label: 'Chứng từ & Kho',
+            label: 'Chứng từ bán hàng',
             icon: 'pi pi-file'
           },
           {
-            id: 'accounting',
-            path: '/accounting',
-            resource: 'finance',
-            permission: 'finance.view',
-            label: 'Ghi sổ kế toán',
-            icon: 'pi pi-book'
+            id: 'sales-warehouse-dispatch',
+            path: '/warehouse-request-sale',
+            resource: 'inventory',
+            permission: 'inventory.view',
+            label: 'Yêu cầu xuất kho',
+            icon: 'pi pi-box'
           }
         ]
       },
