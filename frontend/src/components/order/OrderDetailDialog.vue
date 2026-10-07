@@ -1,15 +1,11 @@
 <template>
-  <Dialog
-    :visible="visible"
-    modal
+  <Dialog :visible="visible" modal
     :header="`Chi Tiết Đơn Bán Hàng: ${order?.order_number || order?.customer_order_number || order?.id || ''}`"
-    :style="{ width: '880px' }"
-    class="rounded-[8px]"
-    @update:visible="$emit('update:visible', $event)"
-  >
+    :style="{ width: '1080px' }" class="rounded-[8px]" @update:visible="$emit('update:visible', $event)"
+    :draggable="false">
     <div v-if="order" class="flex flex-col gap-4 pt-1">
-      <!-- 4 ô thông tin chính: Số đơn nội bộ cạnh số đơn khách -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-50 border border-slate-200 rounded-[6px] p-3 text-xs">
+      <!-- 5 ô thông tin chính: Số đơn nội bộ, số đơn khách, ngày tạo đơn, khách hàng, nguồn báo giá -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 bg-slate-50 border border-slate-200 rounded-[6px] p-3 text-xs">
         <div>
           <span class="text-slate-500 block">Mã đơn nội bộ:</span>
           <span class="font-bold text-indigo-700 font-mono text-sm">{{ order.order_number || order.id }}</span>
@@ -19,18 +15,23 @@
           <span class="font-bold text-slate-800 font-mono">{{ order.customer_order_number || order.order_number || order.id }}</span>
         </div>
         <div>
+          <span class="text-slate-500 block">Ngày tạo đơn:</span>
+          <span class="font-bold text-slate-800 font-mono">{{ formatDate(order.order_date || order.created_at) }}</span>
+        </div>
+        <div>
           <span class="text-slate-500 block">Khách hàng:</span>
-          <span class="font-bold text-slate-800">{{ order.customer_name || order.customer?.name || 'N/A' }}</span>
+          <span class="font-bold text-slate-800 truncate block">{{ order.customer_name || order.customer?.name || 'N/A' }}</span>
           <span v-if="order.contact_name || order.contact?.name" class="text-slate-400 block text-[11px]">LH: {{ order.contact_name || order.contact?.name }}</span>
         </div>
         <div>
           <span class="text-slate-500 block">Nguồn báo giá:</span>
-          <span class="font-mono text-sky-700 font-semibold">{{ order.quotation_number || order.quotation?.quotation_number || 'Đơn lập trực tiếp' }}</span>
+          <span class="font-mono text-sky-700 font-semibold truncate block">{{ order.quotation_number || order.quotation?.quotation_number || 'Đơn lập trực tiếp' }}</span>
         </div>
       </div>
 
       <!-- Địa chỉ giao hàng thực tế -->
-      <div v-if="order.shipping_address" class="flex items-start gap-2 px-3 py-2 bg-amber-50/60 border border-amber-200/70 rounded-[6px] text-xs">
+      <div v-if="order.shipping_address"
+        class="flex items-start gap-2 px-3 py-2 bg-amber-50/60 border border-amber-200/70 rounded-[6px] text-xs">
         <i class="pi pi-map-marker text-rose-500 mt-0.5"></i>
         <div>
           <span class="font-semibold text-slate-700">Địa chỉ giao hàng: </span>
@@ -39,13 +40,11 @@
       </div>
 
       <!-- Thanh trạng thái & phân công nhân sự -->
-      <div class="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-[6px] text-xs">
+      <div
+        class="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-[6px] text-xs">
         <div class="flex items-center gap-3">
           <span class="text-slate-500">Trạng thái:</span>
-          <Badge
-            :severity="getStatusMeta(order.status).severity"
-            :value="getStatusMeta(order.status).label"
-          />
+          <Badge :severity="getStatusMeta(order.status).severity" :value="getStatusMeta(order.status).label" />
         </div>
 
         <div class="flex items-center gap-4 text-slate-600">
@@ -59,7 +58,7 @@
           </div>
           <div v-if="order.approved_by_name || order.approved_at">
             <span class="text-emerald-600 font-semibold">Đã duyệt bởi: </span>
-            <strong class="text-slate-800">{{ order.approved_by_name || order.approver?.name }} ({{ order.approved_at }})</strong>
+            <strong class="text-slate-800">{{ order.approved_by_name || order.approver?.name }}<span v-if="order.approved_at"> ({{ formatDate(order.approved_at) }})</span></strong>
           </div>
         </div>
       </div>
@@ -99,21 +98,24 @@
 
           <Column header="Ngày hẹn giao" style="width: 130px" class="text-center">
             <template #body="{ data }">
-              <span class="font-mono text-xs font-semibold text-sky-800 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
-                {{ data.delivery_date || data.expected_delivery_date || 'Theo đơn' }}
+              <span
+                class="font-mono text-xs font-semibold text-sky-800 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
+                {{ data.delivery_date ? formatDate(data.delivery_date) : (data.expected_delivery_date ? formatDate(data.expected_delivery_date) : 'Theo đơn') }}
               </span>
             </template>
           </Column>
 
           <Column header="Đơn giá bán" class="text-right" style="width: 130px">
             <template #body="{ data }">
-              <span class="font-mono text-xs text-slate-800">{{ formatCurrency(data.unit_price || data.selling_price) }}</span>
+              <span class="font-mono text-xs text-slate-800">{{ formatCurrency(data.unit_price || data.selling_price)
+              }}</span>
             </template>
           </Column>
 
           <Column header="Thành tiền" class="text-right" style="width: 140px">
             <template #body="{ data }">
-              <span class="font-mono text-xs font-bold text-sky-700">{{ formatCurrency(data.subtotal || (data.quantity * (data.unit_price || data.selling_price))) }}</span>
+              <span class="font-mono text-xs font-bold text-sky-700">{{ formatCurrency(data.subtotal || (data.quantity *
+                (data.unit_price || data.selling_price))) }}</span>
             </template>
           </Column>
         </DataTable>
@@ -124,23 +126,17 @@
         <!-- Tiến độ luồng sau bán hàng -->
         <div class="bg-slate-50 border border-slate-200 rounded-[6px] p-3 text-xs space-y-2">
           <span class="font-semibold text-slate-700 block">Tiến độ thực hiện đơn hàng:</span>
-          
+
           <div class="flex items-center justify-between">
             <span class="text-slate-500">Yêu cầu giao hàng (Delivery):</span>
-            <Tag
-              :value="order.has_delivery ? 'Đã tạo yêu cầu' : 'Chưa giao'"
-              :severity="order.has_delivery ? 'success' : 'secondary'"
-              class="text-[10px]"
-            />
+            <Tag :value="order.has_delivery ? 'Đã tạo yêu cầu' : 'Chưa giao'"
+              :severity="order.has_delivery ? 'success' : 'secondary'" class="text-[10px]" />
           </div>
 
           <div class="flex items-center justify-between">
             <span class="text-slate-500">Hóa đơn GTGT (VAT Invoice):</span>
-            <Tag
-              :value="order.has_invoice ? 'Đã xuất HĐ' : 'Chưa xuất'"
-              :severity="order.has_invoice ? 'success' : 'secondary'"
-              class="text-[10px]"
-            />
+            <Tag :value="order.has_invoice ? 'Đã xuất HĐ' : 'Chưa xuất'"
+              :severity="order.has_invoice ? 'success' : 'secondary'" class="text-[10px]" />
           </div>
         </div>
 
@@ -154,25 +150,13 @@
 
     <template #footer>
       <div class="flex justify-between items-center w-full">
-        <Button
-          label="Đóng"
-          icon="pi pi-times"
-          text
-          size="small"
-          severity="secondary"
-          class="rounded-[6px]"
-          @click="$emit('update:visible', false)"
-        />
+        <Button label="Đóng" icon="pi pi-times" text size="small" severity="secondary" class="rounded-[6px]"
+          @click="$emit('update:visible', false)" />
 
         <div class="flex gap-2">
-          <Button
-            v-if="order?.status === 'APPROVED'"
-            label="Lập Yêu Cầu Giao Hàng"
-            icon="pi pi-truck"
-            size="small"
+          <Button v-if="order?.status === 'APPROVED'" label="Lập Yêu Cầu Giao Hàng" icon="pi pi-truck" size="small"
             class="!bg-emerald-600 hover:!bg-emerald-700 !text-white !border-emerald-600 rounded-[6px]"
-            @click="triggerCreateDelivery"
-          />
+            @click="triggerCreateDelivery" />
         </div>
       </div>
     </template>
@@ -185,7 +169,7 @@ import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Button from 'primevue/button';
 import Badge from 'primevue/badge';
-import { formatCurrency } from '../../utils/format';
+import { formatCurrency, formatDate } from '../../utils/format';
 
 const props = defineProps({
   visible: {

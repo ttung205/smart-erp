@@ -71,7 +71,7 @@
 
       <!-- Custom column: invoice_date -->
       <template #col-invoice_date="{ data }">
-        <span class="font-mono text-xs text-slate-600">{{ data.invoice_date }}</span>
+        <span class="font-mono text-xs text-slate-600">{{ formatDate(data.invoice_date || data.created_at) }}</span>
       </template>
 
       <!-- Custom column: order_id -->
@@ -190,7 +190,7 @@ import PageHeader from '../../components/common/PageHeader.vue';
 import CommonDataTable from '../../components/common/CommonDataTable.vue';
 
 import { salesApi } from '../../api/sales.api';
-import { formatCurrency } from '../../utils/format';
+import { formatCurrency, formatDate } from '../../utils/format';
 
 const router = useRouter();
 const toast = useToast();

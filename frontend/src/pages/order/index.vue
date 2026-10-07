@@ -81,7 +81,7 @@
 
       <!-- 4. Ngày tạo đơn -->
       <template #col-order_date="{ data }">
-        <span class="text-slate-600 text-xs font-mono whitespace-nowrap">{{ data.order_date }}</span>
+        <span class="text-slate-600 text-xs font-mono whitespace-nowrap">{{ formatDate(data.order_date || data.created_at) }}</span>
       </template>
 
       <!-- 5. Mặt hàng chốt -->
@@ -223,7 +223,7 @@ import CommonDataTable from '../../components/common/CommonDataTable.vue';
 import OrderDetailDialog from '../../components/order/OrderDetailDialog.vue';
 import CreateDeliveryDialog from '../../components/order/OrderDeliveryDialog.vue';
 import { salesApi } from '../../api/sales.api';
-import { formatCurrency } from '../../utils/format';
+import { formatCurrency, formatDate } from '../../utils/format';
 import { isSuperAdmin, hasPermission } from '../../utils/rbac';
 
 const props = defineProps({

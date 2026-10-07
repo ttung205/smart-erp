@@ -127,7 +127,7 @@
           <Column header="Ngày Hẹn Giao" style="width: 120px" class="text-center">
             <template #body="{ data }">
               <span class="text-xs font-mono text-sky-700 font-semibold bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
-                {{ data.delivery_date || 'Theo đơn' }}
+                {{ data.delivery_date ? formatDate(data.delivery_date) : 'Theo đơn' }}
               </span>
             </template>
           </Column>
@@ -135,7 +135,7 @@
           <!-- 3. Số lượng đặt -->
           <Column field="ordered_quantity" header="SL Đặt" style="width: 90px" class="text-center">
             <template #body="{ data }">
-              <span class="font-mono text-xs font-bold text-slate-700">
+              <span class="font-mono text-xs font-bold text-blue-600">
                 {{ data.ordered_quantity }}
               </span>
             </template>
@@ -144,7 +144,7 @@
           <!-- 4. Số lượng chưa giao -->
           <Column field="remaining_quantity" header="Chưa Giao" style="width: 100px" class="text-center">
             <template #body="{ data }">
-              <span class="font-mono text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+              <span class="font-mono text-xs font-bold text-red-600">
                 {{ data.remaining_quantity }}
               </span>
             </template>
@@ -227,6 +227,7 @@ import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
 import Select from 'primevue/select';
 import { useToast } from 'primevue/usetoast';
+import { formatDate } from '../../utils/format';
 import { salesApi } from '../../api/sales.api';
 import { inventoryApi } from '../../api/inventory.api';
 import { catalogApi } from '../../api/catalog.api';

@@ -74,14 +74,21 @@
           @click="$router.push('/delivery')"
         />
 
-        <!-- Nút Lưu thay đổi -->
+        <!-- Nút Lưu thay đổi (chỉ khi chưa duyệt / chưa khóa) -->
         <Button
+          v-if="!isLocked"
           label="Lưu đơn bán hàng"
           icon="pi pi-save"
           size="small"
           class="!bg-emerald-700 hover:!bg-emerald-800 !text-white !border-emerald-700 !text-xs !py-2 !px-4 rounded-[6px] !font-semibold shadow-sm"
           @click="handleSaveOrder"
         />
+
+        <!-- Huy hiệu khóa form khi đã duyệt -->
+        <div v-else class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-[6px] text-slate-700 text-xs font-semibold">
+          <i class="pi pi-lock text-slate-500"></i>
+          <span>Đơn đã duyệt (Đã khóa)</span>
+        </div>
       </div>
     </div>
 
@@ -104,6 +111,8 @@
               filter
               placeholder="-- Chọn khách hàng doanh nghiệp --"
               class="w-full min-w-0 text-xs rounded-[6px] h-10 flex items-center"
+              :class="{ '!bg-slate-50': isLocked }"
+              :disabled="isLocked"
               :pt="{ label: { class: '!truncate' }, root: { class: '!min-w-0' } }"
               @change="onCustomerChange"
             >
@@ -131,8 +140,9 @@
                 optionValue="id"
                 :placeholder="form.customer_id ? '-- Chọn người liên hệ --' : '(Cần chọn khách hàng)'"
                 class="flex-1 min-w-0 text-xs rounded-[6px] h-10 flex items-center"
+                :class="{ '!bg-slate-50': isLocked }"
                 :pt="{ label: { class: '!truncate' }, root: { class: '!min-w-0' } }"
-                :disabled="!form.customer_id"
+                :disabled="!form.customer_id || isLocked"
                 @change="onContactChange"
               >
                 <template #value="slotProps">
@@ -145,6 +155,7 @@
                 </template>
               </Select>
               <Button
+                v-if="!isLocked"
                 icon="pi pi-plus"
                 size="small"
                 text
@@ -166,6 +177,7 @@
               <span class="text-[10px] font-normal text-slate-400 lowercase truncate">(có thể sửa nếu giao kho/công trình khác)</span>
             </label>
             <Button
+              v-if="!isLocked"
               type="button"
               label="Áp dụng địa chỉ của khách hàng"
               icon="pi pi-copy"
@@ -179,7 +191,9 @@
           <InputText
             v-model="form.shipping_address"
             placeholder="Nhập địa chỉ giao hàng hoặc bấm 'Áp dụng địa chỉ của khách hàng'..."
-            class="w-full text-xs rounded-[6px] h-10 px-3 border-slate-300 focus:!border-indigo-500 bg-white"
+            class="w-full text-xs rounded-[6px] h-10 px-3 border-slate-300 focus:!border-indigo-500"
+            :class="isLocked ? 'bg-slate-50 text-slate-700' : 'bg-white'"
+            :disabled="isLocked"
           />
         </div>
 
@@ -202,12 +216,14 @@
           <div class="md:col-span-4 min-w-0 flex flex-col gap-1.5">
             <label class="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1 truncate" title="Số đơn theo yêu cầu của khách hàng (nếu khách yêu cầu). Để trống sẽ tự động dùng số đơn nội bộ">
               <span>Số đơn của khách</span>
-              <span class="text-[10px] font-normal text-slate-400 lowercase">(sửa)</span>
+              <span v-if="!isLocked" class="text-[10px] font-normal text-slate-400 lowercase">(sửa)</span>
             </label>
             <InputText
               v-model="form.customer_order_number"
               :placeholder="form.order_number || (form.customer_code ? previewOrderNumber : '(Để trống tự lấy số nội bộ)')"
-              class="w-full min-w-0 text-xs font-mono font-bold text-slate-800 rounded-[6px] h-10 px-3 border-slate-300 focus:!border-indigo-500 bg-white"
+              class="w-full min-w-0 text-xs font-mono font-bold rounded-[6px] h-10 px-3 border-slate-300 focus:!border-indigo-500"
+              :class="isLocked ? 'bg-slate-50 text-slate-700' : 'bg-white text-slate-800'"
+              :disabled="isLocked"
             />
           </div>
 
@@ -218,6 +234,8 @@
               v-model="form.currency"
               :options="['VND', 'USD', 'EUR']"
               class="w-full min-w-0 text-xs rounded-[6px] h-10 flex items-center"
+              :class="{ '!bg-slate-50': isLocked }"
+              :disabled="isLocked"
               :pt="{ root: { class: '!min-w-0 !w-full' } }"
             />
           </div>
@@ -229,7 +247,7 @@
               v-model="form.exchange_rate"
               class="w-full min-w-0 text-xs font-mono h-10 flex"
               inputClass="!w-full !min-w-0 text-xs font-mono py-1 px-2.5 rounded-[6px] h-10 box-border border-slate-300"
-              :disabled="form.currency === 'VND'"
+              :disabled="form.currency === 'VND' || isLocked"
             />
           </div>
         </div>
@@ -262,6 +280,8 @@
               optionValue="id"
               placeholder="Chọn nhân viên..."
               class="w-full min-w-0 text-xs rounded-[6px] h-10 flex items-center"
+              :class="{ '!bg-slate-50': isLocked }"
+              :disabled="isLocked"
               :pt="{ label: { class: '!truncate' }, root: { class: '!min-w-0' } }"
             />
           </div>
@@ -311,9 +331,10 @@
       </div>
     </div>
 
-    <!-- 3. Bảng Mặt Hàng Đơn Bán (Sử dụng component OrderItemTable.vue) -->
+    <!-- 3. Bảng Mặt Hàng Đơn Bán (Sử dụng component OrderItemTable.vue với prop readonly) -->
     <OrderItemTable
       v-model="form.items"
+      :readonly="isLocked"
       @summary-change="onItemsSummaryChange"
     />
 
@@ -343,6 +364,7 @@ import { catalogApi } from '../../api/catalog.api';
 import { salesApi } from '../../api/sales.api';
 import { identityApi } from '../../api/identity.api';
 import { isSuperAdmin, hasPermission } from '../../utils/rbac';
+import { formatDate } from '../../utils/format';
 
 const route = useRoute();
 const router = useRouter();
@@ -357,6 +379,12 @@ const props = defineProps({
 });
 
 const isEditMode = computed(() => !!route.params.id && route.params.id !== 'create');
+
+// Đơn bán hàng bị khóa hoàn toàn khi đã được phê duyệt / hoàn tất
+const isLocked = computed(() => {
+  const lockedStatuses = ['APPROVED', 'CONFIRMED', 'PROCESSING', 'COMPLETED'];
+  return lockedStatuses.includes(form.value.status);
+});
 
 const canApprove = computed(() => {
   if (!props.currentUser) return false;

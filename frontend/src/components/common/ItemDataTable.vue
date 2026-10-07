@@ -45,7 +45,7 @@
       <div class="flex items-center gap-1.5 flex-wrap">
         <!-- Nút Thêm sản phẩm nhanh 1 dòng -->
         <Button
-          v-if="showAddRow"
+          v-if="showAddRow && !readonly"
           label="Thêm sản phẩm"
           icon="pi pi-plus"
           size="small"
@@ -55,7 +55,7 @@
 
         <!-- Nút Tìm & Thêm từ danh mục Catalog -->
         <Button
-          v-if="showCatalogSearch"
+          v-if="showCatalogSearch && !readonly"
           label="Tìm & Thêm"
           icon="pi pi-search"
           size="small"
@@ -112,8 +112,8 @@
           </template>
         </Column>
 
-        <!-- Thao tác xóa dòng - Frozen (nếu showDelete) -->
-        <Column v-if="showDelete" style="width: 40px; min-width: 40px" class="text-center" frozen>
+        <!-- Thao tác xóa dòng - Frozen (nếu showDelete và không readonly) -->
+        <Column v-if="showDelete && !readonly" style="width: 40px; min-width: 40px" class="text-center" frozen>
           <template #body="{ index }">
             <button
               type="button"
@@ -445,6 +445,10 @@ const props = defineProps({
   showDelete: {
     type: Boolean,
     default: true
+  },
+  readonly: {
+    type: Boolean,
+    default: false
   },
   scrollHeight: {
     type: String,

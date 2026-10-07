@@ -96,23 +96,21 @@
 
         <!-- Custom column: total_ordered_qty -->
         <template #col-total_ordered_qty="{ data }">
-          <span class="font-mono text-xs font-bold text-slate-800">
+          <span class="font-mono text-xs font-bold text-blue-600">
             {{ data.total_ordered_qty }}
           </span>
         </template>
 
         <!-- Custom column: total_delivered_qty -->
         <template #col-total_delivered_qty="{ data }">
-          <span
-            class="font-mono text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+          <span class="font-mono text-xs font-bold text-green-600">
             {{ data.total_delivered_qty }}
           </span>
         </template>
 
         <!-- Custom column: total_remaining_qty -->
         <template #col-total_remaining_qty="{ data }">
-          <span class="font-mono text-xs font-bold px-2 py-0.5 rounded border"
-            :class="data.total_remaining_qty > 0 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-400 border-slate-200'">
+          <span class="font-mono text-xs font-bold text-red-600">
             {{ data.total_remaining_qty }}
           </span>
         </template>
@@ -122,27 +120,13 @@
           <template #body="{ data }">
             <div class="flex items-center justify-center gap-1.5">
               <!-- Nút xem dialog đơn hàng (dùng luôn dialog order) -->
-              <Button
-                icon="pi pi-eye"
-                outlined
-                size="small"
-                severity="secondary"
-                class="!w-7 !h-7 !p-0 rounded-[6px]"
-                v-tooltip.bottom="'Xem chi tiết đơn bán hàng'"
-                @click="openOrderViewDialog(data)"
-              />
+              <Button icon="pi pi-eye" outlined size="small" severity="secondary" class="!w-7 !h-7 !p-0 rounded-[6px]"
+                v-tooltip.bottom="'Xem chi tiết đơn bán hàng'" @click="openOrderViewDialog(data)" />
 
               <!-- Nút Gửi yêu cầu giao -->
-              <Button
-                v-if="data.total_remaining_qty > 0"
-                icon="pi pi-send"
-                outlined
-                size="small"
-                severity="success"
-                class="!w-7 !h-7 !p-0 rounded-[6px]"
-                v-tooltip.bottom="'Lập phiếu yêu cầu giao hàng theo đơn bán này'"
-                @click="openCreateDeliveryDialog(data)"
-              />
+              <Button v-if="data.total_remaining_qty > 0" icon="pi pi-send" outlined size="small" severity="success"
+                class="!w-7 !h-7 !p-0 rounded-[6px]" v-tooltip.bottom="'Lập phiếu yêu cầu giao hàng theo đơn bán này'"
+                @click="openCreateDeliveryDialog(data)" />
             </div>
           </template>
         </Column>
@@ -179,7 +163,8 @@
         emptySubtitle="Bấm 'Gửi yêu cầu giao' từ danh sách Đơn Bán Chờ Giao ở tab trước để tạo lệnh mới.">
         <!-- Custom column: id -->
         <template #col-id="{ data }">
-          <span class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-200">
+          <span
+            class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-200">
             #{{ data.id }}
           </span>
         </template>
@@ -218,24 +203,21 @@
 
         <!-- Custom column: total_requested_qty -->
         <template #col-total_requested_qty="{ data }">
-          <span
-            class="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+          <span class="font-mono text-xs font-bold text-blue-600">
             {{ data.total_requested_qty }}
           </span>
         </template>
 
         <!-- Custom column: total_delivered_qty -->
         <template #col-total_delivered_qty="{ data }">
-          <span
-            class="font-mono text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+          <span class="font-mono text-xs font-bold text-green-600">
             {{ data.total_delivered_qty }}
           </span>
         </template>
 
         <!-- Custom column: total_remaining_qty -->
         <template #col-total_remaining_qty="{ data }">
-          <span class="font-mono text-xs font-bold px-2 py-0.5 rounded border"
-            :class="data.total_remaining_qty > 0 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-500 border-slate-200'">
+          <span class="font-mono text-xs font-bold text-red-600">
             {{ data.total_remaining_qty }}
           </span>
         </template>
@@ -252,40 +234,19 @@
           <template #body="{ data }">
             <div class="flex items-center justify-center gap-1.5">
               <!-- Nút View Dialog xem các mã hàng yêu cầu giao -->
-              <Button
-                icon="pi pi-eye"
-                outlined
-                size="small"
-                severity="secondary"
-                class="!w-7 !h-7 !p-0 rounded-[6px]"
-                v-tooltip.bottom="'Xem các mã hàng yêu cầu giao'"
-                @click="openRequestDetailDialog(data)"
-              />
+              <Button icon="pi pi-eye" outlined size="small" severity="secondary" class="!w-7 !h-7 !p-0 rounded-[6px]"
+                v-tooltip.bottom="'Xem các mã hàng yêu cầu giao'" @click="openRequestDetailDialog(data)" />
 
               <!-- Nút Duyệt yêu cầu (Quyền delivery-request.approve) -->
-              <Button
-                v-if="data.status === 'PENDING'"
-                icon="pi pi-check"
-                outlined
-                size="small"
-                severity="success"
-                class="!w-7 !h-7 !p-0 rounded-[6px]"
-                :disabled="!canApproveRequest"
+              <Button v-if="data.status === 'PENDING'" icon="pi pi-check" outlined size="small" severity="success"
+                class="!w-7 !h-7 !p-0 rounded-[6px]" :disabled="!canApproveRequest"
                 v-tooltip.bottom="canApproveRequest ? 'Phê duyệt lệnh giao hàng này' : 'Cần quyền delivery-request.approve để duyệt'"
-                @click="confirmApproveRequest(data)"
-              />
+                @click="confirmApproveRequest(data)" />
 
               <!-- Nút Lập chứng từ bán hàng (khi đã duyệt và chưa tạo chứng từ) -->
-              <Button
-                v-else-if="data.status === 'APPROVED'"
-                icon="pi pi-file-plus"
-                outlined
-                size="small"
-                severity="info"
-                class="!w-7 !h-7 !p-0 rounded-[6px]"
-                v-tooltip.bottom="'Tạo chứng từ bán hàng để kho xuất hàng'"
-                @click="openInvoiceDialog(data)"
-              />
+              <Button v-else-if="data.status === 'APPROVED'" icon="pi pi-file-plus" outlined size="small"
+                severity="info" class="!w-7 !h-7 !p-0 rounded-[6px]"
+                v-tooltip.bottom="'Tạo chứng từ bán hàng để kho xuất hàng'" @click="openInvoiceDialog(data)" />
             </div>
           </template>
         </Column>
@@ -403,25 +364,25 @@ const getStatusMeta = (st) => {
 
 // Cấu hình cột Tab 1: Đơn bán chờ giao
 const orderColumns = [
-  { field: 'order_number', header: 'Số Đơn Hàng', sortable: true, width: '160px' },
+  { field: 'order_number', header: 'Số Đơn Hàng', sortable: true, width: '200px' },
   { field: 'customer_name', header: 'Khách Hàng', sortable: true },
   { field: 'salesperson', header: 'Nhân Viên KD', sortable: true, width: '160px' },
   { field: 'items_count', header: 'Số Item', sortable: true, width: '110px', align: 'center' },
   { field: 'total_ordered_qty', header: 'SL Đặt', sortable: true, width: '100px', align: 'center' },
-  { field: 'total_delivered_qty', header: 'SL Đã Giao (Thật)', sortable: true, width: '130px', align: 'center' },
+  { field: 'total_delivered_qty', header: 'SL Đã Giao', sortable: true, width: '130px', align: 'center' },
   { field: 'total_remaining_qty', header: 'SL Chưa Giao', sortable: true, width: '120px', align: 'center' }
 ];
 
 // Cấu hình cột Tab 2: Yêu cầu giao hàng
 const requestColumns = [
   { field: 'id', header: 'ID', sortable: true, width: '70px', align: 'center' },
-  { field: 'order_number', header: 'Số Đơn Hàng', sortable: true, width: '150px' },
+  { field: 'order_number', header: 'Số Đơn Hàng', sortable: true, width: '200px' },
   { field: 'customer_name', header: 'Khách Hàng', sortable: true },
   { field: 'salesperson', header: 'Nhân Viên KD', sortable: true, width: '140px' },
   { field: 'shipping_address', header: 'Địa Chỉ Giao Hàng', sortable: false, width: '180px' },
   { field: 'items_count', header: 'Số Item', sortable: true, width: '90px', align: 'center' },
   { field: 'total_requested_qty', header: 'SL Yêu Cầu', sortable: true, width: '110px', align: 'center' },
-  { field: 'total_delivered_qty', header: 'SL Đã Giao (Thật)', sortable: true, width: '130px', align: 'center' },
+  { field: 'total_delivered_qty', header: 'SL Đã Giao', sortable: true, width: '130px', align: 'center' },
   { field: 'total_remaining_qty', header: 'SL Chưa Giao', sortable: true, width: '120px', align: 'center' },
   { field: 'status', header: 'Trạng Thái', sortable: true, width: '160px', align: 'center' }
 ];
@@ -512,8 +473,8 @@ const enrichedDeliveryRequests = computed(() => {
     // Join trực tiếp từ đơn bán hàng theo order_id chuẩn quan hệ ID (không lưu trùng lặp)
     const relatedOrder = orders.value.find(
       (o) => (dr.order_id && o.id === dr.order_id) ||
-             (o.order_number && (o.order_number === dr.order_number || o.order_number === dr.order_id)) ||
-             (o.id && String(o.id) === String(dr.order_id || dr.order_number))
+        (o.order_number && (o.order_number === dr.order_number || o.order_number === dr.order_id)) ||
+        (o.id && String(o.id) === String(dr.order_id || dr.order_number))
     );
 
     const customerOrderNo = relatedOrder?.customer_order_number || relatedOrder?.order_number || dr.customer_order_number || dr.order_number;

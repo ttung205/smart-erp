@@ -1,12 +1,6 @@
 <template>
-  <Dialog
-    :visible="visible"
-    modal
-    :header="`Xem Báo Giá: ${quotation?.quotation_number || ''}`"
-    :style="{ width: '850px' }"
-    class="rounded-[6px]"
-    @update:visible="$emit('update:visible', $event)"
-  >
+  <Dialog :visible="visible" modal :header="`Xem Báo Giá: ${quotation?.quotation_number || ''}`"
+    :style="{ width: '1050px' }" class="rounded-[6px]" @update:visible="$emit('update:visible', $event)">
     <div v-if="quotation" class="flex flex-col gap-3.5 pt-1 text-xs">
       <!-- 1. Header Info Cards -->
       <div class="grid grid-cols-1 md:grid-cols-4 gap-2.5 bg-slate-50 border border-slate-200 rounded-[6px] p-3">
@@ -20,25 +14,18 @@
         </div>
         <div>
           <span class="text-slate-400 block text-[11px]">Ngày tạo báo giá:</span>
-          <span class="font-mono text-slate-700">{{ quotation.created_at || quotation.quotation_date }}</span>
+          <span class="font-mono text-slate-700">{{ formatDate(quotation.created_at || quotation.quotation_date)
+            }}</span>
         </div>
         <div>
           <span class="text-slate-400 block text-[11px]">Trạng thái:</span>
-          <Badge
-            :severity="getStatusMeta(quotation.status).severity"
-            :value="getStatusMeta(quotation.status).label"
-          />
+          <Badge :severity="getStatusMeta(quotation.status).severity" :value="getStatusMeta(quotation.status).label" />
         </div>
       </div>
 
       <!-- 2. Danh sách mặt hàng -->
       <div class="border border-slate-200 rounded-[6px] overflow-hidden">
-        <DataTable
-          :value="quotation.items"
-          showGridlines
-          class="clean-datatable"
-          responsiveLayout="scroll"
-        >
+        <DataTable :value="quotation.items" showGridlines class="clean-datatable" responsiveLayout="scroll">
           <Column header="#" style="width: 40px" class="text-center">
             <template #body="{ index }">
               <span class="font-mono text-slate-400">{{ index + 1 }}</span>
@@ -75,7 +62,8 @@
 
           <Column header="Thành Tiền" class="text-right" style="width: 140px">
             <template #body="{ data }">
-              <span class="font-mono text-xs font-bold text-sky-700">{{ formatCurrency(data.subtotal || (data.quantity * data.selling_price)) }}</span>
+              <span class="font-mono text-xs font-bold text-sky-700">{{ formatCurrency(data.subtotal || (data.quantity *
+                data.selling_price)) }}</span>
             </template>
           </Column>
         </DataTable>
@@ -95,26 +83,12 @@
 
     <template #footer>
       <div class="flex justify-between items-center w-full">
-        <Button
-          label="Đóng"
-          icon="pi pi-times"
-          text
-          size="small"
-          severity="secondary"
-          class="rounded-[6px]"
-          @click="$emit('update:visible', false)"
-        />
+        <Button label="Đóng" icon="pi pi-times" text size="small" severity="secondary" class="rounded-[6px]"
+          @click="$emit('update:visible', false)" />
 
         <div class="flex gap-2">
-          <Button
-            label="Chỉnh sửa báo giá"
-            icon="pi pi-pencil"
-            size="small"
-            severity="info"
-            outlined
-            class="rounded-[6px] !text-xs !py-1 !px-2.5"
-            @click="goToEdit"
-          />
+          <Button label="Chỉnh sửa báo giá" icon="pi pi-pencil" size="small" severity="info" outlined
+            class="rounded-[6px] !text-xs !py-1 !px-2.5" @click="goToEdit" />
         </div>
       </div>
     </template>
@@ -128,7 +102,7 @@ import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Button from 'primevue/button';
 import Badge from 'primevue/badge';
-import { formatCurrency } from '../../utils/format';
+import { formatCurrency, formatDate } from '../../utils/format';
 
 const props = defineProps({
   visible: {

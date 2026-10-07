@@ -172,8 +172,8 @@
 
       <!-- 16. NGÀY HẸN GIAO (Delivery Date) -->
       <template #col-delivery_date="{ data }">
-        <span class="text-xs text-slate-700 block text-center" :title="data.delivery_date">
-          {{ data.delivery_date || '-' }}
+        <span class="text-xs text-slate-700 block text-center font-mono" :title="data.delivery_date">
+          {{ data.delivery_date ? formatDate(data.delivery_date) : '-' }}
         </span>
       </template>
 
@@ -191,7 +191,7 @@
 import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
 import ItemDataTable from '../common/ItemDataTable.vue';
-import { formatCurrency } from '../../utils/format';
+import { formatCurrency, formatDate } from '../../utils/format';
 
 const props = defineProps({
   modelValue: {

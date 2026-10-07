@@ -77,8 +77,9 @@
       </template>
 
       <!-- Custom column: created_at -->
+      <!-- Custom column: created_at -->
       <template #col-created_at="{ data }">
-        <span class="text-slate-600 text-xs font-mono">{{ data.created_at || data.quotation_date }}</span>
+        <span class="text-slate-600 text-xs font-mono">{{ formatDate(data.created_at || data.quotation_date) }}</span>
       </template>
 
       <!-- Custom column: items_count -->
@@ -176,7 +177,7 @@ import CommonDataTable from '../../components/common/CommonDataTable.vue';
 import QuotationViewDialog from '../../components/quotation/QuotationViewDialog.vue';
 
 import { salesApi } from '../../api/sales.api';
-import { formatCurrency } from '../../utils/format';
+import { formatCurrency, formatDate } from '../../utils/format';
 
 const router = useRouter();
 const toast = useToast();

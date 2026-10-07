@@ -3,6 +3,7 @@
     <ItemDataTable
       :model-value="modelValue"
       :columns="orderColumns"
+      :readonly="readonly"
       v-bind="$attrs"
       @update:model-value="$emit('update:modelValue', $event)"
       @summary-change="$emit('summary-change', $event)"
@@ -30,7 +31,11 @@
 
       <!-- 4. Mô tả (Description) -->
       <template #col-description="{ data, notifyChange }">
+        <span v-if="readonly" class="text-xs text-slate-800 block px-1 truncate" :title="data.description">
+          {{ data.description || '-' }}
+        </span>
         <InputText
+          v-else
           v-model="data.description"
           class="w-full text-xs text-slate-800 !py-1.5 !px-2 rounded-[4px] !border-slate-200 hover:!border-slate-300 focus:!border-sky-500 bg-white"
           placeholder="Mô tả sản phẩm..."
@@ -41,7 +46,11 @@
 
       <!-- 5. Xuất xứ (COM) -->
       <template #col-com="{ data, notifyChange }">
+        <span v-if="readonly" class="text-xs text-slate-700 block px-1 text-center" :title="data.com">
+          {{ data.com || '-' }}
+        </span>
         <InputText
+          v-else
           v-model="data.com"
           class="w-full text-xs text-slate-700 !py-1.5 !px-2 rounded-[4px] !border-slate-200 hover:!border-slate-300 focus:!border-sky-500 bg-white"
           placeholder="Xuất xứ..."
@@ -63,7 +72,11 @@
 
       <!-- 7. Đơn vị tính (Unit) -->
       <template #col-unit="{ data, notifyChange }">
+        <span v-if="readonly" class="text-xs text-slate-700 block text-center">
+          {{ data.unit || 'Cái' }}
+        </span>
         <InputText
+          v-else
           v-model="data.unit"
           class="w-full text-xs text-center !py-1.5 !px-1 rounded-[4px] !border-slate-200 hover:!border-slate-300 focus:!border-sky-500 bg-white"
           placeholder="Cái"
@@ -73,7 +86,11 @@
 
       <!-- 8. Số lượng (Quantity) -->
       <template #col-quantity="{ data, notifyChange }">
+        <span v-if="readonly" class="font-mono text-xs font-bold text-slate-800 block text-right px-1">
+          {{ data.quantity }}
+        </span>
         <InputNumber
+          v-else
           v-model="data.quantity"
           :min="1"
           class="w-full text-xs font-mono font-bold"
@@ -84,7 +101,11 @@
 
       <!-- 9. Chiết khấu % (Discount) -->
       <template #col-discount_percent="{ data, notifyChange }">
+        <span v-if="readonly" class="font-mono text-xs font-bold text-emerald-700 block text-right px-1">
+          {{ data.discount_percent || 0 }}%
+        </span>
         <InputNumber
+          v-else
           v-model="data.discount_percent"
           :min="0"
           :max="100"
@@ -99,7 +120,11 @@
 
       <!-- 10. Giá bán thực tế (Selling Price) -->
       <template #col-selling_price="{ data, notifyChange }">
+        <span v-if="readonly" class="font-mono text-xs font-bold text-sky-700 block text-right px-1">
+          {{ formatCurrency(data.selling_price) }}
+        </span>
         <InputNumber
+          v-else
           v-model="data.selling_price"
           :min="0"
           currency="VND"
@@ -122,7 +147,11 @@
 
       <!-- 12. Thuế VAT % -->
       <template #col-vat_percent="{ data, notifyChange }">
+        <span v-if="readonly" class="font-mono text-xs font-semibold text-slate-700 block text-center">
+          {{ data.vat_percent || 0 }}%
+        </span>
         <InputNumber
+          v-else
           v-model="data.vat_percent"
           :min="0"
           :max="100"
@@ -135,7 +164,11 @@
 
       <!-- 13. Lead Time (Giao hàng) -->
       <template #col-lead_time="{ data, notifyChange }">
+        <span v-if="readonly" class="text-xs text-slate-700 block px-1 text-center" :title="data.lead_time">
+          {{ data.lead_time || '-' }}
+        </span>
         <InputText
+          v-else
           v-model="data.lead_time"
           class="w-full text-xs text-slate-700 !py-1.5 !px-2 rounded-[4px] !border-slate-200 hover:!border-slate-300 focus:!border-sky-500 bg-white"
           placeholder="VD: Có sẵn..."
@@ -146,12 +179,19 @@
 
       <!-- 14. NGÀY HẸN GIAO (Delivery Date) - Nghiệp vụ đặc thù do OrderItemTable quyết định -->
       <template #col-delivery_date="{ data, notifyChange }">
-        <input
-          type="date"
-          v-model="data.delivery_date"
-          class="w-full text-xs text-slate-700 !py-1 !px-2 rounded-[4px] border border-slate-200 hover:border-slate-300 focus:border-sky-500 bg-white font-mono"
-          title="Ngày hẹn giao hàng cho mặt hàng này"
-          @change="notifyChange && notifyChange()"
+        <span v-if="readonly" class="font-mono text-xs font-semibold text-slate-800 block text-center">
+          {{ data.delivery_date ? formatDate(data.delivery_date) : '-' }}
+        </span>
+        <DatePicker
+          v-else
+          :modelValue="parseDate(data.delivery_date)"
+          @update:modelValue="(val) => { data.delivery_date = formatDateToISO(val); notifyChange && notifyChange(); }"
+          dateFormat="dd/mm/yy"
+          placeholder="dd/mm/yyyy"
+          class="w-full text-xs font-mono"
+          inputClass="!py-1 !px-2 text-xs font-mono text-center rounded-[4px] !border-slate-200 hover:!border-slate-300 focus:!border-sky-500 bg-white"
+          showIcon
+          fluid
         />
       </template>
 
@@ -165,6 +205,7 @@
       <!-- Tiện ích riêng cho Đơn bán hàng: Hẹn ngày giao hàng loạt -->
       <template #extra-actions="{ items }">
         <Button
+          v-if="!readonly"
           label="Hẹn ngày hàng loạt"
           icon="pi pi-calendar-plus"
           size="small"
@@ -189,11 +230,16 @@
           Chọn ngày giao để áp dụng cho tất cả <strong>{{ orderItems.length }}</strong> mặt hàng trong đơn hàng:
         </p>
         <div class="flex flex-col gap-1.5">
-          <label class="text-xs font-semibold text-slate-700">Ngày hẹn giao hàng:</label>
-          <input
-            type="date"
-            v-model="bulkDate"
-            class="w-full text-xs text-slate-800 p-2 rounded-[6px] border border-slate-300 focus:border-sky-500 font-mono"
+          <label class="text-xs font-semibold text-slate-700">Ngày hẹn giao hàng (dd/mm/yyyy):</label>
+          <DatePicker
+            :modelValue="parseDate(bulkDate)"
+            @update:modelValue="(val) => { bulkDate = formatDateToISO(val); }"
+            dateFormat="dd/mm/yy"
+            placeholder="dd/mm/yyyy"
+            class="w-full text-xs font-mono"
+            inputClass="w-full text-xs text-slate-800 p-2 rounded-[6px] border border-slate-300 focus:border-sky-500 font-mono"
+            showIcon
+            fluid
           />
         </div>
       </div>
@@ -219,13 +265,18 @@ import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
+import DatePicker from 'primevue/datepicker';
 import ItemDataTable from '../common/ItemDataTable.vue';
-import { formatCurrency } from '../../utils/format';
+import { formatCurrency, formatDate } from '../../utils/format';
 
 const props = defineProps({
   modelValue: {
     type: Array,
     default: () => []
+  },
+  readonly: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -249,6 +300,36 @@ const orderColumns = [
   { field: 'delivery_date', header: 'NGÀY HẸN GIAO', width: '145px' },
   { field: 'subtotal', header: 'SUBTOTAL', width: '160px', align: 'right' }
 ];
+
+// Helper parse string/date cho DatePicker
+const parseDate = (val) => {
+  if (!val) return null;
+  if (val instanceof Date) return val;
+  const str = String(val).trim();
+  const matchIso = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (matchIso) {
+    return new Date(Number(matchIso[1]), Number(matchIso[2]) - 1, Number(matchIso[3]));
+  }
+  const matchVn = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (matchVn) {
+    return new Date(Number(matchVn[3]), Number(matchVn[2]) - 1, Number(matchVn[1]));
+  }
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+// Helper format Date sang YYYY-MM-DD lưu trữ
+const formatDateToISO = (d) => {
+  if (!d) return '';
+  if (typeof d === 'string') return d;
+  if (d instanceof Date && !isNaN(d.getTime())) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  return String(d);
+};
 
 // Tính toán 2 chiều giá bán & chiết khấu %
 const onDiscountChange = (row, notifyChange) => {
@@ -296,6 +377,7 @@ const applyBulkDate = () => {
       it.delivery_date = bulkDate.value;
     });
     emit('update:modelValue', [...orderItems.value]);
+    emit('summary-change');
   }
   showBulkDialog.value = false;
 };
