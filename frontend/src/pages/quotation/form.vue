@@ -548,16 +548,21 @@ const onCreateOrderFromItems = (winItems) => {
     return;
   }
 
+  const currentCust = customers.value.find((c) => c.id === form.value.customer_id);
+  const currentContact = (currentCust?.contacts || []).find((ct) => ct.id === form.value.contact_id);
+
   // Chuẩn bị payload đồng bộ sang đơn bán hàng
   const payload = {
+    quotation_id: form.value.id || null,
     quotation_number: form.value.quotation_number || previewQuotationNumber.value,
     customer_id: form.value.customer_id,
-    customer_code: form.value.customer_code,
-    customer_name: form.value.customer_name,
-    contact_id: form.value.contact_id,
-    contact_name: form.value.contact_name,
+    customer_code: form.value.customer_code || currentCust?.code || '',
+    customer_name: form.value.customer_name || currentCust?.name || '',
+    contact_id: form.value.contact_id || null,
+    contact_name: form.value.contact_name || currentContact?.name || '',
+    shipping_address: currentCust?.address || '',
     currency: form.value.currency || 'VND',
-    exchange_rate: form.value.exchange_rate || 1,
+    exchange_rate: Number(form.value.exchange_rate) || 1,
     assigned_to: form.value.assigned_to || 'admin',
     items: winItems.map((it) => ({
       ...it,

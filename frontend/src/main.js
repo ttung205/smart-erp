@@ -28,7 +28,9 @@ app.use(ToastService)
 app.use(ConfirmationService)
 app.directive('tooltip', Tooltip)
 
-app.mount('#app')
+router.isReady().then(() => {
+  app.mount('#app')
+})
 
 // Tự động gỡ bỏ watermark 'Invalid PrimeUI License' nếu thư viện chèn vào DOM
 if (typeof window !== 'undefined') {

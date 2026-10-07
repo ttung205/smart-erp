@@ -248,19 +248,37 @@ watch(() => route.path, (newPath) => {
     '/employee': 'employee',
     '/role': 'role',
     '/permission': 'permission',
-    '/catalog': 'catalog',
-    '/inventory': 'inventory',
-    '/sales': 'sales',
+    '/customer': 'customer',
+    '/supplier': 'supplier',
+    '/product': 'product',
+    '/brand': 'brand',
+    '/category': 'category',
+    '/inventory/overview': 'inventory-overview',
+    '/inventory/stocks': 'inventory-stocks',
+    '/inventory/reservations': 'inventory-reservations',
+    '/inventory/movements': 'inventory-movements',
+    '/warehouse-request-sale': 'warehouse-request-sale',
+    '/purchase/requisitions': 'purchase-requisition',
+    '/purchase/orders': 'purchase-order',
+    '/purchase/receipts': 'purchase-receipt',
+    '/purchase/invoices': 'purchase-invoice',
+    '/quotation': 'quotation',
+    '/order': 'order',
+    '/delivery': 'delivery',
+    '/delivery-request': 'delivery-request',
+    '/invoice': 'invoice',
     '/master': 'master',
-    '/architecture': 'architecture',
+    '/service-status': 'service-status',
+    '/architecture': 'architecture'
   };
   if (map[newPath]) {
     activeTab.value = map[newPath];
   }
 }, { immediate: true });
 
-onMounted(() => {
+onMounted(async () => {
   checkHealth();
+  await router.isReady();
   if (currentUser.value) {
     fetchAllData();
     if (route.path === '/' || route.path === '/login') {

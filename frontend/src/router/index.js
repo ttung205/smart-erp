@@ -27,6 +27,7 @@ import QuotationFormPage from '../pages/quotation/form.vue';
 import OrderPage from '../pages/order/index.vue';
 import OrderFormPage from '../pages/order/form.vue';
 import DeliveryPage from '../pages/delivery/index.vue';
+import DeliveryRequestPage from '../pages/delivery-request/index.vue';
 import InvoicePage from '../pages/invoice/index.vue';
 import InvoiceFormPage from '../pages/invoice/form.vue';
 import WarehouseRequestSalePage from '../pages/warehouse-request-sale/index.vue';
@@ -472,7 +473,7 @@ export const routes = [
   {
     path: '/delivery-request',
     name: 'delivery-request',
-    component: DeliveryPage,
+    component: DeliveryRequestPage,
     meta: {
       requiresAuth: true,
       resource: 'delivery',

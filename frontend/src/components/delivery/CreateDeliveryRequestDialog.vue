@@ -1,18 +1,15 @@
 <template>
-  <Dialog
-    :visible="visible"
-    modal
+  <Dialog :visible="visible" modal
     :header="`Gửi Yêu Cầu Giao Hàng - Đơn Bán: ${order?.order_number || order?.customer_order_number || order?.id || ''}`"
-    :style="{ width: '880px' }"
-    class="rounded-[8px]"
-    @update:visible="$emit('update:visible', $event)"
-  >
+    :style="{ width: '1080px' }" class="rounded-[8px]" :draggable="false"
+    @update:visible="$emit('update:visible', $event)">
     <div v-if="order" class="flex flex-col gap-4 pt-1">
       <!-- 1. Thông tin tóm tắt đơn bán hàng -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-3 bg-slate-50 border border-slate-200 rounded-[6px] p-3 text-xs">
         <div>
           <span class="text-slate-500 block">Số đơn hàng:</span>
-          <span class="font-bold text-slate-800 font-mono text-sm">{{ order.customer_order_number || order.order_number || order.id }}</span>
+          <span class="font-bold text-slate-800 font-mono text-sm">{{ order.customer_order_number || order.order_number
+            || order.id }}</span>
         </div>
         <div>
           <span class="text-slate-500 block">Khách hàng:</span>
@@ -20,7 +17,8 @@
         </div>
         <div>
           <span class="text-slate-500 block">Nhân viên kinh doanh:</span>
-          <span class="font-semibold text-slate-700 truncate block">{{ order.salesperson || order.created_by_name || 'Nhân viên KD' }}</span>
+          <span class="font-semibold text-slate-700 truncate block">{{ order.salesperson || order.created_by_name ||
+            'Nhân viên KD' }}</span>
         </div>
       </div>
 
@@ -30,25 +28,21 @@
           <label class="font-bold text-slate-700 uppercase tracking-wide text-[11px]">
             Kho xuất hàng <span class="text-red-500">*</span>
           </label>
-          <Select
-            v-model="form.warehouse_id"
-            :options="warehouseOptions"
-            optionLabel="label"
-            optionValue="id"
-            placeholder="Chọn kho xuất..."
-            class="w-full text-xs rounded-[6px] h-9 flex items-center"
-            @change="onWarehouseChange"
-          />
+          <Select v-model="form.warehouse_id" :options="warehouseOptions" optionLabel="label" optionValue="id"
+            placeholder="Chọn kho xuất..." class="w-full text-xs rounded-[6px] h-9 flex items-center"
+            @change="onWarehouseChange" />
         </div>
 
         <div class="flex flex-col gap-1.5">
           <label class="font-bold text-slate-700 uppercase tracking-wide text-[11px]">
             Hẹn ngày giao hàng <span class="text-red-500">*</span>
           </label>
-          <InputText
-            v-model="form.expected_delivery_date"
-            type="date"
-            class="w-full text-xs rounded-[6px] h-9 px-3 border-slate-300"
+          <DatePicker
+            v-model="expectedDeliveryDateModel"
+            dateFormat="dd/mm/yy"
+            placeholder="dd/mm/yyyy"
+            class="w-full text-xs"
+            inputClass="!py-1.5 !px-3 text-xs font-mono rounded-[6px] h-9 border-slate-300"
           />
         </div>
 
@@ -56,11 +50,8 @@
           <label class="font-bold text-slate-700 uppercase tracking-wide text-[11px]">
             Số điện thoại nhận hàng
           </label>
-          <InputText
-            v-model="form.contact_phone"
-            class="w-full text-xs font-mono rounded-[6px] h-9 px-3 border-slate-300"
-            placeholder="09xx xxx xxx"
-          />
+          <InputText v-model="form.contact_phone"
+            class="w-full text-xs font-mono rounded-[6px] h-9 px-3 border-slate-300" placeholder="09xx xxx xxx" />
         </div>
 
         <!-- Địa chỉ giao hàng: Lấy từ đơn bán hàng, cho phép sửa -->
@@ -69,15 +60,14 @@
             <label class="font-bold text-slate-700 uppercase tracking-wide text-[11px] flex items-center gap-1">
               <i class="pi pi-map-marker text-rose-500"></i>
               <span>Địa chỉ giao hàng thực tế</span>
-              <span class="text-[10px] text-slate-400 font-normal lowercase">(lấy từ đơn bán, có thể sửa khi giao kho khác)</span>
+              <span class="text-[10px] text-slate-400 font-normal lowercase">(lấy từ đơn bán, có thể sửa khi giao kho
+                khác)</span>
             </label>
             <span class="text-[10px] text-slate-500 italic">Kiểm tra kỹ trước khi gửi điều phối</span>
           </div>
-          <InputText
-            v-model="form.shipping_address"
+          <InputText v-model="form.shipping_address"
             class="w-full text-xs rounded-[6px] h-9 px-3 border-slate-300 focus:!border-indigo-500"
-            placeholder="Nhập địa chỉ nhận hàng của khách..."
-          />
+            placeholder="Nhập địa chỉ nhận hàng của khách..." />
         </div>
       </div>
 
@@ -92,12 +82,7 @@
           </span>
         </div>
 
-        <DataTable
-          :value="orderItems"
-          showGridlines
-          responsiveLayout="scroll"
-          class="p-datatable-sm text-xs"
-        >
+        <DataTable :value="orderItems" showGridlines responsiveLayout="scroll" class="p-datatable-sm text-xs">
           <Column header="#" style="width: 45px" class="text-center">
             <template #body="{ index }">
               <span class="font-mono text-slate-400 text-xs">{{ index + 1 }}</span>
@@ -107,7 +92,8 @@
           <!-- 1. Mã nội bộ -->
           <Column field="sku" header="Mã Nội Bộ" style="width: 130px">
             <template #body="{ data }">
-              <span class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200">
+              <span
+                class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200">
                 {{ data.sku }}
               </span>
             </template>
@@ -126,7 +112,8 @@
           <!-- Ngày hẹn giao theo order_item -->
           <Column header="Ngày Hẹn Giao" style="width: 120px" class="text-center">
             <template #body="{ data }">
-              <span class="text-xs font-mono text-sky-700 font-semibold bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
+              <span
+                class="text-xs font-mono text-sky-700 font-semibold bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
                 {{ data.delivery_date ? formatDate(data.delivery_date) : 'Theo đơn' }}
               </span>
             </template>
@@ -153,10 +140,8 @@
           <!-- 5. Tồn kho khả dụng -->
           <Column field="stock" header="Tồn Kho" style="width: 100px" class="text-center">
             <template #body="{ data }">
-              <span
-                class="font-mono text-xs font-bold px-2 py-0.5 rounded border"
-                :class="data.stock >= data.request_quantity ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'"
-              >
+              <span class="font-mono text-xs font-bold px-2 py-0.5 rounded border"
+                :class="data.stock >= data.request_quantity ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'">
                 {{ data.stock }}
               </span>
             </template>
@@ -166,13 +151,9 @@
           <Column header="SL Yêu Cầu (Sửa)" style="width: 140px" class="text-center">
             <template #body="{ data }">
               <div class="flex items-center justify-center">
-                <InputNumber
-                  v-model="data.request_quantity"
-                  :min="0"
-                  :max="data.remaining_quantity"
+                <InputNumber v-model="data.request_quantity" :min="0" :max="data.remaining_quantity"
                   class="w-24 text-center font-mono font-bold text-xs"
-                  inputClass="!w-24 !text-center !text-xs !font-mono !font-bold !py-1 !px-2 rounded border border-indigo-300 focus:!border-indigo-600 bg-indigo-50/30 text-indigo-900"
-                />
+                  inputClass="!w-24 !text-center !text-xs !font-mono !font-bold !py-1 !px-2 rounded border border-indigo-300 focus:!border-indigo-600 bg-indigo-50/30 text-indigo-900" />
               </div>
             </template>
           </Column>
@@ -180,7 +161,8 @@
       </div>
 
       <!-- Tóm tắt số lượng -->
-      <div class="flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-[6px] text-xs">
+      <div
+        class="flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-[6px] text-xs">
         <span class="text-slate-600">
           Tổng SL yêu cầu đợt này:
           <strong class="font-mono text-indigo-700 font-bold ml-1 text-sm">{{ totalRequestQuantity }}</strong> chiếc
@@ -194,24 +176,11 @@
 
     <template #footer>
       <div class="flex justify-end gap-2 pt-2">
-        <Button
-          label="Hủy bỏ"
-          icon="pi pi-times"
-          text
-          size="small"
-          severity="secondary"
-          class="rounded-[6px]"
-          @click="$emit('update:visible', false)"
-        />
-        <Button
-          label="Gửi yêu cầu giao"
-          icon="pi pi-send"
-          size="small"
+        <Button label="Hủy bỏ" icon="pi pi-times" text size="small" severity="secondary" class="rounded-[6px]"
+          @click="$emit('update:visible', false)" />
+        <Button label="Gửi yêu cầu giao" icon="pi pi-send" size="small"
           class="!bg-emerald-600 hover:!bg-emerald-700 !text-white !border-emerald-600 rounded-[6px] !font-semibold shadow-sm"
-          :loading="submitting"
-          :disabled="totalRequestQuantity <= 0"
-          @click="submitDeliveryRequest"
-        />
+          :loading="submitting" :disabled="totalRequestQuantity <= 0" @click="submitDeliveryRequest" />
       </div>
     </template>
   </Dialog>
@@ -226,6 +195,7 @@ import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
 import Select from 'primevue/select';
+import DatePicker from 'primevue/datepicker';
 import { useToast } from 'primevue/usetoast';
 import { formatDate } from '../../utils/format';
 import { salesApi } from '../../api/sales.api';
@@ -269,6 +239,27 @@ const form = ref({
   expected_delivery_date: '',
   contact_phone: '',
   shipping_address: ''
+});
+
+const expectedDeliveryDateModel = computed({
+  get() {
+    if (!form.value.expected_delivery_date) return null;
+    const parts = String(form.value.expected_delivery_date).split('-');
+    if (parts.length === 3) {
+      return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    }
+    return new Date(form.value.expected_delivery_date);
+  },
+  set(val) {
+    if (val instanceof Date && !isNaN(val.getTime())) {
+      const y = val.getFullYear();
+      const m = String(val.getMonth() + 1).padStart(2, '0');
+      const d = String(val.getDate()).padStart(2, '0');
+      form.value.expected_delivery_date = `${y}-${m}-${d}`;
+    } else {
+      form.value.expected_delivery_date = val || '';
+    }
+  }
 });
 
 // Tải danh mục Catalog để ánh xạ ID <-> SKU

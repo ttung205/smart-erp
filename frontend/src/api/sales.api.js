@@ -132,6 +132,14 @@ export const salesApi = {
     });
   },
 
+  approveDelivery(id, approverName = 'admin') {
+    return this.updateDeliveryStatus(id, 'APPROVED');
+  },
+
+  rejectDelivery(id, reason = '') {
+    return this.updateDeliveryStatus(id, 'REJECTED');
+  },
+
   // 4. Invoices
   getInvoices() {
     return apiClient('/api/v1/sales/invoices');

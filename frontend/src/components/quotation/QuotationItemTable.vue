@@ -8,9 +8,9 @@
       @update:model-value="$emit('update:modelValue', $event)"
       @summary-change="$emit('summary-change', $event)"
     >
-      <!-- Cột Checkbox Chọn Dòng - Chỉ hiển thị khi báo giá đã duyệt để chốt Win/Lose hoặc tạo đơn bán -->
+      <!-- Cột Checkbox Chọn Dòng - Luôn hiển thị để tiện chọn dòng và thao tác hàng loạt -->
       <template #prepend-columns="{ items, notifyChange }">
-        <Column v-if="computedShowStatus" style="width: 44px; min-width: 44px" class="text-center" frozen>
+        <Column style="width: 44px; min-width: 44px" class="text-center" frozen>
           <template #header>
             <div class="flex justify-center items-center w-full">
               <input
@@ -191,6 +191,18 @@
 
       <!-- Thao tác nghiệp vụ đặc thù của Báo Giá -->
       <template #extra-actions="{ items }">
+        <!-- Nút Set Hàng Loạt (Chiết khấu, VAT, Lead Time, QTY, COM, UNIT) -->
+        <Button
+          :label="getSelectedCount(items) > 0 ? `Set hàng loạt (${getSelectedCount(items)})` : 'Set hàng loạt'"
+          icon="pi pi-bolt"
+          size="small"
+          severity="secondary"
+          outlined
+          class="!text-xs !py-1 !px-2.5 rounded-[6px] !border-indigo-300 !text-indigo-700 hover:!bg-indigo-50 font-medium"
+          title="Thiết lập hàng loạt Chiết khấu %, VAT %, Lead Time, QTY, COM, UNIT cho các mặt hàng"
+          @click="openBulkEditDialog(items)"
+        />
+
         <template v-if="computedShowStatus">
           <!-- Nút Đổi trạng thái WIN / LOSE / PENDING -->
           <Button
@@ -214,6 +226,13 @@
         </template>
       </template>
     </ItemDataTable>
+
+    <!-- Modal Thiết Lập Giá Trị Hàng Loạt (Chiết khấu, VAT, Lead Time, QTY, COM, UNIT) -->
+    <QuotationBulkEditDialog
+      v-model:visible="showBulkEditDialog"
+      :items="targetItems"
+      @apply="onBulkEditApplied"
+    />
 
     <!-- Modal Đổi Trạng Thái Mặt Hàng (Win / Lose / Pending) - Nghiệp vụ đặc thù Báo giá -->
     <Dialog
@@ -295,6 +314,7 @@ import InputNumber from 'primevue/inputnumber';
 import Dialog from 'primevue/dialog';
 import Badge from 'primevue/badge';
 import ItemDataTable from '../common/ItemDataTable.vue';
+import QuotationBulkEditDialog from './QuotationBulkEditDialog.vue';
 import { formatCurrency } from '../../utils/format';
 
 const props = defineProps({
@@ -375,14 +395,37 @@ const onQuantityChange = (row, notifyChange) => {
   notifyChange && notifyChange();
 };
 
-// Trạng thái thầu (WIN / LOSE / PENDING)
-const showStatusDialog = ref(false);
-const newStatusToSet = ref('WIN');
+// Target items dùng chung cho các dialog thao tác
 const targetItems = ref([]);
 
 const getSelectedCount = (items) => {
   return (items || []).filter((it) => it._selected).length;
 };
+
+// =========================================================================
+// 1. Quản lý Dialog Thiết Lập Giá Trị Hàng Loạt (CK, VAT, QTY, LeadTime, COM, Unit)
+// =========================================================================
+const showBulkEditDialog = ref(false);
+
+const openBulkEditDialog = (items) => {
+  targetItems.value = items || [];
+  if (targetItems.value.length === 0) {
+    alert('Danh sách mặt hàng đang trống, không thể thiết lập hàng loạt!');
+    return;
+  }
+  showBulkEditDialog.value = true;
+};
+
+const onBulkEditApplied = (updatedItems) => {
+  emit('update:modelValue', [...updatedItems]);
+  emit('summary-change');
+};
+
+// =========================================================================
+// 2. Trạng thái thầu (WIN / LOSE / PENDING)
+// =========================================================================
+const showStatusDialog = ref(false);
+const newStatusToSet = ref('WIN');
 
 const openStatusDialog = (items) => {
   targetItems.value = items || [];

@@ -3,31 +3,23 @@
     <!-- 1. Header Toolbar -->
     <div class="flex items-center justify-between bg-white border border-slate-200 rounded-[8px] px-5 py-3 shadow-sm">
       <div class="flex items-center gap-3">
-        <Button
-          label="Quay lại"
-          icon="pi pi-arrow-left"
-          size="small"
-          severity="secondary"
-          outlined
+        <Button label="Quay lại" icon="pi pi-arrow-left" size="small" severity="secondary" outlined
           class="!text-xs !py-1.5 !px-3 rounded-[6px] !border-slate-300 !text-slate-700 hover:!bg-slate-100"
-          @click="handleBack"
-        />
+          @click="handleBack" />
 
         <div class="flex flex-col">
           <h1 class="text-base font-bold text-slate-900 m-0 tracking-tight flex items-center gap-2">
-            <span>{{ isEditMode ? `Chứng Từ Bán Hàng: ${form.invoice_number}` : 'Lập Chứng Từ Bán Hàng Mới (Sales Invoice)' }}</span>
-            <Badge
-              :severity="getWarehouseStatusMeta(form.warehouse_status).severity"
-              :value="getWarehouseStatusMeta(form.warehouse_status).label"
-            />
-            <Badge
-              v-if="form.accounting_status === 'POSTED'"
-              severity="success"
-              value="Đã ghi sổ"
-            />
+            <span v-if="isEditMode">Chứng Từ Bán Hàng: {{ form.invoice_number }}</span>
+            <span v-else>Lập Chứng Từ Bán Hàng Mới (Sales Invoice)</span>
+            <Badge :severity="getWarehouseStatusMeta(form.warehouse_status).severity"
+              :value="getWarehouseStatusMeta(form.warehouse_status).label" />
+            <Badge v-if="form.accounting_status === 'POSTED'" severity="success" value="Đã ghi sổ" />
           </h1>
-          <span class="text-xs text-slate-500">
-            {{ isEditMode ? 'Xem chi tiết chứng từ bán hàng, quản lý giữ chỗ tồn kho và theo dõi tiến độ điều phối' : 'Lập chứng từ bán hàng từ yêu cầu giao hàng đã duyệt để giữ chỗ tồn kho và gửi lệnh xuất kho' }}
+          <span v-if="isEditMode" class="text-xs text-slate-500">
+            Xem chi tiết chứng từ bán hàng và theo dõi tiến độ điều phối
+          </span>
+          <span v-else class="text-xs text-slate-500">
+            Lập chứng từ bán hàng từ yêu cầu giao hàng đã duyệt để gửi lệnh xuất kho
           </span>
         </div>
       </div>
@@ -35,66 +27,28 @@
       <!-- Action Buttons -->
       <div class="flex items-center gap-2.5">
         <!-- Nút Đồng bộ / Kích hoạt Giữ Chỗ Tồn Kho (Khi đang ở chế độ xem chứng từ) -->
-        <Button
-          v-if="isEditMode && form.accounting_status !== 'POSTED'"
-          label="Đồng Bộ Giữ Chỗ Kho"
-          icon="pi pi-lock"
-          size="small"
-          severity="help"
-          outlined
-          class="!text-xs !py-2 !px-3 rounded-[6px] !font-semibold"
+        <Button v-if="isEditMode && form.accounting_status !== 'POSTED'" label="Đồng Bộ Giữ Chỗ Kho" icon="pi pi-lock"
+          size="small" severity="help" outlined class="!text-xs !py-2 !px-3 rounded-[6px] !font-semibold"
           :loading="syncingReserve"
           v-tooltip.bottom="'Gửi lệnh giữ chỗ (Reserve) tới Inventory Service cho chứng từ này'"
-          @click="handleSyncReserve"
-        />
+          @click="handleSyncReserve" />
 
         <!-- Nút Gửi xuống kho (khi chưa gửi) -->
-        <Button
-          v-if="form.warehouse_status === 'PENDING_WAREHOUSE' || !isEditMode"
-          label="Gửi Xuống Kho"
-          icon="pi pi-send"
-          size="small"
+        <Button v-if="form.warehouse_status === 'PENDING_WAREHOUSE' || !isEditMode" label="Gửi Xuống Kho"
+          icon="pi pi-send" size="small"
           class="!bg-indigo-600 hover:!bg-indigo-700 !text-white !border-indigo-600 !text-xs !py-2 !px-3.5 rounded-[6px] !font-bold shadow-sm"
-          :loading="saving"
-          @click="saveInvoice(true)"
-        />
+          :loading="saving" @click="saveInvoice(true)" />
 
         <!-- Nút Chuyển sang trang Điều Phối Kho khi đã gửi -->
-        <Button
-          v-else
-          label="Trang Yêu Cầu Xuất Kho ➔"
-          icon="pi pi-dolly"
-          size="small"
+        <Button v-else label="Trang Yêu Cầu Xuất Kho ➔" icon="pi pi-dolly" size="small"
           class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !text-xs !py-2 !px-3.5 rounded-[6px] !font-semibold shadow-sm"
-          @click="$router.push('/warehouse-request-sale')"
-        />
+          @click="$router.push('/warehouse-request-sale')" />
 
         <!-- Nút Lưu Chứng Từ (Chờ gửi kho) -->
-        <Button
-          v-if="form.accounting_status !== 'POSTED'"
-          label="Lưu Chứng Từ & Giữ Kho"
-          icon="pi pi-save"
-          size="small"
+        <Button v-if="form.accounting_status !== 'POSTED'" label="Lưu Chứng Từ & Giữ Kho" icon="pi pi-save" size="small"
           severity="secondary"
           class="!bg-slate-700 hover:!bg-slate-800 !text-white !border-slate-700 !text-xs !py-2 !px-3.5 rounded-[6px] !font-semibold"
-          :loading="saving"
-          @click="saveInvoice(false)"
-        />
-      </div>
-    </div>
-
-    <!-- Banner Nghiệp Vụ Tồn Kho Chuẩn Quy Trình -->
-    <div class="bg-indigo-50/80 border border-indigo-200 rounded-[6px] p-3 text-xs text-indigo-950 flex items-start gap-3">
-      <div class="w-7 h-7 rounded-[4px] bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
-        <i class="pi pi-lock text-sm"></i>
-      </div>
-      <div class="space-y-0.5">
-        <div class="font-bold text-indigo-900 uppercase tracking-wide text-xs">
-          Quy chế Giữ chỗ Tồn kho & Gửi Lệnh Xuất Kho Logistics
-        </div>
-        <p class="m-0 text-[11px] text-indigo-800 leading-relaxed">
-          Khi Người duyệt <strong>lập/lưu chứng từ bán hàng</strong>, hệ thống sẽ tự động gửi lệnh <strong>giữ chỗ tồn kho (Reserve) và trừ tồn khả dụng (Available)</strong> tại Inventory Service (nguyên tắc: <em>ai tạo chứng từ giao hàng trước thì giữ chỗ trước</em>). Khi phòng Logistics thực hiện <strong>"Ghi Sổ Xuất Kho"</strong> tại trang Yêu Cầu Xuất Kho, hệ thống sẽ <strong>trừ tồn kho vật lý (On-Hand)</strong> và giải phóng tồn giữ chỗ.
-        </p>
+          :loading="saving" @click="saveInvoice(false)" />
       </div>
     </div>
 
@@ -102,7 +56,8 @@
     <div class="flex flex-col lg:flex-row gap-4 items-stretch">
       <!-- Cột Trái: 63% (Số chứng từ, Ngày lập, Khách hàng, Đơn vị tiền tệ, Tỉ giá, Người tạo, Ghi chú) -->
       <div class="w-full lg:w-[63%] bg-white border border-slate-200 rounded-[8px] p-5 shadow-sm space-y-4">
-        <div class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5 border-b border-slate-100 pb-2">
+        <div
+          class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5 border-b border-slate-100 pb-2">
           <i class="pi pi-file-edit text-indigo-600"></i>
           <span>Thông Tin Chứng Từ Bán Hàng</span>
         </div>
@@ -113,12 +68,9 @@
             <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
               Số chứng từ <span class="text-red-500">*</span>
             </label>
-            <InputText
-              v-model="form.invoice_number"
-              class="w-full text-xs font-mono font-bold text-indigo-700 rounded-[6px]"
-              size="small"
-              placeholder="INV-2026-XXXX"
-            />
+            <InputText v-model="form.invoice_number"
+              class="w-full text-xs font-mono font-bold text-indigo-700 rounded-[6px]" size="small"
+              placeholder="INV-2026-XXXX" />
           </div>
 
           <!-- Ngày chứng từ (Ngày tạo chứng từ) -->
@@ -126,12 +78,8 @@
             <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
               Ngày chứng từ (Ngày tạo) <span class="text-red-500">*</span>
             </label>
-            <InputText
-              v-model="form.invoice_date"
-              type="date"
-              class="w-full text-xs font-mono rounded-[6px]"
-              size="small"
-            />
+            <InputText v-model="form.invoice_date" type="date" class="w-full text-xs font-mono rounded-[6px]"
+              size="small" />
           </div>
         </div>
 
@@ -141,13 +89,8 @@
             <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
               Khách hàng (Theo Đơn hàng)
             </label>
-            <InputText
-              :value="form.customer_name"
-              readonly
-              disabled
-              class="w-full text-xs bg-slate-50 font-semibold text-slate-800 rounded-[6px]"
-              size="small"
-            />
+            <InputText :value="form.customer_name" readonly disabled
+              class="w-full text-xs bg-slate-50 font-semibold text-slate-800 rounded-[6px]" size="small" />
           </div>
 
           <!-- Người tạo chứng từ -->
@@ -155,12 +98,8 @@
             <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
               Người tạo chứng từ <span class="text-red-500">*</span>
             </label>
-            <InputText
-              v-model="form.created_by"
-              class="w-full text-xs rounded-[6px]"
-              size="small"
-              placeholder="Tên nhân viên tạo chứng từ..."
-            />
+            <InputText v-model="form.created_by" class="w-full text-xs rounded-[6px]" size="small"
+              placeholder="Tên nhân viên tạo chứng từ..." />
           </div>
         </div>
 
@@ -170,12 +109,8 @@
             <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
               Đơn vị tiền tệ (Lấy từ Đơn)
             </label>
-            <Select
-              v-model="form.currency"
-              :options="currencyOptions"
-              class="w-full text-xs font-mono font-bold rounded-[6px]"
-              size="small"
-            />
+            <Select v-model="form.currency" :options="currencyOptions"
+              class="w-full text-xs font-mono font-bold rounded-[6px]" size="small" />
           </div>
 
           <!-- Tỉ giá quy đổi (Lấy từ đơn hàng, cho phép thay đổi) -->
@@ -186,14 +121,8 @@
               </label>
               <span class="text-[10px] text-indigo-600 font-semibold">Cho phép điều chỉnh</span>
             </div>
-            <InputNumber
-              v-model="form.exchange_rate"
-              :min="0.0001"
-              :maxFractionDigits="4"
-              class="w-full text-xs font-mono rounded-[6px]"
-              size="small"
-              placeholder="1.0"
-            />
+            <InputNumber v-model="form.exchange_rate" :min="0.0001" :maxFractionDigits="4"
+              class="w-full text-xs font-mono rounded-[6px]" size="small" placeholder="1.0" />
           </div>
         </div>
 
@@ -202,19 +131,17 @@
           <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
             Ghi chú chứng từ
           </label>
-          <Textarea
-            v-model="form.notes"
-            rows="2"
-            class="w-full text-xs rounded-[6px]"
-            placeholder="Nhập ghi chú xuất hàng hoặc lưu ý cho phòng Logistics..."
-          />
+          <Textarea v-model="form.notes" rows="2" class="w-full text-xs rounded-[6px]"
+            placeholder="Nhập ghi chú xuất hàng hoặc lưu ý cho phòng Logistics..." />
         </div>
       </div>
 
       <!-- Cột Phải: 37% (Tham chiếu Đơn Bán Hàng, Phiếu Giao Hàng, Kho Xuất, Điều khoản) -->
-      <div class="w-full lg:w-[37%] bg-white border border-slate-200 rounded-[8px] p-5 shadow-sm space-y-4 flex flex-col justify-between">
+      <div
+        class="w-full lg:w-[37%] bg-white border border-slate-200 rounded-[8px] p-5 shadow-sm space-y-4 flex flex-col justify-between">
         <div>
-          <div class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5 border-b border-slate-100 pb-2 mb-3">
+          <div
+            class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5 border-b border-slate-100 pb-2 mb-3">
             <i class="pi pi-link text-sky-600"></i>
             <span>Nguồn Gốc & Điều Phối</span>
           </div>
@@ -223,7 +150,8 @@
             <!-- Đơn bán hàng tham chiếu -->
             <div class="flex flex-col gap-1">
               <label class="text-slate-500 font-medium">Số đơn hàng (SO):</label>
-              <div class="font-mono font-bold text-slate-800 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-[6px]">
+              <div
+                class="font-mono font-bold text-slate-800 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-[6px]">
                 {{ form.customer_order_number || form.order_number || '---' }}
               </div>
             </div>
@@ -231,31 +159,32 @@
             <!-- Phiếu yêu cầu giao hàng tham chiếu -->
             <div class="flex flex-col gap-1">
               <label class="text-slate-500 font-medium">Phiếu yêu cầu giao hàng (DR):</label>
-              <div class="font-mono font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2.5 py-1.5 rounded-[6px]">
-                #{{ form.delivery_request_id || form.delivery_request_number || '---' }}
+              <div v-if="isEditMode || form.delivery_request_id"
+                class="flex items-center justify-between font-mono font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2.5 py-1.5 rounded-[6px]">
+                <span>#{{ form.delivery_request_id || form.delivery_request_number || '---' }}</span>
+                <Button v-if="!isEditMode && availableDeliveryRequests.length > 0" label="Đổi" icon="pi pi-refresh"
+                  size="small" text class="!text-[11px] !p-0 !h-auto text-sky-700 hover:text-sky-900"
+                  @click="form.delivery_request_id = null" />
+              </div>
+              <div v-else>
+                <Select v-model="selectedDeliveryRequestId" :options="deliveryRequestOptions" optionLabel="label"
+                  optionValue="id" placeholder="-- Chọn Yêu Cầu Giao Hàng --"
+                  class="w-full text-xs font-mono rounded-[6px]" size="small" @change="onSelectDeliveryRequest" />
               </div>
             </div>
 
             <!-- Kho xuất hàng -->
             <div class="flex flex-col gap-1">
               <label class="text-slate-500 font-medium">Kho xuất hàng:</label>
-              <InputText
-                v-model="form.warehouse_name"
-                class="w-full text-xs rounded-[6px]"
-                size="small"
-                @change="refreshStockInfo"
-              />
+              <InputText v-model="form.warehouse_name" class="w-full text-xs rounded-[6px]" size="small"
+                @change="refreshStockInfo" />
             </div>
 
             <!-- Điều khoản thanh toán -->
             <div class="flex flex-col gap-1">
               <label class="text-slate-500 font-medium">Điều khoản thanh toán:</label>
-              <Select
-                v-model="form.payment_terms"
-                :options="paymentTermsOptions"
-                class="w-full text-xs rounded-[6px]"
-                size="small"
-              />
+              <Select v-model="form.payment_terms" :options="paymentTermsOptions" class="w-full text-xs rounded-[6px]"
+                size="small" />
             </div>
           </div>
         </div>
@@ -264,35 +193,30 @@
         <div class="bg-slate-50 border border-slate-200 rounded-[6px] p-3 space-y-2 text-xs">
           <div class="flex justify-between items-center">
             <span class="text-slate-500">Tiến độ kho:</span>
-            <Badge :severity="getWarehouseStatusMeta(form.warehouse_status).severity" :value="getWarehouseStatusMeta(form.warehouse_status).label" />
+            <Badge :severity="getWarehouseStatusMeta(form.warehouse_status).severity"
+              :value="getWarehouseStatusMeta(form.warehouse_status).label" />
           </div>
           <div class="flex justify-between items-center">
             <span class="text-slate-500">Sổ cái kế toán:</span>
-            <Badge :severity="form.accounting_status === 'POSTED' ? 'success' : 'secondary'" :value="form.accounting_status === 'POSTED' ? 'Đã ghi sổ' : 'Chưa ghi sổ'" />
+            <Badge :severity="form.accounting_status === 'POSTED' ? 'success' : 'secondary'"
+              :value="form.accounting_status === 'POSTED' ? 'Đã ghi sổ' : 'Chưa ghi sổ'" />
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 3. Bảng Danh Sách Mặt Hàng (Đồng bộ Order Items & Tình trạng Tồn Kho Giữ Chỗ) -->
+    <!-- 3. Bảng Danh Sách Mặt Hàng -->
     <div class="space-y-2">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
           <i class="pi pi-list text-slate-700 text-sm"></i>
           <span class="text-xs font-bold text-slate-900 uppercase tracking-wide">
-            Bảng Mặt Hàng Chứng Từ Bán Hàng & Tồn Kho Thực Tế
-          </span>
-          <span class="text-[11px] text-slate-500 font-normal">
-            (Hệ thống tự động kiểm tra tồn kho tại <strong>{{ form.warehouse_name }}</strong>)
+            Bảng Mặt Hàng Chứng Từ Bán Hàng
           </span>
         </div>
       </div>
 
-      <InvoiceItemTable
-        v-model="form.items"
-        :stock-map="stockMap"
-        :readonly="form.accounting_status === 'POSTED'"
-      />
+      <InvoiceItemTable v-model="form.items" :readonly="form.accounting_status === 'POSTED'" />
     </div>
   </div>
 </template>
@@ -389,7 +313,7 @@ import { catalogApi } from '../../api/catalog.api';
 const refreshStockInfo = async () => {
   try {
     const warehouseId = form.value.warehouse_name.includes('TP.HCM') || form.value.warehouse_name.includes('Nam') ? 2 : (form.value.warehouse_name.includes('Đà Nẵng') || form.value.warehouse_name.includes('Trung') ? 3 : 1);
-    
+
     // Tạo map PID <-> SKU từ Catalog
     const pidToSkuMap = new Map();
     FALLBACK_CATALOG_PRODUCTS.forEach(p => {
@@ -406,7 +330,7 @@ const refreshStockInfo = async () => {
           }
         });
       }
-    } catch {}
+    } catch { }
 
     const res = await inventoryApi.getStocks({ warehouseId });
     const list = res?.data || (Array.isArray(res) ? res : []);
@@ -433,10 +357,7 @@ const refreshStockInfo = async () => {
 const enrichInvoiceItem = (it, matchedOrderItem = null) => {
   const oItem = matchedOrderItem || it.orderItem || it.order_item || {};
   const reqQty = Number(it.requested_quantity != null ? it.requested_quantity : (it.quantity != null ? it.quantity : (it.request_quantity || 1)));
-  const invQty = Number(it.quantity != null ? it.quantity : reqQty);
   const price = Number(it.unit_price != null ? it.unit_price : (it.selling_price != null ? it.selling_price : (oItem.selling_price || 0)));
-  const gross = Number(it.gross_price != null ? it.gross_price : (oItem.gross_price || price));
-  const disc = Number(it.discount_percent != null ? it.discount_percent : (oItem.discount_percent || 0));
 
   return {
     id: it.id,
@@ -449,24 +370,111 @@ const enrichInvoiceItem = (it, matchedOrderItem = null) => {
     description: it.description || oItem.description || it.product_name || '',
     com: it.com || oItem.com || 'Việt Nam',
     unit: it.unit || oItem.unit || 'Cái',
-    order_quantity: Number(it.order_quantity != null ? it.order_quantity : (oItem.quantity != null ? oItem.quantity : reqQty)),
     requested_quantity: reqQty,
-    quantity: invQty,
-    discount_percent: disc,
+    quantity: reqQty,
     selling_price: price,
     unit_price: price,
-    gross_price: gross,
     vat_percent: Number(it.vat_percent != null ? it.vat_percent : (oItem.vat_percent || 0)),
     lead_time: it.lead_time || oItem.lead_time || '',
     delivery_date: it.delivery_date || oItem.delivery_date || '',
-    subtotal: Number(it.subtotal || (invQty * price))
+    subtotal: Number(it.subtotal || (reqQty * price))
   };
+};
+
+const availableDeliveryRequests = ref([]);
+const selectedDeliveryRequestId = ref(null);
+
+const deliveryRequestOptions = computed(() => {
+  return availableDeliveryRequests.value.map(dr => ({
+    id: dr.id,
+    label: `#${dr.id} - ${dr.customer_order_number || dr.order_number || ('Đơn #' + dr.order_id)} (${dr.customer_name || 'Khách hàng'}) - ${dr.items?.length || 0} SP`,
+    raw: dr
+  }));
+});
+
+const applyDeliveryRequest = async (dr, creator = 'admin', pendingItems = null) => {
+  if (!dr) return;
+  selectedDeliveryRequestId.value = dr.id;
+
+  const effectiveOrderId = dr.order_id;
+  let order = dr.order || {};
+  let orderItemsMap = new Map();
+
+  if (effectiveOrderId) {
+    try {
+      const oRes = await salesApi.getOrderById(effectiveOrderId);
+      if (oRes?.data) {
+        order = oRes.data;
+        (order.items || []).forEach(oi => {
+          if (oi.id) orderItemsMap.set(oi.id, oi);
+          if (oi.sku) orderItemsMap.set(oi.sku, oi);
+        });
+      }
+    } catch (e) {
+      console.warn('Lỗi tải chi tiết đơn hàng:', e);
+    }
+  }
+
+  const sourceItems = (dr.items && dr.items.length > 0) ? dr.items : (pendingItems || []);
+
+  form.value = {
+    ...form.value,
+    id: null,
+    invoice_number: form.value.invoice_number || generateRandomInvoiceNumber(),
+    invoice_date: form.value.invoice_date || new Date().toISOString().split('T')[0],
+    currency: order.currency || dr.currency || 'VND',
+    exchange_rate: Number(order.exchange_rate) || 1.0,
+    created_by: creator,
+    payment_terms: order.payment_terms || 'Công nợ 30 ngày',
+    notes: `Xuất theo Yêu Cầu Giao Hàng #${dr.id || dr.request_number} (${dr.customer_order_number || dr.order_number || order.customer_order_number || order.order_number || ''})`,
+    delivery_request_id: dr.id,
+    delivery_request_number: dr.request_number || dr.id,
+    order_id: effectiveOrderId || null,
+    order_number: dr.order_number || order.order_number || '',
+    customer_order_number: dr.customer_order_number || order.customer_order_number || order.order_number || '',
+    customer_name: dr.customer_name || order.customer_name || '',
+    warehouse_name: dr.warehouse_name || 'Kho Tổng Miền Bắc (Hà Nội)',
+    warehouse_status: 'PENDING_WAREHOUSE',
+    accounting_status: 'UNPOSTED',
+    items: sourceItems.map((it) => {
+      const matchedOrderItem = it.order_item_id ? orderItemsMap.get(it.order_item_id) : (it.sku ? orderItemsMap.get(it.sku) : null);
+      return enrichInvoiceItem(it, matchedOrderItem);
+    })
+  };
+
+  toast.add({
+    severity: 'info',
+    summary: 'Đã nạp dữ liệu giao hàng',
+    detail: `Đã nạp ${form.value.items.length} mặt hàng từ Yêu Cầu Giao Hàng #${form.value.delivery_request_id}.`,
+    life: 3000
+  });
+
+  refreshStockInfo();
+};
+
+const onSelectDeliveryRequest = (drId) => {
+  const selected = availableDeliveryRequests.value.find(d => d.id === drId);
+  if (selected) {
+    applyDeliveryRequest(selected, form.value.created_by);
+  }
 };
 
 // Load dữ liệu khi mở form
 const initFormData = async () => {
   const user = props.currentUser || JSON.parse(localStorage.getItem('user') || '{}');
   const userCreator = user.name || user.email || 'admin';
+  form.value.created_by = userCreator;
+  if (!form.value.invoice_number) {
+    form.value.invoice_number = generateRandomInvoiceNumber();
+  }
+
+  // Tải danh sách Yêu Cầu Giao Hàng để sẵn sàng chọn
+  try {
+    const drRes = await salesApi.getDeliveries();
+    availableDeliveryRequests.value = drRes?.data || (Array.isArray(drRes) ? drRes : []);
+  } catch (e) {
+    console.warn('Lỗi tải danh sách Delivery Requests:', e);
+  }
 
   // Trường hợp 1: Chế độ Edit / View chi tiết từ invoice ID
   if (isEditMode.value) {
@@ -486,7 +494,7 @@ const initFormData = async () => {
                 if (oi.sku) orderItemsMap.set(oi.sku, oi);
               });
             }
-          } catch {}
+          } catch { }
         }
 
         form.value = {
@@ -526,62 +534,41 @@ const initFormData = async () => {
     return;
   }
 
-  // Trường hợp 2: Lập chứng từ mới từ Delivery Request ID query param
-  const drId = route.query.delivery_request_id || route.query.dr_id;
-  if (drId) {
+  // Trường hợp 2: Lập chứng từ mới từ SessionStorage hoặc Query Params
+  const pendingDataRaw = sessionStorage.getItem('pending_invoice_creation');
+  let pendingData = null;
+  if (pendingDataRaw) {
     try {
-      const res = await salesApi.getDeliveries();
-      const dr = (res.data || []).find((d) => String(d.id) === String(drId) || String(d.request_number) === String(drId));
-      if (dr) {
-        let order = dr.order || {};
-        let orderItemsMap = new Map();
-        if (dr.order_id) {
-          try {
-            const oRes = await salesApi.getOrderById(dr.order_id);
-            if (oRes.data) {
-              order = oRes.data;
-              (order.items || []).forEach(oi => {
-                if (oi.id) orderItemsMap.set(oi.id, oi);
-                if (oi.sku) orderItemsMap.set(oi.sku, oi);
-              });
-            }
-          } catch {}
-        }
-
-        form.value = {
-          id: null,
-          invoice_number: generateRandomInvoiceNumber(),
-          invoice_date: new Date().toISOString().split('T')[0],
-          currency: order.currency || dr.currency || 'VND',
-          exchange_rate: Number(order.exchange_rate) || 1.0,
-          created_by: userCreator,
-          payment_terms: order.payment_terms || 'Công nợ 30 ngày',
-          notes: `Xuất theo Yêu Cầu Giao Hàng #${dr.id} (${dr.customer_order_number || dr.order_number || ''})`,
-          delivery_request_id: dr.id,
-          delivery_request_number: dr.request_number || dr.id,
-          order_id: dr.order_id,
-          order_number: dr.order_number,
-          customer_order_number: dr.customer_order_number || dr.order_number,
-          customer_name: dr.customer_name,
-          warehouse_name: dr.warehouse_name || 'Kho Tổng Miền Bắc (Hà Nội)',
-          warehouse_status: 'PENDING_WAREHOUSE',
-          accounting_status: 'UNPOSTED',
-          items: (dr.items || []).map((it) => {
-            const matchedOrderItem = it.order_item_id ? orderItemsMap.get(it.order_item_id) : (it.sku ? orderItemsMap.get(it.sku) : null);
-            return enrichInvoiceItem(it, matchedOrderItem);
-          })
-        };
-        refreshStockInfo();
-        return;
-      }
-    } catch (err) {
-      console.error('Lỗi tải thông tin phiếu giao:', err);
+      pendingData = JSON.parse(pendingDataRaw);
+      sessionStorage.removeItem('pending_invoice_creation');
+    } catch (e) {
+      console.error('Lỗi parse pending_invoice_creation:', e);
     }
   }
 
-  // Mặc định tạo mới rỗng
-  form.value.invoice_number = generateRandomInvoiceNumber();
-  form.value.created_by = userCreator;
+  const drId = route.query.delivery_request_id || route.query.dr_id || pendingData?.delivery_id;
+  if (drId || pendingData) {
+    let dr = availableDeliveryRequests.value.find((d) => String(d.id) === String(drId) || String(d.request_number) === String(drId));
+    if (!dr && pendingData) {
+      dr = {
+        id: pendingData.delivery_id,
+        request_number: pendingData.delivery_request_number,
+        order_id: pendingData.order_id,
+        order_number: pendingData.order_number,
+        customer_order_number: pendingData.customer_order_number,
+        customer_name: pendingData.customer_name,
+        warehouse_name: pendingData.warehouse_name,
+        shipping_address: pendingData.shipping_address,
+        items: pendingData.items || []
+      };
+    }
+
+    if (dr) {
+      await applyDeliveryRequest(dr, userCreator, pendingData?.items);
+      return;
+    }
+  }
+
   refreshStockInfo();
 };
 
@@ -590,8 +577,8 @@ onMounted(() => {
 });
 
 const handleBack = () => {
-  if (route.query.from === 'delivery' || route.query.delivery_request_id) {
-    router.push({ path: '/delivery', query: { tab: 'requests' } });
+  if (route.query.from === 'delivery-request' || route.query.from === 'delivery' || route.query.delivery_request_id) {
+    router.push('/delivery-request');
   } else {
     router.push('/invoice');
   }

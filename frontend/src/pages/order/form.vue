@@ -98,10 +98,12 @@
       <div class="w-full lg:w-[63%] bg-white border border-slate-200 rounded-[8px] p-5 shadow-sm flex flex-col justify-between gap-4">
         <!-- Hàng 1 của cột trái: Khách hàng (6 cols) + Liên hệ (6 cols) -->
         <div class="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-start">
-          <!-- Chọn khách hàng -->
+          <!-- Chọn khách hàng (Khóa khi kế thừa từ Báo giá hoặc đơn đã duyệt) -->
           <div class="md:col-span-6 flex flex-col gap-1.5 min-w-0">
-            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide truncate">
-              Khách hàng <span class="text-red-500">*</span>
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide truncate flex items-center gap-1">
+              <span>Khách hàng</span>
+              <span class="text-red-500">*</span>
+              <i v-if="isFromQuotation" class="pi pi-lock text-[10px] text-slate-400" title="Kế thừa từ Báo giá (Khóa)"></i>
             </label>
             <Select
               v-model="form.customer_id"
@@ -111,14 +113,14 @@
               filter
               placeholder="-- Chọn khách hàng doanh nghiệp --"
               class="w-full min-w-0 text-xs rounded-[6px] h-10 flex items-center"
-              :class="{ '!bg-slate-50': isLocked }"
-              :disabled="isLocked"
+              :class="{ '!bg-slate-50': isLocked || isFromQuotation }"
+              :disabled="isLocked || isFromQuotation"
               :pt="{ label: { class: '!truncate' }, root: { class: '!min-w-0' } }"
               @change="onCustomerChange"
             >
               <template #value="slotProps">
                 <div v-if="slotProps.value" class="truncate text-xs font-medium text-slate-800">
-                  {{ customerOptions.find(c => c.id === slotProps.value)?.label || form.customer_name }}
+                  {{ customerOptions.find(c => c.id === slotProps.value)?.label || (form.customer_code ? `${form.customer_code} - ${form.customer_name}` : form.customer_name) }}
                 </div>
                 <span v-else class="text-slate-400 text-xs truncate">
                   {{ slotProps.placeholder }}
@@ -127,10 +129,11 @@
             </Select>
           </div>
 
-          <!-- Liên hệ khách -->
+          <!-- Liên hệ khách (Khóa khi kế thừa từ Báo giá hoặc đơn đã duyệt) -->
           <div class="md:col-span-6 flex flex-col gap-1.5 min-w-0">
-            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide truncate">
-              Liên hệ khách hàng
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide truncate flex items-center gap-1">
+              <span>Liên hệ khách hàng</span>
+              <i v-if="isFromQuotation" class="pi pi-lock text-[10px] text-slate-400" title="Kế thừa từ Báo giá (Khóa)"></i>
             </label>
             <div class="flex items-center gap-1.5 w-full min-w-0">
               <Select
@@ -140,22 +143,25 @@
                 optionValue="id"
                 :placeholder="form.customer_id ? '-- Chọn người liên hệ --' : '(Cần chọn khách hàng)'"
                 class="flex-1 min-w-0 text-xs rounded-[6px] h-10 flex items-center"
-                :class="{ '!bg-slate-50': isLocked }"
+                :class="{ '!bg-slate-50': isLocked || isFromQuotation }"
                 :pt="{ label: { class: '!truncate' }, root: { class: '!min-w-0' } }"
-                :disabled="!form.customer_id || isLocked"
+                :disabled="!form.customer_id || isLocked || isFromQuotation"
                 @change="onContactChange"
               >
                 <template #value="slotProps">
                   <div v-if="slotProps.value" class="truncate text-xs font-medium text-slate-800">
                     {{ contactOptions.find(c => c.id === slotProps.value)?.label || form.contact_name }}
                   </div>
+                  <span v-else-if="form.contact_name" class="truncate text-xs font-medium text-slate-800">
+                    {{ form.contact_name }}
+                  </span>
                   <span v-else class="text-slate-400 text-xs truncate">
                     {{ slotProps.placeholder }}
                   </span>
                 </template>
               </Select>
               <Button
-                v-if="!isLocked"
+                v-if="!isLocked && !isFromQuotation"
                 icon="pi pi-plus"
                 size="small"
                 text
@@ -227,27 +233,36 @@
             />
           </div>
 
-          <!-- Tiền tệ -->
+          <!-- Tiền tệ (Khóa khi kế thừa từ Báo giá) -->
           <div class="md:col-span-2 min-w-0 flex flex-col gap-1.5">
-            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide truncate">Tiền tệ</label>
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide truncate flex items-center gap-1">
+              <span>Tiền tệ</span>
+              <i v-if="isFromQuotation" class="pi pi-lock text-[10px] text-slate-400" title="Kế thừa từ Báo giá (Khóa)"></i>
+            </label>
             <Select
               v-model="form.currency"
               :options="['VND', 'USD', 'EUR']"
               class="w-full min-w-0 text-xs rounded-[6px] h-10 flex items-center"
-              :class="{ '!bg-slate-50': isLocked }"
-              :disabled="isLocked"
+              :class="{ '!bg-slate-50': isLocked || isFromQuotation }"
+              :disabled="isLocked || isFromQuotation"
               :pt="{ root: { class: '!min-w-0 !w-full' } }"
             />
           </div>
 
-          <!-- Tỷ giá (cố định min-w-0 không bị tràn layout) -->
+          <!-- Tỷ giá (Cho phép sửa, chỉ khóa khi đơn đã duyệt) -->
           <div class="md:col-span-2 min-w-0 flex flex-col gap-1.5">
-            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide truncate">Tỷ giá</label>
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wide truncate flex items-center justify-between">
+              <span>Tỷ giá</span>
+              <span v-if="!isLocked" class="text-[10px] font-normal text-slate-400 lowercase">(sửa)</span>
+            </label>
             <InputNumber
               v-model="form.exchange_rate"
+              :min="0.0001"
+              :minFractionDigits="0"
+              :maxFractionDigits="4"
               class="w-full min-w-0 text-xs font-mono h-10 flex"
-              inputClass="!w-full !min-w-0 text-xs font-mono py-1 px-2.5 rounded-[6px] h-10 box-border border-slate-300"
-              :disabled="form.currency === 'VND' || isLocked"
+              inputClass="!w-full !min-w-0 text-xs font-mono py-1 px-2.5 rounded-[6px] h-10 box-border border-slate-300 focus:!border-indigo-500"
+              :disabled="isLocked"
             />
           </div>
         </div>
@@ -384,6 +399,11 @@ const isEditMode = computed(() => !!route.params.id && route.params.id !== 'crea
 const isLocked = computed(() => {
   const lockedStatuses = ['APPROVED', 'CONFIRMED', 'PROCESSING', 'COMPLETED'];
   return lockedStatuses.includes(form.value.status);
+});
+
+// Đơn bán hàng kế thừa từ Báo Giá (khóa Khách hàng, Liên hệ, Tiền tệ; cho phép sửa Tỷ giá)
+const isFromQuotation = computed(() => {
+  return !!form.value.quotation_id || !!form.value.quotation_number;
 });
 
 const canApprove = computed(() => {
