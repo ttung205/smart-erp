@@ -232,6 +232,29 @@ export const salesApi = {
   getRevenueReportItems(params = {}) {
     const qs = new URLSearchParams(params).toString();
     return apiClient(`/api/v1/sales/reports/revenue-items${qs ? '?' + qs : ''}`);
+  },
+
+  // 7. Attachments (Tệp đính kèm)
+  uploadAttachments(formData) {
+    return apiClient('/api/v1/sales/attachments/upload', {
+      method: 'POST',
+      body: formData
+    });
+  },
+
+  getAttachments(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return apiClient(`/api/v1/sales/attachments${qs ? '?' + qs : ''}`);
+  },
+
+  deleteAttachment(id) {
+    return apiClient(`/api/v1/sales/attachments/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  getDownloadAttachmentUrl(id) {
+    return `/api/v1/sales/attachments/${id}/download`;
   }
 };
 

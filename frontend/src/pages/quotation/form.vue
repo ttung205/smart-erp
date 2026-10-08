@@ -277,7 +277,16 @@
       @create-order="onCreateOrderFromItems"
     />
 
-    <!-- 4. Modal Thêm Nhanh Người Liên Hệ Mới -->
+    <!-- 4. Tài Liệu & Tệp Đính Kèm Báo Giá (Sử dụng PrimeVue FileUpload Advanced) -->
+    <FormAttachmentUpload
+      v-model="form.attachments"
+      :record-id="form.id || route.params.id"
+      title="Tài Liệu & Tệp Đính Kèm Báo Giá"
+      subtitle="Đính kèm bảng báo giá chi tiết, catalog thiết bị, hồ sơ năng lực hoặc yêu cầu kỹ thuật RFQ từ khách hàng"
+      section-type="quotation"
+    />
+
+    <!-- 5. Modal Thêm Nhanh Người Liên Hệ Mới -->
     <QuotationAddContactDialog
       v-model:visible="showAddContactDialog"
       @save="saveNewContact"
@@ -299,6 +308,7 @@ import Dialog from 'primevue/dialog';
 
 import QuotationItemTable from '../../components/quotation/QuotationItemTable.vue';
 import QuotationAddContactDialog from '../../components/quotation/QuotationAddContactDialog.vue';
+import FormAttachmentUpload from '../../components/common/FormAttachmentUpload.vue';
 import { catalogApi } from '../../api/catalog.api';
 import { salesApi } from '../../api/sales.api';
 import { identityApi } from '../../api/identity.api';
@@ -425,7 +435,8 @@ const form = ref({
   total_amount: 0,
   subtotal: 0,
   vat_total: 0,
-  items: []
+  items: [],
+  attachments: []
 });
 
 // Trạng thái modal
@@ -497,7 +508,10 @@ const initFormData = async () => {
     try {
       const res = await salesApi.getQuotationById(qId);
       if (res && res.data) {
-        form.value = res.data;
+        form.value = {
+          ...res.data,
+          attachments: res.data.attachments || []
+        };
         return;
       }
     } catch (err) {
@@ -525,7 +539,8 @@ const initFormData = async () => {
     total_amount: 0,
     subtotal: 0,
     vat_total: 0,
-    items: []
+    items: [],
+    attachments: []
   };
 };
 
@@ -668,12 +683,16 @@ const handleSaveQuotation = async () => {
   }
 
   try {
+    const payload = {
+      ...form.value,
+      attachment_ids: (form.value.attachments || []).map(a => a.id).filter(Boolean)
+    };
     let savedQ;
     if (isEditMode.value) {
-      const res = await salesApi.updateQuotation(form.value.id, form.value);
+      const res = await salesApi.updateQuotation(form.value.id, payload);
       savedQ = res.data;
     } else {
-      const res = await salesApi.createQuotation(form.value);
+      const res = await salesApi.createQuotation(payload);
       savedQ = res.data;
       if (savedQ && savedQ.id) {
         form.value = { ...form.value, ...savedQ };

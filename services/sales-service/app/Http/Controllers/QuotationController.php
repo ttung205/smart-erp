@@ -60,7 +60,7 @@ class QuotationController extends Controller
 
     public function show($id)
     {
-        $q = Quotation::with('items')
+        $q = Quotation::with(['items', 'attachments'])
             ->where('id', $id)
             ->orWhere('quotation_number', $id)
             ->first();
@@ -159,11 +159,20 @@ class QuotationController extends Controller
                 ]);
             }
 
+            // Liên kết tệp đính kèm nếu có
+            if ($request->has('attachment_ids')) {
+                \App\Models\SalesAttachment::whereIn('id', (array)$request->input('attachment_ids'))
+                    ->update([
+                        'attachable_id' => $quotation->id,
+                        'attachable_type' => 'quotation'
+                    ]);
+            }
+
             DB::commit();
 
             return response()->json([
                 'success' => true,
-                'data' => $quotation->load('items'),
+                'data' => $quotation->load(['items', 'attachments']),
                 'message' => "Tạo báo giá {$quotation->quotation_number} thành công."
             ], 201);
         } catch (\Throwable $e) {
@@ -193,6 +202,15 @@ class QuotationController extends Controller
                 'total_amount' => (float)$request->input('total_amount', $q->total_amount),
                 'notes' => $request->input('notes', $q->notes),
             ]);
+
+            // Cập nhật liên kết tệp đính kèm
+            if ($request->has('attachment_ids')) {
+                \App\Models\SalesAttachment::whereIn('id', (array)$request->input('attachment_ids'))
+                    ->update([
+                        'attachable_id' => $q->id,
+                        'attachable_type' => 'quotation'
+                    ]);
+            }
 
             if ($request->has('items')) {
                 QuotationItem::where('quotation_id', $q->id)->delete();

@@ -25,7 +25,7 @@ class SalesOrderController extends Controller
 
     public function show($id)
     {
-        $so = SalesOrder::with(['items', 'customer', 'contact', 'quotation', 'creator', 'assignee', 'approver'])
+        $so = SalesOrder::with(['items', 'customer', 'contact', 'quotation', 'creator', 'assignee', 'approver', 'attachments'])
             ->where('id', $id)
             ->orWhere('order_number', $id)
             ->first();
@@ -178,11 +178,20 @@ class SalesOrderController extends Controller
                 SaleReportService::syncOrderToReport($so);
             }
 
+            // Liên kết tệp đính kèm nếu có
+            if ($request->has('attachment_ids')) {
+                \App\Models\SalesAttachment::whereIn('id', (array)$request->input('attachment_ids'))
+                    ->update([
+                        'attachable_id' => $so->id,
+                        'attachable_type' => 'sales_order'
+                    ]);
+            }
+
             DB::commit();
 
             return response()->json([
                 'success' => true,
-                'data' => $so->load(['items.product', 'customer', 'contact', 'quotation', 'creator', 'assignee', 'approver']),
+                'data' => $so->load(['items.product', 'customer', 'contact', 'quotation', 'creator', 'assignee', 'approver', 'attachments']),
                 'message' => "Tạo đơn bán hàng {$so->order_number} thành công."
             ], 201);
         } catch (\Throwable $e) {
@@ -313,11 +322,20 @@ class SalesOrderController extends Controller
                 SaleReportService::syncOrderToReport($so);
             }
 
+            // Cập nhật liên kết tệp đính kèm
+            if ($request->has('attachment_ids')) {
+                \App\Models\SalesAttachment::whereIn('id', (array)$request->input('attachment_ids'))
+                    ->update([
+                        'attachable_id' => $so->id,
+                        'attachable_type' => 'sales_order'
+                    ]);
+            }
+
             DB::commit();
 
             return response()->json([
                 'success' => true,
-                'data' => $so->load(['items', 'customer', 'contact', 'quotation', 'creator', 'assignee', 'approver']),
+                'data' => $so->load(['items', 'customer', 'contact', 'quotation', 'creator', 'assignee', 'approver', 'attachments']),
                 'message' => "Cập nhật đơn bán hàng {$so->order_number} thành công."
             ]);
         } catch (\Throwable $e) {

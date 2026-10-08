@@ -37,6 +37,11 @@ class Quotation extends Model
         return $this->hasMany(QuotationItem::class, 'quotation_id');
     }
 
+    public function attachments()
+    {
+        return $this->hasMany(SalesAttachment::class, 'attachable_id')->where('attachable_type', 'quotation');
+    }
+
     public function customer()
     {
         return $this->belongsTo(Customer::class, 'customer_id');

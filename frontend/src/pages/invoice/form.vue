@@ -194,6 +194,15 @@
 
       <InvoiceItemTable v-model="form.items" :readonly="form.accounting_status === 'POSTED'" />
     </div>
+
+    <!-- 4. Tài Liệu & Chứng Từ Kèm Theo (Sử dụng PrimeVue FileUpload Advanced) -->
+    <FormAttachmentUpload
+      v-model="form.attachments"
+      :record-id="form.id || route.params.id"
+      title="Tài Liệu & Chứng Từ Đính Kèm (Sales Invoice)"
+      subtitle="Đính kèm biên bản bàn giao (POD), phiếu xuất kho có chữ ký, hóa đơn VAT điện tử hoặc chứng chỉ xuất xưởng (CO/CQ)"
+      section-type="invoice"
+    />
   </div>
 </template>
 
@@ -208,6 +217,7 @@ import InputNumber from 'primevue/inputnumber';
 import Textarea from 'primevue/textarea';
 import Select from 'primevue/select';
 import InvoiceItemTable from '../../components/invoice/InvoiceItemTable.vue';
+import FormAttachmentUpload from '../../components/common/FormAttachmentUpload.vue';
 
 import { salesApi } from '../../api/sales.api';
 import { inventoryApi } from '../../api/inventory.api';
@@ -249,7 +259,8 @@ const form = ref({
   warehouse_name: 'Kho Tổng Miền Bắc (Hà Nội)',
   warehouse_status: 'PENDING_WAREHOUSE',
   accounting_status: 'UNPOSTED',
-  items: []
+  items: [],
+  attachments: []
 });
 
 const getWarehouseStatusMeta = (st) => {
@@ -492,6 +503,7 @@ const initFormData = async () => {
           warehouse_name: inv.warehouse_name || inv.deliveryRequest?.warehouse_name || 'Kho Tổng Miền Bắc (Hà Nội)',
           warehouse_status: inv.warehouse_status || 'PENDING_WAREHOUSE',
           accounting_status: inv.accounting_status || 'UNPOSTED',
+          attachments: inv.attachments || [],
           items: (inv.items || []).map((it) => {
             const matchedOrderItem = it.order_item_id ? orderItemsMap.get(it.order_item_id) : (it.sku ? orderItemsMap.get(it.sku) : null);
             return enrichInvoiceItem(it, matchedOrderItem);
@@ -608,6 +620,7 @@ const saveInvoice = async (sendImmediately = false) => {
       notes: form.value.notes,
       total_amount: calculatedTotal.value,
       send_to_warehouse: sendImmediately,
+      attachment_ids: (form.value.attachments || []).map(a => a.id).filter(Boolean),
       items: form.value.items
     };
 

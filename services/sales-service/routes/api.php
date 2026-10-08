@@ -9,9 +9,16 @@ use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\SaleReportController;
 use App\Http\Controllers\VatInvoiceController;
 use App\Http\Controllers\RevenueReportController;
+use App\Http\Controllers\AttachmentController;
 
 // 1. Health Check
 Route::get('/health', [HealthController::class, 'check']);
+
+// Attachments (Tệp đính kèm)
+Route::get('/attachments', [AttachmentController::class, 'index']);
+Route::post('/attachments/upload', [AttachmentController::class, 'upload']);
+Route::get('/attachments/{id}/download', [AttachmentController::class, 'download']);
+Route::delete('/attachments/{id}', [AttachmentController::class, 'destroy']);
 
 // 2. Quotations (Báo Giá)
 Route::post('/quotations/{id}/submit-approval', [QuotationController::class, 'submitApproval']);

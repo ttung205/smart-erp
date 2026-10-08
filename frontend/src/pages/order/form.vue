@@ -354,6 +354,15 @@
       @summary-change="onItemsSummaryChange"
     />
 
+    <!-- 4. Tài Liệu & Tệp Đính Kèm Đơn Bán Hàng (Sử dụng PrimeVue FileUpload Advanced) -->
+    <FormAttachmentUpload
+      v-model="form.attachments"
+      :record-id="form.id || route.params.id"
+      title="Tài Liệu & Tệp Đính Kèm Đơn Bán Hàng (SO)"
+      subtitle="Đính kèm hợp đồng kinh tế, đơn đặt hàng PO (Purchase Order) của khách hàng, thư bảo lãnh hoặc bản vẽ kỹ thuật"
+      section-type="order"
+    />
+
     <!-- Dialog Thêm Người Liên Hệ Nhanh -->
     <OrderAddContactDialog
       v-model:visible="showAddContactDialog"
@@ -376,6 +385,7 @@ import Dialog from 'primevue/dialog';
 
 import OrderItemTable from '../../components/order/OrderItemTable.vue';
 import OrderAddContactDialog from '../../components/order/OrderAddContactDialog.vue';
+import FormAttachmentUpload from '../../components/common/FormAttachmentUpload.vue';
 import { catalogApi } from '../../api/catalog.api';
 import { salesApi } from '../../api/sales.api';
 import { identityApi } from '../../api/identity.api';
@@ -552,7 +562,8 @@ const form = ref({
   total_amount: 0,
   subtotal: 0,
   vat_total: 0,
-  items: []
+  items: [],
+  attachments: []
 });
 
 const showAddContactDialog = ref(false);
@@ -645,6 +656,7 @@ const initFormData = async () => {
         const so = res.data;
         form.value = {
           ...so,
+          attachments: so.attachments || [],
           order_date: so.order_date || nowDateFormat(),
           created_by: isNaN(Number(so.created_by)) ? defaultUserId : Number(so.created_by),
           assigned_to: isNaN(Number(so.assigned_to)) ? defaultUserId : Number(so.assigned_to),
@@ -705,6 +717,7 @@ const initFormData = async () => {
         total_amount: 0,
         subtotal: 0,
         vat_total: 0,
+        attachments: parsed.attachments || [],
         items: (parsed.items || []).map((it) => ({
           ...it,
           delivery_date: it.delivery_date || it.expected_delivery_date || '',
@@ -978,12 +991,16 @@ const handleSaveOrder = async () => {
   calculateTotals();
 
   try {
+    const payload = {
+      ...form.value,
+      attachment_ids: (form.value.attachments || []).map(a => a.id).filter(Boolean)
+    };
     let savedSO;
     if (isEditMode.value) {
-      const res = await salesApi.updateOrder(form.value.id, form.value);
+      const res = await salesApi.updateOrder(form.value.id, payload);
       savedSO = res.data;
     } else {
-      const res = await salesApi.createOrder(form.value);
+      const res = await salesApi.createOrder(payload);
       savedSO = res.data;
       if (savedSO && savedSO.id) {
         form.value = { ...form.value, ...savedSO };

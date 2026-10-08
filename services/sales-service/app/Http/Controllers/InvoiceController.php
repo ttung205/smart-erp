@@ -169,6 +169,15 @@ class InvoiceController extends Controller
                 $dr->update(['status' => 'INVOICED']);
             }
 
+            // Liên kết tệp đính kèm nếu có
+            if ($request->has('attachment_ids')) {
+                \App\Models\SalesAttachment::whereIn('id', (array)$request->input('attachment_ids'))
+                    ->update([
+                        'attachable_id' => $inv->id,
+                        'attachable_type' => 'invoice'
+                    ]);
+            }
+
             return $inv;
         });
 
@@ -177,7 +186,7 @@ class InvoiceController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $inv->load('items', 'deliveryRequest.order.customer'),
+            'data' => $inv->load('items', 'deliveryRequest.order.customer', 'attachments'),
             'reservation' => $reservationResult,
             'message' => "Đã tạo chứng từ {$inv->invoice_number} và gửi lệnh giữ chỗ tồn kho thành công."
         ], 201);
@@ -189,7 +198,8 @@ class InvoiceController extends Controller
             'items.orderItem',
             'deliveryRequest.order.customer',
             'deliveryRequest.order.creator',
-            'deliveryRequest.items'
+            'deliveryRequest.items',
+            'attachments'
         ])->where('id', $id)->orWhere('invoice_number', $id)->first();
 
         if (!$inv) {

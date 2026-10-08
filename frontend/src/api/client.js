@@ -3,10 +3,13 @@ import { storage } from '../utils/storage';
 export async function apiClient(url, options = {}) {
   const token = storage.getToken();
   const headers = {
-    'Content-Type': 'application/json',
     'Accept': 'application/json',
     ...(options.headers || {})
   };
+
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;

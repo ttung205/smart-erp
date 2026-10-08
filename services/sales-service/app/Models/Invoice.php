@@ -48,6 +48,11 @@ class Invoice extends Model
         return $this->hasMany(InvoiceItem::class, 'invoice_id');
     }
 
+    public function attachments()
+    {
+        return $this->hasMany(SalesAttachment::class, 'attachable_id')->where('attachable_type', 'invoice');
+    }
+
     public function deliveryRequest()
     {
         return $this->belongsTo(DeliveryRequest::class, 'delivery_request_id');

@@ -44,6 +44,11 @@ class SalesOrder extends Model
         return $this->hasMany(SalesOrderItem::class, 'order_id');
     }
 
+    public function attachments()
+    {
+        return $this->hasMany(SalesAttachment::class, 'attachable_id')->where('attachable_type', 'sales_order');
+    }
+
     public function quotation()
     {
         return $this->belongsTo(Quotation::class, 'quotation_id');
