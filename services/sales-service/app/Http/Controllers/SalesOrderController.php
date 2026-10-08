@@ -9,6 +9,8 @@ use App\Models\SalesOrderItem;
 use App\Models\Quotation;
 use App\Models\Customer;
 use App\Models\User;
+use App\Models\SaleReportItem;
+use App\Services\SaleReportService;
 
 class SalesOrderController extends Controller
 {
@@ -172,6 +174,10 @@ class SalesOrderController extends Controller
                 Quotation::where('id', $quotationId)->update(['status' => 'CONVERTED']);
             }
 
+            if ($so->status === 'APPROVED') {
+                SaleReportService::syncOrderToReport($so);
+            }
+
             DB::commit();
 
             return response()->json([
@@ -303,6 +309,10 @@ class SalesOrderController extends Controller
                 }
             }
 
+            if (in_array($so->status, ['APPROVED', 'PROCESSING', 'COMPLETED'])) {
+                SaleReportService::syncOrderToReport($so);
+            }
+
             DB::commit();
 
             return response()->json([
@@ -350,6 +360,8 @@ class SalesOrderController extends Controller
             'approved_at' => now()->format('d/m/Y H:i'),
         ]);
 
+        SaleReportService::syncOrderToReport($so);
+
         return response()->json([
             'success' => true,
             'data' => $so->load(['items', 'customer', 'contact', 'quotation', 'creator', 'assignee', 'approver']),
@@ -370,6 +382,8 @@ class SalesOrderController extends Controller
             'notes' => $reason ? ($so->notes ? $so->notes . "\n[Lý do từ chối: {$reason}]" : "[Lý do từ chối: {$reason}]") : $so->notes
         ]);
 
+        SaleReportItem::where('order_id', $so->id)->update(['status' => 'CANCELLED']);
+
         return response()->json([
             'success' => true,
             'data' => $so->load(['items', 'customer', 'contact', 'quotation', 'creator', 'assignee', 'approver']),
@@ -383,6 +397,7 @@ class SalesOrderController extends Controller
         if (!$so) {
             return response()->json(['success' => false, 'message' => 'Không tìm thấy đơn hàng'], 404);
         }
+        SaleReportItem::where('order_id', $so->id)->delete();
         $so->delete();
         return response()->json(['success' => true, 'message' => 'Đã xóa đơn bán hàng thành công']);
     }

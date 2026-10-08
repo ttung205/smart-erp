@@ -195,5 +195,43 @@ export const salesApi = {
       method: 'POST',
       body: JSON.stringify({ posted_by: accountantName })
     });
+  },
+
+  // 5. VAT Invoices (Hóa Đơn GTGT)
+  getNextVatInvoiceNumber() {
+    return apiClient('/api/v1/sales/vat-invoices/next-number');
+  },
+
+  getVatInvoices(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return apiClient(`/api/v1/sales/vat-invoices${qs ? '?' + qs : ''}`);
+  },
+
+  getVatInvoiceById(id) {
+    return apiClient(`/api/v1/sales/vat-invoices/${id}`);
+  },
+
+  getUnbilledRevenueItems(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return apiClient(`/api/v1/sales/vat-invoices/unbilled-items${qs ? '?' + qs : ''}`);
+  },
+
+  createVatInvoice(data) {
+    return apiClient('/api/v1/sales/vat-invoices', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  // 6. Reports
+  getSaleReportItems(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return apiClient(`/api/v1/sales/reports/sale-items${qs ? '?' + qs : ''}`);
+  },
+
+  getRevenueReportItems(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return apiClient(`/api/v1/sales/reports/revenue-items${qs ? '?' + qs : ''}`);
   }
 };
+

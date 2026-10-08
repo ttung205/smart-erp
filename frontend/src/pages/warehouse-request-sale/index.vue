@@ -120,24 +120,54 @@
         <span class="text-slate-700 text-xs">{{ data.warehouse_name || 'Kho Tổng Miền Bắc' }}</span>
       </template>
 
-      <!-- Custom column: logistics_personnel -->
-      <template #col-logistics_personnel="{ data }">
-        <div class="text-xs space-y-0.5">
-          <div v-if="data.picker_name" class="flex items-center gap-1 text-slate-700">
-            <i class="pi pi-user text-[10px] text-amber-500"></i>
-            <span>Soạn: <strong>{{ data.picker_name }}</strong></span>
+      <!-- Custom column: picker_name (Người Soạn) -->
+      <template #col-picker_name="{ data }">
+        <div v-if="data.picker_name" class="flex items-center gap-1.5 text-xs text-slate-800">
+          <i class="pi pi-user text-[11px] text-amber-500"></i>
+          <span class="font-medium truncate" :title="data.picker_name">{{ data.picker_name }}</span>
+        </div>
+        <span v-else class="text-slate-400 italic text-[11px]">Chưa phân công</span>
+      </template>
+
+      <!-- Custom column: packer_name (Người Đóng) -->
+      <template #col-packer_name="{ data }">
+        <div v-if="data.packer_name" class="flex items-center gap-1.5 text-xs text-slate-800">
+          <i class="pi pi-box text-[11px] text-indigo-500"></i>
+          <span class="font-medium truncate" :title="data.packer_name">{{ data.packer_name }}</span>
+        </div>
+        <span v-else class="text-slate-400 italic text-[11px]">Chưa phân công</span>
+      </template>
+
+      <!-- Custom column: shipping_method (Hình Thức) -->
+      <template #col-shipping_method="{ data }">
+        <div class="text-xs">
+          <div v-if="data.shipping_method === 'CUSTOMER_PICKUP'" class="inline-flex items-center">
+            <span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-[4px] text-[11px] font-semibold flex items-center gap-1">
+              <i class="pi pi-user text-[10px]"></i> Khách tới lấy
+            </span>
           </div>
-          <div v-if="data.packer_name" class="flex items-center gap-1 text-slate-700">
-            <i class="pi pi-box text-[10px] text-indigo-500"></i>
-            <span>Đóng: <strong>{{ data.packer_name }}</strong></span>
+          <div v-else-if="data.shipping_method === 'WAREHOUSE_DELIVERY'" class="flex flex-col gap-0.5">
+            <span class="bg-sky-50 text-sky-800 border border-sky-200 px-2 py-0.5 rounded-[4px] text-[11px] font-semibold inline-flex items-center gap-1 w-fit">
+              <i class="pi pi-truck text-[10px]"></i> Kho giao
+            </span>
+            <span v-if="data.shipper_name" class="text-[11px] text-slate-600 truncate" :title="data.shipper_name">
+              NV: <strong>{{ data.shipper_name }}</strong>
+            </span>
           </div>
-          <div v-if="data.shipper_name" class="flex items-center gap-1 text-slate-700">
-            <i class="pi pi-truck text-[10px] text-sky-500"></i>
-            <span>Giao: <strong>{{ data.shipper_name }}</strong></span>
+          <div v-else-if="data.shipping_method === 'THIRD_PARTY_CARRIER'" class="flex flex-col gap-0.5">
+            <span class="bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-[4px] text-[11px] font-semibold inline-flex items-center gap-1 w-fit">
+              <i class="pi pi-send text-[10px]"></i> Gửi VC
+            </span>
+            <span v-if="data.shipper_name || data.shipping_note" class="text-[11px] text-slate-600 truncate" :title="`${data.shipper_name || ''} ${data.shipping_note || ''}`">
+              {{ data.shipper_name || 'Hãng VC' }}{{ data.shipping_note ? ' (' + data.shipping_note + ')' : '' }}
+            </span>
           </div>
-          <span v-if="!data.picker_name && !data.packer_name && !data.shipper_name" class="text-slate-400 italic text-[11px]">
-            Chưa phân công
-          </span>
+          <div v-else-if="data.shipper_name" class="inline-flex items-center">
+            <span class="bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-[4px] text-[11px] font-medium">
+              {{ data.shipper_name }}
+            </span>
+          </div>
+          <span v-else class="text-slate-400 italic text-[11px]">Chưa chọn</span>
         </div>
       </template>
 
@@ -210,6 +240,25 @@
           <div><span class="text-slate-500 block">Kho xuất:</span><strong class="text-slate-700">{{ selectedInvoice.warehouse_name }}</strong></div>
         </div>
 
+        <!-- Thông tin điều phối kho -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white border border-slate-200 rounded-[6px] p-3 text-xs">
+          <div>
+            <span class="text-slate-500 block text-[11px]">Nhân viên soạn hàng:</span>
+            <strong class="text-slate-800">{{ selectedInvoice.picker_name || 'Chưa phân công' }}</strong>
+          </div>
+          <div>
+            <span class="text-slate-500 block text-[11px]">Người đóng gói:</span>
+            <strong class="text-slate-800">{{ selectedInvoice.packer_name || 'Chưa phân công' }}</strong>
+          </div>
+          <div>
+            <span class="text-slate-500 block text-[11px]">Phương thức & Vận chuyển:</span>
+            <strong class="text-slate-800">{{ getShippingMethodLabel(selectedInvoice.shipping_method) }}</strong>
+            <span v-if="selectedInvoice.shipper_name" class="block text-[11px] text-slate-600">
+              {{ selectedInvoice.shipper_name }} {{ selectedInvoice.shipping_note ? ' - ' + selectedInvoice.shipping_note : '' }}
+            </span>
+          </div>
+        </div>
+
         <div class="border border-slate-200 rounded-[6px] overflow-hidden">
           <DataTable :value="selectedInvoice.items" showGridlines class="clean-datatable text-xs" responsiveLayout="scroll">
             <Column field="sku" header="SKU" style="width: 130px">
@@ -253,62 +302,117 @@
     >
       <div v-if="selectedInvoice" class="space-y-3.5 pt-1 text-xs">
         <p class="text-slate-600 m-0">
-          Chỉ định nhân sự thực hiện toàn bộ khâu <strong>Soạn hàng</strong>, <strong>Đóng gói</strong> và <strong>Vận chuyển</strong> cho chứng từ <strong>{{ selectedInvoice.invoice_number }}</strong>.
+          Chỉ định nhân sự thực hiện toàn bộ khâu <strong>Soạn hàng</strong>, <strong>Đóng gói</strong> và <strong>Phương thức vận chuyển</strong> cho chứng từ <strong>{{ selectedInvoice.invoice_number }}</strong>.
         </p>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <!-- Soạn hàng -->
+          <!-- Soạn hàng (Role Logistic + filter) -->
           <div class="flex flex-col gap-1">
             <label class="font-semibold text-slate-700 flex items-center gap-1.5">
               <i class="pi pi-user text-amber-500"></i>
               <span>Nhân viên soạn hàng (Picker)</span>
             </label>
-            <InputText
-              v-model="assignForm.picker_name"
-              placeholder="Ví dụ: Nguyễn Văn Soạn"
+            <Select
+              v-model="assignForm.picker_id"
+              :options="logisticEmployees"
+              optionLabel="name"
+              optionValue="id"
+              :filter="true"
+              filterPlaceholder="Tìm nhân viên..."
+              placeholder="Chọn nhân viên soạn hàng"
               class="w-full text-xs rounded-[6px]"
               size="small"
             />
           </div>
 
-          <!-- Đóng gói -->
+          <!-- Đóng gói (Role Logistic + filter) -->
           <div class="flex flex-col gap-1">
             <label class="font-semibold text-slate-700 flex items-center gap-1.5">
               <i class="pi pi-box text-indigo-500"></i>
               <span>Người đóng gói (Packer)</span>
             </label>
-            <InputText
-              v-model="assignForm.packer_name"
-              placeholder="Ví dụ: Trần Thị Đóng"
+            <Select
+              v-model="assignForm.packer_id"
+              :options="logisticEmployees"
+              optionLabel="name"
+              optionValue="id"
+              :filter="true"
+              filterPlaceholder="Tìm nhân viên..."
+              placeholder="Chọn người đóng gói"
               class="w-full text-xs rounded-[6px]"
               size="small"
             />
           </div>
         </div>
 
-        <!-- Shipper / Vận chuyển -->
+        <!-- Phương thức vận chuyển -->
         <div class="flex flex-col gap-1">
           <label class="font-semibold text-slate-700 flex items-center gap-1.5">
             <i class="pi pi-truck text-sky-500"></i>
-            <span>Đơn vị / Người vận chuyển (Shipper)</span>
+            <span>Phương thức vận chuyển</span>
           </label>
-          <InputText
-            v-model="assignForm.shipper_name"
-            placeholder="Ví dụ: Viettel Post / GHTK / Đội xe công ty"
+          <Select
+            v-model="assignForm.shipping_method"
+            :options="shippingMethodOptions"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Chọn phương thức vận chuyển"
             class="w-full text-xs rounded-[6px]"
             size="small"
           />
         </div>
 
-        <!-- Ghi chú vận chuyển -->
-        <div class="flex flex-col gap-1">
-          <label class="font-semibold text-slate-700">Ghi chú vận chuyển / Mã vận đơn</label>
-          <InputText
-            v-model="assignForm.shipping_note"
-            placeholder="Ví dụ: Mã vận đơn VTP-888999, giao giờ hành chính"
+        <!-- Trường hợp 1: Kho giao -> Phân công người vận chuyển / giao hàng -->
+        <div v-if="assignForm.shipping_method === 'WAREHOUSE_DELIVERY'" class="flex flex-col gap-1 bg-sky-50/50 p-2.5 rounded-[6px] border border-sky-100">
+          <label class="font-semibold text-sky-800 flex items-center gap-1.5">
+            <i class="pi pi-user-plus text-sky-600"></i>
+            <span>Người vận chuyển / Giao hàng (Kho phân công)</span>
+          </label>
+          <Select
+            v-model="assignForm.shipper_id"
+            :options="logisticEmployees"
+            optionLabel="name"
+            optionValue="id"
+            :filter="true"
+            filterPlaceholder="Tìm người giao hàng..."
+            placeholder="Chọn nhân sự giao hàng của kho..."
             class="w-full text-xs rounded-[6px]"
             size="small"
           />
+        </div>
+
+        <!-- Trường hợp 2: Gửi vận chuyển -> Nhập đơn vị VC & Mã vận đơn / Ghi chú -->
+        <div v-else-if="assignForm.shipping_method === 'THIRD_PARTY_CARRIER'" class="space-y-2.5 bg-amber-50/40 p-2.5 rounded-[6px] border border-amber-100">
+          <div class="flex flex-col gap-1">
+            <label class="font-semibold text-slate-700 flex items-center gap-1.5">
+              <i class="pi pi-building text-amber-600"></i>
+              <span>Đơn vị vận chuyển (Hãng chuyển phát)</span>
+            </label>
+            <Select
+              v-model="assignForm.shipper_name"
+              :options="carrierOptions"
+              :editable="true"
+              placeholder="Chọn hoặc nhập đơn vị VC (Viettel Post, GHTK, GHN...)"
+              class="w-full text-xs rounded-[6px]"
+              size="small"
+            />
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="font-semibold text-slate-700">Mã vận đơn / Ghi chú gửi hàng</label>
+            <InputText
+              v-model="assignForm.shipping_note"
+              placeholder="Ví dụ: Mã vận đơn VTP-888999, giao giờ hành chính"
+              class="w-full text-xs rounded-[6px]"
+              size="small"
+            />
+          </div>
+        </div>
+
+        <!-- Trường hợp 3: Khách tới lấy -> Không cần người giao hay mã vận đơn -->
+        <div v-else-if="assignForm.shipping_method === 'CUSTOMER_PICKUP'" class="bg-emerald-50/50 p-2.5 rounded-[6px] border border-emerald-100 flex items-center gap-2 text-emerald-800 text-[11px]">
+          <i class="pi pi-check-circle text-emerald-600 text-sm"></i>
+          <span>Khách hàng sẽ chủ động tới kho nhận hàng. Không cần phân người vận chuyển hay mã vận đơn.</span>
         </div>
       </div>
       <template #footer>
@@ -408,6 +512,7 @@ import DataTable from 'primevue/datatable';
 import PageHeader from '../../components/common/PageHeader.vue';
 import CommonDataTable from '../../components/common/CommonDataTable.vue';
 import { salesApi } from '../../api/sales.api';
+import { identityApi } from '../../api/identity.api';
 
 const props = defineProps({
   currentUser: {
@@ -419,6 +524,7 @@ const props = defineProps({
 const toast = useToast();
 
 const requests = ref([]);
+const allUsers = ref([]);
 const loading = ref(false);
 const searchQuery = ref('');
 const statusFilter = ref(null);
@@ -429,7 +535,25 @@ const showPostModal = ref(false);
 const selectedInvoice = ref(null);
 const postingLoading = ref(false);
 
+const shippingMethodOptions = [
+  { label: 'Khách tới lấy', value: 'CUSTOMER_PICKUP' },
+  { label: 'Kho giao', value: 'WAREHOUSE_DELIVERY' },
+  { label: 'Gửi vận chuyển', value: 'THIRD_PARTY_CARRIER' }
+];
+
+const carrierOptions = [
+  'Viettel Post',
+  'Giao Hàng Tiết Kiệm (GHTK)',
+  'Giao Hàng Nhanh (GHN)',
+  'VNPost (Bưu Điện)',
+  'J&T Express',
+  'Ahamove',
+  'Lalamove',
+  'Đơn vị vận chuyển khác'
+];
+
 const assignForm = ref({
+  shipping_method: 'CUSTOMER_PICKUP',
   picker_name: '',
   packer_name: '',
   shipper_name: '',
@@ -441,13 +565,15 @@ const postForm = ref({
 });
 
 const tableColumns = [
-  { field: 'invoice_number', header: 'Mã Chứng Từ (INV)', sortable: true, width: '150px' },
-  { field: 'order_info', header: 'Đơn Bán / Yêu Cầu', sortable: false, width: '160px' },
+  { field: 'invoice_number', header: 'Mã Chứng Từ (INV)', sortable: true, width: '140px' },
+  { field: 'order_info', header: 'Đơn Bán / Yêu Cầu', sortable: false, width: '150px' },
   { field: 'customer_name', header: 'Khách Hàng & Địa Chỉ', sortable: true },
-  { field: 'total_items_qty', header: 'Tổng SL Xuất', sortable: true, width: '110px', align: 'center' },
-  { field: 'warehouse_name', header: 'Kho Xuất', sortable: false, width: '160px' },
-  { field: 'logistics_personnel', header: 'Điều Phối Kho', sortable: false, width: '180px' },
-  { field: 'warehouse_status', header: 'Tiến Độ Kho', sortable: true, width: '120px', align: 'center' }
+  { field: 'total_items_qty', header: 'Tổng SL Xuất', sortable: true, width: '100px', align: 'center' },
+  { field: 'warehouse_name', header: 'Kho Xuất', sortable: false, width: '140px' },
+  { field: 'picker_name', header: 'Người Soạn', sortable: true, width: '130px' },
+  { field: 'packer_name', header: 'Người Đóng', sortable: true, width: '130px' },
+  { field: 'shipping_method', header: 'Hình Thức', sortable: true, width: '160px' },
+  { field: 'warehouse_status', header: 'Tiến Độ Kho', sortable: true, width: '110px', align: 'center' }
 ];
 
 const statusOptions = [
@@ -456,6 +582,37 @@ const statusOptions = [
   { label: 'Đã xử lý', value: 'PROCESSED' },
   { label: 'Đã xuất kho', value: 'DELIVERED' }
 ];
+
+// Lọc chỉ lấy nhân viên có role là LOGISTIC (hoặc LOGISTIC_MANAGER, SUPER_ADMIN)
+const logisticEmployees = computed(() => {
+  if (!allUsers.value || allUsers.value.length === 0) {
+    return [
+      { id: 1, name: 'Nguyễn Văn Soạn (Logistics)' },
+      { id: 2, name: 'Trần Thị Đóng (Kho)' },
+      { id: 3, name: 'Lê Văn Giao (Tài xế)' },
+      { id: 4, name: 'Phạm Đức Kho (Thủ kho)' }
+    ];
+  }
+  const filtered = allUsers.value.filter((u) => {
+    const roles = u.roles || [];
+    const hasLogisticRole = roles.some((r) => {
+      const code = (r.code || '').toUpperCase();
+      const name = (r.name || '').toLowerCase();
+      return (
+        code === 'LOGISTIC' ||
+        code === 'LOGISTIC_MANAGER' ||
+        code === 'SUPER_ADMIN' ||
+        name.includes('logistic') ||
+        name.includes('kho') ||
+        name.includes('vận chuyển') ||
+        name.includes('giao hàng')
+      );
+    });
+    return hasLogisticRole;
+  });
+
+  return filtered.length > 0 ? filtered : allUsers.value;
+});
 
 const getStatusMeta = (st) => {
   const map = {
@@ -470,6 +627,11 @@ const getStatusMeta = (st) => {
   return map[st] || { label: st || 'Chờ xử lý', severity: 'secondary' };
 };
 
+const getShippingMethodLabel = (method) => {
+  const found = shippingMethodOptions.find((m) => m.value === method);
+  return found ? found.label : (method || 'Chưa chọn');
+};
+
 const countWaiting = computed(() => {
   return requests.value.filter((r) => r.warehouse_status === 'SENT_TO_WAREHOUSE').length;
 });
@@ -481,6 +643,17 @@ const countProcessed = computed(() => {
 const countDelivered = computed(() => {
   return requests.value.filter((r) => r.warehouse_status === 'DELIVERED').length;
 });
+
+const loadUsers = async () => {
+  try {
+    const res = await identityApi.getUsers();
+    if (res && res.data) {
+      allUsers.value = res.data;
+    }
+  } catch (err) {
+    console.warn('Lỗi tải danh sách người dùng:', err);
+  }
+};
 
 const loadRequests = async () => {
   loading.value = true;
@@ -505,6 +678,7 @@ const loadRequests = async () => {
 
 onMounted(() => {
   loadRequests();
+  loadUsers();
 });
 
 const filteredRequests = computed(() => {
@@ -544,11 +718,35 @@ const openViewDetails = (inv) => {
 
 const openAssignModal = (inv) => {
   selectedInvoice.value = inv;
+
+  // Lấy ID từ invoice hoặc join relation hoặc tìm theo tên
+  let pId = inv.picker_id || inv.warehouse_dispatch?.picker_id || null;
+  if (!pId && inv.picker_name) {
+    const found = allUsers.value.find((u) => u.name === inv.picker_name);
+    if (found) pId = found.id;
+  }
+
+  let pkId = inv.packer_id || inv.warehouse_dispatch?.packer_id || null;
+  if (!pkId && inv.packer_name) {
+    const found = allUsers.value.find((u) => u.name === inv.packer_name);
+    if (found) pkId = found.id;
+  }
+
+  let sId = inv.shipper_id || inv.warehouse_dispatch?.shipper_id || null;
+  if (!sId && inv.shipper_name) {
+    const found = allUsers.value.find((u) => u.name === inv.shipper_name);
+    if (found) sId = found.id;
+  }
+
   assignForm.value = {
-    picker_name: inv.picker_name || props.currentUser?.name || '',
+    shipping_method: inv.shipping_method || inv.warehouse_dispatch?.shipping_method || 'CUSTOMER_PICKUP',
+    picker_id: pId,
+    picker_name: inv.picker_name || '',
+    packer_id: pkId,
     packer_name: inv.packer_name || '',
-    shipper_name: inv.shipper_name || 'Viettel Post',
-    shipping_note: inv.shipping_note || ''
+    shipper_id: sId,
+    shipper_name: inv.shipper_name || '',
+    shipping_note: inv.shipping_note || inv.warehouse_dispatch?.shipping_note || ''
   };
   showAssignModal.value = true;
 };
@@ -556,8 +754,21 @@ const openAssignModal = (inv) => {
 const submitAssign = async () => {
   if (!selectedInvoice.value) return;
   try {
+    const pickerUser = allUsers.value.find((u) => u.id === assignForm.value.picker_id);
+    const packerUser = allUsers.value.find((u) => u.id === assignForm.value.packer_id);
+    const shipperUser = allUsers.value.find((u) => u.id === assignForm.value.shipper_id);
+
     const payload = {
-      ...assignForm.value,
+      shipping_method: assignForm.value.shipping_method,
+      picker_id: assignForm.value.picker_id || null,
+      picker_name: pickerUser?.name || assignForm.value.picker_name || '',
+      packer_id: assignForm.value.packer_id || null,
+      packer_name: packerUser?.name || assignForm.value.packer_name || '',
+      shipper_id: assignForm.value.shipping_method === 'WAREHOUSE_DELIVERY' ? (assignForm.value.shipper_id || null) : null,
+      shipper_name: assignForm.value.shipping_method === 'WAREHOUSE_DELIVERY'
+        ? (shipperUser?.name || assignForm.value.shipper_name)
+        : assignForm.value.shipper_name,
+      shipping_note: assignForm.value.shipping_note,
       status: 'PROCESSED'
     };
     await salesApi.assignLogistics(selectedInvoice.value.id, payload);
@@ -565,7 +776,7 @@ const submitAssign = async () => {
     toast.add({
       severity: 'success',
       summary: 'Đã phân công điều phối',
-      detail: `Lệnh xuất kho ${selectedInvoice.value.invoice_number} đã cập nhật sang trạng thái Đã xử lý`,
+      detail: `Lệnh xuất kho ${selectedInvoice.value.invoice_number} đã cập nhật sang bảng điều phối kho thành công`,
       life: 3000
     });
 

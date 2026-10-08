@@ -249,11 +249,11 @@
             />
           </div>
 
-          <!-- Tỷ giá (Cho phép sửa, chỉ khóa khi đơn đã duyệt) -->
+          <!-- Tỷ giá (Nếu VND là 1 không cho sửa) -->
           <div class="md:col-span-2 min-w-0 flex flex-col gap-1.5">
             <label class="text-xs font-bold text-slate-700 uppercase tracking-wide truncate flex items-center justify-between">
               <span>Tỷ giá</span>
-              <span v-if="!isLocked" class="text-[10px] font-normal text-slate-400 lowercase">(sửa)</span>
+              <span v-if="!isLocked && form.currency !== 'VND'" class="text-[10px] font-normal text-slate-400 lowercase">(sửa)</span>
             </label>
             <InputNumber
               v-model="form.exchange_rate"
@@ -262,7 +262,8 @@
               :maxFractionDigits="4"
               class="w-full min-w-0 text-xs font-mono h-10 flex"
               inputClass="!w-full !min-w-0 text-xs font-mono py-1 px-2.5 rounded-[6px] h-10 box-border border-slate-300 focus:!border-indigo-500"
-              :disabled="isLocked"
+              :class="{ '!bg-slate-50': isLocked || form.currency === 'VND' }"
+              :disabled="isLocked || form.currency === 'VND'"
             />
           </div>
         </div>
@@ -439,12 +440,42 @@ const nowDateFormat = () => {
   return `${day}/${mon}/${yr}`;
 };
 
-// Danh sách nhân viên cho Select assigned_to
+const isSaleUser = (u) => {
+  if (!u) return false;
+  if (Array.isArray(u.roles) && u.roles.length > 0) {
+    const hasSaleRole = u.roles.some((r) => {
+      const code = String(r.code || '').toUpperCase();
+      const name = String(r.name || '').toLowerCase();
+      return code === 'SALE' || code === 'SALE_MANAGER' || code.includes('SALE') || name.includes('kinh doanh') || name.includes('sale');
+    });
+    if (hasSaleRole) return true;
+  }
+  if (u.department_code === 'SALES' || (u.department_name && u.department_name.toLowerCase().includes('kinh doanh'))) {
+    return true;
+  }
+  if (typeof u.role === 'string') {
+    const r = u.role.toUpperCase();
+    if (r === 'SALE' || r === 'SALE_MANAGER' || r.includes('SALE')) return true;
+  }
+  return false;
+};
+
+// Danh sách nhân viên cho Select assigned_to (Chỉ lấy role Sale)
 const userOptions = computed(() => {
-  return users.value.map((u) => ({
+  const saleUsers = users.value.filter(isSaleUser);
+  const list = saleUsers.length > 0 ? saleUsers : users.value.filter(u => String(u.name || u.email || '').toLowerCase().includes('sale'));
+  
+  if (list.length === 0) {
+    return [
+      { id: 2, name: 'Chuyên Viên Kinh Doanh (Sale)', label: 'Chuyên Viên Kinh Doanh (sale@erp.local)' },
+      { id: 3, name: 'Trưởng Phòng Kinh Doanh (Sale Manager)', label: 'Trưởng Phòng Kinh Doanh (sale.manager@erp.local)' }
+    ];
+  }
+
+  return list.map((u) => ({
     id: u.id,
     name: u.name,
-    label: `${u.name} (${u.email})`
+    label: `${u.name} (${u.email || 'Sale'})`
   }));
 });
 
@@ -575,6 +606,15 @@ watch(
   () => route.params.id,
   () => {
     initFormData();
+  }
+);
+
+watch(
+  () => form.value.currency,
+  (newCurr) => {
+    if (newCurr === 'VND') {
+      form.value.exchange_rate = 1.0;
+    }
   }
 );
 

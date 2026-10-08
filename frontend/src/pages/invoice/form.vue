@@ -93,13 +93,13 @@
               class="w-full text-xs bg-slate-50 font-semibold text-slate-800 rounded-[6px]" size="small" />
           </div>
 
-          <!-- Người tạo chứng từ -->
+          <!-- Người tạo chứng từ (Tự động lấy, không cho sửa) -->
           <div class="md:col-span-6 flex flex-col gap-1.5 min-w-0">
             <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
-              Người tạo chứng từ <span class="text-red-500">*</span>
+              Người tạo chứng từ
             </label>
-            <InputText v-model="form.created_by" class="w-full text-xs rounded-[6px]" size="small"
-              placeholder="Tên nhân viên tạo chứng từ..." />
+            <InputText :value="form.created_by" readonly disabled
+              class="w-full text-xs !bg-slate-50 font-semibold text-slate-700 rounded-[6px]" size="small" />
           </div>
         </div>
 
@@ -113,16 +113,19 @@
               class="w-full text-xs font-mono font-bold rounded-[6px]" size="small" />
           </div>
 
-          <!-- Tỉ giá quy đổi (Lấy từ đơn hàng, cho phép thay đổi) -->
+          <!-- Tỉ giá quy đổi (Nếu VND là 1 không cho sửa) -->
           <div class="md:col-span-6 flex flex-col gap-1.5 min-w-0">
             <div class="flex items-center justify-between">
               <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
                 Tỉ giá quy đổi
               </label>
-              <span class="text-[10px] text-indigo-600 font-semibold">Cho phép điều chỉnh</span>
+              <span v-if="form.currency !== 'VND'" class="text-[10px] text-indigo-600 font-semibold">Cho phép điều chỉnh</span>
             </div>
             <InputNumber v-model="form.exchange_rate" :min="0.0001" :maxFractionDigits="4"
-              class="w-full text-xs font-mono rounded-[6px]" size="small" placeholder="1.0" />
+              class="w-full text-xs font-mono rounded-[6px]"
+              :class="{ '!bg-slate-50': form.currency === 'VND' }"
+              :disabled="form.currency === 'VND'"
+              size="small" placeholder="1.0" />
           </div>
         </div>
 
@@ -136,9 +139,9 @@
         </div>
       </div>
 
-      <!-- Cột Phải: 37% (Tham chiếu Đơn Bán Hàng, Phiếu Giao Hàng, Kho Xuất, Điều khoản) -->
+      <!-- Cột Phải: 37% (Tham chiếu Đơn Bán Hàng, Phiếu Giao Hàng, Kho Xuất - Khóa không cho sửa) -->
       <div
-        class="w-full lg:w-[37%] bg-white border border-slate-200 rounded-[8px] p-5 shadow-sm space-y-4 flex flex-col justify-between">
+        class="w-full lg:w-[37%] bg-white border border-slate-200 rounded-[8px] p-5 shadow-sm space-y-4 flex flex-col">
         <div>
           <div
             class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5 border-b border-slate-100 pb-2 mb-3">
@@ -146,60 +149,33 @@
             <span>Nguồn Gốc & Điều Phối</span>
           </div>
 
-          <div class="space-y-3 text-xs">
-            <!-- Đơn bán hàng tham chiếu -->
+          <div class="space-y-3.5 text-xs">
+            <!-- Đơn bán hàng tham chiếu (Không sửa) -->
             <div class="flex flex-col gap-1">
               <label class="text-slate-500 font-medium">Số đơn hàng (SO):</label>
               <div
-                class="font-mono font-bold text-slate-800 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-[6px]">
+                class="font-mono font-bold text-slate-800 bg-slate-50 border border-slate-200 px-3 py-2 rounded-[6px]">
                 {{ form.customer_order_number || form.order_number || '---' }}
               </div>
             </div>
 
-            <!-- Phiếu yêu cầu giao hàng tham chiếu -->
+            <!-- Phiếu yêu cầu giao hàng tham chiếu (Không sửa) -->
             <div class="flex flex-col gap-1">
               <label class="text-slate-500 font-medium">Phiếu yêu cầu giao hàng (DR):</label>
-              <div v-if="isEditMode || form.delivery_request_id"
-                class="flex items-center justify-between font-mono font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2.5 py-1.5 rounded-[6px]">
-                <span>#{{ form.delivery_request_id || form.delivery_request_number || '---' }}</span>
-                <Button v-if="!isEditMode && availableDeliveryRequests.length > 0" label="Đổi" icon="pi pi-refresh"
-                  size="small" text class="!text-[11px] !p-0 !h-auto text-sky-700 hover:text-sky-900"
-                  @click="form.delivery_request_id = null" />
-              </div>
-              <div v-else>
-                <Select v-model="selectedDeliveryRequestId" :options="deliveryRequestOptions" optionLabel="label"
-                  optionValue="id" placeholder="-- Chọn Yêu Cầu Giao Hàng --"
-                  class="w-full text-xs font-mono rounded-[6px]" size="small" @change="onSelectDeliveryRequest" />
+              <div
+                class="font-mono font-bold text-sky-700 bg-sky-50 border border-sky-200 px-3 py-2 rounded-[6px]">
+                #{{ form.delivery_request_id || form.delivery_request_number || '---' }}
               </div>
             </div>
 
-            <!-- Kho xuất hàng -->
+            <!-- Kho xuất hàng (Không sửa) -->
             <div class="flex flex-col gap-1">
               <label class="text-slate-500 font-medium">Kho xuất hàng:</label>
-              <InputText v-model="form.warehouse_name" class="w-full text-xs rounded-[6px]" size="small"
-                @change="refreshStockInfo" />
+              <div
+                class="font-semibold text-slate-800 bg-slate-50 border border-slate-200 px-3 py-2 rounded-[6px]">
+                {{ form.warehouse_name || 'Kho Tổng Miền Bắc (Hà Nội)' }}
+              </div>
             </div>
-
-            <!-- Điều khoản thanh toán -->
-            <div class="flex flex-col gap-1">
-              <label class="text-slate-500 font-medium">Điều khoản thanh toán:</label>
-              <Select v-model="form.payment_terms" :options="paymentTermsOptions" class="w-full text-xs rounded-[6px]"
-                size="small" />
-            </div>
-          </div>
-        </div>
-
-        <!-- Tóm tắt trạng thái -->
-        <div class="bg-slate-50 border border-slate-200 rounded-[6px] p-3 space-y-2 text-xs">
-          <div class="flex justify-between items-center">
-            <span class="text-slate-500">Tiến độ kho:</span>
-            <Badge :severity="getWarehouseStatusMeta(form.warehouse_status).severity"
-              :value="getWarehouseStatusMeta(form.warehouse_status).label" />
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-slate-500">Sổ cái kế toán:</span>
-            <Badge :severity="form.accounting_status === 'POSTED' ? 'success' : 'secondary'"
-              :value="form.accounting_status === 'POSTED' ? 'Đã ghi sổ' : 'Chưa ghi sổ'" />
           </div>
         </div>
       </div>
@@ -222,7 +198,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import Button from 'primevue/button';
@@ -252,14 +228,6 @@ const isEditMode = computed(() => !!route.params.id && route.params.id !== 'crea
 const saving = ref(false);
 const syncingReserve = ref(false);
 const stockMap = ref({});
-
-const paymentTermsOptions = [
-  'Thanh toán ngay (Tiền mặt / CK)',
-  'Công nợ 15 ngày',
-  'Công nợ 30 ngày',
-  'Công nợ 45 ngày',
-  'Công nợ 60 ngày'
-];
 
 const currencyOptions = ['VND', 'USD', 'EUR', 'JPY'];
 
@@ -305,6 +273,15 @@ const generateRandomInvoiceNumber = () => {
 const calculatedTotal = computed(() => {
   return form.value.items.reduce((acc, it) => acc + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0), 0);
 });
+
+watch(
+  () => form.value.currency,
+  (curr) => {
+    if (curr === 'VND') {
+      form.value.exchange_rate = 1.0;
+    }
+  }
+);
 
 import { FALLBACK_CATALOG_PRODUCTS } from '../../constants/catalogProducts.constant';
 import { catalogApi } from '../../api/catalog.api';

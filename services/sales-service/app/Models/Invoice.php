@@ -19,6 +19,7 @@ class Invoice extends Model
         'payment_terms',
         'total_amount',
         'notes',
+        'shipping_method',
         'picker_name',
         'packer_name',
         'shipper_name',
@@ -50,6 +51,11 @@ class Invoice extends Model
     public function deliveryRequest()
     {
         return $this->belongsTo(DeliveryRequest::class, 'delivery_request_id');
+    }
+
+    public function warehouseDispatch()
+    {
+        return $this->hasOne(WarehouseDispatch::class, 'invoice_id');
     }
 
     // Dynamic Accessors tải trực tiếp từ DeliveryRequest và SalesOrder
@@ -91,5 +97,49 @@ class Invoice extends Model
     public function getContactPhoneAttribute()
     {
         return $this->deliveryRequest?->contact_phone ?? '';
+    }
+
+    // Dynamic Accessors từ warehouseDispatch
+    public function getPickerIdAttribute()
+    {
+        return $this->warehouseDispatch?->picker_id;
+    }
+
+    public function getPackerIdAttribute()
+    {
+        return $this->warehouseDispatch?->packer_id;
+    }
+
+    public function getShipperIdAttribute()
+    {
+        return $this->warehouseDispatch?->shipper_id;
+    }
+
+    public function getPickerNameAttribute()
+    {
+        return $this->warehouseDispatch?->picker?->name ?: ($this->warehouseDispatch?->picker_name ?: ($this->attributes['picker_name'] ?? null));
+    }
+
+    public function getPackerNameAttribute()
+    {
+        return $this->warehouseDispatch?->packer?->name ?: ($this->warehouseDispatch?->packer_name ?: ($this->attributes['packer_name'] ?? null));
+    }
+
+    public function getShippingMethodAttribute()
+    {
+        return $this->warehouseDispatch?->shipping_method ?: ($this->attributes['shipping_method'] ?? 'CUSTOMER_PICKUP');
+    }
+
+    public function getShipperNameAttribute()
+    {
+        if ($this->warehouseDispatch) {
+            return $this->warehouseDispatch->shipper_display_name;
+        }
+        return $this->attributes['shipper_name'] ?? null;
+    }
+
+    public function getShippingNoteAttribute()
+    {
+        return $this->warehouseDispatch?->shipping_note ?: ($this->attributes['shipping_note'] ?? null);
     }
 }

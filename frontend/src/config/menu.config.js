@@ -233,6 +233,14 @@ export const menuCategories = [
             icon: 'pi pi-file'
           },
           {
+            id: 'vat-invoice',
+            path: '/vat-invoice',
+            resource: 'invoice',
+            permission: 'invoice.view',
+            label: 'Hóa đơn GTGT (VAT)',
+            icon: 'pi pi-receipt'
+          },
+          {
             id: 'sales-warehouse-dispatch',
             path: '/warehouse-request-sale',
             resource: 'inventory',

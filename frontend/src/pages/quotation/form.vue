@@ -179,13 +179,14 @@
             />
           </div>
 
-          <!-- Tỷ giá -->
+          <!-- Tỷ giá (Nếu VND là 1 không cho sửa) -->
           <div class="md:col-span-3 flex flex-col gap-1.5">
             <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">Tỷ giá</label>
             <InputNumber
               v-model="form.exchange_rate"
               class="w-full text-xs font-mono h-10"
               inputClass="text-xs font-mono py-1 rounded-[6px] h-10"
+              :class="{ '!bg-slate-50': form.currency === 'VND' }"
               :disabled="form.currency === 'VND'"
             />
           </div>
@@ -234,10 +235,21 @@
             </label>
             <Select
               v-model="form.assigned_to"
-              :options="['admin', 'sale_lead', 'nv_kinhdoanh_01']"
-              placeholder="Chọn nhân viên..."
+              :options="userOptions"
+              optionLabel="label"
+              optionValue="id"
+              placeholder="Chọn nhân viên sale..."
               class="w-full text-xs rounded-[6px] h-10 flex items-center"
-            />
+            >
+              <template #value="slotProps">
+                <div v-if="slotProps.value" class="truncate text-xs font-medium text-slate-800">
+                  {{ userOptions.find(u => u.id === slotProps.value || u.name === slotProps.value)?.label || slotProps.value }}
+                </div>
+                <span v-else class="text-slate-400 text-xs truncate">
+                  {{ slotProps.placeholder }}
+                </span>
+              </template>
+            </Select>
           </div>
 
           <!-- Trạng thái (Đã bỏ dòng cập nhật qua các nút quy trình) -->
@@ -289,6 +301,7 @@ import QuotationItemTable from '../../components/quotation/QuotationItemTable.vu
 import QuotationAddContactDialog from '../../components/quotation/QuotationAddContactDialog.vue';
 import { catalogApi } from '../../api/catalog.api';
 import { salesApi } from '../../api/sales.api';
+import { identityApi } from '../../api/identity.api';
 import { isSuperAdmin, hasPermission } from '../../utils/rbac';
 
 const route = useRoute();
@@ -313,6 +326,46 @@ const canApprove = computed(() => {
 });
 
 const customers = ref([]);
+const users = ref([]);
+
+const isSaleUser = (u) => {
+  if (!u) return false;
+  if (Array.isArray(u.roles) && u.roles.length > 0) {
+    const hasSaleRole = u.roles.some((r) => {
+      const code = String(r.code || '').toUpperCase();
+      const name = String(r.name || '').toLowerCase();
+      return code === 'SALE' || code === 'SALE_MANAGER' || code.includes('SALE') || name.includes('kinh doanh') || name.includes('sale');
+    });
+    if (hasSaleRole) return true;
+  }
+  if (u.department_code === 'SALES' || (u.department_name && u.department_name.toLowerCase().includes('kinh doanh'))) {
+    return true;
+  }
+  if (typeof u.role === 'string') {
+    const r = u.role.toUpperCase();
+    if (r === 'SALE' || r === 'SALE_MANAGER' || r.includes('SALE')) return true;
+  }
+  return false;
+};
+
+// Dropdown nhân viên theo dõi: Chỉ hiển thị các nhân viên có role Sale
+const userOptions = computed(() => {
+  const saleUsers = users.value.filter(isSaleUser);
+  const list = saleUsers.length > 0 ? saleUsers : users.value.filter(u => String(u.name || u.email || '').toLowerCase().includes('sale'));
+  
+  if (list.length === 0) {
+    return [
+      { id: 2, name: 'Chuyên Viên Kinh Doanh (Sale)', label: 'Chuyên Viên Kinh Doanh (sale@erp.local)' },
+      { id: 3, name: 'Trưởng Phòng Kinh Doanh (Sale Manager)', label: 'Trưởng Phòng Kinh Doanh (sale.manager@erp.local)' }
+    ];
+  }
+
+  return list.map((u) => ({
+    id: u.id,
+    name: u.name,
+    label: `${u.name} (${u.email || 'Sale'})`
+  }));
+});
 
 // Dropdown khách hàng (hiển thị Mã - Tên)
 const customerOptions = computed(() => {
@@ -411,17 +464,32 @@ watch(
   }
 );
 
+watch(
+  () => form.value.currency,
+  (newCurr) => {
+    if (newCurr === 'VND') {
+      form.value.exchange_rate = 1.0;
+    }
+  }
+);
+
 const initFormData = async () => {
   const qId = route.params.id;
 
-  // Load danh sách khách hàng từ bảng customers của catalog-service
+  // Load danh sách khách hàng và nhân viên
   try {
-    const resCust = await catalogApi.getCustomers();
+    const [resCust, resUsers] = await Promise.all([
+      catalogApi.getCustomers().catch(() => ({ data: [] })),
+      identityApi.getUsers().catch(() => ({ data: [] }))
+    ]);
     if (resCust && resCust.data) {
       customers.value = resCust.data;
     }
+    if (resUsers && resUsers.data) {
+      users.value = resUsers.data;
+    }
   } catch (err) {
-    console.warn('Lỗi tải khách hàng từ Catalog Service:', err);
+    console.warn('Lỗi tải dữ liệu cơ sở:', err);
   }
 
   // Nếu đang chỉnh sửa báo giá có sẵn
@@ -438,6 +506,7 @@ const initFormData = async () => {
   }
 
   // Khởi tạo khi Tạo Mới: Không tự động chọn khách hàng, không sinh số trước, không hiển thị ngày tạo trước
+  const defaultSaleUser = userOptions.value[0]?.id || 2;
   form.value = {
     id: '',
     quotation_number: '',
@@ -450,7 +519,7 @@ const initFormData = async () => {
     exchange_rate: 1,
     created_by: props.currentUser?.name || 'Quản Trị Viên Tối Cao',
     created_at: '',
-    assigned_to: 'admin',
+    assigned_to: defaultSaleUser,
     status: 'DRAFT',
     notes: 'Báo giá thiết bị công nghiệp chính hãng.',
     total_amount: 0,

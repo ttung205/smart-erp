@@ -30,6 +30,7 @@ import DeliveryPage from '../pages/delivery/index.vue';
 import DeliveryRequestPage from '../pages/delivery-request/index.vue';
 import InvoicePage from '../pages/invoice/index.vue';
 import InvoiceFormPage from '../pages/invoice/form.vue';
+import VatInvoicePage from '../pages/vat-invoice/index.vue';
 import WarehouseRequestSalePage from '../pages/warehouse-request-sale/index.vue';
 import AccountingPage from '../pages/accounting/index.vue';
 
@@ -517,6 +518,17 @@ export const routes = [
   {
     path: '/invoice/:id',
     redirect: to => `/invoice/${to.params.id}/edit`
+  },
+  {
+    path: '/vat-invoice',
+    name: 'vat-invoice',
+    component: VatInvoicePage,
+    meta: {
+      requiresAuth: true,
+      resource: 'invoice',
+      permission: 'invoice.view',
+      title: 'Quản Lý Xuất Hóa Đơn GTGT'
+    }
   },
   {
     path: '/warehouse-request-sale',

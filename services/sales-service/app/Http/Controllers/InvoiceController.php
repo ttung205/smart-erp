@@ -10,6 +10,10 @@ use App\Models\DeliveryRequestItem;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
 use App\Models\Product;
+use App\Models\WarehouseDispatch;
+use App\Models\User;
+use App\Services\SaleReportService;
+use App\Services\RevenueReportService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -22,7 +26,11 @@ class InvoiceController extends Controller
             'items.orderItem',
             'deliveryRequest.order.customer',
             'deliveryRequest.order.creator',
-            'deliveryRequest.items'
+            'deliveryRequest.items',
+            'warehouseDispatch.picker',
+            'warehouseDispatch.packer',
+            'warehouseDispatch.shipper',
+            'warehouseDispatch.postedBy'
         ])->orderBy('id', 'desc')->get();
 
         return response()->json(['success' => true, 'data' => $invoices]);
@@ -228,9 +236,23 @@ class InvoiceController extends Controller
             'warehouse_status' => 'SENT_TO_WAREHOUSE'
         ]);
 
+        WarehouseDispatch::updateOrCreate(
+            ['invoice_id' => $inv->id],
+            [
+                'invoice_number' => $inv->invoice_number,
+                'delivery_request_id' => $inv->delivery_request_id,
+                'delivery_request_number' => $inv->delivery_request_number,
+                'order_id' => $inv->order_id,
+                'order_number' => $inv->order_number,
+                'customer_name' => $inv->customer_name,
+                'warehouse_name' => $inv->warehouse_name,
+                'status' => 'SENT_TO_WAREHOUSE',
+            ]
+        );
+
         return response()->json([
             'success' => true,
-            'data' => $inv,
+            'data' => $inv->fresh(['warehouseDispatch.picker', 'warehouseDispatch.packer', 'warehouseDispatch.shipper']),
             'message' => "Đã gửi chứng từ {$inv->invoice_number} xuống phòng Logistics thành công."
         ]);
     }
@@ -245,18 +267,64 @@ class InvoiceController extends Controller
             return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND']], 404);
         }
 
-        $updates = [];
-        if ($request->has('picker_name')) $updates['picker_name'] = $request->input('picker_name');
-        if ($request->has('packer_name')) $updates['packer_name'] = $request->input('packer_name');
-        if ($request->has('shipper_name')) $updates['shipper_name'] = $request->input('shipper_name');
-        if ($request->has('shipping_note')) $updates['shipping_note'] = $request->input('shipping_note');
-        if ($request->has('status')) $updates['warehouse_status'] = $request->input('status');
+        $pickerId = $request->input('picker_id') ?: null;
+        $pickerName = $request->input('picker_name') ?: null;
+        if ($pickerId && !$pickerName) {
+            $pickerName = User::find($pickerId)?->name;
+        }
 
-        $inv->update($updates);
+        $packerId = $request->input('packer_id') ?: null;
+        $packerName = $request->input('packer_name') ?: null;
+        if ($packerId && !$packerName) {
+            $packerName = User::find($packerId)?->name;
+        }
+
+        $shippingMethod = $request->input('shipping_method', 'CUSTOMER_PICKUP');
+        $shipperId = $request->input('shipper_id') ?: null;
+        $shipperName = $request->input('shipper_name') ?: null;
+        if ($shippingMethod === 'WAREHOUSE_DELIVERY' && $shipperId && !$shipperName) {
+            $shipperName = User::find($shipperId)?->name;
+        }
+
+        $shippingNote = $request->input('shipping_note');
+        $status = $request->input('status', 'PROCESSED');
+
+        // 1. Cập nhật bảng riêng warehouse_dispatches
+        $dispatch = WarehouseDispatch::updateOrCreate(
+            ['invoice_id' => $inv->id],
+            [
+                'invoice_number' => $inv->invoice_number,
+                'delivery_request_id' => $inv->delivery_request_id,
+                'delivery_request_number' => $inv->delivery_request_number,
+                'order_id' => $inv->order_id,
+                'order_number' => $inv->order_number,
+                'customer_name' => $inv->customer_name,
+                'warehouse_name' => $inv->warehouse_name,
+                'status' => $status,
+                'picker_id' => $pickerId,
+                'picker_name' => $pickerName,
+                'packer_id' => $packerId,
+                'packer_name' => $packerName,
+                'shipping_method' => $shippingMethod,
+                'shipper_id' => $shippingMethod === 'WAREHOUSE_DELIVERY' ? $shipperId : null,
+                'carrier_name' => $shipperName,
+                'shipping_note' => $shippingNote,
+            ]
+        );
+
+        // 2. Cập nhật Invoice snapshot
+        $inv->update([
+            'warehouse_status' => $status,
+            'shipping_method' => $shippingMethod,
+            'picker_name' => $pickerName,
+            'packer_name' => $packerName,
+            'shipper_name' => $shipperName,
+            'shipping_note' => $shippingNote,
+        ]);
 
         return response()->json([
             'success' => true,
-            'data' => $inv,
+            'data' => $inv->fresh(['warehouseDispatch.picker', 'warehouseDispatch.packer', 'warehouseDispatch.shipper']),
             'message' => 'Cập nhật tiến độ điều phối kho thành công.'
         ]);
     }
@@ -280,11 +348,12 @@ class InvoiceController extends Controller
         }
 
         $posterName = $request->input('posted_by') ?: ($request->input('warehouse_posted_by') ?: 'Kho vận');
+        $postedById = $request->input('posted_by_id') ?: null;
         $nowStr = now()->format('Y-m-d H:i:s');
         $warehouseName = $request->input('warehouse_name') ?: ($inv->deliveryRequest?->warehouse_name ?: 'Kho Tổng Miền Bắc (Hà Nội)');
         $warehouseId = $this->resolveWarehouseId($warehouseName);
 
-        DB::transaction(function () use ($inv, $posterName, $nowStr) {
+        DB::transaction(function () use ($inv, $posterName, $postedById, $nowStr) {
             // 1. Cập nhật Invoice
             $inv->update([
                 'warehouse_status' => 'DELIVERED',
@@ -294,6 +363,17 @@ class InvoiceController extends Controller
                 'posted_at' => $nowStr,
                 'posted_by' => $posterName,
             ]);
+
+            // 1.1 Cập nhật bảng riêng warehouse_dispatches
+            WarehouseDispatch::updateOrCreate(
+                ['invoice_id' => $inv->id],
+                [
+                    'status' => 'DELIVERED',
+                    'posted_at' => $nowStr,
+                    'posted_by_id' => $postedById,
+                    'posted_by_name' => $posterName,
+                ]
+            );
 
             // 2. Cập nhật số lượng đã giao thực tế trên từng InvoiceItem & DeliveryRequestItem & SalesOrderItem
             foreach ($inv->items as $invItem) {
@@ -371,7 +451,12 @@ class InvoiceController extends Controller
                 } elseif ($totalDeliveredSo > 0) {
                     $so->update(['status' => 'PROCESSING']);
                 }
+
+                SaleReportService::syncOrderToReport($so);
             }
+
+            // Ghi nhận dòng doanh thu vào revenue_report_items (TK 1312)
+            RevenueReportService::recordGoodsIssue($inv, $posterName);
         });
 
         // 5. Thực hiện xuất kho vật lý (Goods Issue) tại Inventory Service

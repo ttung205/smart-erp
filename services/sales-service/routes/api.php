@@ -6,6 +6,9 @@ use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\SaleReportController;
+use App\Http\Controllers\VatInvoiceController;
+use App\Http\Controllers\RevenueReportController;
 
 // 1. Health Check
 Route::get('/health', [HealthController::class, 'check']);
@@ -35,3 +38,20 @@ Route::post('/invoices/{id}/warehouse-post', [InvoiceController::class, 'warehou
 Route::put('/invoices/{id}/warehouse-status', [InvoiceController::class, 'updateWarehouseStatus']);
 Route::post('/invoices/{id}/post-accounting', [InvoiceController::class, 'postAccounting']);
 Route::apiResource('invoices', InvoiceController::class);
+
+// 6. VAT Invoices (Hóa Đơn GTGT)
+Route::get('/vat-invoices/next-number', [VatInvoiceController::class, 'getNextInvoiceNumber']);
+Route::get('/vat-invoices/unbilled-items', [VatInvoiceController::class, 'getUnbilledItems']);
+Route::apiResource('vat-invoices', VatInvoiceController::class);
+
+// 7. Reports: Sale Items (Báo Cáo Đơn Bán Hàng)
+Route::get('/reports/sale-items', [SaleReportController::class, 'index']);
+Route::get('/reports/sale-items/{id}', [SaleReportController::class, 'show']);
+Route::get('/sale-report-items', [SaleReportController::class, 'index']);
+Route::get('/sale-report-items/{id}', [SaleReportController::class, 'show']);
+
+// 8. Reports: Revenue Items (Báo Cáo Doanh Thu TK 1311 & TK 1312)
+Route::get('/reports/revenue-items', [RevenueReportController::class, 'index']);
+Route::get('/reports/revenue-items/{id}', [RevenueReportController::class, 'show']);
+Route::get('/revenue-report-items', [RevenueReportController::class, 'index']);
+Route::get('/revenue-report-items/{id}', [RevenueReportController::class, 'show']);
