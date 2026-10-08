@@ -37,13 +37,8 @@
           <label class="font-bold text-slate-700 uppercase tracking-wide text-[11px]">
             Hẹn ngày giao hàng <span class="text-red-500">*</span>
           </label>
-          <DatePicker
-            v-model="expectedDeliveryDateModel"
-            dateFormat="dd/mm/yy"
-            placeholder="dd/mm/yyyy"
-            class="w-full text-xs"
-            inputClass="!py-1.5 !px-3 text-xs font-mono rounded-[6px] h-9 border-slate-300"
-          />
+          <DatePicker v-model="expectedDeliveryDateModel" dateFormat="dd/mm/yy" placeholder="dd/mm/yyyy"
+            class="w-full text-xs" inputClass="!py-1.5 !px-3 text-xs font-mono rounded-[6px] h-9 border-slate-300" />
         </div>
 
         <div class="flex flex-col gap-1.5">
@@ -82,7 +77,8 @@
           </span>
         </div>
 
-        <DataTable :value="orderItems" showGridlines responsiveLayout="scroll" class="p-datatable-sm text-xs">
+        <DataTable :value="orderItems" showGridlines responsiveLayout="scroll" class="p-datatable-sm text-xs"
+          emptyMessage="Không có mặt hàng nào chưa giao hoặc tất cả đã giao đủ.">
           <Column header="#" style="width: 45px" class="text-center">
             <template #body="{ index }">
               <span class="font-mono text-slate-400 text-xs">{{ index + 1 }}</span>
@@ -148,7 +144,7 @@
           </Column>
 
           <!-- 6. Số lượng yêu cầu (CHO SỬA SỐ) -->
-          <Column header="SL Yêu Cầu (Sửa)" style="width: 140px" class="text-center">
+          <Column header="SL Yêu Cầu" style="width: 140px" class="text-center">
             <template #body="{ data }">
               <div class="flex items-center justify-center">
                 <InputNumber v-model="data.request_quantity" :min="0" :max="data.remaining_quantity"
@@ -399,31 +395,33 @@ const initItems = () => {
     });
   });
 
-  orderItems.value = (o.items || []).map((it) => {
-    const sku = (it.sku || '').trim().toUpperCase();
-    const ordered = Number(it.quantity || 1);
-    const delivered = deliveredMap.get(sku) || Number(it.delivered_quantity || 0);
-    const remaining = Math.max(0, ordered - delivered);
-    const pid = it.product_id || skuToPidMap.value.get(sku) || null;
-    const itemObj = { ...it, sku, product_id: pid };
-    const stock = getItemAvailableStock(itemObj, form.value.warehouse_id);
+  orderItems.value = (o.items || [])
+    .map((it) => {
+      const sku = (it.sku || '').trim().toUpperCase();
+      const ordered = Number(it.quantity || 1);
+      const delivered = deliveredMap.get(sku) || Number(it.delivered_quantity || 0);
+      const remaining = Math.max(0, ordered - delivered);
+      const pid = it.product_id || skuToPidMap.value.get(sku) || null;
+      const itemObj = { ...it, sku, product_id: pid };
+      const stock = getItemAvailableStock(itemObj, form.value.warehouse_id);
 
-    return {
-      order_item_id: it.id,
-      product_id: pid,
-      delivery_date: it.delivery_date || it.lead_time || '',
-      sku: it.sku,
-      product_name: it.product_name || it.description || 'Sản phẩm',
-      description: it.description || it.product_name || '',
-      designation: it.designation || '',
-      ordered_quantity: ordered,
-      delivered_quantity: delivered,
-      remaining_quantity: remaining,
-      stock: stock,
-      request_quantity: remaining,
-      unit_price: Number(it.selling_price || it.unit_price || 0)
-    };
-  });
+      return {
+        order_item_id: it.id,
+        product_id: pid,
+        delivery_date: it.delivery_date || it.lead_time || '',
+        sku: it.sku,
+        product_name: it.product_name || it.description || 'Sản phẩm',
+        description: it.description || it.product_name || '',
+        designation: it.designation || '',
+        ordered_quantity: ordered,
+        delivered_quantity: delivered,
+        remaining_quantity: remaining,
+        stock: stock,
+        request_quantity: remaining,
+        unit_price: Number(it.selling_price || it.unit_price || 0)
+      };
+    })
+    .filter((it) => it.remaining_quantity > 0);
 };
 
 const onWarehouseChange = () => {
