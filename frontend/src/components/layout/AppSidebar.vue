@@ -213,12 +213,19 @@ const menuCategories = computed(() => {
 });
 
 const isItemActive = (item) => {
-  if (item.path && route.path === item.path) return true;
-  return props.currentTab === item.id;
+  if (!item.path) return false;
+  if (route.path === item.path) return true;
+  if (item.path !== '/' && (route.path.startsWith(item.path + '/') || route.path.startsWith(item.path + '?'))) {
+    return true;
+  }
+  if (route.name && (route.name === item.id || route.name.startsWith(item.id + '-'))) {
+    return true;
+  }
+  return false;
 };
 
 const isFolderActive = (item) => {
-  if (!item.children) return isItemActive(item);
+  if (!item.children || item.children.length === 0) return isItemActive(item);
   return item.children.some(child => isItemActive(child));
 };
 
@@ -231,9 +238,10 @@ const handleNavigate = (item) => {
 
 // Tự động mở folder nếu một tab con đang được chọn
 watch(() => route.path, (newPath) => {
+  if (!newPath) return;
   for (const cat of rawMenuCategories) {
     for (const item of cat.items) {
-      if (item.children && item.children.some(c => c.path === newPath)) {
+      if (item.children && item.children.some(c => isItemActive(c))) {
         openFolders.value[item.id] = true;
       }
     }

@@ -33,7 +33,7 @@
         </div>
         <div class="flex justify-between">
           <span class="text-slate-500 font-sans">Tổng tiền thanh toán:</span>
-          <strong class="text-emerald-700 text-sm">{{ formatCurrency((invoice.total_unbilled_amount || 0) * 1.1) }} đ</strong>
+          <strong class="text-emerald-700 text-sm">{{ formatCurrency((invoice.total_unbilled_amount || 0) * 1.1) }}</strong>
         </div>
       </div>
     </div>

@@ -9,8 +9,11 @@
     <!-- B. GIAO DIỆN CHÍNH ERP KHI ĐÃ ĐĂNG NHẬP THÀNH CÔNG -->
     <div v-else class="flex min-h-screen bg-slate-50">
       <!-- 1. Left Sidebar (Thụt ra thụt vào - Collapsible / Expand) -->
-      <AppSidebar :current-tab="activeTab" :current-user="currentUser" :is-collapsed="isSidebarCollapsed" @select-tab="activeTab = $event"
-        @toggle-collapse="isSidebarCollapsed = !isSidebarCollapsed" />
+      <AppSidebar
+        :current-user="currentUser"
+        :is-collapsed="isSidebarCollapsed"
+        @toggle-collapse="isSidebarCollapsed = !isSidebarCollapsed"
+      />
 
       <!-- 2. Main Content Area (Tự động co giãn theo Sidebar) -->
       <div class="flex-1 flex flex-col min-w-0 transition-all duration-200"
@@ -64,7 +67,6 @@ import { parseJwt } from './utils/jwt';
 const router = useRouter();
 const route = useRoute();
 const toast = useToast();
-const activeTab = ref('employee');
 const isSidebarCollapsed = ref(false);
 
 // Microservices Health State

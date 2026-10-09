@@ -91,7 +91,7 @@
             Danh Sách Mã Hàng (Tick Chọn Mặt Hàng & Chỉnh Số Lượng Xuất HĐ)
           </span>
           <span class="text-emerald-700 font-semibold">
-            Chuyển TK 1312 ➔ TK 1311
+            Xuất Hóa Đơn Điện Tử GTGT
           </span>
         </div>
 

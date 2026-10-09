@@ -17,7 +17,7 @@
         </div>
         <div class="text-right">
           <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[11px] font-semibold px-2.5 py-1 rounded-[4px]">
-            ✓ Đã Ký Điện Tử & Hạch Toán TK 1311
+            ✓ Đã Ký Điện Tử & Phát Hành
           </span>
         </div>
       </div>
