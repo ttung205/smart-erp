@@ -516,12 +516,14 @@ class InvoiceController extends Controller
     }
 
     /**
-     * Gửi yêu cầu giữ chỗ (Reserve) tới Inventory Service (:8004)
+     * Gửi yêu cầu giữ chỗ (Reserve) tới Inventory Service
      */
     protected function reserveStockForInvoice(Invoice $inv, int $warehouseId): array
     {
         $results = [];
         $items = $inv->items ?: [];
+        $inventoryUrl = config('services.inventory.url', 'http://127.0.0.1:8004');
+        $timeout = config('services.inventory.timeout', 3);
 
         foreach ($items as $item) {
             $productId = $item->product_id ?: $item->orderItem?->product_id ?: $item->deliveryRequestItem?->product_id;
@@ -537,7 +539,7 @@ class InvoiceController extends Controller
 
             if ($productId && (float)$item->quantity > 0) {
                 try {
-                    $response = Http::timeout(2)->post('http://127.0.0.1:8004/api/v1/inventory/stocks/reserve', [
+                    $response = Http::timeout($timeout)->post("{$inventoryUrl}/api/v1/inventory/stocks/reserve", [
                         'order_id' => $inv->invoice_number,
                         'warehouse_id' => $warehouseId,
                         'product_id' => (int)$productId,
@@ -552,7 +554,7 @@ class InvoiceController extends Controller
                         'data' => $response->json()
                     ];
                 } catch (\Throwable $e) {
-                    Log::warning("[InvoiceController] Lỗi gọi Inventory Service Reserve: " . $e->getMessage());
+                    Log::warning("[InvoiceController] Lỗi gọi Inventory Service Reserve ({$inventoryUrl}): " . $e->getMessage());
                     $results[] = [
                         'sku' => $item->sku,
                         'product_id' => $productId,
@@ -568,13 +570,15 @@ class InvoiceController extends Controller
     }
 
     /**
-     * Gửi yêu cầu xuất kho thực tế (Issue) tới Inventory Service (:8004)
+     * Gửi yêu cầu xuất kho thực tế (Issue) tới Inventory Service
      */
     protected function issueStockForInvoice(Invoice $inv, int $warehouseId): array
     {
         $results = [];
         $items = $inv->items ?: [];
         $orderNumber = $inv->deliveryRequest?->order_number ?: $inv->invoice_number;
+        $inventoryUrl = config('services.inventory.url', 'http://127.0.0.1:8004');
+        $timeout = config('services.inventory.timeout', 3);
 
         foreach ($items as $item) {
             $productId = $item->product_id ?: $item->orderItem?->product_id ?: $item->deliveryRequestItem?->product_id;
@@ -589,7 +593,7 @@ class InvoiceController extends Controller
 
             if ($productId && (float)$item->quantity > 0) {
                 try {
-                    $response = Http::timeout(2)->post('http://127.0.0.1:8004/api/v1/inventory/stocks/issue', [
+                    $response = Http::timeout($timeout)->post("{$inventoryUrl}/api/v1/inventory/stocks/issue", [
                         'reference_doc' => $inv->invoice_number,
                         'order_id' => $orderNumber,
                         'warehouse_id' => $warehouseId,
@@ -606,7 +610,7 @@ class InvoiceController extends Controller
                         'data' => $response->json()
                     ];
                 } catch (\Throwable $e) {
-                    Log::warning("[InvoiceController] Lỗi gọi Inventory Service Issue: " . $e->getMessage());
+                    Log::warning("[InvoiceController] Lỗi gọi Inventory Service Issue ({$inventoryUrl}): " . $e->getMessage());
                     $results[] = [
                         'sku' => $item->sku,
                         'product_id' => $productId,

@@ -35,4 +35,19 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Internal Smart ERP Microservices
+    |--------------------------------------------------------------------------
+    */
+    'identity' => [
+        'url' => rtrim(env('IDENTITY_SERVICE_URL', 'http://127.0.0.1:8001'), '/'),
+        'timeout' => (int) env('IDENTITY_SERVICE_TIMEOUT', 3),
+    ],
+
+    'inventory' => [
+        'url' => rtrim(env('INVENTORY_SERVICE_URL', 'http://127.0.0.1:8004'), '/'),
+        'timeout' => (int) env('INVENTORY_SERVICE_TIMEOUT', 3),
+    ],
+
 ];

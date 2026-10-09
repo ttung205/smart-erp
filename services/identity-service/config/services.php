@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Internal Smart ERP Microservices
+    |--------------------------------------------------------------------------
+    */
+    'catalog' => [
+        'url' => rtrim(env('CATALOG_SERVICE_URL', 'http://127.0.0.1:8002'), '/'),
+        'timeout' => (int) env('CATALOG_SERVICE_TIMEOUT', 3),
+    ],
+
 ];
