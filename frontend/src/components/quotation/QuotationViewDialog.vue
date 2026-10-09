@@ -87,21 +87,31 @@
           @click="$emit('update:visible', false)" />
 
         <div class="flex gap-2">
+          <Button label="Xem & Xuất PDF" icon="pi pi-file-pdf" size="small" severity="secondary" outlined
+            class="rounded-[6px] !text-xs !py-1 !px-2.5" @click="showPdfPreview = true" />
           <Button label="Chỉnh sửa báo giá" icon="pi pi-pencil" size="small" severity="info" outlined
             class="rounded-[6px] !text-xs !py-1 !px-2.5" @click="goToEdit" />
         </div>
       </div>
     </template>
   </Dialog>
+
+  <!-- Dialog Preview & Xuất PDF / Gửi Email -->
+  <QuotationPdfPreviewDialog
+    v-model:visible="showPdfPreview"
+    :quotation="quotation"
+  />
 </template>
 
 <script setup>
+import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import Dialog from 'primevue/dialog';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Button from 'primevue/button';
 import Badge from 'primevue/badge';
+import QuotationPdfPreviewDialog from './QuotationPdfPreviewDialog.vue';
 import { formatCurrency, formatDate } from '../../utils/format';
 
 const props = defineProps({
@@ -117,6 +127,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:visible']);
 const router = useRouter();
+const showPdfPreview = ref(false);
 
 const getStatusMeta = (st) => {
   const map = {

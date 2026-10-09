@@ -1,0 +1,165 @@
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import nodemailer from 'nodemailer';
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 8006;
+
+app.use(cors());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// In-memory email logs for audit and tracking
+const emailLogs = [];
+
+// Create reusable Nodemailer transporter
+function getTransporter() {
+  const host = process.env.SMTP_HOST || '127.0.0.1';
+  const port = Number(process.env.SMTP_PORT) || 1025; // 1025 is default Mailpit SMTP port
+  const user = process.env.SMTP_USER || '';
+  const pass = process.env.SMTP_PASS || '';
+
+  const config = {
+    host,
+    port,
+    secure: port === 465,
+    ignoreTLS: port === 1025 || port === 1026, // ignore TLS for local Mailpit / Mailtrap
+  };
+
+  if (user && pass) {
+    config.auth = { user, pass };
+  }
+
+  return nodemailer.createTransport(config);
+}
+
+// 1. Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'UP',
+    service: 'notification-service',
+    timestamp: new Date().toISOString(),
+    smtp: {
+      host: process.env.SMTP_HOST || '127.0.0.1',
+      port: Number(process.env.SMTP_PORT) || 1025,
+      from: process.env.MAIL_FROM_ADDRESS || 'sales@thanhtung.vn'
+    }
+  });
+});
+
+// 2. Send Email Endpoint (Sync API)
+app.post('/api/v1/notifications/email/send', async (req, res) => {
+  try {
+    const {
+      to,
+      cc,
+      bcc,
+      subject,
+      text,
+      html,
+      body,
+      attachments = [],
+      senderName = 'Smart ERP - Công ty Thanh Tùng'
+    } = req.body;
+
+    if (!to) {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'Địa chỉ người nhận (to) là bắt buộc.' }
+      });
+    }
+
+    if (!subject) {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'Tiêu đề email (subject) là bắt buộc.' }
+      });
+    }
+
+    const fromAddress = process.env.MAIL_FROM_ADDRESS || 'sales@thanhtung.vn';
+    const from = `"${senderName}" <${fromAddress}>`;
+
+    // Process attachments (support base64 content, buffers, or direct paths)
+    const formattedAttachments = (attachments || []).map((att) => {
+      if (att.content && typeof att.content === 'string' && att.content.startsWith('data:')) {
+        // Data URL format
+        const base64Data = att.content.split(',')[1];
+        return {
+          filename: att.filename || 'attachment.pdf',
+          content: Buffer.from(base64Data, 'base64'),
+          contentType: att.contentType || 'application/pdf'
+        };
+      } else if (att.content && typeof att.content === 'string') {
+        // Base64 string or plain text
+        return {
+          filename: att.filename || 'attachment.pdf',
+          content: Buffer.from(att.content, att.encoding === 'base64' ? 'base64' : 'utf-8'),
+          contentType: att.contentType || 'application/pdf'
+        };
+      }
+      return att;
+    });
+
+    const mailOptions = {
+      from,
+      to: Array.isArray(to) ? to.join(', ') : to,
+      cc: Array.isArray(cc) ? cc.join(', ') : cc,
+      bcc: Array.isArray(bcc) ? bcc.join(', ') : bcc,
+      subject,
+      text: text || body || '',
+      html: html || (body ? body.replace(/\n/g, '<br>') : ''),
+      attachments: formattedAttachments
+    };
+
+    const transporter = getTransporter();
+    const info = await transporter.sendMail(mailOptions);
+
+    const logEntry = {
+      id: Date.now(),
+      messageId: info.messageId,
+      to,
+      subject,
+      attachmentsCount: formattedAttachments.length,
+      sentAt: new Date().toISOString(),
+      status: 'SENT'
+    };
+    emailLogs.unshift(logEntry);
+    if (emailLogs.length > 100) emailLogs.pop();
+
+    return res.json({
+      success: true,
+      data: {
+        messageId: info.messageId,
+        to,
+        subject,
+        sentAt: logEntry.sentAt,
+        response: info.response
+      }
+    });
+  } catch (error) {
+    console.error('[NotificationService] Lỗi gửi email:', error);
+    return res.status(500).json({
+      success: false,
+      error: {
+        message: error.message || 'Không thể gửi email.',
+        details: error.stack
+      }
+    });
+  }
+});
+
+// 3. Email Logs Endpoint
+app.get('/api/v1/notifications/email/logs', (req, res) => {
+  res.json({
+    success: true,
+    data: emailLogs
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`[Notification Service] Running on port ${PORT}`);
+  console.log(`[Notification Service] SMTP: ${process.env.SMTP_HOST || '127.0.0.1'}:${process.env.SMTP_PORT || 1025}`);
+});

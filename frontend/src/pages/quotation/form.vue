@@ -29,7 +29,31 @@
       </div>
 
       <!-- Action Buttons -->
-      <div class="flex items-center gap-2.5">
+      <div class="flex items-center gap-2">
+        <!-- Nút Xem & Xuất PDF -->
+        <Button
+          label="Xem PDF"
+          icon="pi pi-file-pdf"
+          size="small"
+          severity="secondary"
+          outlined
+          class="!text-xs !py-2 !px-3 rounded-[6px] !font-semibold !border-slate-300 text-slate-700 hover:!bg-slate-100"
+          v-tooltip.bottom="'Xem trước báo giá PDF & tùy chọn in'"
+          @click="showPdfPreviewDialog = true"
+        />
+
+        <!-- Nút Gửi Email Khách Hàng -->
+        <Button
+          label="Gửi Email"
+          icon="pi pi-send"
+          size="small"
+          severity="info"
+          outlined
+          class="!text-xs !py-2 !px-3 rounded-[6px] !font-semibold !border-sky-300 text-sky-700 hover:!bg-sky-50"
+          v-tooltip.bottom="'Gửi email báo giá kèm file PDF tới khách hàng'"
+          @click="openSendEmailFromForm"
+        />
+
         <!-- Nút Gửi xét duyệt (khi trạng thái DRAFT) -->
         <Button
           v-if="form.status === 'DRAFT'"
@@ -291,6 +315,21 @@
       v-model:visible="showAddContactDialog"
       @save="saveNewContact"
     />
+
+    <!-- 6. Modal Xem Trước & Xuất PDF Báo Giá -->
+    <QuotationPdfPreviewDialog
+      v-model:visible="showPdfPreviewDialog"
+      :quotation="form"
+      :currentUser="currentUser"
+    />
+
+    <!-- 7. Modal Gửi Email Báo Giá Kèm PDF -->
+    <QuotationSendEmailDialog
+      v-model:visible="showSendEmailDialog"
+      :quotation="form"
+      :pdfBase64="preparedPdfBase64"
+      :currentUser="currentUser"
+    />
   </div>
 </template>
 
@@ -308,11 +347,14 @@ import Dialog from 'primevue/dialog';
 
 import QuotationItemTable from '../../components/quotation/QuotationItemTable.vue';
 import QuotationAddContactDialog from '../../components/quotation/QuotationAddContactDialog.vue';
+import QuotationPdfPreviewDialog from '../../components/quotation/QuotationPdfPreviewDialog.vue';
+import QuotationSendEmailDialog from '../../components/quotation/QuotationSendEmailDialog.vue';
 import FormAttachmentUpload from '../../components/common/FormAttachmentUpload.vue';
 import { catalogApi } from '../../api/catalog.api';
 import { salesApi } from '../../api/sales.api';
 import { identityApi } from '../../api/identity.api';
 import { isSuperAdmin, hasPermission } from '../../utils/rbac';
+import { getQuotationPdfBase64 } from '../../utils/quotationPdf';
 
 const route = useRoute();
 const router = useRouter();
@@ -443,6 +485,21 @@ const form = ref({
 const showNotesDialog = ref(false);
 const showAuditDialog = ref(false);
 const showAddContactDialog = ref(false);
+const showPdfPreviewDialog = ref(false);
+const showSendEmailDialog = ref(false);
+const preparedPdfBase64 = ref('');
+
+const openSendEmailFromForm = async () => {
+  try {
+    preparedPdfBase64.value = await getQuotationPdfBase64(form.value, {
+      currentUser: props.currentUser
+    });
+    showSendEmailDialog.value = true;
+  } catch (err) {
+    console.error('Lỗi tạo PDF base64:', err);
+    showSendEmailDialog.value = true;
+  }
+};
 
 const newContact = ref({
   name: '',

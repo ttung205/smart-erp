@@ -30,8 +30,14 @@ cd services\inventory-service\src\Inventory.Api
 call dotnet build
 cd ..\..\..
 
+echo [4/5] Cài đặt Notification Service (Node.js - Port 8006)...
+cd services\notification-service
+if not exist .env copy .env.example .env > nul
+call npm install
+cd ..\..
+
 echo.
-echo [4/4] Cài đặt Frontend Vue 3 + PrimeVue...
+echo [5/5] Cài đặt Frontend Vue 3 + PrimeVue...
 cd frontend
 call npm install
 cd ..

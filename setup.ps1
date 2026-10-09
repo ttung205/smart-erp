@@ -25,8 +25,14 @@ Write-Host "`n[3/4] Cai dat Inventory Service (.NET Core :8004)..." -ForegroundC
 Set-Location "$root\services\inventory-service\src\Inventory.Api"
 dotnet build
 
-# 4. Frontend
-Write-Host "`n[4/4] Cai dat Frontend Vue 3 + PrimeVue..." -ForegroundColor Yellow
+# 4. Notification Service
+Write-Host "`n[4/5] Cai dat Notification Service (Node.js :8006)..." -ForegroundColor Yellow
+Set-Location "$root\services\notification-service"
+if (-not (Test-Path ".env")) { Copy-Item ".env.example" ".env" }
+npm install
+
+# 5. Frontend
+Write-Host "`n[5/5] Cai dat Frontend Vue 3 + PrimeVue..." -ForegroundColor Yellow
 Set-Location "$root\frontend"
 npm install
 

@@ -10,6 +10,7 @@ export default defineConfig(({ mode }) => {
   const purchaseTarget = env.VITE_PURCHASE_SERVICE_URL || 'http://127.0.0.1:8003'
   const inventoryTarget = env.VITE_INVENTORY_SERVICE_URL || 'http://127.0.0.1:8004'
   const salesTarget = env.VITE_SALES_SERVICE_URL || 'http://127.0.0.1:8005'
+  const notificationTarget = env.VITE_NOTIFICATION_SERVICE_URL || 'http://127.0.0.1:8006'
 
   return {
     plugins: [
@@ -42,6 +43,10 @@ export default defineConfig(({ mode }) => {
           target: salesTarget,
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api\/v1\/sales/, '/api')
+        },
+        '/api/v1/notifications': {
+          target: notificationTarget,
+          changeOrigin: true
         }
       }
     }

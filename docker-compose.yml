@@ -59,6 +59,17 @@ services:
     networks:
       - erp-network
 
+  # 4. Mailpit Local SMTP Server & Web UI (Local Email Testing)
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: erp-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"     # SMTP Port for Notification Service
+      - "8025:8025"     # Web UI to preview sent emails & attachments
+    networks:
+      - erp-network
+
 networks:
   erp-network:
     driver: bridge
