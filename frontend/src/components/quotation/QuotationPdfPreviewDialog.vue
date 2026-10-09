@@ -174,7 +174,7 @@ defineEmits(['update:visible']);
 
 const toast = useToast();
 
-const orientation = ref('landscape');
+const orientation = ref('portrait');
 const availableColumns = ref(JSON.parse(JSON.stringify(defaultPdfColumns)));
 const customTerms = ref(getSavedQuotationTerms());
 
