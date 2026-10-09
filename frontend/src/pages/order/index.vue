@@ -49,6 +49,13 @@
       emptyTitle="Chưa có đơn bán hàng nào"
       emptySubtitle="Tất cả đơn bán hàng đều phải được tạo từ Báo giá đã duyệt. Vui lòng chuyển sang trang Báo Giá để tiến hành tạo đơn bán."
     >
+      <!-- 0. ID đơn hàng -->
+      <template #col-id="{ data }">
+        <span class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-200 inline-block whitespace-nowrap">
+          #{{ data.id }}
+        </span>
+      </template>
+
       <!-- 1. Mã đơn nội bộ (OD-...) -->
       <template #col-order_number="{ data }">
         <span
@@ -104,7 +111,7 @@
 
       <!-- 7. Trạng thái -->
       <template #col-status="{ data }">
-        <div class="text-center">
+        <div class="text-center whitespace-nowrap">
           <Badge
             :severity="getStatusMeta(data.status).severity"
             :value="getStatusMeta(data.status).label"
@@ -251,11 +258,12 @@ const selectedOrder = ref(null);
 
 // Cấu hình các cột cho CommonDataTable (đồng bộ với các trang danh sách khác)
 const tableColumns = [
+  { field: 'id', header: 'ID', sortable: true, width: '70px', align: 'center' },
   { field: 'order_number', header: 'Mã Đơn Nội Bộ', sortable: true, width: '195px' },
   { field: 'customer_order_number', header: 'Số Đơn Khách', sortable: true, width: '165px' },
   { field: 'customer_name', header: 'Khách Hàng B2B', sortable: true },
-  { field: 'order_date', header: 'Ngày Tạo', sortable: true, width: '120px', align: 'center' },
-  { field: 'items_count', header: 'Mặt Hàng Chốt', sortable: false, width: '140px', align: 'center' },
+  { field: 'order_date', header: 'Ngày Tạo', sortable: true, width: '110px', align: 'center' },
+  { field: 'items_count', header: 'Số Item', sortable: false, width: '95px', align: 'center' },
   { field: 'total_amount', header: 'Tổng Tiền Đơn', sortable: true, width: '160px', align: 'right' },
   { field: 'status', header: 'Trạng Thái', sortable: true, width: '130px', align: 'center' }
 ];

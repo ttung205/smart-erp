@@ -14,46 +14,6 @@ export const menuCategories = [
     category: 'Phân Hệ Nghiệp Vụ',
     items: [
       {
-        id: 'organization',
-        label: 'Tổ chức',
-        icon: 'pi pi-sitemap',
-        isFolder: true,
-        children: [
-          {
-            id: 'department',
-            path: '/department',
-            resource: 'department',
-            permission: 'department.view',
-            label: 'Phòng ban',
-            icon: 'pi pi-building'
-          },
-          {
-            id: 'employee',
-            path: '/employee',
-            resource: 'employee',
-            permission: 'employee.view',
-            label: 'Nhân viên',
-            icon: 'pi pi-users'
-          },
-          {
-            id: 'role',
-            path: '/role',
-            resource: 'role',
-            permission: 'role.view',
-            label: 'Vai trò',
-            icon: 'pi pi-id-card'
-          },
-          {
-            id: 'permission',
-            path: '/permission',
-            resource: 'permission',
-            permission: 'permission.view',
-            label: 'Quyền hạn',
-            icon: 'pi pi-key'
-          }
-        ]
-      },
-      {
         id: 'partner-hub',
         label: 'Đối tác',
         icon: 'pi pi-users',
@@ -110,97 +70,9 @@ export const menuCategories = [
         ]
       },
       {
-        id: 'inventory-hub',
-        label: 'Quản lý kho',
-        icon: 'pi pi-server',
-        isFolder: true,
-        children: [
-          {
-            id: 'inventory-overview',
-            path: '/inventory/overview',
-            resource: 'inventory',
-            permission: 'inventory.view',
-            label: 'Tổng quan kho',
-            icon: 'pi pi-chart-bar'
-          },
-          {
-            id: 'inventory-stocks',
-            path: '/inventory/stocks',
-            resource: 'inventory',
-            permission: 'inventory.view',
-            label: 'Bảng tồn kho',
-            icon: 'pi pi-box'
-          },
-          {
-            id: 'inventory-reservations',
-            path: '/inventory/reservations',
-            resource: 'inventory',
-            permission: 'inventory.view',
-            label: 'Hàng giữ chỗ',
-            icon: 'pi pi-lock'
-          },
-          {
-            id: 'inventory-movements',
-            path: '/inventory/movements',
-            resource: 'inventory',
-            permission: 'inventory.view',
-            label: 'Sổ cái thẻ kho',
-            icon: 'pi pi-history'
-          },
-          {
-            id: 'warehouse-request-sale',
-            path: '/warehouse-request-sale',
-            resource: 'inventory',
-            permission: 'inventory.view',
-            label: 'Yêu cầu xuất kho',
-            icon: 'pi pi-dolly'
-          }
-        ]
-      },
-      {
-        id: 'purchase-hub',
-        label: 'Thu mua',
-        icon: 'pi pi-shopping-bag',
-        isFolder: true,
-        children: [
-          {
-            id: 'purchase-requisition',
-            path: '/purchase/requisitions',
-            resource: 'purchase',
-            permission: 'purchase.view',
-            label: 'Đề nghị mua (PR)',
-            icon: 'pi pi-file-plus'
-          },
-          {
-            id: 'purchase-order',
-            path: '/purchase/orders',
-            resource: 'purchase',
-            permission: 'purchase.view',
-            label: 'Đơn đặt mua (PO)',
-            icon: 'pi pi-shopping-cart'
-          },
-          {
-            id: 'purchase-receipt',
-            path: '/purchase/receipts',
-            resource: 'purchase',
-            permission: 'purchase.view',
-            label: 'Nhập kho (GRN)',
-            icon: 'pi pi-inbox'
-          },
-          {
-            id: 'purchase-invoice',
-            path: '/purchase/invoices',
-            resource: 'purchase',
-            permission: 'purchase.view',
-            label: 'Hóa đơn & Đối chiếu',
-            icon: 'pi pi-receipt'
-          }
-        ]
-      },
-      {
         id: 'sales',
         label: 'Bán hàng',
-        icon: 'pi pi-shopping-cart',
+        icon: 'pi pi-shopping-bag',
         isFolder: true,
         children: [
           {
@@ -262,12 +134,132 @@ export const menuCategories = [
         ]
       },
       {
-        id: 'master',
-        path: '/master',
-        resource: 'master',
-        permission: 'master.view',
-        label: 'Kho bãi',
-        icon: 'pi pi-building'
+        id: 'purchase-hub',
+        label: 'Thu mua',
+        icon: 'pi pi-shopping-cart',
+        isFolder: true,
+        children: [
+          {
+            id: 'purchase-requisition',
+            path: '/purchase/requisitions',
+            resource: 'purchase',
+            permission: 'purchase.view',
+            label: 'Đề nghị mua (PR)',
+            icon: 'pi pi-file-plus'
+          },
+          {
+            id: 'purchase-order',
+            path: '/purchase/orders',
+            resource: 'purchase',
+            permission: 'purchase.view',
+            label: 'Đơn đặt mua (PO)',
+            icon: 'pi pi-shopping-cart'
+          },
+          {
+            id: 'purchase-receipt',
+            path: '/purchase/receipts',
+            resource: 'purchase',
+            permission: 'purchase.view',
+            label: 'Nhập kho (GRN)',
+            icon: 'pi pi-inbox'
+          },
+          {
+            id: 'purchase-invoice',
+            path: '/purchase/invoices',
+            resource: 'purchase',
+            permission: 'purchase.view',
+            label: 'Hóa đơn & Đối chiếu',
+            icon: 'pi pi-receipt'
+          }
+        ]
+      },
+      {
+        id: 'inventory-hub',
+        label: 'Quản lý kho',
+        icon: 'pi pi-server',
+        isFolder: true,
+        children: [
+          {
+            id: 'inventory-overview',
+            path: '/inventory/overview',
+            resource: 'inventory',
+            permission: 'inventory.view',
+            label: 'Tổng quan kho',
+            icon: 'pi pi-chart-bar'
+          },
+          {
+            id: 'inventory-stocks',
+            path: '/inventory/stocks',
+            resource: 'inventory',
+            permission: 'inventory.view',
+            label: 'Bảng tồn kho',
+            icon: 'pi pi-box'
+          },
+          {
+            id: 'inventory-reservations',
+            path: '/inventory/reservations',
+            resource: 'inventory',
+            permission: 'inventory.view',
+            label: 'Hàng giữ chỗ',
+            icon: 'pi pi-lock'
+          },
+          {
+            id: 'inventory-movements',
+            path: '/inventory/movements',
+            resource: 'inventory',
+            permission: 'inventory.view',
+            label: 'Sổ cái thẻ kho',
+            icon: 'pi pi-history'
+          },
+          {
+            id: 'warehouse-request-sale',
+            path: '/warehouse-request-sale',
+            resource: 'inventory',
+            permission: 'inventory.view',
+            label: 'Yêu cầu xuất kho',
+            icon: 'pi pi-dolly'
+          }
+        ]
+      },
+      {
+        id: 'organization',
+        label: 'Tổ chức',
+        icon: 'pi pi-sitemap',
+        isFolder: true,
+        children: [
+          {
+            id: 'department',
+            path: '/department',
+            resource: 'department',
+            permission: 'department.view',
+            label: 'Phòng ban',
+            icon: 'pi pi-building'
+          },
+          {
+            id: 'employee',
+            path: '/employee',
+            resource: 'employee',
+            permission: 'employee.view',
+            label: 'Nhân viên',
+            icon: 'pi pi-users'
+          },
+          {
+            id: 'role',
+            path: '/role',
+            resource: 'role',
+            permission: 'role.view',
+            label: 'Vai trò',
+            icon: 'pi pi-id-card'
+          },
+          {
+            id: 'permission',
+            path: '/permission',
+            resource: 'permission',
+            permission: 'permission.view',
+            label: 'Quyền hạn',
+            icon: 'pi pi-key'
+          }
+        ]
       }
     ]
   },

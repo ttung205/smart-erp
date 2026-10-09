@@ -41,9 +41,16 @@
       emptyTitle="Không có đơn bán hàng nào chờ giao"
       emptySubtitle="Các đơn bán hàng sau khi được Phê duyệt (APPROVED) sẽ hiển thị tại đây để điều phối giao hàng."
     >
+      <!-- Custom column: id -->
+      <template #col-id="{ data }">
+        <span class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-200 inline-block whitespace-nowrap">
+          #{{ data.id }}
+        </span>
+      </template>
+
       <!-- Custom column: order_number (hiển thị số đơn của khách) -->
       <template #col-order_number="{ data }">
-        <span class="font-mono text-xs font-bold text-slate-800">
+        <span class="font-mono text-xs font-bold text-slate-800 inline-block whitespace-nowrap">
           {{ data.customer_order_number || data.order_number || data.id }}
         </span>
       </template>
@@ -51,12 +58,12 @@
       <!-- Custom column: customer_name -->
       <template #col-customer_name="{ data }">
         <div class="flex flex-col">
-          <span class="font-semibold text-slate-800 text-xs truncate max-w-xs" :title="data.customer_name">
+          <span class="font-semibold text-slate-800 text-xs" :title="data.customer_name">
             {{ data.customer_name }}
           </span>
           <span
             v-if="data.shipping_address"
-            class="text-[10px] text-slate-400 truncate max-w-xs flex items-center gap-1 mt-0.5"
+            class="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5"
           >
             <i class="pi pi-map-marker text-[9px] text-rose-400"></i>
             {{ data.shipping_address }}
@@ -66,41 +73,41 @@
 
       <!-- Custom column: salesperson -->
       <template #col-salesperson="{ data }">
-        <span class="text-slate-700 text-xs font-medium">{{ data.salesperson }}</span>
+        <span class="text-slate-700 text-xs font-medium whitespace-nowrap">{{ data.salesperson }}</span>
       </template>
 
       <!-- Custom column: items_count -->
       <template #col-items_count="{ data }">
-        <span class="font-mono text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+        <span class="font-mono text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded inline-block whitespace-nowrap">
           {{ data.items_count }}
         </span>
       </template>
 
       <!-- Custom column: total_ordered_qty -->
       <template #col-total_ordered_qty="{ data }">
-        <span class="font-mono text-xs font-bold text-blue-600">
+        <span class="font-mono text-xs font-bold text-blue-600 whitespace-nowrap">
           {{ data.total_ordered_qty }}
         </span>
       </template>
 
       <!-- Custom column: total_delivered_qty -->
       <template #col-total_delivered_qty="{ data }">
-        <span class="font-mono text-xs font-bold text-green-600">
+        <span class="font-mono text-xs font-bold text-green-600 whitespace-nowrap">
           {{ data.total_delivered_qty }}
         </span>
       </template>
 
       <!-- Custom column: total_remaining_qty -->
       <template #col-total_remaining_qty="{ data }">
-        <span class="font-mono text-xs font-bold text-red-600">
+        <span class="font-mono text-xs font-bold text-red-600 whitespace-nowrap">
           {{ data.total_remaining_qty }}
         </span>
       </template>
 
       <!-- Cột Thao Tác cho Đơn Bán -->
-      <Column header="Thao Tác" class="text-center" style="width: 100px">
+      <Column header="Thao Tác" class="text-center whitespace-nowrap" headerClass="whitespace-nowrap" style="width: 100px">
         <template #body="{ data }">
-          <div class="flex items-center justify-center gap-1.5">
+          <div class="flex items-center justify-center gap-1.5 whitespace-nowrap">
             <!-- Nút xem dialog đơn hàng (dùng luôn dialog order) -->
             <Button
               icon="pi pi-eye"
@@ -181,15 +188,16 @@ const showOrderDialog = ref(false);
 const showCreateDeliveryDialog = ref(false);
 const selectedOrder = ref(null);
 
-// Cấu hình cột: Đơn bán chờ giao
+// Cấu hình cột: Đơn bán chờ giao (Đã thêm cột ID và điều chỉnh width)
 const orderColumns = [
-  { field: 'order_number', header: 'Số Đơn Hàng', sortable: true, width: '200px' },
+  { field: 'id', header: 'ID', sortable: true, width: '70px', align: 'center' },
+  { field: 'order_number', header: 'Số Đơn Hàng', sortable: true, width: '190px' },
   { field: 'customer_name', header: 'Khách Hàng', sortable: true },
-  { field: 'salesperson', header: 'Nhân Viên KD', sortable: true, width: '160px' },
-  { field: 'items_count', header: 'Số Item', sortable: true, width: '110px', align: 'center' },
-  { field: 'total_ordered_qty', header: 'SL Đặt', sortable: true, width: '100px', align: 'center' },
-  { field: 'total_delivered_qty', header: 'SL Đã Giao', sortable: true, width: '130px', align: 'center' },
-  { field: 'total_remaining_qty', header: 'SL Chưa Giao', sortable: true, width: '120px', align: 'center' }
+  { field: 'salesperson', header: 'Nhân Viên KD', sortable: true, width: '150px' },
+  { field: 'items_count', header: 'Số Item', sortable: true, width: '90px', align: 'center' },
+  { field: 'total_ordered_qty', header: 'SL Đặt', sortable: true, width: '90px', align: 'center' },
+  { field: 'total_delivered_qty', header: 'SL Đã Giao', sortable: true, width: '110px', align: 'center' },
+  { field: 'total_remaining_qty', header: 'SL Chưa Giao', sortable: true, width: '110px', align: 'center' }
 ];
 
 // Tải dữ liệu Đơn Bán Hàng

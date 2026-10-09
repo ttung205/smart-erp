@@ -58,10 +58,17 @@
       emptyTitle="Chưa có bản báo giá nào"
       emptySubtitle="Nhấn nút 'Lập Báo Giá Mới' ở trên để chuyển sang màn hình lập báo giá."
     >
+      <!-- Custom column: id -->
+      <template #col-id="{ data }">
+        <span class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-200 inline-block whitespace-nowrap">
+          #{{ data.id }}
+        </span>
+      </template>
+
       <!-- Custom column: quotation_number -->
       <template #col-quotation_number="{ data }">
         <span
-          class="font-mono text-xs font-semibold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-200 cursor-pointer hover:underline"
+          class="font-mono text-xs font-semibold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-200 cursor-pointer hover:underline inline-block whitespace-nowrap"
           @click="openViewDialog(data)"
         >
           {{ data.quotation_number }}
@@ -77,15 +84,14 @@
       </template>
 
       <!-- Custom column: created_at -->
-      <!-- Custom column: created_at -->
       <template #col-created_at="{ data }">
-        <span class="text-slate-600 text-xs font-mono">{{ formatDate(data.created_at || data.quotation_date) }}</span>
+        <span class="text-slate-600 text-xs font-mono whitespace-nowrap">{{ formatDate(data.created_at || data.quotation_date) }}</span>
       </template>
 
       <!-- Custom column: items_count -->
       <template #col-items_count="{ data }">
         <div class="text-center">
-          <span class="text-xs font-mono font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded-[4px]">
+          <span class="text-xs font-mono font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded-[4px] inline-block whitespace-nowrap">
             {{ data.items?.length || 0 }} items
           </span>
         </div>
@@ -94,7 +100,7 @@
       <!-- Custom column: total_amount -->
       <template #col-total_amount="{ data }">
         <div class="text-right">
-          <span class="font-mono text-xs font-bold text-slate-900 num-tabular">
+          <span class="font-mono text-xs font-bold text-slate-900 num-tabular whitespace-nowrap">
             {{ formatCurrency(data.total_amount) }}
           </span>
         </div>
@@ -102,7 +108,7 @@
 
       <!-- Custom column: status -->
       <template #col-status="{ data }">
-        <div class="text-center">
+        <div class="text-center whitespace-nowrap">
           <Badge
             :severity="getStatusMeta(data.status).severity"
             :value="getStatusMeta(data.status).label"
@@ -111,9 +117,9 @@
       </template>
 
       <!-- Column Thao Tác (Actions) -->
-      <Column header="Thao Tác" class="text-center" style="width: 110px">
+      <Column header="Thao Tác" class="text-center whitespace-nowrap" headerClass="whitespace-nowrap" style="width: 110px">
         <template #body="{ data }">
-          <div class="flex items-center justify-center gap-1.5">
+          <div class="flex items-center justify-center gap-1.5 whitespace-nowrap">
             <!-- Nút View báo giá qua dialog -->
             <Button
               icon="pi pi-eye"
@@ -189,12 +195,13 @@ const statusFilter = ref(null);
 const showViewDialog = ref(false);
 const selectedQuotation = ref(null);
 
-// Cấu hình các cột cho CommonDataTable (đã bỏ cột hạn hiệu lực theo yêu cầu)
+// Cấu hình các cột cho CommonDataTable (đã thêm cột ID, căn chỉnh chiều rộng hợp lý)
 const tableColumns = [
-  { field: 'quotation_number', header: 'Mã Báo Giá', sortable: true, width: '180px' },
+  { field: 'id', header: 'ID', sortable: true, width: '70px', align: 'center' },
+  { field: 'quotation_number', header: 'Mã Báo Giá', sortable: true, width: '230px' },
   { field: 'customer_name', header: 'Khách Hàng', sortable: true },
-  { field: 'created_at', header: 'Ngày Tạo', sortable: true, width: '140px' },
-  { field: 'items_count', header: 'Số Item', sortable: false, width: '100px', align: 'center' },
+  { field: 'created_at', header: 'Ngày Tạo', sortable: true, width: '120px', align: 'center' },
+  { field: 'items_count', header: 'Số Item', sortable: false, width: '95px', align: 'center' },
   { field: 'total_amount', header: 'Tổng Số Tiền', sortable: true, width: '160px', align: 'right' },
   { field: 'status', header: 'Trạng Thái', sortable: true, width: '130px', align: 'center' }
 ];

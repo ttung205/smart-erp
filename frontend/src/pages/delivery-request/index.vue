@@ -43,14 +43,14 @@
     >
       <!-- Custom column: id -->
       <template #col-id="{ data }">
-        <span class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-200">
+        <span class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-200 inline-block whitespace-nowrap">
           #{{ data.id }}
         </span>
       </template>
 
       <!-- Custom column: order_number (hiển thị số đơn của khách) -->
       <template #col-order_number="{ data }">
-        <span class="font-mono text-xs font-semibold text-slate-800">
+        <span class="font-mono text-xs font-semibold text-slate-800 inline-block whitespace-nowrap">
           {{ data.customer_order_number || data.order_number || data.order_id }}
         </span>
       </template>
@@ -62,48 +62,48 @@
 
       <!-- Custom column: items_count -->
       <template #col-items_count="{ data }">
-        <span class="font-mono text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+        <span class="font-mono text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded inline-block whitespace-nowrap">
           {{ data.items_count }}
         </span>
       </template>
 
       <!-- Custom column: total_requested_qty -->
       <template #col-total_requested_qty="{ data }">
-        <span class="font-mono text-xs font-bold text-blue-600">
+        <span class="font-mono text-xs font-bold text-blue-600 whitespace-nowrap">
           {{ data.total_requested_qty }}
         </span>
       </template>
 
       <!-- Custom column: total_delivered_qty -->
       <template #col-total_delivered_qty="{ data }">
-        <span class="font-mono text-xs font-bold text-green-600">
+        <span class="font-mono text-xs font-bold text-green-600 whitespace-nowrap">
           {{ data.total_delivered_qty }}
         </span>
       </template>
 
       <!-- Custom column: total_remaining_qty -->
       <template #col-total_remaining_qty="{ data }">
-        <span class="font-mono text-xs font-bold text-red-600">
+        <span class="font-mono text-xs font-bold text-red-600 whitespace-nowrap">
           {{ data.total_remaining_qty }}
         </span>
       </template>
 
       <!-- Custom column: status -->
       <template #col-status="{ data }">
-        <div class="text-center">
+        <div class="text-center whitespace-nowrap">
           <Badge :severity="getStatusMeta(data.status).severity" :value="getStatusMeta(data.status).label" />
         </div>
       </template>
 
       <!-- Custom column: requester_name (Người Yêu Cầu) -->
       <template #col-requester_name="{ data }">
-        <span class="text-slate-700 text-xs font-medium">{{ data.requester_name }}</span>
+        <span class="text-slate-700 text-xs font-medium whitespace-nowrap">{{ data.requester_name }}</span>
       </template>
 
       <!-- Cột Thao Tác cho Yêu Cầu Giao Hàng -->
-      <Column header="Thao Tác" class="text-center" style="width: 110px">
+      <Column header="Thao Tác" class="text-center whitespace-nowrap" headerClass="whitespace-nowrap" style="width: 110px">
         <template #body="{ data }">
-          <div class="flex items-center justify-center gap-1.5">
+          <div class="flex items-center justify-center gap-1.5 whitespace-nowrap">
             <!-- Nút View Dialog xem các mã hàng yêu cầu giao -->
             <Button
               icon="pi pi-eye"
