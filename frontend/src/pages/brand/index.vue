@@ -128,48 +128,12 @@
     </CommonDataTable>
 
     <!-- Create / Edit Dialog -->
-    <Dialog
+    <BrandFormDialog
       v-model:visible="showModal"
-      modal
-      :header="editingBrand ? 'Chỉnh Sửa Thương Hiệu' : 'Thêm Mới Thương Hiệu'"
-      :style="{ width: '420px' }"
-      class="rounded-[6px]"
-    >
-      <div class="flex flex-col gap-3 pt-1 text-xs">
-        <div class="flex flex-col gap-1">
-          <label for="brand-name" class="font-semibold text-slate-700">Tên thương hiệu <span class="text-red-600">*</span></label>
-          <InputText
-            id="brand-name"
-            v-model="brandForm.name"
-            placeholder="Ví dụ: LG, SKF, Toshiba, Samsung..."
-            class="w-full rounded-[6px]"
-            size="small"
-            @keyup.enter="saveBrand"
-          />
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex justify-end gap-2 pt-2">
-          <Button
-            label="Hủy bỏ"
-            text
-            size="small"
-            severity="secondary"
-            class="rounded-[6px]"
-            @click="showModal = false"
-          />
-          <Button
-            :label="editingBrand ? 'Cập Nhật' : 'Lưu Thương Hiệu'"
-            icon="pi pi-check"
-            size="small"
-            :loading="saving"
-            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 rounded-[6px]"
-            @click="saveBrand"
-          />
-        </div>
-      </template>
-    </Dialog>
+      :brand="editingBrand"
+      :saving="saving"
+      @save="saveBrand"
+    />
   </div>
 </template>
 
@@ -182,10 +146,9 @@ import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
 import Button from 'primevue/button';
-import Badge from 'primevue/badge';
-import Dialog from 'primevue/dialog';
 import PageHeader from '../../components/common/PageHeader.vue';
 import CommonDataTable from '../../components/common/CommonDataTable.vue';
+import BrandFormDialog from '../../components/brand/BrandFormDialog.vue';
 import { catalogApi } from '../../api/catalog.api';
 
 const toast = useToast();
@@ -252,8 +215,9 @@ const openEditModal = (brand) => {
   showModal.value = true;
 };
 
-const saveBrand = async () => {
-  const name = brandForm.value.name.trim();
+const saveBrand = async (formData) => {
+  const dataToSave = formData || brandForm.value;
+  const name = dataToSave.name?.trim();
   if (!name) {
     alert('Vui lòng nhập tên thương hiệu!');
     return;

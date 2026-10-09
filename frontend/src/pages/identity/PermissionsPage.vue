@@ -144,68 +144,14 @@
     </div>
 
     <!-- 4. Dialog Thêm / Chỉnh Sửa Quyền Hạn -->
-    <Dialog
+    <PermissionFormDialog
       v-model:visible="dialogVisible"
-      modal
-      :header="isEditing ? 'Chỉnh Sửa Thông Tin Quyền Hạn' : 'Định Nghĩa Quyền Hạn Mới'"
-      :style="{ width: '480px' }"
-    >
-      <div class="py-2 flex flex-col gap-4">
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Mã Quyền (Code) *</label>
-          <InputText
-            v-model="form.code"
-            placeholder="Ví dụ: inventory.transfer, order.approve"
-            size="small"
-            class="!rounded-[6px] font-mono"
-            :disabled="isEditing"
-          />
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Phân Hệ (Module) *</label>
-          <Select
-            v-model="form.module"
-            :options="availableModules"
-            optionLabel="label"
-            optionValue="value"
-            placeholder="Chọn phân hệ áp dụng..."
-            size="small"
-            class="w-full !rounded-[6px]"
-          />
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Diễn Giải Quyền Hạn *</label>
-          <InputText
-            v-model="form.description"
-            placeholder="Mô tả quyền hạn được cấp và phạm vi ảnh hưởng..."
-            size="small"
-            class="!rounded-[6px]"
-          />
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex items-center justify-end gap-2 w-full pt-2">
-          <Button
-            label="Hủy Bỏ"
-            text
-            size="small"
-            severity="secondary"
-            class="!rounded-[6px]"
-            @click="dialogVisible = false"
-          />
-          <Button
-            :label="isEditing ? 'Lưu Thay Đổi' : 'Thêm Quyền'"
-            size="small"
-            :loading="loading.save"
-            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px]"
-            @click="savePermission"
-          />
-        </div>
-      </template>
-    </Dialog>
+      :is-editing="isEditing"
+      :form="form"
+      :available-modules="availableModules"
+      :loading="loading.save"
+      @save="savePermission"
+    />
   </div>
 </template>
 
@@ -218,8 +164,8 @@ import Select from 'primevue/select';
 import Tag from 'primevue/tag';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
-import Dialog from 'primevue/dialog';
 import PageHeader from '../../components/common/PageHeader.vue';
+import PermissionFormDialog from '../../components/identity/PermissionFormDialog.vue';
 import { identityApi } from '../../api/identity.api';
 import { canManage } from '../../utils/rbac';
 

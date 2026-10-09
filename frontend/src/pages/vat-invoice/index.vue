@@ -430,387 +430,28 @@
     </div>
 
     <!-- DIALOG 1: XEM CHI TIẾT MÃ HÀNG & CHỌN TICK XUẤT HÓA ĐƠN TỪNG PHẦN TRỰC TIẾP -->
-    <Dialog
+    <VatInvoiceUnbilledItemsDialog
       v-model:visible="showUnbilledItemsDialog"
-      modal
-      :header="`Chi Tiết Mặt Hàng & Lập Hóa Đơn VAT - Chứng Từ: ${selectedUnbilledInvoice?.invoice_number || ''}`"
-      :style="{ width: '1050px' }"
-      class="rounded-[8px]"
-      :draggable="false"
-    >
-      <div v-if="selectedUnbilledInvoice" class="space-y-3.5 text-xs pt-1">
-        <!-- 1. Thông tin hóa đơn & Bên mua hàng (Khách hàng không cho sửa) -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 bg-slate-50 border border-slate-200 rounded-[6px] p-3">
-          <div class="flex flex-col gap-1">
-            <label class="font-bold text-slate-700 uppercase tracking-wide text-[11px]">
-              Số hóa đơn GTGT <span class="text-red-500">*</span>
-            </label>
-            <InputText
-              v-model="partialForm.invoice_number"
-              class="w-full text-xs font-mono font-bold text-indigo-700 rounded-[6px] h-8 px-2.5 border-slate-300"
-              placeholder="VD: 00000001"
-            />
-          </div>
-
-          <div class="flex flex-col gap-1">
-            <label class="font-bold text-slate-700 uppercase tracking-wide text-[11px]">
-              Ký hiệu hóa đơn (Series) <span class="text-red-500">*</span>
-            </label>
-            <InputText
-              v-model="partialForm.invoice_series"
-              class="w-full text-xs font-mono font-bold rounded-[6px] h-8 px-2.5 border-slate-300"
-              placeholder="VD: 1C26TBB"
-            />
-          </div>
-
-          <div class="flex flex-col gap-1">
-            <label class="font-bold text-slate-700 uppercase tracking-wide text-[11px]">
-              Ngày hóa đơn <span class="text-red-500">*</span>
-            </label>
-            <InputText
-              v-model="partialForm.invoice_date"
-              type="date"
-              class="w-full text-xs font-mono rounded-[6px] h-8 px-2.5 border-slate-300"
-            />
-          </div>
-
-          <!-- Thông tin khách hàng (Readonly, disabled, tự động) -->
-          <div class="flex flex-col gap-1">
-            <label class="font-bold text-slate-700 uppercase tracking-wide text-[11px] flex justify-between">
-              <span>Đơn vị mua hàng</span>
-              <span class="text-[10px] text-slate-400 font-normal lowercase">(tự động)</span>
-            </label>
-            <InputText
-              :value="selectedUnbilledInvoice.customer_name"
-              class="w-full text-xs rounded-[6px] h-8 px-2.5 border-slate-200 !bg-slate-100 font-semibold text-slate-700"
-              readonly
-              disabled
-            />
-          </div>
-
-          <div class="flex flex-col gap-1">
-            <label class="font-bold text-slate-700 uppercase tracking-wide text-[11px] flex justify-between">
-              <span>Mã số thuế (MST)</span>
-              <span class="text-[10px] text-slate-400 font-normal lowercase">(tự động)</span>
-            </label>
-            <InputText
-              :value="selectedUnbilledInvoice.customer_tax_code || '---'"
-              class="w-full text-xs font-mono font-bold rounded-[6px] h-8 px-2.5 border-slate-200 !bg-slate-100 text-slate-700"
-              readonly
-              disabled
-            />
-          </div>
-
-          <div class="flex flex-col gap-1">
-            <label class="font-bold text-slate-700 uppercase tracking-wide text-[11px] flex justify-between">
-              <span>Địa chỉ</span>
-              <span class="text-[10px] text-slate-400 font-normal lowercase">(tự động)</span>
-            </label>
-            <InputText
-              :value="selectedUnbilledInvoice.customer_address || '---'"
-              class="w-full text-xs rounded-[6px] h-8 px-2.5 border-slate-200 !bg-slate-100 text-slate-700"
-              readonly
-              disabled
-            />
-          </div>
-        </div>
-
-        <!-- 2. Bảng danh sách mã hàng có tick chọn & chỉnh số lượng xuất ít một -->
-        <div class="border border-slate-200 rounded-[6px] overflow-hidden">
-          <div class="bg-slate-100 px-3 py-1.5 border-b border-slate-200 flex items-center justify-between text-[11px]">
-            <span class="font-bold text-slate-700 uppercase">
-              Danh Sách Mã Hàng (Tick Chọn Mặt Hàng & Chỉnh Số Lượng Xuất HĐ)
-            </span>
-            <span class="text-emerald-700 font-semibold">
-              Chuyển TK 1312 ➔ TK 1311
-            </span>
-          </div>
-
-          <table class="w-full text-xs text-left">
-            <thead class="bg-slate-50 text-slate-700 border-b border-slate-200 text-[11px] uppercase tracking-wider">
-              <tr>
-                <th class="p-2 w-10 text-center">
-                  <input
-                    type="checkbox"
-                    :checked="isAllSelected"
-                    class="rounded cursor-pointer accent-indigo-600"
-                    @change="toggleSelectAll($event.target.checked)"
-                  />
-                </th>
-                <th class="p-2 w-10 text-center">STT</th>
-                <th class="p-2 w-28">Mã SKU</th>
-                <th class="p-2">Tên Mặt Hàng</th>
-                <th class="p-2 text-right w-20">SL Đã Xuất</th>
-                <th class="p-2 text-right w-20">Đã HĐ</th>
-                <th class="p-2 text-right w-20">Còn Lại</th>
-                <th class="p-2 text-center w-28">SL Xuất Lần Này</th>
-                <th class="p-2 text-right w-24">Đơn Giá</th>
-                <th class="p-2 text-right w-28">Thành Tiền</th>
-                <th class="p-2 text-center w-16">Thuế VAT</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 font-mono">
-              <tr
-                v-for="(it, idx) in selectedUnbilledInvoice.items"
-                :key="it.id || idx"
-                class="hover:bg-slate-50/80 transition-colors"
-                :class="it._selected ? 'bg-indigo-50/30' : ''"
-              >
-                <!-- Checkbox chọn item -->
-                <td class="p-2 text-center">
-                  <input
-                    type="checkbox"
-                    v-model="it._selected"
-                    class="rounded cursor-pointer accent-indigo-600"
-                    @change="onItemSelectionChange(it)"
-                  />
-                </td>
-                <td class="p-2 text-center text-slate-400">{{ idx + 1 }}</td>
-                <td class="p-2 font-bold text-indigo-700">{{ it.sku }}</td>
-                <td class="p-2 font-sans font-medium text-slate-800">{{ it.product_name }}</td>
-                <td class="p-2 text-right text-slate-600">{{ formatNumber(it.issued_quantity || it.quantity) }}</td>
-                <td class="p-2 text-right text-emerald-700">{{ formatNumber(it.invoiced_quantity || 0) }}</td>
-                <td class="p-2 text-right">
-                  <span class="font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 inline-block">
-                    {{ formatNumber(it.remaining_invoice_quantity || it.quantity) }}
-                  </span>
-                </td>
-                
-                <!-- Input số lượng xuất lần này (cho phép xuất ít một) -->
-                <td class="p-2 text-center font-sans">
-                  <input
-                    type="number"
-                    v-model.number="it.invoice_now_quantity"
-                    :min="0"
-                    :max="it.remaining_invoice_quantity || it.quantity"
-                    class="w-20 text-center font-mono font-bold text-xs h-7 rounded border px-1 transition-all"
-                    :class="it._selected ? 'border-indigo-400 bg-white text-indigo-900 ring-1 ring-indigo-200' : 'border-slate-300 bg-slate-50 text-slate-500'"
-                    @input="onQtyChange(it)"
-                  />
-                </td>
-
-                <td class="p-2 text-right text-slate-700">{{ formatCurrency(it.unit_price) }} đ</td>
-                <td class="p-2 text-right font-bold text-slate-900">
-                  {{ formatCurrency((it._selected ? Number(it.invoice_now_quantity || 0) : 0) * it.unit_price) }} đ
-                </td>
-                <td class="p-2 text-center text-indigo-700 font-semibold">{{ it.vat_rate || it.vat_percent || 10 }}%</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- 3. Tổng kết hóa đơn xuất lần này -->
-        <div class="flex justify-between items-end">
-          <div class="text-xs text-slate-500">
-            Đã chọn: <strong class="text-indigo-700 font-mono">{{ selectedItemsCount }}</strong> mặt hàng để xuất hóa đơn GTGT.
-          </div>
-
-          <div class="w-80 bg-slate-50 border border-slate-200 rounded-[6px] p-3 space-y-1.5 text-xs font-mono">
-            <div class="flex justify-between text-slate-600">
-              <span>Cộng tiền hàng:</span>
-              <span class="font-bold text-slate-800">{{ formatCurrency(partialSubtotal) }} đ</span>
-            </div>
-            <div class="flex justify-between text-indigo-700">
-              <span>Tiền thuế GTGT (10%):</span>
-              <span class="font-bold">{{ formatCurrency(partialVatTotal) }} đ</span>
-            </div>
-            <div class="border-t border-slate-200 pt-1.5 flex justify-between font-bold text-emerald-800 text-sm">
-              <span>Tổng thanh toán HĐ:</span>
-              <span>{{ formatCurrency(partialTotalAmount) }} đ</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <Button
-            label="Đóng"
-            icon="pi pi-times"
-            size="small"
-            outlined
-            severity="secondary"
-            class="rounded-[6px]"
-            @click="showUnbilledItemsDialog = false"
-          />
-          <Button
-            label="Xác Nhận Xuất Hóa Đơn GTGT"
-            icon="pi pi-check"
-            size="small"
-            :loading="submittingPartial"
-            :disabled="selectedItemsCount === 0 || partialTotalAmount <= 0"
-            class="!bg-emerald-600 hover:!bg-emerald-700 !text-white rounded-[6px] !font-semibold border-none"
-            @click="submitPartialVatInvoice"
-          />
-        </div>
-      </template>
-    </Dialog>
+      :invoice="selectedUnbilledInvoice"
+      :form="partialForm"
+      :submitting="submittingPartial"
+      @submit="submitPartialVatInvoice"
+    />
 
     <!-- DIALOG 2: CONFIRM XUẤT NHANH TOÀN BỘ HÓA ĐƠN VAT -->
-    <Dialog
+    <VatInvoiceConfirmFullDialog
       v-model:visible="showConfirmFullDialog"
-      modal
-      header="Xác Nhận Xuất Toàn Bộ Hóa Đơn VAT"
-      :style="{ width: '480px' }"
-      class="rounded-[8px]"
-      :draggable="false"
-    >
-      <div v-if="selectedInvoiceForFullVat" class="space-y-3 pt-1 text-xs text-slate-700">
-        <div class="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-[6px] p-3 text-amber-900">
-          <i class="pi pi-exclamation-triangle text-amber-600 text-xl mt-0.5 shrink-0"></i>
-          <div>
-            <span class="font-bold text-amber-900 block mb-1">Xuất toàn bộ mặt hàng sang HĐ GTGT</span>
-            <p class="m-0 leading-relaxed text-[11px] text-amber-800">
-              Bạn có chắc chắn muốn lập Hóa Đơn GTGT cho <strong>toàn bộ {{ selectedInvoiceForFullVat.items.length }} mặt hàng còn lại</strong> của chứng từ <strong>{{ selectedInvoiceForFullVat.invoice_number }}</strong>?
-            </p>
-          </div>
-        </div>
-
-        <div class="bg-slate-50 border border-slate-200 rounded-[6px] p-3 space-y-1.5 font-mono">
-          <div class="flex justify-between">
-            <span class="text-slate-500 font-sans">Số HĐ GTGT tự động cấp:</span>
-            <strong class="text-indigo-700 text-sm">{{ nextInvoiceInfo.next_number || '00000001' }}</strong>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-slate-500 font-sans">Ký hiệu (Series):</span>
-            <strong class="text-slate-800">{{ nextInvoiceInfo.series || '1C26TBB' }}</strong>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-slate-500 font-sans">Khách hàng:</span>
-            <strong class="text-slate-800 font-sans truncate max-w-[220px]">{{ selectedInvoiceForFullVat.customer_name }}</strong>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-slate-500 font-sans">Tổng tiền thanh toán:</span>
-            <strong class="text-emerald-700 text-sm">{{ formatCurrency(selectedInvoiceForFullVat.total_unbilled_amount * 1.1) }} đ</strong>
-          </div>
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <Button
-            label="Hủy"
-            text
-            size="small"
-            severity="secondary"
-            class="rounded-[6px]"
-            @click="showConfirmFullDialog = false"
-          />
-          <Button
-            label="Xác Nhận Xuất Hóa Đơn"
-            icon="pi pi-check"
-            size="small"
-            :loading="submittingFull"
-            class="!bg-emerald-600 hover:!bg-emerald-700 !text-white rounded-[6px] !font-semibold border-none"
-            @click="executeFullVatInvoice"
-          />
-        </div>
-      </template>
-    </Dialog>
+      :invoice="selectedInvoiceForFullVat"
+      :next-invoice-info="nextInvoiceInfo"
+      :submitting="submittingFull"
+      @submit="executeFullVatInvoice"
+    />
 
     <!-- DIALOG 3: XEM CHI TIẾT HÓA ĐƠN GTGT (E-INVOICE PREVIEW) -->
-    <Dialog
+    <VatInvoiceDetailDialog
       v-model:visible="showDetailDialog"
-      modal
-      :header="`Chi Tiết Hóa Đơn GTGT: Số ${selectedVatInvoice?.invoice_number || ''} - Ký Hiệu: ${selectedVatInvoice?.invoice_series || ''}`"
-      :style="{ width: '850px' }"
-      class="rounded-[8px]"
-      :draggable="false"
-    >
-      <div v-if="selectedVatInvoice" class="space-y-4 text-xs pt-1">
-        <!-- Banner Hóa Đơn Điện Tử -->
-        <div class="bg-gradient-to-r from-indigo-900 via-blue-900 to-indigo-800 text-white p-4 rounded-[6px] flex items-center justify-between">
-          <div>
-            <div class="text-[10px] uppercase tracking-wider text-indigo-200 font-semibold">HÓA ĐƠN GIÁ TRỊ GIA TĂNG (VAT INVOICE)</div>
-            <div class="text-lg font-bold font-mono mt-0.5">SỐ: {{ selectedVatInvoice.invoice_number }}</div>
-            <div class="text-xs text-indigo-200 mt-0.5">Ký hiệu: {{ selectedVatInvoice.invoice_series }} | Ngày lập: {{ formatDate(selectedVatInvoice.invoice_date) }}</div>
-          </div>
-          <div class="text-right">
-            <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[11px] font-semibold px-2.5 py-1 rounded-[4px]">
-              ✓ Đã Ký Điện Tử & Hạch Toán TK 1311
-            </span>
-          </div>
-        </div>
-
-        <!-- Khách hàng info (Read-only) -->
-        <div class="grid grid-cols-2 gap-3 bg-slate-50 border border-slate-200 rounded-[6px] p-3">
-          <div>
-            <div class="text-slate-500 text-[11px]">Đơn vị mua hàng (Khách hàng):</div>
-            <div class="font-bold text-slate-800 mt-0.5">{{ selectedVatInvoice.customer_name }}</div>
-            <div class="text-slate-500 text-[11px] mt-2">Mã số thuế (MST):</div>
-            <div class="font-mono font-bold text-slate-800 mt-0.5">{{ selectedVatInvoice.customer_tax_code || 'Chưa cập nhật' }}</div>
-          </div>
-          <div>
-            <div class="text-slate-500 text-[11px]">Địa chỉ:</div>
-            <div class="text-slate-800 mt-0.5">{{ selectedVatInvoice.customer_address || 'Chưa cập nhật' }}</div>
-            <div class="text-slate-500 text-[11px] mt-2">Chứng từ bán hàng gốc:</div>
-            <div class="font-mono font-semibold text-indigo-700 mt-0.5">
-              {{ selectedVatInvoice.sales_invoice_number || '---' }} (ĐH: {{ selectedVatInvoice.order_number || '---' }})
-            </div>
-          </div>
-        </div>
-
-        <!-- Danh sách mặt hàng -->
-        <div class="border border-slate-200 rounded-[6px] overflow-hidden">
-          <table class="w-full text-xs text-left">
-            <thead class="bg-slate-100 text-slate-700 border-b border-slate-200 text-[11px] uppercase tracking-wider">
-              <tr>
-                <th class="p-2 w-10 text-center">STT</th>
-                <th class="p-2 w-28">Mã hàng</th>
-                <th class="p-2">Tên hàng hóa, dịch vụ</th>
-                <th class="p-2 text-right w-20">Số lượng</th>
-                <th class="p-2 text-right w-28">Đơn giá</th>
-                <th class="p-2 text-right w-28">Thành tiền</th>
-                <th class="p-2 text-center w-16">Thuế GTGT</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 font-mono">
-              <tr v-for="(it, idx) in selectedVatInvoice.items" :key="it.id" class="hover:bg-slate-50">
-                <td class="p-2 text-center text-slate-400">{{ idx + 1 }}</td>
-                <td class="p-2 font-bold text-indigo-700">{{ it.sku }}</td>
-                <td class="p-2 font-sans font-medium text-slate-800">{{ it.product_name }}</td>
-                <td class="p-2 text-right font-semibold">{{ formatNumber(it.quantity) }}</td>
-                <td class="p-2 text-right">{{ formatCurrency(it.unit_price) }}</td>
-                <td class="p-2 text-right font-bold">{{ formatCurrency(it.subtotal) }}</td>
-                <td class="p-2 text-center text-indigo-700 font-semibold">{{ it.vat_percent }}%</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Bảng tổng tiền hóa đơn -->
-        <div class="flex justify-end">
-          <div class="w-72 bg-slate-50 border border-slate-200 rounded-[6px] p-3 space-y-1.5 text-xs font-mono">
-            <div class="flex justify-between text-slate-600">
-              <span>Cộng tiền hàng:</span>
-              <span class="font-bold text-slate-800">{{ formatCurrency(selectedVatInvoice.subtotal) }} đ</span>
-            </div>
-            <div class="flex justify-between text-indigo-700">
-              <span>Tiền thuế GTGT (VAT):</span>
-              <span class="font-bold">{{ formatCurrency(selectedVatInvoice.vat_total) }} đ</span>
-            </div>
-            <div class="border-t border-slate-200 pt-1.5 flex justify-between font-bold text-emerald-800 text-sm">
-              <span>Tổng thanh toán:</span>
-              <span>{{ formatCurrency(selectedVatInvoice.total_amount) }} đ</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <Button
-            label="Đóng"
-            icon="pi pi-times"
-            size="small"
-            outlined
-            severity="secondary"
-            class="rounded-[6px]"
-            @click="showDetailDialog = false"
-          />
-        </div>
-      </template>
-    </Dialog>
+      :invoice="selectedVatInvoice"
+    />
   </div>
 </template>
 
@@ -824,10 +465,12 @@ import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
 import Button from 'primevue/button';
 import Badge from 'primevue/badge';
-import Dialog from 'primevue/dialog';
 
 import PageHeader from '../../components/common/PageHeader.vue';
 import CommonDataTable from '../../components/common/CommonDataTable.vue';
+import VatInvoiceUnbilledItemsDialog from '../../components/invoice/VatInvoiceUnbilledItemsDialog.vue';
+import VatInvoiceConfirmFullDialog from '../../components/invoice/VatInvoiceConfirmFullDialog.vue';
+import VatInvoiceDetailDialog from '../../components/invoice/VatInvoiceDetailDialog.vue';
 
 import { salesApi } from '../../api/sales.api';
 import { formatCurrency, formatDate } from '../../utils/format';

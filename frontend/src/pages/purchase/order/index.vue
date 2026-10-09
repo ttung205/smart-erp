@@ -242,50 +242,12 @@
     </CommonDataTable>
 
     <!-- Modal Từ Chối / Hủy Đơn PO -->
-    <Dialog
+    <PurchaseOrderCancelDialog
       v-model:visible="showCancelDialog"
-      modal
-      header="Từ Chối / Hủy Đơn Đặt Mua PO"
-      :style="{ width: '460px' }"
-      class="border border-slate-200 shadow-xl rounded-[6px]"
-    >
-      <div class="flex flex-col gap-3 py-2">
-        <div class="p-3 bg-rose-50 border border-rose-200 rounded-[6px] text-xs text-rose-800 leading-relaxed">
-          <i class="pi pi-exclamation-triangle mr-1 text-rose-600 font-bold"></i>
-          Bạn đang thao tác hủy đơn đặt mua <strong>#{{ selectedOrder?.po_number }}</strong>. Khi hủy, các số lượng nhu cầu đã gom từ Đề nghị mua sắm (PR) sẽ tự động được hoàn trả về trạng thái chưa đặt mua.
-        </div>
-        <div class="flex flex-col gap-1.5">
-          <label class="text-xs font-semibold text-slate-700">Lý do từ chối / hủy đơn <span class="text-rose-500">*</span></label>
-          <InputText
-            v-model="cancelReason"
-            placeholder="Nhập lý do từ chối hoặc hủy đơn mua..."
-            class="text-xs !rounded-[6px] w-full"
-          />
-        </div>
-      </div>
-      <template #footer>
-        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-          <Button
-            label="Đóng"
-            icon="pi pi-times"
-            size="small"
-            text
-            severity="secondary"
-            class="!rounded-[6px] !text-xs"
-            @click="showCancelDialog = false"
-          />
-          <Button
-            label="Xác nhận hủy đơn"
-            icon="pi pi-ban"
-            size="small"
-            severity="danger"
-            class="!rounded-[6px] !text-xs !bg-rose-600 hover:!bg-rose-700 !text-white !border-rose-600"
-            :loading="cancelling"
-            @click="confirmCancelPo"
-          />
-        </div>
-      </template>
-    </Dialog>
+      :order-number="selectedOrder?.po_number"
+      :loading="cancelling"
+      @confirm="confirmCancelPo"
+    />
   </div>
 </template>
 
@@ -297,13 +259,13 @@ import Button from 'primevue/button';
 import Badge from 'primevue/badge';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
-import Dialog from 'primevue/dialog';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
 import Column from 'primevue/column';
 
 import PageHeader from '../../../components/common/PageHeader.vue';
 import CommonDataTable from '../../../components/common/CommonDataTable.vue';
+import PurchaseOrderCancelDialog from '../../../components/purchase/PurchaseOrderCancelDialog.vue';
 import { purchaseApi } from '../../../api/purchase.api';
 import { PURCHASE_ORDER_STATUS, DEFAULT_SUPPLIERS, DEFAULT_WAREHOUSES } from '../../../constants/purchase.constant';
 import { formatCurrency } from '../../../utils/format';
@@ -513,7 +475,8 @@ const openCancelDialog = (order) => {
   showCancelDialog.value = true;
 };
 
-const confirmCancelPo = async () => {
+const confirmCancelPo = async (reason) => {
+  if (reason) cancelReason.value = reason;
   if (!cancelReason.value.trim()) {
     toast.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Vui lòng nhập lý do hủy đơn', life: 3000 });
     return;

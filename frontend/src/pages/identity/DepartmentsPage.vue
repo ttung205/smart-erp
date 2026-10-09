@@ -139,65 +139,13 @@
     </div>
 
     <!-- 4. Dialog Thêm / Chỉnh Sửa Phòng Ban -->
-    <Dialog
+    <DepartmentFormDialog
       v-model:visible="dialogVisible"
-      modal
-      :header="isEditing ? 'Chỉnh Sửa Thông Tin Phòng Ban' : 'Thêm Phòng Ban Mới'"
-      :style="{ width: '480px' }"
-    >
-      <div class="py-2 flex flex-col gap-4">
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Mã Phòng Ban (Code) *</label>
-          <InputText
-            v-model="form.code"
-            placeholder="Ví dụ: RND, HR, SALES..."
-            size="small"
-            class="!rounded-[6px] font-mono uppercase"
-            :disabled="isEditing"
-          />
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Tên Đơn Vị / Phòng Ban *</label>
-          <InputText
-            v-model="form.name"
-            placeholder="Ví dụ: Phòng Nghiên Cứu & Phát Triển..."
-            size="small"
-            class="!rounded-[6px]"
-          />
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Mô Tả & Trách Nhiệm</label>
-          <InputText
-            v-model="form.description"
-            placeholder="Mô tả chức năng nhiệm vụ của phòng ban..."
-            size="small"
-            class="!rounded-[6px]"
-          />
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex items-center justify-end gap-2 w-full pt-2">
-          <Button
-            label="Hủy Bỏ"
-            text
-            size="small"
-            severity="secondary"
-            class="!rounded-[6px]"
-            @click="dialogVisible = false"
-          />
-          <Button
-            :label="isEditing ? 'Lưu Thay Đổi' : 'Tạo Phòng Ban'"
-            size="small"
-            :loading="loading.save"
-            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px]"
-            @click="saveDepartment"
-          />
-        </div>
-      </template>
-    </Dialog>
+      :is-editing="isEditing"
+      :form="form"
+      :loading="loading.save"
+      @save="saveDepartment"
+    />
   </div>
 </template>
 
@@ -208,9 +156,9 @@ import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
-import Dialog from 'primevue/dialog';
 import Tag from 'primevue/tag';
 import PageHeader from '../../components/common/PageHeader.vue';
+import DepartmentFormDialog from '../../components/identity/DepartmentFormDialog.vue';
 import { identityApi } from '../../api/identity.api';
 import { canManage } from '../../utils/rbac';
 

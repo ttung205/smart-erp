@@ -1,20 +1,13 @@
 <template>
   <div class="space-y-4 pb-12">
     <!-- Header -->
-    <PageHeader
-      title="Quản Lý Khách Hàng (Customer Management)"
+    <PageHeader title="Quản Lý Khách Hàng (Customer Management)"
       subtitle="Danh mục khách hàng B2B, loại tài khoản MA/EA/TA/RA, quản lý người liên hệ và đối tác kinh doanh"
-      badge="Phân Hệ Đối Tác"
-      badge-severity="info"
-    >
+      badge="Phân Hệ Đối Tác" badge-severity="info">
       <template #actions>
-        <Button
-          label="Thêm Khách Hàng Mới"
-          icon="pi pi-plus"
-          size="small"
+        <Button label="Thêm Khách Hàng Mới" icon="pi pi-plus" size="small"
           class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !text-xs !py-2 !px-3.5 rounded-[6px] !font-semibold shadow-sm"
-          @click="$router.push('/customer/create')"
-        />
+          @click="$router.push('/customer/create')" />
       </template>
     </PageHeader>
 
@@ -24,30 +17,15 @@
         <div class="flex items-center gap-3">
           <IconField>
             <InputIcon class="pi pi-search text-slate-400" />
-            <InputText
-              v-model="searchQuery"
-              placeholder="Tìm theo mã, tên khách, MST, người tạo..."
-              class="w-80 rounded-[6px] text-xs h-9"
-            />
+            <InputText v-model="searchQuery" placeholder="Tìm theo mã, tên khách, MST, người tạo..."
+              class="w-80 rounded-[6px] text-xs h-9" />
           </IconField>
 
-          <Select
-            v-model="typeFilter"
-            :options="typeFilterOptions"
-            optionLabel="label"
-            optionValue="value"
-            placeholder="Lọc loại khách hàng..."
-            class="w-52 rounded-[6px] text-xs h-9 flex items-center"
-          />
+          <Select v-model="typeFilter" :options="typeFilterOptions" optionLabel="label" optionValue="value"
+            placeholder="Lọc loại khách hàng..." class="w-52 rounded-[6px] text-xs h-9 flex items-center" />
 
-          <Select
-            v-model="statusFilter"
-            :options="statusOptions"
-            optionLabel="label"
-            optionValue="value"
-            placeholder="Lọc trạng thái..."
-            class="w-44 rounded-[6px] text-xs h-9 flex items-center"
-          />
+          <Select v-model="statusFilter" :options="statusOptions" optionLabel="label" optionValue="value"
+            placeholder="Lọc trạng thái..." class="w-44 rounded-[6px] text-xs h-9 flex items-center" />
         </div>
       </template>
 
@@ -59,32 +37,22 @@
     </Toolbar>
 
     <!-- Data Table using CommonDataTable -->
-    <CommonDataTable
-      :value="filteredCustomers"
-      :columns="tableColumns"
-      :loading="loading"
-      :rows="10"
-      :rowsPerPageOptions="[10, 20, 50]"
-      emptyIcon="pi pi-users"
-      emptyTitle="Chưa có khách hàng nào"
-      emptySubtitle="Nhấn nút 'Thêm Khách Hàng Mới' để tạo hồ sơ khách hàng doanh nghiệp."
-    >
+    <CommonDataTable :value="filteredCustomers" :columns="tableColumns" :loading="loading" :rows="10"
+      :rowsPerPageOptions="[10, 20, 50]" emptyIcon="pi pi-users" emptyTitle="Chưa có khách hàng nào"
+      emptySubtitle="Nhấn nút 'Thêm Khách Hàng Mới' để tạo hồ sơ khách hàng doanh nghiệp.">
       <!-- 1. Mã khách hàng -->
       <template #col-code="{ data }">
         <span
           class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-[4px] border border-sky-200 cursor-pointer hover:underline"
-          @click="$router.push(`/customer/${data.id}/edit`)"
-        >
+          @click="$router.push(`/customer/${data.id}/edit`)">
           {{ data.code }}
         </span>
       </template>
 
       <!-- 2. Tên khách hàng -->
       <template #col-name="{ data }">
-        <span
-          class="font-bold text-slate-800 text-xs hover:text-sky-700 cursor-pointer"
-          @click="$router.push(`/customer/${data.id}/edit`)"
-        >
+        <span class="font-bold text-slate-800 text-xs hover:text-sky-700 cursor-pointer"
+          @click="$router.push(`/customer/${data.id}/edit`)">
           {{ data.name }}
         </span>
       </template>
@@ -99,10 +67,8 @@
 
       <!-- 4. Loại khách hàng -->
       <template #col-customer_type="{ data }">
-        <Badge
-          :value="getCustomerTypeLabel(data.customer_type)"
-          :severity="getCustomerTypeSeverity(data.customer_type)"
-        />
+        <Badge :value="getCustomerTypeLabel(data.customer_type)"
+          :severity="getCustomerTypeSeverity(data.customer_type)" />
       </template>
 
       <!-- 5. Người tạo -->
@@ -116,12 +82,9 @@
       <!-- 6. Liên hệ (Chỉ hiển thị số count, click mở Dialog) -->
       <template #col-contacts_count="{ data }">
         <div class="text-center">
-          <button
-            type="button"
+          <button type="button"
             class="inline-flex items-center gap-1.5 font-bold font-mono text-xs text-sky-700 bg-sky-50 hover:bg-sky-100 px-2.5 py-1 rounded-[6px] border border-sky-200 transition-colors cursor-pointer"
-            title="Nhấn để xem danh sách người liên hệ"
-            @click="openContactsDialog(data)"
-          >
+            title="Nhấn để xem danh sách người liên hệ" @click="openContactsDialog(data)">
             <i class="pi pi-users text-xs text-sky-600"></i>
             <span>{{ data.contacts?.length || 0 }}</span>
             <span class="text-[10px] text-slate-500 font-sans font-normal">(Xem)</span>
@@ -132,10 +95,8 @@
       <!-- 7. Trạng thái khách -->
       <template #col-status="{ data }">
         <div class="text-center">
-          <Badge
-            :severity="data.status === 'ACTIVE' ? 'success' : 'danger'"
-            :value="data.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm khóa'"
-          />
+          <Badge :severity="data.status === 'ACTIVE' ? 'success' : 'danger'"
+            :value="data.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm khóa'" />
         </div>
       </template>
 
@@ -143,123 +104,20 @@
       <Column header="Thao Tác" style="width: 100px" align="center">
         <template #body="{ data }">
           <div class="flex items-center justify-center gap-1.5">
-            <Button
-              icon="pi pi-pencil"
-              outlined
-              size="small"
-              severity="info"
-              class="!w-7 !h-7 !p-0 rounded-[6px]"
-              v-tooltip.bottom="'Chỉnh sửa thông tin khách hàng'"
-              @click="$router.push(`/customer/${data.id}/edit`)"
-            />
-            <Button
-              icon="pi pi-trash"
-              outlined
-              size="small"
-              severity="danger"
-              class="!w-7 !h-7 !p-0 rounded-[6px]"
-              v-tooltip.bottom="'Xóa khách hàng'"
-              @click="confirmDeleteCustomer(data)"
-            />
+            <Button icon="pi pi-pencil" outlined size="small" severity="info" class="!w-7 !h-7 !p-0 rounded-[6px]"
+              v-tooltip.bottom="'Chỉnh sửa thông tin khách hàng'" @click="$router.push(`/customer/${data.id}/edit`)" />
+            <Button icon="pi pi-trash" outlined size="small" severity="danger" class="!w-7 !h-7 !p-0 rounded-[6px]"
+              v-tooltip.bottom="'Xóa khách hàng'" @click="confirmDeleteCustomer(data)" />
           </div>
         </template>
       </Column>
     </CommonDataTable>
 
-    <!-- Modal: Xem danh sách người liên hệ (Contacts) khi click vào số count -->
-    <Dialog
+    <!-- Modal: Xem danh sách người liên hệ (Contacts) -->
+    <CustomerContactsDialog
       v-model:visible="showContactsDialog"
-      modal
-      :header="`Danh Sách Người Liên Hệ - ${selectedCustomer?.name || ''}`"
-      :style="{ width: '700px' }"
-      class="rounded-[8px]"
-    >
-      <div class="space-y-3 pt-1 text-xs">
-        <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-[6px] px-3.5 py-2">
-          <div class="flex items-center gap-2 text-slate-700">
-            <span class="font-bold">Mã KH:</span>
-            <span class="font-mono font-bold text-sky-700">{{ selectedCustomer?.code }}</span>
-            <span class="text-slate-300">|</span>
-            <span>Tổng số: <strong>{{ selectedCustomer?.contacts?.length || 0 }}</strong> người liên hệ</span>
-          </div>
-
-          <Button
-            label="Chỉnh sửa tại trang Form"
-            icon="pi pi-external-link"
-            size="small"
-            text
-            class="!text-xs !p-0 text-sky-600 hover:underline"
-            @click="$router.push(`/customer/${selectedCustomer?.id}/edit`)"
-          />
-        </div>
-
-        <!-- Bảng danh sách liên hệ (Read-only quick view) -->
-        <DataTable
-          :value="selectedCustomer?.contacts || []"
-          responsiveLayout="scroll"
-          class="clean-datatable text-xs"
-          showGridlines
-        >
-          <Column field="name" header="Họ và Tên" style="min-width: 160px">
-            <template #body="{ data }">
-              <div class="flex items-center gap-1.5">
-                <span class="font-bold text-slate-800">{{ data.name }}</span>
-                <Tag v-if="data.is_primary" value="Chính" severity="info" class="text-[10px] px-1.5 py-0 rounded" />
-              </div>
-            </template>
-          </Column>
-
-          <Column field="position" header="Chức Vụ / Phòng Ban" style="width: 160px">
-            <template #body="{ data }">
-              <span class="text-slate-600">{{ data.position || '-' }}</span>
-            </template>
-          </Column>
-
-          <Column field="phone" header="Số Điện Thoại" style="width: 130px">
-            <template #body="{ data }">
-              <span class="font-mono text-slate-700">{{ data.phone || '-' }}</span>
-            </template>
-          </Column>
-
-          <Column field="email" header="Email" style="width: 180px">
-            <template #body="{ data }">
-              <span class="text-slate-600 truncate block">{{ data.email || '-' }}</span>
-            </template>
-          </Column>
-
-          <Column field="notes" header="Ghi Chú" style="min-width: 120px">
-            <template #body="{ data }">
-              <span class="text-slate-500 text-xs italic">{{ data.notes || '-' }}</span>
-            </template>
-          </Column>
-
-          <template #empty>
-            <div class="py-6 text-center text-slate-400 text-xs italic">
-              Chưa có thông tin người liên hệ nào cho khách hàng này.
-            </div>
-          </template>
-        </DataTable>
-      </div>
-
-      <template #footer>
-        <div class="flex justify-between items-center pt-2">
-          <Button
-            label="Mở trang chỉnh sửa khách hàng"
-            icon="pi pi-pencil"
-            size="small"
-            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !text-xs rounded-[6px]"
-            @click="$router.push(`/customer/${selectedCustomer?.id}/edit`)"
-          />
-          <Button
-            label="Đóng"
-            size="small"
-            severity="secondary"
-            class="rounded-[6px]"
-            @click="showContactsDialog = false"
-          />
-        </div>
-      </template>
-    </Dialog>
+      :customer="selectedCustomer"
+    />
   </div>
 </template>
 
@@ -268,7 +126,6 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 
-import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Toolbar from 'primevue/toolbar';
 import IconField from 'primevue/iconfield';
@@ -277,10 +134,10 @@ import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Button from 'primevue/button';
 import Badge from 'primevue/badge';
-import Dialog from 'primevue/dialog';
 
 import PageHeader from '../../components/common/PageHeader.vue';
 import CommonDataTable from '../../components/common/CommonDataTable.vue';
+import CustomerContactsDialog from '../../components/customer/CustomerContactsDialog.vue';
 import { catalogApi } from '../../api/catalog.api';
 
 const router = useRouter();

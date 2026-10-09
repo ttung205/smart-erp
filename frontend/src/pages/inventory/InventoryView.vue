@@ -130,457 +130,52 @@
     </div>
 
     <!-- 3. CÁC MODAL HÀNH ĐỘNG NGHIỆP VỤ SCM TOÀN HỆ THỐNG -->
-    <!-- 3.1 Dialog Nhập Kho Thực Tế (PO Receipt) -->
-    <Dialog 
-      v-model:visible="showReceiveDialog" 
-      modal 
-      header="Lập Phiếu Nhập Kho Hàng Hóa (Goods Receipt)" 
-      :style="{ width: '480px' }"
-    >
-      <div class="py-2 flex flex-col gap-4">
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Mã Chứng Từ (PO / Receipt Code) *</label>
-          <InputText 
-            v-model="receiveForm.referenceDoc" 
-            placeholder="Ví dụ: PO-202609-0099" 
-            class="!text-xs w-full font-mono !rounded-[6px]" 
-          />
-        </div>
+    <InventoryReceiveDialog
+      v-model:visible="showReceiveDialog"
+      :form="receiveForm"
+      :warehouse-options="warehouseOptions"
+      :product-options="productOptions"
+      :loading="loading.action"
+      @submit="submitReceive"
+    />
 
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Kho Bãi Đích Nhập *</label>
-          <Select 
-            v-model="receiveForm.warehouseId" 
-            :options="warehouseOptions" 
-            optionLabel="label" 
-            optionValue="value" 
-            placeholder="Chọn kho bãi..." 
-            class="w-full !rounded-[6px]" 
-          />
-        </div>
+    <InventoryReserveDialog
+      v-model:visible="showReserveDialog"
+      :form="reserveForm"
+      :warehouse-options="warehouseOptions"
+      :product-options="productOptions"
+      :loading="loading.action"
+      @submit="submitReserve"
+    />
 
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Mặt Hàng Nhập Kho *</label>
-          <Select 
-            v-model="receiveForm.productId" 
-            :options="productOptions" 
-            optionLabel="label" 
-            optionValue="value" 
-            filter
-            filterPlaceholder="Tìm nhanh mã SKU hoặc tên sản phẩm..."
-            placeholder="Chọn sản phẩm..." 
-            class="w-full !rounded-[6px]" 
-          />
-        </div>
+    <InventoryReleaseDialog
+      v-model:visible="showReleaseDialog"
+      :form="releaseForm"
+      :warehouse-options="warehouseOptions"
+      :product-options="productOptions"
+      :selected-stock="selectedReleaseStock"
+      :loading="loading.action"
+      @submit="submitRelease"
+    />
 
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Số Lượng Nhập Thực Tế *</label>
-          <InputNumber 
-            v-model="receiveForm.quantity" 
-            :min="1" 
-            :max="10000" 
-            class="w-full font-mono !rounded-[6px]" 
-            placeholder="Nhập số lượng..." 
-          />
-        </div>
+    <InventoryIssueDialog
+      v-model:visible="showIssueDialog"
+      :form="issueForm"
+      :warehouse-options="warehouseOptions"
+      :product-options="productOptions"
+      :selected-stock="selectedIssueStock"
+      :loading="loading.action"
+      @submit="submitIssue"
+    />
 
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Ghi Chú Nghiệp Vụ</label>
-          <InputText 
-            v-model="receiveForm.notes" 
-            placeholder="Ghi chú xuất xứ hoặc hợp đồng..." 
-            class="!text-xs w-full !rounded-[6px]" 
-          />
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex items-center justify-end gap-2 w-full pt-2">
-          <Button label="Hủy Bỏ" text size="small" class="!rounded-[6px]" @click="showReceiveDialog = false" />
-          <Button 
-            label="Xác Nhận Nhập Kho" 
-            size="small" 
-            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px]" 
-            :loading="loading.action" 
-            @click="submitReceive" 
-          />
-        </div>
-      </template>
-    </Dialog>
-
-    <!-- 3.2 Dialog Giữ Chỗ Tồn Kho (SO Reserve) -->
-    <Dialog 
-      v-model:visible="showReserveDialog" 
-      modal 
-      header="Thử Nghiệm Khóa Giữ Chỗ Tồn Kho (Sales Order Reserve)" 
-      :style="{ width: '480px' }"
-    >
-      <div class="py-2 flex flex-col gap-4">
-        <p class="text-xs text-slate-500 mb-0 leading-relaxed">
-          Form này giả lập sự kiện <code class="font-mono text-sky-700 bg-sky-50 px-1 py-0.5 rounded-[4px]">SalesOrderCreated</code> từ Sales Service. Thử nhập số lượng lớn hơn <strong>Available</strong> để kiểm tra cơ chế chặn bán âm!
-        </p>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Mã Đơn Bán Hàng (SO Code) *</label>
-          <InputText 
-            v-model="reserveForm.orderId" 
-            placeholder="Ví dụ: SO-202609-0088" 
-            class="!text-xs w-full font-mono !rounded-[6px]" 
-          />
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Kho Bãi Xuất Hàng *</label>
-          <Select 
-            v-model="reserveForm.warehouseId" 
-            :options="warehouseOptions" 
-            optionLabel="label" 
-            optionValue="value" 
-            placeholder="Chọn kho xuất..." 
-            class="w-full !rounded-[6px]" 
-          />
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Mặt Hàng Cần Giữ Chỗ *</label>
-          <Select 
-            v-model="reserveForm.productId" 
-            :options="productOptions" 
-            optionLabel="label" 
-            optionValue="value" 
-            placeholder="Chọn mặt hàng..." 
-            class="w-full !rounded-[6px]" 
-          />
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Số Lượng Giữ Chỗ *</label>
-          <InputNumber 
-            v-model="reserveForm.quantity" 
-            :min="1" 
-            :max="10000" 
-            class="w-full font-mono !rounded-[6px]" 
-            placeholder="Nhập số lượng..." 
-          />
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex items-center justify-end gap-2 w-full pt-2">
-          <Button label="Hủy Bỏ" text size="small" class="!rounded-[6px]" @click="showReserveDialog = false" />
-          <Button 
-            label="Khóa Giữ Hàng (Reserve)" 
-            size="small" 
-            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px]" 
-            :loading="loading.action" 
-            @click="submitReserve" 
-          />
-        </div>
-      </template>
-    </Dialog>
-
-    <!-- 3.3 Dialog Hủy Giữ Chỗ Tồn Kho (Release Reservation) -->
-    <Dialog 
-      v-model:visible="showReleaseDialog" 
-      modal 
-      header="Hủy Khóa Giữ Chỗ Tồn Kho (Release Reservation)" 
-      :style="{ width: '500px' }"
-    >
-      <div class="py-2 flex flex-col gap-4">
-        <p class="text-xs text-slate-500 mb-0 leading-relaxed">
-          Giải phóng lượng hàng đang bị khóa giữ chỗ (Reserved) khi Đơn bán hàng (SO) bị hủy, giảm số lượng hoặc hết hạn thanh toán. Lượng hàng này sẽ được hoàn trả trực tiếp về số dư <strong>Khả dụng (Available)</strong> để bán tiếp.
-        </p>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Mã Đơn Bán Hàng Cần Hủy Giữ *</label>
-          <InputText 
-            v-model="releaseForm.orderId" 
-            placeholder="Ví dụ: SO-202609-0088" 
-            class="!text-xs w-full font-mono !rounded-[6px]" 
-          />
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Kho Bãi Đang Giữ Hàng *</label>
-          <Select 
-            v-model="releaseForm.warehouseId" 
-            :options="warehouseOptions" 
-            optionLabel="label" 
-            optionValue="value" 
-            placeholder="Chọn kho..." 
-            class="w-full !rounded-[6px]" 
-          />
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Mặt Hàng Cần Hủy Giữ Chỗ *</label>
-          <Select 
-            v-model="releaseForm.productId" 
-            :options="productOptions" 
-            optionLabel="label" 
-            optionValue="value" 
-            placeholder="Chọn mặt hàng..." 
-            class="w-full !rounded-[6px]" 
-          />
-        </div>
-
-        <div v-if="selectedReleaseStock" class="p-3 rounded-[6px] border text-xs" :class="selectedReleaseStock.quantity_reserved > 0 ? 'bg-amber-50/70 border-amber-200 text-amber-950' : 'bg-slate-50 border-slate-200 text-slate-700'">
-          <div class="flex justify-between items-center mb-1.5">
-            <span class="text-slate-600">Tồn kho trên kệ (On-Hand):</span>
-            <span class="font-mono font-bold text-slate-800">{{ selectedReleaseStock.quantity_on_hand }}</span>
-          </div>
-          <div class="flex justify-between items-center mb-1.5">
-            <span class="text-slate-600">Đang bị khóa giữ chỗ (Reserved):</span>
-            <span class="font-mono font-bold text-amber-700">{{ selectedReleaseStock.quantity_reserved }}</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-slate-600">Khả dụng hiện tại (Available):</span>
-            <span class="font-mono font-bold text-emerald-700">{{ selectedReleaseStock.available }}</span>
-          </div>
-          <div v-if="selectedReleaseStock.quantity_reserved === 0" class="mt-2.5 text-[11px] leading-relaxed text-rose-700 border-t border-rose-200/80 pt-2">
-            <span>Mặt hàng này hiện không có số lượng nào đang bị khóa giữ chỗ (Reserved = 0).</span>
-          </div>
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <div class="flex justify-between items-center mb-1">
-            <label class="block text-xs font-semibold text-slate-700">Số Lượng Hủy Giữ Chỗ *</label>
-            <span v-if="selectedReleaseStock && selectedReleaseStock.quantity_reserved > 0" class="text-[11px] text-amber-700 font-medium">
-              (Tối đa giải phóng: {{ selectedReleaseStock.quantity_reserved }})
-            </span>
-          </div>
-          <InputNumber 
-            v-model="releaseForm.quantity" 
-            :min="1" 
-            :max="selectedReleaseStock?.quantity_reserved || 10000" 
-            class="w-full font-mono !rounded-[6px]" 
-            placeholder="Nhập số lượng hủy..." 
-          />
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex items-center justify-end gap-2 w-full pt-2">
-          <Button label="Đóng" text size="small" class="!rounded-[6px]" @click="showReleaseDialog = false" />
-          <Button 
-            label="Xác Nhận Hủy Giữ Chỗ" 
-            size="small" 
-            class="!bg-amber-600 hover:!bg-amber-700 !text-white !border-amber-600 !rounded-[6px]" 
-            :loading="loading.action" 
-            :disabled="!selectedReleaseStock || selectedReleaseStock.quantity_reserved === 0"
-            @click="submitRelease" 
-          />
-        </div>
-      </template>
-    </Dialog>
-
-    <!-- 3.4 Dialog Xuất Kho Giao Hàng (Goods Issue / Delivery) -->
-    <Dialog 
-      v-model:visible="showIssueDialog" 
-      modal 
-      header="Lập Phiếu Xuất Kho Giao Hàng (Goods Issue / Delivery)" 
-      :style="{ width: '480px' }"
-    >
-      <div class="py-2 flex flex-col gap-4">
-        <p class="text-xs text-slate-500 mb-0 leading-relaxed">
-          Ghi nhận xuất kho thực tế khi hàng rời khỏi kho để giao đến khách hàng, tự động trừ số lượng tồn trên kệ và giải phóng lượng đang giữ chỗ.
-        </p>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Mã Phiếu Xuất / Vận Đơn *</label>
-          <InputText 
-            v-model="issueForm.deliveryId" 
-            placeholder="Ví dụ: DEL-202609-0099" 
-            class="!text-xs w-full font-mono !rounded-[6px]" 
-          />
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Mã Đơn Bán Hàng (SO Code)</label>
-          <InputText 
-            v-model="issueForm.orderId" 
-            placeholder="Ví dụ: SO-202609-0042" 
-            class="!text-xs w-full font-mono !rounded-[6px]" 
-          />
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Kho Bãi Xuất Hàng *</label>
-          <Select 
-            v-model="issueForm.warehouseId" 
-            :options="warehouseOptions" 
-            optionLabel="label" 
-            optionValue="value" 
-            placeholder="Chọn kho xuất..." 
-            class="w-full !rounded-[6px]" 
-          />
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Mặt Hàng Cần Xuất *</label>
-          <Select 
-            v-model="issueForm.productId" 
-            :options="productOptions" 
-            optionLabel="label" 
-            optionValue="value" 
-            placeholder="Chọn mặt hàng..." 
-            class="w-full !rounded-[6px]" 
-          />
-        </div>
-
-        <div v-if="selectedIssueStock" class="p-3 rounded-[6px] border text-xs" :class="selectedIssueStock.quantity_reserved > 0 ? 'bg-sky-50/60 border-sky-200 text-sky-950' : 'bg-amber-50/80 border-amber-200 text-amber-950'">
-          <div class="flex justify-between items-center mb-1.5">
-            <span class="text-slate-600">Tồn kho trên kệ (On-Hand):</span>
-            <span class="font-mono font-bold text-slate-800">{{ selectedIssueStock.quantity_on_hand }}</span>
-          </div>
-          <div class="flex justify-between items-center mb-1.5">
-            <span class="text-slate-600">Đã khóa giữ chỗ (Reserved):</span>
-            <span class="font-mono font-bold" :class="selectedIssueStock.quantity_reserved > 0 ? 'text-sky-700' : 'text-rose-600'">
-              {{ selectedIssueStock.quantity_reserved }}
-            </span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-slate-600">Khả dụng bán thêm (Available):</span>
-            <span class="font-mono font-bold text-emerald-700">{{ selectedIssueStock.available }}</span>
-          </div>
-          <div v-if="selectedIssueStock.quantity_reserved === 0" class="mt-2.5 text-[11px] leading-relaxed text-amber-800 border-t border-amber-200/80 pt-2">
-            <span><strong>Quy tắc SCM:</strong> Nghiệp vụ Xuất kho (Delivery) chỉ xuất các đơn đã <strong>Khóa giữ chỗ (SO Reserve)</strong>. Sản phẩm này đang có Reserved = 0 nên bạn cần bấm nút <em>"Giữ Chỗ (SO)"</em> trước hoặc chọn sản phẩm đã có lượng giữ chỗ.</span>
-          </div>
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <div class="flex justify-between items-center mb-1">
-            <label class="block text-xs font-semibold text-slate-700">Số Lượng Xuất Thực Tế *</label>
-            <span v-if="selectedIssueStock && selectedIssueStock.quantity_reserved > 0" class="text-[11px] text-sky-700 font-medium">
-              (Tối đa xuất: {{ selectedIssueStock.quantity_reserved }})
-            </span>
-          </div>
-          <InputNumber 
-            v-model="issueForm.quantity" 
-            :min="1" 
-            :max="selectedIssueStock?.quantity_reserved || 10000" 
-            class="w-full font-mono !rounded-[6px]" 
-            placeholder="Nhập số lượng xuất..." 
-          />
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Ghi Chú Vận Chuyển</label>
-          <InputText 
-            v-model="issueForm.notes" 
-            placeholder="Ghi chú đối tác vận chuyển, tài xế..." 
-            class="!text-xs w-full !rounded-[6px]" 
-          />
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex items-center justify-end gap-2 w-full pt-2">
-          <Button label="Hủy Bỏ" text size="small" class="!rounded-[6px]" @click="showIssueDialog = false" />
-          <Button 
-            label="Xác Nhận Xuất Kho" 
-            size="small" 
-            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px]" 
-            :loading="loading.action" 
-            @click="submitIssue" 
-          />
-        </div>
-      </template>
-    </Dialog>
-
-    <!-- 3.5 Dialog Điều Chuyển Kho Nội Bộ (Stock Transfer) -->
-    <Dialog 
-      v-model:visible="showTransferDialog" 
-      modal 
-      header="Lập Phiếu Điều Chuyển Kho Nội Bộ (Stock Transfer)" 
-      :style="{ width: '520px' }"
-    >
-      <div class="py-2 flex flex-col gap-4">
-        <p class="text-xs text-slate-500 mb-0 leading-relaxed">
-          Điều chuyển cân đối hàng hóa giữa các kho chi nhánh, tự động cập nhật sổ cái thẻ kho cho cả kho nguồn và kho đích.
-        </p>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Mã Lệnh Điều Chuyển *</label>
-          <InputText 
-            v-model="transferForm.transferDoc" 
-            placeholder="Ví dụ: TRF-202609-0012" 
-            class="!text-xs w-full font-mono !rounded-[6px]" 
-          />
-        </div>
-
-        <div class="grid grid-cols-2 gap-4">
-          <div class="flex flex-col gap-1.5">
-            <label class="block text-xs font-semibold text-slate-700">Kho Nguồn (Xuất Đi) *</label>
-            <Select 
-              v-model="transferForm.sourceWarehouseId" 
-              :options="warehouseOptions" 
-              optionLabel="label" 
-              optionValue="value" 
-              placeholder="Chọn kho nguồn..." 
-              class="w-full !rounded-[6px]" 
-            />
-          </div>
-
-          <div class="flex flex-col gap-1.5">
-            <label class="block text-xs font-semibold text-slate-700">Kho Đích (Nhận Về) *</label>
-            <Select 
-              v-model="transferForm.targetWarehouseId" 
-              :options="warehouseOptions" 
-              optionLabel="label" 
-              optionValue="value" 
-              placeholder="Chọn kho đích..." 
-              class="w-full !rounded-[6px]" 
-            />
-          </div>
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Mặt Hàng Điều Chuyển *</label>
-          <Select 
-            v-model="transferForm.productId" 
-            :options="productOptions" 
-            optionLabel="label" 
-            optionValue="value" 
-            placeholder="Chọn mặt hàng..." 
-            class="w-full !rounded-[6px]" 
-          />
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Số Lượng Điều Chuyển *</label>
-          <InputNumber 
-            v-model="transferForm.quantity" 
-            :min="1" 
-            :max="10000" 
-            class="w-full font-mono !rounded-[6px]" 
-            placeholder="Nhập số lượng..." 
-          />
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Ghi Chú & Phương Tiện</label>
-          <InputText 
-            v-model="transferForm.notes" 
-            placeholder="Lý do điều chuyển, xe vận tải..." 
-            class="!text-xs w-full !rounded-[6px]" 
-          />
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex items-center justify-end gap-2 w-full pt-2">
-          <Button label="Hủy Bỏ" text size="small" class="!rounded-[6px]" @click="showTransferDialog = false" />
-          <Button 
-            label="Xác Nhận Điều Chuyển" 
-            size="small" 
-            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px]" 
-            :loading="loading.action" 
-            @click="submitTransfer" 
-          />
-        </div>
-      </template>
-    </Dialog>
+    <InventoryTransferDialog
+      v-model:visible="showTransferDialog"
+      :form="transferForm"
+      :warehouse-options="warehouseOptions"
+      :product-options="productOptions"
+      :loading="loading.action"
+      @submit="submitTransfer"
+    />
   </div>
 </template>
 
@@ -590,10 +185,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import PageHeader from '../../components/common/PageHeader.vue'
 import Button from 'primevue/button'
-import InputText from 'primevue/inputtext'
-import InputNumber from 'primevue/inputnumber'
 import Select from 'primevue/select'
-import Dialog from 'primevue/dialog'
 
 import { useInventory } from '../../composables/useInventory'
 import OverviewTab from './OverviewTab.vue'
@@ -601,6 +193,12 @@ import OverviewTabRegional from './OverviewTabRegional.vue'
 import StocksTab from './StocksTab.vue'
 import ReservationsTab from './ReservationsTab.vue'
 import MovementsTab from './MovementsTab.vue'
+
+import InventoryReceiveDialog from '../../components/inventory/InventoryReceiveDialog.vue'
+import InventoryReserveDialog from '../../components/inventory/InventoryReserveDialog.vue'
+import InventoryReleaseDialog from '../../components/inventory/InventoryReleaseDialog.vue'
+import InventoryIssueDialog from '../../components/inventory/InventoryIssueDialog.vue'
+import InventoryTransferDialog from '../../components/inventory/InventoryTransferDialog.vue'
 
 const props = defineProps({
   currentUser: {

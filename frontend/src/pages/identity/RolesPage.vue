@@ -130,157 +130,24 @@
     </div>
 
     <!-- 3. Modal Thêm / Chỉnh Sửa Vai Trò -->
-    <Dialog
+    <RoleFormDialog
       v-model:visible="roleDialogVisible"
-      modal
-      :header="isEditingRole ? 'Chỉnh Sửa Thông Tin Vai Trò' : 'Thêm Vai Trò Mới'"
-      :style="{ width: '460px' }"
-    >
-      <div class="py-2 flex flex-col gap-4">
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Mã Vai Trò (Định danh hệ thống) *</label>
-          <InputText
-            v-model="roleForm.code"
-            placeholder="Ví dụ: INVENTORY_CLERK"
-            size="small"
-            class="!rounded-[6px] font-mono uppercase"
-            :disabled="isEditingRole"
-          />
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Tên Hiển Thị Vai Trò *</label>
-          <InputText
-            v-model="roleForm.name"
-            placeholder="Ví dụ: Nhân viên thủ kho"
-            size="small"
-            class="!rounded-[6px]"
-          />
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="block text-xs font-semibold text-slate-700">Mô Tả Nhiệm Vụ & Thẩm Quyền</label>
-          <InputText
-            v-model="roleForm.description"
-            placeholder="Mô tả phạm vi trách nhiệm nghiệp vụ..."
-            size="small"
-            class="!rounded-[6px]"
-          />
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex items-center justify-end gap-2 w-full pt-2">
-          <Button
-            label="Hủy Bỏ"
-            text
-            size="small"
-            severity="secondary"
-            class="!rounded-[6px]"
-            @click="roleDialogVisible = false"
-          />
-          <Button
-            :label="isEditingRole ? 'Lưu Thay Đổi' : 'Tạo Vai Trò'"
-            size="small"
-            :loading="loading.saveRole"
-            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px]"
-            @click="saveRole"
-          />
-        </div>
-      </template>
-    </Dialog>
+      :is-editing="isEditingRole"
+      :form="roleForm"
+      :loading="loading.saveRole"
+      @save="saveRole"
+    />
 
     <!-- 4. Modal Chia Quyền (Permission Assignment Matrix) -->
-    <Dialog
+    <RolePermissionMatrixDialog
       v-model:visible="permModalVisible"
-      modal
-      :header="`Phân Quyền Cho Vai Trò: ${activeRole ? activeRole.name : ''}`"
-      :style="{ width: '720px' }"
-    >
-      <div v-if="activeRole" class="py-2 flex flex-col gap-4">
-        <!-- Info Banner -->
-        <div class="p-3 bg-sky-50 border border-sky-200 rounded-[6px] text-xs flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <i class="pi pi-shield text-sky-600"></i>
-            <span class="text-slate-700">
-              Mã vai trò: <strong class="font-mono text-sky-800">{{ activeRole.code }}</strong>
-            </span>
-          </div>
-          <div class="text-sky-700 font-semibold font-mono">
-            Đã chọn: {{ selectedPermIds.length }} / {{ allPermissions.length }} quyền
-          </div>
-        </div>
-
-        <!-- Modules Accordion / Groups -->
-        <div class="max-h-[460px] overflow-y-auto space-y-4 pr-1">
-          <div
-            v-for="(modulePerms, moduleName) in permissionsByModule"
-            :key="moduleName"
-            class="border border-slate-200 rounded-[6px] overflow-hidden"
-          >
-            <!-- Module Header with Select All -->
-            <div class="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
-              <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                Phân hệ: {{ formatModuleName(moduleName) }}
-              </span>
-              <button
-                type="button"
-                class="text-xs text-sky-600 hover:text-sky-800 font-medium cursor-pointer"
-                @click="toggleSelectModule(modulePerms)"
-              >
-                {{ isAllModuleSelected(modulePerms) ? 'Bỏ chọn cả nhóm' : 'Chọn tất cả nhóm' }}
-              </button>
-            </div>
-
-            <!-- Permissions in module -->
-            <div class="p-3 grid grid-cols-1 md:grid-cols-2 gap-2 bg-white">
-              <div
-                v-for="p in modulePerms"
-                :key="p.id"
-                class="flex items-start gap-2 p-2 rounded-[6px] border border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
-                @click="togglePerm(p.id)"
-              >
-                <Checkbox
-                  :modelValue="selectedPermIds.includes(p.id)"
-                  :binary="true"
-                  class="mt-0.5"
-                />
-                <div class="flex flex-col select-none">
-                  <span class="text-xs font-mono font-semibold text-slate-800">{{ p.code }}</span>
-                  <span class="text-[11px] text-slate-500 leading-tight">{{ p.description }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex items-center justify-between w-full pt-2">
-          <div class="text-xs text-slate-500">
-            Lưu ý: Thay đổi quyền sẽ áp dụng ngay trong phiên đăng nhập tiếp theo của người dùng.
-          </div>
-          <div class="flex items-center gap-2">
-            <Button
-              label="Hủy Bỏ"
-              text
-              size="small"
-              severity="secondary"
-              class="!rounded-[6px]"
-              @click="permModalVisible = false"
-            />
-            <Button
-              label="Lưu Phân Quyền"
-              icon="pi pi-check"
-              size="small"
-              :loading="loading.savePerms"
-              class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px]"
-              @click="saveRolePermissions"
-            />
-          </div>
-        </div>
-      </template>
-    </Dialog>
+      v-model:selected-perm-ids="selectedPermIds"
+      :role="activeRole"
+      :all-permissions="allPermissions"
+      :permissions-by-module="permissionsByModule"
+      :loading="loading.savePerms"
+      @save="saveRolePermissions"
+    />
   </div>
 </template>
 
@@ -292,9 +159,9 @@ import InputText from 'primevue/inputtext';
 import Badge from 'primevue/badge';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
-import Dialog from 'primevue/dialog';
-import Checkbox from 'primevue/checkbox';
 import PageHeader from '../../components/common/PageHeader.vue';
+import RoleFormDialog from '../../components/identity/RoleFormDialog.vue';
+import RolePermissionMatrixDialog from '../../components/identity/RolePermissionMatrixDialog.vue';
 import { identityApi } from '../../api/identity.api';
 import { canManage } from '../../utils/rbac';
 

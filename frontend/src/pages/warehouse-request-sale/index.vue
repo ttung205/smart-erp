@@ -225,273 +225,30 @@
     </CommonDataTable>
 
     <!-- 1. Modal Xem Chi Tiết Mặt Hàng Cần Soạn -->
-    <Dialog
+    <WarehouseRequestDetailDialog
       v-model:visible="showDetailModal"
-      modal
-      :header="`Chi Tiết Lệnh Xuất Kho: ${selectedInvoice?.invoice_number || ''}`"
-      :style="{ width: '850px' }"
-      class="rounded-[8px]"
-    >
-      <div v-if="selectedInvoice" class="space-y-3 pt-1">
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50 border border-slate-200 rounded-[6px] p-3 text-xs">
-          <div><span class="text-slate-500 block">Mã chứng từ:</span><strong class="font-mono text-indigo-700">{{ selectedInvoice.invoice_number }}</strong></div>
-          <div><span class="text-slate-500 block">Đơn bán hàng:</span><strong class="font-mono text-slate-800">{{ selectedInvoice.customer_order_number || selectedInvoice.order_number }}</strong></div>
-          <div><span class="text-slate-500 block">Khách hàng:</span><strong class="text-slate-800">{{ selectedInvoice.customer_name }}</strong></div>
-          <div><span class="text-slate-500 block">Kho xuất:</span><strong class="text-slate-700">{{ selectedInvoice.warehouse_name }}</strong></div>
-        </div>
-
-        <!-- Thông tin điều phối kho -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white border border-slate-200 rounded-[6px] p-3 text-xs">
-          <div>
-            <span class="text-slate-500 block text-[11px]">Nhân viên soạn hàng:</span>
-            <strong class="text-slate-800">{{ selectedInvoice.picker_name || 'Chưa phân công' }}</strong>
-          </div>
-          <div>
-            <span class="text-slate-500 block text-[11px]">Người đóng gói:</span>
-            <strong class="text-slate-800">{{ selectedInvoice.packer_name || 'Chưa phân công' }}</strong>
-          </div>
-          <div>
-            <span class="text-slate-500 block text-[11px]">Phương thức & Vận chuyển:</span>
-            <strong class="text-slate-800">{{ getShippingMethodLabel(selectedInvoice.shipping_method) }}</strong>
-            <span v-if="selectedInvoice.shipper_name" class="block text-[11px] text-slate-600">
-              {{ selectedInvoice.shipper_name }} {{ selectedInvoice.shipping_note ? ' - ' + selectedInvoice.shipping_note : '' }}
-            </span>
-          </div>
-        </div>
-
-        <div class="border border-slate-200 rounded-[6px] overflow-hidden">
-          <DataTable :value="selectedInvoice.items" showGridlines class="clean-datatable text-xs" responsiveLayout="scroll">
-            <Column field="sku" header="SKU" style="width: 130px">
-              <template #body="{ data }">
-                <span class="font-mono font-semibold text-sky-700">{{ data.sku }}</span>
-              </template>
-            </Column>
-            <Column field="product_name" header="Tên Mặt Hàng"></Column>
-            <Column field="description" header="Mô Tả Chi Tiết">
-              <template #body="{ data }">
-                <span class="text-slate-600 italic">{{ data.description || '---' }}</span>
-              </template>
-            </Column>
-            <Column header="SL Yêu Cầu" style="width: 100px" class="text-center">
-              <template #body="{ data }">
-                <span class="font-mono text-slate-600">{{ data.requested_quantity || data.quantity }}</span>
-              </template>
-            </Column>
-            <Column header="SL Xuất Kho" style="width: 110px" class="text-center">
-              <template #body="{ data }">
-                <span class="font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
-                  {{ data.quantity }}
-                </span>
-              </template>
-            </Column>
-          </DataTable>
-        </div>
-      </div>
-      <template #footer>
-        <Button label="Đóng" text size="small" severity="secondary" @click="showDetailModal = false" />
-      </template>
-    </Dialog>
+      :invoice="selectedInvoice"
+    />
 
     <!-- 2. Modal Phân Công Soạn - Đóng - Giao Hàng (1 Dialog duy nhất) -->
-    <Dialog
+    <WarehouseRequestAssignDialog
       v-model:visible="showAssignModal"
-      modal
-      :header="`Phân Công Điều Phối Kho: ${selectedInvoice?.invoice_number || ''}`"
-      :style="{ width: '560px' }"
-      class="rounded-[8px]"
-    >
-      <div v-if="selectedInvoice" class="space-y-3.5 pt-1 text-xs">
-        <p class="text-slate-600 m-0">
-          Chỉ định nhân sự thực hiện toàn bộ khâu <strong>Soạn hàng</strong>, <strong>Đóng gói</strong> và <strong>Phương thức vận chuyển</strong> cho chứng từ <strong>{{ selectedInvoice.invoice_number }}</strong>.
-        </p>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <!-- Soạn hàng (Role Logistic + filter) -->
-          <div class="flex flex-col gap-1">
-            <label class="font-semibold text-slate-700 flex items-center gap-1.5">
-              <i class="pi pi-user text-amber-500"></i>
-              <span>Nhân viên soạn hàng (Picker)</span>
-            </label>
-            <Select
-              v-model="assignForm.picker_id"
-              :options="logisticEmployees"
-              optionLabel="name"
-              optionValue="id"
-              :filter="true"
-              filterPlaceholder="Tìm nhân viên..."
-              placeholder="Chọn nhân viên soạn hàng"
-              class="w-full text-xs rounded-[6px]"
-              size="small"
-            />
-          </div>
-
-          <!-- Đóng gói (Role Logistic + filter) -->
-          <div class="flex flex-col gap-1">
-            <label class="font-semibold text-slate-700 flex items-center gap-1.5">
-              <i class="pi pi-box text-indigo-500"></i>
-              <span>Người đóng gói (Packer)</span>
-            </label>
-            <Select
-              v-model="assignForm.packer_id"
-              :options="logisticEmployees"
-              optionLabel="name"
-              optionValue="id"
-              :filter="true"
-              filterPlaceholder="Tìm nhân viên..."
-              placeholder="Chọn người đóng gói"
-              class="w-full text-xs rounded-[6px]"
-              size="small"
-            />
-          </div>
-        </div>
-
-        <!-- Phương thức vận chuyển -->
-        <div class="flex flex-col gap-1">
-          <label class="font-semibold text-slate-700 flex items-center gap-1.5">
-            <i class="pi pi-truck text-sky-500"></i>
-            <span>Phương thức vận chuyển</span>
-          </label>
-          <Select
-            v-model="assignForm.shipping_method"
-            :options="shippingMethodOptions"
-            optionLabel="label"
-            optionValue="value"
-            placeholder="Chọn phương thức vận chuyển"
-            class="w-full text-xs rounded-[6px]"
-            size="small"
-          />
-        </div>
-
-        <!-- Trường hợp 1: Kho giao -> Phân công người vận chuyển / giao hàng -->
-        <div v-if="assignForm.shipping_method === 'WAREHOUSE_DELIVERY'" class="flex flex-col gap-1 bg-sky-50/50 p-2.5 rounded-[6px] border border-sky-100">
-          <label class="font-semibold text-sky-800 flex items-center gap-1.5">
-            <i class="pi pi-user-plus text-sky-600"></i>
-            <span>Người vận chuyển / Giao hàng (Kho phân công)</span>
-          </label>
-          <Select
-            v-model="assignForm.shipper_id"
-            :options="logisticEmployees"
-            optionLabel="name"
-            optionValue="id"
-            :filter="true"
-            filterPlaceholder="Tìm người giao hàng..."
-            placeholder="Chọn nhân sự giao hàng của kho..."
-            class="w-full text-xs rounded-[6px]"
-            size="small"
-          />
-        </div>
-
-        <!-- Trường hợp 2: Gửi vận chuyển -> Nhập đơn vị VC & Mã vận đơn / Ghi chú -->
-        <div v-else-if="assignForm.shipping_method === 'THIRD_PARTY_CARRIER'" class="space-y-2.5 bg-amber-50/40 p-2.5 rounded-[6px] border border-amber-100">
-          <div class="flex flex-col gap-1">
-            <label class="font-semibold text-slate-700 flex items-center gap-1.5">
-              <i class="pi pi-building text-amber-600"></i>
-              <span>Đơn vị vận chuyển (Hãng chuyển phát)</span>
-            </label>
-            <Select
-              v-model="assignForm.shipper_name"
-              :options="carrierOptions"
-              :editable="true"
-              placeholder="Chọn hoặc nhập đơn vị VC (Viettel Post, GHTK, GHN...)"
-              class="w-full text-xs rounded-[6px]"
-              size="small"
-            />
-          </div>
-
-          <div class="flex flex-col gap-1">
-            <label class="font-semibold text-slate-700">Mã vận đơn / Ghi chú gửi hàng</label>
-            <InputText
-              v-model="assignForm.shipping_note"
-              placeholder="Ví dụ: Mã vận đơn VTP-888999, giao giờ hành chính"
-              class="w-full text-xs rounded-[6px]"
-              size="small"
-            />
-          </div>
-        </div>
-
-        <!-- Trường hợp 3: Khách tới lấy -> Không cần người giao hay mã vận đơn -->
-        <div v-else-if="assignForm.shipping_method === 'CUSTOMER_PICKUP'" class="bg-emerald-50/50 p-2.5 rounded-[6px] border border-emerald-100 flex items-center gap-2 text-emerald-800 text-[11px]">
-          <i class="pi pi-check-circle text-emerald-600 text-sm"></i>
-          <span>Khách hàng sẽ chủ động tới kho nhận hàng. Không cần phân người vận chuyển hay mã vận đơn.</span>
-        </div>
-      </div>
-      <template #footer>
-        <Button label="Hủy" text size="small" severity="secondary" @click="showAssignModal = false" />
-        <Button
-          label="Xác Nhận Đã Xử Lý"
-          icon="pi pi-check"
-          size="small"
-          class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 rounded-[6px] !text-xs !font-semibold"
-          @click="submitAssign"
-        />
-      </template>
-    </Dialog>
+      :invoice="selectedInvoice"
+      :form="assignForm"
+      :logistic-employees="logisticEmployees"
+      :shipping-method-options="shippingMethodOptions"
+      :carrier-options="carrierOptions"
+      @submit="submitAssign"
+    />
 
     <!-- 3. Modal Ghi Sổ Xuất Kho & Trừ Tồn Thật (Tích hợp trực tiếp) -->
-    <Dialog
+    <WarehouseRequestPostDialog
       v-model:visible="showPostModal"
-      modal
-      :header="`Ghi Sổ Xuất Kho & Trừ Tồn Kho: ${selectedInvoice?.invoice_number || ''}`"
-      :style="{ width: '780px' }"
-      class="rounded-[8px]"
-    >
-      <div v-if="selectedInvoice" class="space-y-3 pt-1 text-xs">
-        <!-- Banner cảnh báo trừ tồn -->
-        <div class="bg-rose-50 border border-rose-200 rounded-[6px] p-3 text-rose-900 flex items-start gap-2.5">
-          <i class="pi pi-exclamation-triangle text-rose-600 text-lg mt-0.5 shrink-0"></i>
-          <div>
-            <span class="font-bold text-rose-800 uppercase tracking-wide block mb-1">
-              Xác Nhận Xuất Kho & Trừ Tồn Kho Vật Lý
-            </span>
-            <p class="m-0 leading-relaxed text-rose-700 text-[11px]">
-              Hành động này sẽ <strong>chính thức trừ tồn kho vật lý (On-Hand)</strong> theo chứng từ <strong>{{ selectedInvoice.invoice_number }}</strong>, đồng thời ghi sổ kế toán và hoàn tất chu trình giao hàng.
-            </p>
-          </div>
-        </div>
-
-        <div class="border border-slate-200 rounded-[6px] overflow-hidden">
-          <div class="bg-slate-100 px-3 py-1.5 border-b border-slate-200 text-xs font-semibold text-slate-700">
-            Mặt Hàng Trừ Tồn Kho Thật
-          </div>
-          <DataTable :value="selectedInvoice.items" showGridlines class="clean-datatable text-xs">
-            <Column field="sku" header="SKU" style="width: 130px">
-              <template #body="{ data }">
-                <span class="font-mono font-semibold text-sky-700">{{ data.sku }}</span>
-              </template>
-            </Column>
-            <Column field="product_name" header="Tên Mặt Hàng"></Column>
-            <Column header="Số Lượng Trừ Kho" style="width: 150px" class="text-center">
-              <template #body="{ data }">
-                <span class="font-mono font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded">
-                  -{{ data.quantity }} chiếc
-                </span>
-              </template>
-            </Column>
-          </DataTable>
-        </div>
-
-        <div class="flex flex-col gap-1">
-          <label class="text-xs font-semibold text-slate-700">Người ghi sổ / Thủ kho xác nhận <span class="text-rose-500">*</span></label>
-          <InputText
-            v-model="postForm.posted_by"
-            placeholder="Tên thủ kho / quản lý kho xác nhận..."
-            class="w-full text-xs rounded-[6px]"
-            size="small"
-          />
-        </div>
-      </div>
-      <template #footer>
-        <Button label="Hủy" text size="small" severity="secondary" @click="showPostModal = false" />
-        <Button
-          label="Xác Nhận Ghi Sổ & Trừ Tồn"
-          icon="pi pi-check-circle"
-          size="small"
-          :loading="postingLoading"
-          class="!bg-emerald-600 hover:!bg-emerald-700 !text-white !border-emerald-600 rounded-[6px] !text-xs !font-bold"
-          @click="submitPost"
-        />
-      </template>
-    </Dialog>
+      :invoice="selectedInvoice"
+      :form="postForm"
+      :posting-loading="postingLoading"
+      @submit="submitPost"
+    />
   </div>
 </template>
 
@@ -506,11 +263,12 @@ import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Button from 'primevue/button';
 import Badge from 'primevue/badge';
-import Dialog from 'primevue/dialog';
-import DataTable from 'primevue/datatable';
 
 import PageHeader from '../../components/common/PageHeader.vue';
 import CommonDataTable from '../../components/common/CommonDataTable.vue';
+import WarehouseRequestDetailDialog from '../../components/warehouse-request-sale/WarehouseRequestDetailDialog.vue';
+import WarehouseRequestAssignDialog from '../../components/warehouse-request-sale/WarehouseRequestAssignDialog.vue';
+import WarehouseRequestPostDialog from '../../components/warehouse-request-sale/WarehouseRequestPostDialog.vue';
 import { salesApi } from '../../api/sales.api';
 import { identityApi } from '../../api/identity.api';
 

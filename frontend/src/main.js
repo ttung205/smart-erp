@@ -9,6 +9,21 @@ import 'primeicons/primeicons.css'
 import './style.css'
 import router from './router'
 import App from './App.vue'
+import Dialog from 'primevue/dialog'
+import ConfirmDialog from 'primevue/confirmdialog'
+
+// Tắt chế độ kéo thả (draggable = false) mặc định cho toàn bộ Dialog và ConfirmDialog
+if (Dialog?.extends?.props?.draggable) {
+  Dialog.extends.props.draggable.default = false
+} else if (Dialog?.props?.draggable) {
+  Dialog.props.draggable.default = false
+}
+
+if (ConfirmDialog?.extends?.props?.draggable) {
+  ConfirmDialog.extends.props.draggable.default = false
+} else if (ConfirmDialog?.props?.draggable) {
+  ConfirmDialog.props.draggable.default = false
+}
 
 const app = createApp(App)
 

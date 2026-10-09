@@ -195,145 +195,20 @@
     </div>
 
     <!-- 4. Modal Chọn Mặt Hàng Từ PR Đã Duyệt (Auto Allocation Integration) -->
-    <Dialog
+    <PurchasePrLineSelectorDialog
       v-model:visible="showPrSelector"
-      modal
-      header="Chọn Mặt Hàng Từ Đề Nghị Mua (PR) Đã Duyệt"
-      :style="{ width: '800px' }"
-      class="!rounded-[6px]"
-    >
-      <div class="flex flex-col gap-3 pt-1 text-xs">
-        <p class="text-slate-600 m-0">
-          Danh sách mặt hàng đã được phê duyệt PR và còn dư hạn mức chưa lên đơn PO:
-        </p>
-
-        <div class="border border-slate-200 rounded-[6px] overflow-hidden max-h-80 overflow-y-auto">
-          <table class="w-full text-xs">
-            <thead class="bg-slate-50 border-b border-slate-200 sticky top-0">
-              <tr>
-                <th class="p-2 text-center w-10">Chọn</th>
-                <th class="p-2 text-left">Mã PR</th>
-                <th class="p-2 text-left">SKU & Sản Phẩm</th>
-                <th class="p-2 text-right">SL Duyệt</th>
-                <th class="p-2 text-right">Đã Lên PO</th>
-                <th class="p-2 text-right text-sky-700">Còn Lại</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="item in availablePrLines"
-                :key="item.id"
-                class="border-b border-slate-100 last:border-none hover:bg-slate-50"
-              >
-                <td class="p-2 text-center">
-                  <input
-                    type="checkbox"
-                    v-model="selectedPrLines"
-                    :value="item"
-                    class="rounded text-sky-600 focus:ring-sky-500 w-4 h-4 cursor-pointer"
-                  />
-                </td>
-                <td class="p-2 font-mono font-semibold text-slate-800 whitespace-nowrap">
-                  {{ item.pr_number }}
-                </td>
-                <td class="p-2">
-                  <div class="font-mono font-semibold text-slate-800">{{ item.sku }}</div>
-                  <div class="text-[11px] text-slate-500">{{ item.item_name }}</div>
-                </td>
-                <td class="p-2 text-right font-mono font-medium text-slate-700">
-                  {{ item.quantity_approved }}
-                </td>
-                <td class="p-2 text-right font-mono text-slate-500">
-                  {{ item.quantity_ordered }}
-                </td>
-                <td class="p-2 text-right font-mono font-bold text-sky-700">
-                  {{ item.quantity_available }}
-                </td>
-              </tr>
-              <tr v-if="availablePrLines.length === 0">
-                <td colspan="6" class="p-4 text-center text-slate-400">
-                  Không còn mặt hàng nào trong PR sẵn sàng lên đơn.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex justify-between items-center w-full">
-          <span class="text-xs text-slate-500">
-            Đã chọn: <strong class="text-sky-700">{{ selectedPrLines.length }}</strong> dòng
-          </span>
-          <div class="flex gap-2">
-            <Button
-              label="Hủy bỏ"
-              icon="pi pi-times"
-              size="small"
-              text
-              severity="secondary"
-              class="!rounded-[6px] !text-xs"
-              @click="showPrSelector = false"
-            />
-            <Button
-              label="Kéo vào Đơn Hàng"
-              icon="pi pi-plus"
-              size="small"
-              class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px] !text-xs font-semibold"
-              :disabled="selectedPrLines.length === 0"
-              @click="confirmPullPrLines"
-            />
-          </div>
-        </div>
-      </template>
-    </Dialog>
+      :available-pr-lines="availablePrLines"
+      @confirm="confirmPullPrLines"
+    />
 
     <!-- 5. Modal Xác Nhận Hủy Đơn Hàng PO (Release PR Allocations) -->
-    <Dialog
+    <PurchaseOrderCancelDialog
       v-model:visible="showCancelDialog"
-      modal
+      :order-number="form.po_number"
       header="Xác Nhận Hủy Đơn Mua Hàng"
-      :style="{ width: '450px' }"
-      class="!rounded-[6px]"
-    >
-      <div class="flex flex-col gap-3 pt-1 text-xs">
-        <p class="text-slate-600 m-0">
-          Khi hủy đơn mua <strong class="text-slate-900 font-mono">{{ form.po_number }}</strong>, toàn bộ số lượng phân bổ sẽ được giải phóng trở lại phiếu Đề nghị mua sắm PR ban đầu.
-        </p>
-        <div class="flex flex-col gap-1">
-          <label class="font-medium text-slate-700">Lý do hủy đơn:</label>
-          <InputText
-            v-model="cancelReason"
-            placeholder="Ví dụ: Nhà cung cấp báo hết hàng hoặc giá biến động..."
-            size="small"
-            class="!rounded-[6px] !text-xs"
-          />
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <Button
-            label="Đóng"
-            icon="pi pi-times"
-            size="small"
-            text
-            severity="secondary"
-            class="!rounded-[6px] !text-xs"
-            @click="showCancelDialog = false"
-          />
-          <Button
-            label="Xác nhận Hủy Đơn"
-            icon="pi pi-trash"
-            size="small"
-            severity="danger"
-            class="!bg-rose-600 hover:!bg-rose-700 !text-white !border-rose-600 !rounded-[6px] !text-xs"
-            :loading="cancelling"
-            @click="confirmCancelPo"
-          />
-        </div>
-      </template>
-    </Dialog>
+      :loading="cancelling"
+      @confirm="confirmCancelPo"
+    />
   </div>
 </template>
 
@@ -344,10 +219,11 @@ import { useToast } from 'primevue/usetoast';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
-import Dialog from 'primevue/dialog';
 
 import PageHeader from '../../../components/common/PageHeader.vue';
 import ItemDataTable from '../../../components/common/ItemDataTable.vue';
+import PurchasePrLineSelectorDialog from '../../../components/purchase/PurchasePrLineSelectorDialog.vue';
+import PurchaseOrderCancelDialog from '../../../components/purchase/PurchaseOrderCancelDialog.vue';
 import { purchaseApi } from '../../../api/purchase.api';
 import { PURCHASE_ORDER_STATUS, DEFAULT_SUPPLIERS, DEFAULT_WAREHOUSES } from '../../../constants/purchase.constant';
 import { isSuperAdmin, hasPermission, canManage } from '../../../utils/rbac';
@@ -628,8 +504,9 @@ const openPrSelector = async () => {
   availablePrLines.value = lines;
 };
 
-const confirmPullPrLines = () => {
-  selectedPrLines.value.forEach(line => {
+const confirmPullPrLines = (lines) => {
+  const linesToPull = lines || selectedPrLines.value;
+  linesToPull.forEach(line => {
     form.items.push({
       id: Date.now() + Math.random(),
       product_id: line.product_id || 99,
@@ -648,7 +525,7 @@ const confirmPullPrLines = () => {
     });
   });
   showPrSelector.value = false;
-  toast.add({ severity: 'success', summary: 'Thành công', detail: `Đã kéo ${selectedPrLines.value.length} mặt hàng từ PR vào PO`, life: 3000 });
+  toast.add({ severity: 'success', summary: 'Thành công', detail: `Đã kéo ${linesToPull.length} mặt hàng từ PR vào PO`, life: 3000 });
 };
 
 const saveOrder = async (andSubmit = false) => {
