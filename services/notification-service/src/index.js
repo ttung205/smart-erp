@@ -19,8 +19,8 @@ const emailLogs = [];
 function getTransporter() {
   const host = process.env.SMTP_HOST || '127.0.0.1';
   const port = Number(process.env.SMTP_PORT) || 1025; // 1025 is default Mailpit SMTP port
-  const user = process.env.SMTP_USER || '';
-  const pass = process.env.SMTP_PASS || '';
+  const user = (process.env.SMTP_USER || '').trim();
+  const pass = (process.env.SMTP_PASS || '').replace(/\s+/g, '');
 
   const config = {
     host,
