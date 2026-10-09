@@ -3,8 +3,8 @@
     <Toast position="bottom-right" />
     <ConfirmDialog />
 
-    <!-- A. MÀN HÌNH ĐĂNG NHẬP CHUẨN KHI CHƯA XÁC THỰC -->
-    <LoginPage v-if="!currentUser" :loading="loading.login" @login="submitLogin" />
+    <!-- A. MÀN HÌNH ĐĂNG NHẬP CHUẨN KHI CHƯA XÁC THỰC HOẶC Ở ROUTE /login -->
+    <LoginPage v-if="!currentUser || route.path === '/login'" :loading="loading.login" @login="submitLogin" />
 
     <!-- B. GIAO DIỆN CHÍNH ERP KHI ĐÃ ĐĂNG NHẬP THÀNH CÔNG -->
     <div v-else class="flex min-h-screen bg-slate-50">
@@ -120,18 +120,29 @@ const submitLogin = async ({ email, password }) => {
     if (res.data && res.data.token) {
       jwtToken.value = res.data.token;
       storage.setToken(jwtToken.value);
-      currentUser.value = parseJwt(jwtToken.value);
+      if (res.data.user) {
+        currentUser.value = {
+          ...parseJwt(jwtToken.value),
+          ...res.data.user
+        };
+      } else {
+        currentUser.value = parseJwt(jwtToken.value);
+      }
 
       const permsCount = currentUser.value && currentUser.value.permissions ? currentUser.value.permissions.length : 0;
       toast.add({
         severity: 'success',
         summary: 'Đăng nhập thành công',
-        detail: `Xin chào ${currentUser.value.name}. Cấp phát ${permsCount} quyền hệ thống.`,
+        detail: `Xin chào ${currentUser.value.name || 'Người dùng'}. Cấp phát ${permsCount} quyền hệ thống.`,
         life: 3000
       });
 
       fetchAllData();
-      router.push(route.query.redirect || '/employee');
+      let target = route.query.redirect || '/dashboard';
+      if (target === '/login' || target === '/') {
+        target = '/dashboard';
+      }
+      await router.replace(target);
     }
   } catch (error) {
     toast.add({
@@ -244,50 +255,46 @@ const onOrderCreated = (order) => {
   });
 };
 
-watch(() => route.path, (newPath) => {
-  const map = {
-    '/department': 'department',
-    '/employee': 'employee',
-    '/role': 'role',
-    '/permission': 'permission',
-    '/customer': 'customer',
-    '/supplier': 'supplier',
-    '/product': 'product',
-    '/brand': 'brand',
-    '/category': 'category',
-    '/inventory/overview': 'inventory-overview',
-    '/inventory/stocks': 'inventory-stocks',
-    '/inventory/reservations': 'inventory-reservations',
-    '/inventory/movements': 'inventory-movements',
-    '/warehouse-request-sale': 'warehouse-request-sale',
-    '/purchase/requisitions': 'purchase-requisition',
-    '/purchase/orders': 'purchase-order',
-    '/purchase/receipts': 'purchase-receipt',
-    '/purchase/invoices': 'purchase-invoice',
-    '/quotation': 'quotation',
-    '/order': 'order',
-    '/delivery': 'delivery',
-    '/delivery-request': 'delivery-request',
-    '/invoice': 'invoice',
-    '/master': 'master',
-    '/service-status': 'service-status',
-    '/architecture': 'architecture'
-  };
-  if (map[newPath]) {
-    activeTab.value = map[newPath];
+
+
+const fetchCurrentUserInfo = async () => {
+  if (!jwtToken.value) return;
+  try {
+    const res = await authApi.getMe();
+    if (res.data) {
+      currentUser.value = {
+        ...currentUser.value,
+        ...res.data
+      };
+    }
+  } catch (e) {
+    console.warn('Không thể đồng bộ thông tin người dùng từ server:', e);
   }
-}, { immediate: true });
+};
+
+watch(
+  [() => currentUser.value, () => route.path],
+  ([user, path]) => {
+    if (user && path === '/login') {
+      const target = route.query.redirect || '/dashboard';
+      router.replace(target);
+    }
+  },
+  { immediate: true }
+);
 
 onMounted(async () => {
   checkHealth();
   await router.isReady();
   if (currentUser.value) {
+    fetchCurrentUserInfo();
     fetchAllData();
     if (route.path === '/' || route.path === '/login') {
-      router.push('/employee');
+      const target = route.query.redirect || '/dashboard';
+      router.replace(target);
     }
   } else if (route.path !== '/login' && route.path !== '/forbidden') {
-    router.push('/login');
+    router.replace({ path: '/login', query: { redirect: route.fullPath } });
   }
   setInterval(checkHealth, 15000);
 });

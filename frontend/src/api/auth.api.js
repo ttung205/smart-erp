@@ -12,5 +12,9 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ email, password })
     });
+  },
+
+  getMe() {
+    return apiClient('/api/v1/auth/me');
   }
 };

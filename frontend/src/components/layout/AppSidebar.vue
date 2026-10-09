@@ -214,11 +214,18 @@ const menuCategories = computed(() => {
 
 const isItemActive = (item) => {
   if (!item.path) return false;
+  // 1. Khớp chính xác đường dẫn
   if (route.path === item.path) return true;
-  if (item.path !== '/' && (route.path.startsWith(item.path + '/') || route.path.startsWith(item.path + '?'))) {
+  // 2. Khớp các trang con dạng sub-path (ví dụ /delivery/create, /delivery/123/edit)
+  if (item.path !== '/' && route.path.startsWith(item.path + '/')) {
     return true;
   }
-  if (route.name && (route.name === item.id || route.name.startsWith(item.id + '-'))) {
+  // 3. Khớp chính xác tên route
+  if (route.name && route.name === item.id) {
+    return true;
+  }
+  // 4. Khớp các trang create / edit theo convention `${item.id}-create`, `${item.id}-edit`, `${item.id}-detail`
+  if (route.name && (route.name === `${item.id}-create` || route.name === `${item.id}-edit` || route.name === `${item.id}-detail`)) {
     return true;
   }
   return false;

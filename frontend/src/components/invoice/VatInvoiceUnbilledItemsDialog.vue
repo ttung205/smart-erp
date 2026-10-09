@@ -158,9 +158,9 @@
                 />
               </td>
 
-              <td class="p-2 text-right text-slate-700">{{ formatCurrency(it.unit_price) }} đ</td>
+              <td class="p-2 text-right text-slate-700">{{ formatCurrency(it.unit_price) }}</td>
               <td class="p-2 text-right font-bold text-slate-900">
-                {{ formatCurrency((it._selected ? Number(it.invoice_now_quantity || 0) : 0) * it.unit_price) }} đ
+                {{ formatCurrency((it._selected ? Number(it.invoice_now_quantity || 0) : 0) * it.unit_price) }}
               </td>
               <td class="p-2 text-center text-indigo-700 font-semibold">{{ it.vat_rate || it.vat_percent || 10 }}%</td>
             </tr>
@@ -177,15 +177,15 @@
         <div class="w-80 bg-slate-50 border border-slate-200 rounded-[6px] p-3 space-y-1.5 text-xs font-mono">
           <div class="flex justify-between text-slate-600">
             <span>Cộng tiền hàng:</span>
-            <span class="font-bold text-slate-800">{{ formatCurrency(partialSubtotal) }} đ</span>
+            <span class="font-bold text-slate-800">{{ formatCurrency(partialSubtotal) }}</span>
           </div>
           <div class="flex justify-between text-indigo-700">
             <span>Tiền thuế GTGT (10%):</span>
-            <span class="font-bold">{{ formatCurrency(partialVatTotal) }} đ</span>
+            <span class="font-bold">{{ formatCurrency(partialVatTotal) }}</span>
           </div>
           <div class="border-t border-slate-200 pt-1.5 flex justify-between font-bold text-emerald-800 text-sm">
             <span>Tổng thanh toán HĐ:</span>
-            <span>{{ formatCurrency(partialTotalAmount) }} đ</span>
+            <span>{{ formatCurrency(partialTotalAmount) }}</span>
           </div>
         </div>
       </div>

@@ -73,15 +73,15 @@
         <div class="w-72 bg-slate-50 border border-slate-200 rounded-[6px] p-3 space-y-1.5 text-xs font-mono">
           <div class="flex justify-between text-slate-600">
             <span>Cộng tiền hàng:</span>
-            <span class="font-bold text-slate-800">{{ formatCurrency(invoice.subtotal) }} đ</span>
+            <span class="font-bold text-slate-800">{{ formatCurrency(invoice.subtotal) }}</span>
           </div>
           <div class="flex justify-between text-indigo-700">
             <span>Tiền thuế GTGT (VAT):</span>
-            <span class="font-bold">{{ formatCurrency(invoice.vat_total) }} đ</span>
+            <span class="font-bold">{{ formatCurrency(invoice.vat_total) }}</span>
           </div>
           <div class="border-t border-slate-200 pt-1.5 flex justify-between font-bold text-emerald-800 text-sm">
             <span>Tổng thanh toán:</span>
-            <span>{{ formatCurrency(invoice.total_amount) }} đ</span>
+            <span>{{ formatCurrency(invoice.total_amount) }}</span>
           </div>
         </div>
       </div>

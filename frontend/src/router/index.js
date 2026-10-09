@@ -6,6 +6,7 @@ import { canView } from '../utils/rbac';
 // Page components
 import LoginPage from '../pages/auth/LoginPage.vue';
 import ForbiddenPage from '../pages/auth/ForbiddenPage.vue';
+import DashboardPage from '../pages/dashboard/index.vue';
 import DepartmentsPage from '../pages/identity/DepartmentsPage.vue';
 import UsersPage from '../pages/identity/UsersPage.vue';
 import RolesPage from '../pages/identity/RolesPage.vue';
@@ -59,7 +60,16 @@ export const routes = [
   },
   {
     path: '/',
-    redirect: '/employee'
+    redirect: '/dashboard'
+  },
+  {
+    path: '/dashboard',
+    name: 'dashboard',
+    component: DashboardPage,
+    meta: {
+      requiresAuth: true,
+      title: 'Bảng Điều Khiển Tổng Quan'
+    }
   },
   {
     path: '/department',
@@ -651,7 +661,8 @@ router.beforeEach((to, from, next) => {
 
   // 3. Nếu đã đăng nhập mà truy cập trang /login thì chuyển hướng vào trong
   if (to.path === '/login' && token && user) {
-    return next('/');
+    const redirectUrl = to.query.redirect || '/dashboard';
+    return next(redirectUrl);
   }
 
   next();

@@ -98,7 +98,7 @@
       <template #col-total_amount="{ data }">
         <div class="text-right">
           <span class="font-mono text-xs font-bold text-slate-900 num-tabular">
-            {{ formatCurrency(data.total_amount) }} {{ data.currency || 'VND' }}
+            {{ formatCurrency(data.total_amount) }}
           </span>
         </div>
       </template>
@@ -156,21 +156,9 @@
               @click="sendToWarehouse(data)"
             />
 
-            <!-- Nút: Lập Hóa Đơn VAT khi đã ghi sổ xuất kho -->
+            <!-- Nút: Xem tiến độ tại kho Logistics (nếu đã gửi kho) -->
             <Button
-              v-if="data.accounting_status === 'POSTED'"
-              icon="pi pi-receipt"
-              outlined
-              size="small"
-              severity="success"
-              class="!w-7 !h-7 !p-0 rounded-[6px]"
-              v-tooltip.bottom="'Lập hóa đơn GTGT (VAT Invoice)'"
-              @click="openVatInvoiceDialog(data)"
-            />
-
-            <!-- Nút: Xem tiến độ tại kho Logistics (nếu chưa ghi sổ) -->
-            <Button
-              v-else-if="data.warehouse_status !== 'PENDING_WAREHOUSE'"
+              v-if="data.warehouse_status !== 'PENDING_WAREHOUSE'"
               icon="pi pi-truck"
               outlined
               size="small"
@@ -183,13 +171,6 @@
         </template>
       </Column>
     </CommonDataTable>
-
-    <!-- Dialog Lập Hóa Đơn GTGT (VAT Invoice) -->
-    <CreateVatInvoiceDialog
-      v-model:visible="showVatDialog"
-      :sales-invoice="selectedInvoiceForVat"
-      @created="loadInvoices"
-    />
   </div>
 </template>
 
@@ -207,7 +188,6 @@ import Button from 'primevue/button';
 import Badge from 'primevue/badge';
 import PageHeader from '../../components/common/PageHeader.vue';
 import CommonDataTable from '../../components/common/CommonDataTable.vue';
-import CreateVatInvoiceDialog from '../../components/invoice/CreateVatInvoiceDialog.vue';
 
 import { salesApi } from '../../api/sales.api';
 import { formatCurrency, formatDate } from '../../utils/format';
@@ -219,14 +199,6 @@ const invoices = ref([]);
 const loading = ref(false);
 const searchQuery = ref('');
 const warehouseStatusFilter = ref(null);
-
-const showVatDialog = ref(false);
-const selectedInvoiceForVat = ref(null);
-
-const openVatInvoiceDialog = (inv) => {
-  selectedInvoiceForVat.value = inv;
-  showVatDialog.value = true;
-};
 
 const tableColumns = [
   { field: 'invoice_number', header: 'Số Chứng Từ (INV)', sortable: true, width: '150px' },

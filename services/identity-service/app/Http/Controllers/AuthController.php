@@ -103,6 +103,47 @@ class AuthController extends Controller
         }
 
         $payload = json_decode(base64_decode(strtr($parts[1], '-_', '+/')), true);
-        return response()->json(['success' => true, 'data' => $payload]);
+        if (!$payload || (!isset($payload['sub']) && !isset($payload['id']))) {
+            return response()->json(['success' => false, 'error' => ['code' => 'TOKEN_INVALID']], 401);
+        }
+
+        $userId = $payload['sub'] ?? ($payload['id'] ?? null);
+        $user = DB::table('users')
+            ->leftJoin('departments', 'users.department_id', '=', 'departments.id')
+            ->where('users.id', $userId)
+            ->where('users.is_active', 1)
+            ->select('users.id', 'users.name', 'users.email', 'users.department_id', 'departments.name as department_name')
+            ->first();
+
+        if (!$user) {
+            return response()->json(['success' => false, 'error' => ['code' => 'USER_NOT_FOUND']], 404);
+        }
+
+        $roles = DB::table('roles')
+            ->join('user_roles', 'roles.id', '=', 'user_roles.role_id')
+            ->where('user_roles.user_id', $user->id)
+            ->pluck('code')
+            ->all();
+
+        $permissions = DB::table('permissions')
+            ->join('role_permissions', 'permissions.id', '=', 'role_permissions.permission_id')
+            ->join('user_roles', 'role_permissions.role_id', '=', 'user_roles.role_id')
+            ->where('user_roles.user_id', $user->id)
+            ->distinct()
+            ->pluck('code')
+            ->all();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id' => $user->id,
+                'sub' => (string)$user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'department' => $user->department_name,
+                'roles' => $roles,
+                'permissions' => $permissions,
+            ]
+        ]);
     }
 }

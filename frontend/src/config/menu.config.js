@@ -1,5 +1,16 @@
 export const menuCategories = [
   {
+    category: 'Tổng Quan',
+    items: [
+      {
+        id: 'dashboard',
+        path: '/dashboard',
+        label: 'Bảng điều khiển',
+        icon: 'pi pi-home'
+      }
+    ]
+  },
+  {
     category: 'Phân Hệ Nghiệp Vụ',
     items: [
       {

@@ -239,7 +239,7 @@
         <div class="flex items-center gap-3 shrink-0">
           <span class="text-slate-500">Tổng giá trị chứng từ:</span>
           <strong class="text-base font-bold font-mono text-indigo-700">
-            {{ formatCurrency(calculatedTotal) }} {{ form.currency }}
+            {{ formatCurrency(calculatedTotal) }}
           </strong>
         </div>
       </div>

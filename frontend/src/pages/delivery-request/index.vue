@@ -60,19 +60,6 @@
         <span class="font-semibold text-slate-800 text-xs">{{ data.customer_name }}</span>
       </template>
 
-      <!-- Custom column: salesperson -->
-      <template #col-salesperson="{ data }">
-        <span class="text-slate-700 text-xs font-medium">{{ data.salesperson }}</span>
-      </template>
-
-      <!-- Custom column: shipping_address -->
-      <template #col-shipping_address="{ data }">
-        <div class="flex items-center gap-1 text-xs text-slate-600 truncate max-w-xs" :title="data.shipping_address">
-          <i class="pi pi-map-marker text-[10px] text-rose-500 shrink-0"></i>
-          <span class="truncate">{{ data.shipping_address || 'Địa chỉ kho khách' }}</span>
-        </div>
-      </template>
-
       <!-- Custom column: items_count -->
       <template #col-items_count="{ data }">
         <span class="font-mono text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
@@ -106,6 +93,11 @@
         <div class="text-center">
           <Badge :severity="getStatusMeta(data.status).severity" :value="getStatusMeta(data.status).label" />
         </div>
+      </template>
+
+      <!-- Custom column: requester_name (Người Yêu Cầu) -->
+      <template #col-requester_name="{ data }">
+        <span class="text-slate-700 text-xs font-medium">{{ data.requester_name }}</span>
       </template>
 
       <!-- Cột Thao Tác cho Yêu Cầu Giao Hàng -->
@@ -178,6 +170,7 @@ import CommonDataTable from '../../components/common/CommonDataTable.vue';
 import DeliveryRequestDetailDialog from '../../components/delivery/DeliveryRequestDetailDialog.vue';
 
 import { salesApi } from '../../api/sales.api';
+import { identityApi } from '../../api/identity.api';
 import { isSuperAdmin, hasPermission } from '../../utils/rbac';
 
 const props = defineProps({
@@ -193,8 +186,29 @@ const confirm = useConfirm();
 
 // State Data
 const deliveryRequests = ref([]);
+const usersList = ref([]);
 const loadingDeliveries = ref(false);
 const requestSearchQuery = ref('');
+
+// Lookup Map người dùng (Identity Users)
+const usersMap = computed(() => {
+  const map = new Map();
+  usersList.value.forEach((u) => {
+    if (u.id) {
+      map.set(Number(u.id), u);
+      map.set(String(u.id), u);
+    }
+  });
+  return map;
+});
+
+const resolveUserName = (userId, fallbackName = '') => {
+  if (userId && usersMap.value.has(Number(userId))) {
+    const u = usersMap.value.get(Number(userId));
+    return u.name || u.full_name || fallbackName || 'N/A';
+  }
+  return fallbackName || 'N/A';
+};
 
 // Dialog states
 const showRequestDetailDialog = ref(false);
@@ -214,18 +228,17 @@ const getStatusMeta = (st) => {
   return map[st] || { label: st, severity: 'secondary' };
 };
 
-// Cấu hình cột: Yêu cầu giao hàng
+// Cấu hình cột: Yêu cầu giao hàng (Đã dời Người Yêu Cầu xuống sau Trạng Thái, ẩn Địa chỉ ra Dialog)
 const requestColumns = [
   { field: 'id', header: 'ID', sortable: true, width: '70px', align: 'center' },
   { field: 'order_number', header: 'Số Đơn Hàng', sortable: true, width: '200px' },
   { field: 'customer_name', header: 'Khách Hàng', sortable: true },
-  { field: 'salesperson', header: 'Nhân Viên KD', sortable: true, width: '140px' },
-  { field: 'shipping_address', header: 'Địa Chỉ Giao Hàng', sortable: false, width: '180px' },
   { field: 'items_count', header: 'Số Item', sortable: true, width: '90px', align: 'center' },
   { field: 'total_requested_qty', header: 'SL Yêu Cầu', sortable: true, width: '110px', align: 'center' },
   { field: 'total_delivered_qty', header: 'SL Đã Giao', sortable: true, width: '130px', align: 'center' },
   { field: 'total_remaining_qty', header: 'SL Chưa Giao', sortable: true, width: '120px', align: 'center' },
-  { field: 'status', header: 'Trạng Thái', sortable: true, width: '160px', align: 'center' }
+  { field: 'status', header: 'Trạng Thái', sortable: true, width: '140px', align: 'center' },
+  { field: 'requester_name', header: 'Người Yêu Cầu', sortable: true, width: '160px' }
 ];
 
 // Quyền duyệt yêu cầu giao hàng
@@ -236,12 +249,16 @@ const canApproveRequest = computed(() => {
   return hasPermission('delivery-request.approve', user) || hasPermission('delivery.approve', user);
 });
 
-// Tải dữ liệu Yêu Cầu Giao Hàng
+// Tải dữ liệu Yêu Cầu Giao Hàng và Danh sách người dùng để join ID
 const loadDeliveries = async () => {
   loadingDeliveries.value = true;
   try {
-    const res = await salesApi.getDeliveries();
-    deliveryRequests.value = res.data || [];
+    const [delivRes, usersRes] = await Promise.all([
+      salesApi.getDeliveries(),
+      identityApi.getUsers().catch(() => ({ data: [] }))
+    ]);
+    deliveryRequests.value = delivRes.data || [];
+    usersList.value = usersRes.data || [];
   } catch (err) {
     console.error('Lỗi tải danh sách giao hàng:', err);
   } finally {
@@ -263,12 +280,17 @@ const filteredRequests = computed(() => {
       const totalDelivered = items.reduce((sum, it) => sum + (Number(it.delivered_quantity) || 0), 0);
       const totalRemaining = Math.max(0, totalReq - totalDelivered);
 
+      const reqUserId = d.requested_by || d.created_by || d.user_id || d.order?.created_by || d.order?.assigned_to;
+      const rawRequester = d.created_by_name || d.salesperson || d.order?.created_by_name || '';
+      const requesterName = resolveUserName(reqUserId, rawRequester);
+
       return {
         ...d,
         order_number: d.order_number || (d.order ? d.order.order_number : `#${d.order_id}`),
         customer_order_number: d.order?.customer_order_number || d.customer_order_number,
         customer_name: d.customer_name || (d.order ? d.order.customer_name : 'N/A'),
-        salesperson: d.created_by_name || 'Nhân viên KD',
+        requester_name: requesterName,
+        salesperson: requesterName,
         shipping_address: d.shipping_address || (d.order ? d.order.shipping_address : ''),
         items_count: items.length,
         total_requested_qty: totalReq,
@@ -283,7 +305,7 @@ const filteredRequests = computed(() => {
         String(d.order_number || '').toLowerCase().includes(query) ||
         String(d.customer_order_number || '').toLowerCase().includes(query) ||
         String(d.customer_name || '').toLowerCase().includes(query) ||
-        String(d.salesperson || '').toLowerCase().includes(query) ||
+        String(d.requester_name || '').toLowerCase().includes(query) ||
         String(d.shipping_address || '').toLowerCase().includes(query)
       );
     });

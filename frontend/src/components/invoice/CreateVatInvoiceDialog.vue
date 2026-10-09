@@ -184,17 +184,17 @@
         <div class="flex items-center gap-6">
           <span class="text-slate-600">
             Tiền hàng (Subtotal):
-            <strong class="font-mono text-slate-800 ml-1 text-sm">{{ formatCurrency(totalSubtotal) }} đ</strong>
+            <strong class="font-mono text-slate-800 ml-1 text-sm">{{ formatCurrency(totalSubtotal) }}</strong>
           </span>
           <span class="text-slate-600">
             Tiền thuế VAT:
-            <strong class="font-mono text-slate-800 ml-1 text-sm">{{ formatCurrency(totalVat) }} đ</strong>
+            <strong class="font-mono text-slate-800 ml-1 text-sm">{{ formatCurrency(totalVat) }}</strong>
           </span>
         </div>
         <div>
           <span class="text-slate-700 font-bold text-sm">
             Tổng cộng tiền thanh toán:
-            <strong class="font-mono text-indigo-700 font-bold ml-1 text-base">{{ formatCurrency(totalAmount) }} đ</strong>
+            <strong class="font-mono text-indigo-700 font-bold ml-1 text-base">{{ formatCurrency(totalAmount) }}</strong>
           </span>
         </div>
       </div>

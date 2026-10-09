@@ -15,9 +15,8 @@
           <span class="font-bold text-slate-800 truncate block">{{ deliveryRequest.customer_name }}</span>
         </div>
         <div>
-          <span class="text-slate-500 block">Nhân viên kinh doanh:</span>
-          <span class="font-semibold text-slate-700 truncate block">{{ deliveryRequest.salesperson || 'Nhân viên KD'
-            }}</span>
+          <span class="text-slate-500 block">Người yêu cầu:</span>
+          <span class="font-semibold text-slate-700 truncate block">{{ deliveryRequest.requester_name || deliveryRequest.salesperson || 'N/A' }}</span>
         </div>
       </div>
 

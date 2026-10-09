@@ -930,16 +930,15 @@ const allInvoices = computed(() => {
 
     const totalItems = group.items.length;
     const fullyInvoicedItems = group.items.filter((it) => (it.remaining_invoice_quantity || 0) === 0).length;
-    const invoicedItems = group.items.filter((it) => (it.invoiced_quantity || 0) > 0).length;
 
     if (totalRemainingQty === 0 || (totalItems > 0 && fullyInvoicedItems === totalItems)) {
       group.status_text = 'Đã xuất đủ';
       group.status_severity = 'success';
-    } else if (invoicedItems === 0) {
+    } else if (totalInvoicedQty === 0) {
       group.status_text = 'Chưa xuất';
       group.status_severity = 'danger';
     } else {
-      group.status_text = `Đã xuất ${invoicedItems}/${totalItems}`;
+      group.status_text = `Đã xong ${fullyInvoicedItems}/${totalItems} mã`;
       group.status_severity = 'warn';
     }
   });
@@ -947,9 +946,39 @@ const allInvoices = computed(() => {
   return Array.from(map.values());
 });
 
-// 2. DANH SÁCH CHỨNG TỪ CHỜ XUẤT HÓA ĐƠN (Chỉ các chứng từ còn tồn đọng remaining > 0)
+// 2. DANH SÁCH CHỨNG TỪ CHỜ XUẤT HÓA ĐƠN (Chỉ hiển thị các mã có số lượng chưa xuất)
 const unbilledInvoices = computed(() => {
-  return allInvoices.value.filter((inv) => inv.total_remaining_qty > 0 || inv.total_unbilled_amount > 0);
+  return allInvoices.value
+    .filter((inv) => inv.total_remaining_qty > 0 || inv.total_unbilled_amount > 0)
+    .map((inv) => {
+      // Chỉ giữ lại những mã có số lượng chưa xuất hóa đơn
+      const unbilledOnlyItems = inv.items.filter(
+        (it) => (it.remaining_invoice_quantity || 0) > 0
+      );
+
+      let unbilledSubtotal = 0;
+      let unbilledVat = 0;
+
+      unbilledOnlyItems.forEach((it) => {
+        const remQty = Number(it.remaining_invoice_quantity || 0);
+        const price = Number(it.unit_price || 0);
+        const vatRate = Number(it.vat_rate || 10);
+        const lineSub = remQty * price;
+        const lineVat = Math.round(lineSub * (vatRate / 100));
+        unbilledSubtotal += lineSub;
+        unbilledVat += lineVat;
+      });
+
+      return {
+        ...inv,
+        items: unbilledOnlyItems, // Chỉ các mã hàng chưa xuất
+        subtotal: unbilledSubtotal,
+        vat_total: unbilledVat,
+        total_amount: unbilledSubtotal + unbilledVat,
+        status_text: inv.total_invoiced_qty > 0 ? `Chờ xuất ${unbilledOnlyItems.length} mã` : 'Chưa xuất',
+        status_severity: inv.total_invoiced_qty > 0 ? 'warn' : 'danger'
+      };
+    });
 });
 
 const filteredAllInvoices = computed(() => {
