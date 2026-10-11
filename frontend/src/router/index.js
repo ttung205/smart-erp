@@ -234,15 +234,7 @@ export const routes = [
   },
   {
     path: '/inventory/reservations',
-    name: 'inventory-reservations',
-    component: InventoryView,
-    props: { currentSubTab: 'reservations' },
-    meta: {
-      requiresAuth: true,
-      resource: 'inventory',
-      permission: 'inventory.view',
-      title: 'Quản Lý Hàng Giữ Chỗ'
-    }
+    redirect: '/inventory/stocks'
   },
   {
     path: '/inventory/movements',

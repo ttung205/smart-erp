@@ -1,54 +1,37 @@
 <template>
-  <div class="flex flex-col">
-    <!-- Toolbar sử dụng 100% PrimeVue 4 Input, Select, Checkbox, Button -->
-    <div class="flex items-center justify-between flex-wrap gap-3 bg-slate-50 p-3 rounded-[6px] border border-slate-200 mb-6">
+  <div class="flex flex-col gap-4">
+    <!-- Toolbar tìm kiếm và lọc kho -->
+    <div class="flex items-center justify-between flex-wrap gap-3 bg-slate-50 p-3 rounded-[6px] border border-slate-200">
       <div class="flex items-center flex-wrap gap-2.5">
-        <!-- Ô Tìm kiếm tức thì không dùng icon -->
         <InputText 
-          v-model="filters.search" 
+          v-model="search" 
           placeholder="Tìm theo SKU, tên sản phẩm hoặc kho..." 
           size="small"
-          class="w-64 bg-white !rounded-[6px]" 
+          class="w-72 bg-white !rounded-[6px]" 
         />
 
-        <!-- PrimeVue 4 Select Dropdown chọn kho bãi -->
         <Select 
-          v-model="filters.warehouseId" 
-          :options="warehouseFilterOptions" 
+          v-model="selectedWarehouseId" 
+          :options="warehouseOptions" 
           optionLabel="label" 
           optionValue="value" 
-          placeholder="Chọn kho bãi" 
+          placeholder="Tất cả kho" 
           size="small"
-          class="min-w-[170px] !rounded-[6px]" 
-          @change="fetchStocks" 
+          class="min-w-[180px] !rounded-[6px]" 
+          @change="loadStocks" 
         />
 
-        <!-- PrimeVue 4 Checkbox: Toggle xem hàng sắp hết -->
-        <div class="flex items-center gap-2 px-2">
-          <Checkbox 
-            v-model="filters.lowStockOnly" 
-            :binary="true" 
-            inputId="lowStockFilter" 
-            @change="fetchStocks" 
-          />
-          <label for="lowStockFilter" class="text-xs font-medium text-slate-700 cursor-pointer select-none">
-            Dưới định mức Min-Stock
-          </label>
-        </div>
-
-        <!-- Nút Xóa bộ lọc nếu có lọc -->
         <Button 
-          v-if="filters.search || filters.warehouseId || filters.lowStockOnly"
+          v-if="search || selectedWarehouseId"
           label="Xóa lọc" 
           size="small" 
           text 
           severity="secondary" 
           class="!rounded-[6px]"
-          @click="resetStockFilters" 
+          @click="resetFilters" 
         />
       </div>
 
-      <!-- Nút Hành Động Nghiệp Vụ có phân quyền RBAC -->
       <div class="flex items-center gap-2">
         <Button 
           label="Làm mới" 
@@ -56,295 +39,323 @@
           size="small" 
           text 
           class="!rounded-[6px]"
-          :loading="loading.stocks" 
-          @click="fetchStocks" 
+          :loading="loading" 
+          @click="loadStocks" 
         />
-
-        <Button 
-          label="Điều Chuyển" 
-          icon="pi pi-arrows-h"
-          size="small" 
-          outlined 
-          class="!border-sky-300 !text-sky-700 hover:!bg-sky-50 !rounded-[6px]" 
-          @click="emit('open-transfer')" 
-        />
-
-        <Button 
-          v-if="canReserve"
-          label="Giữ Chỗ (SO)" 
-          icon="pi pi-lock"
-          size="small" 
-          outlined 
-          class="!border-sky-300 !text-sky-700 hover:!bg-sky-50 !rounded-[6px]" 
-          @click="emit('open-reserve')" 
-        />
-
-        <Button 
-          v-if="canReserve"
-          label="Hủy Giữ Chỗ" 
-          icon="pi pi-lock-open"
-          size="small" 
-          outlined 
-          class="!border-sky-300 !text-sky-700 hover:!bg-sky-50 !rounded-[6px]" 
-          @click="emit('open-release')" 
-        />
-
-        <Button 
-          v-if="canIssue"
-          label="Xuất Kho" 
-          icon="pi pi-truck"
-          size="small" 
-          outlined 
-          class="!border-sky-300 !text-sky-700 hover:!bg-sky-50 !rounded-[6px]" 
-          @click="emit('open-issue')" 
-        />
-
-        <Button 
-          v-if="canReceive"
-          label="Nhập Kho" 
-          icon="pi pi-plus"
-          size="small" 
-          class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px]" 
-          @click="emit('open-receive')" 
-        />
-
-        <span v-if="!canReceive && !canReserve && !canIssue" class="text-xs text-slate-400">
-          (Chế độ chỉ xem)
-        </span>
       </div>
     </div>
 
-    <!-- Bảng Dữ Liệu Tồn Kho Sử Dụng CommonDataTable Đồng Bộ Hệ Thống -->
-    <CommonDataTable
+    <!-- Bảng Dữ Liệu Tồn Kho -->
+    <DataTable 
       :value="filteredStocks" 
-      :columns="tableColumns"
-      :loading="loading.stocks" 
-      :rows="10"
-      emptyIcon="pi pi-box"
-      emptyTitle="Không tìm thấy dữ liệu tồn kho"
-      emptySubtitle="Không có sản phẩm nào phù hợp với bộ lọc kho hoặc điều kiện tìm kiếm."
+      :loading="loading" 
+      paginator 
+      :rows="15" 
+      :rowsPerPageOptions="[15, 30, 50, 100]"
+      responsiveLayout="scroll" 
+      class="p-datatable-sm border border-slate-200 rounded-[6px] overflow-hidden"
     >
-      <!-- Cột SKU -->
-      <template #col-sku="{ data }">
-        <span class="font-mono text-xs font-semibold text-slate-800">{{ data.sku || ('SKU-' + data.product_id) }}</span>
-      </template>
-
-      <!-- Cột Tên Sản Phẩm -->
-      <template #col-product_name="{ data }">
-        <div class="font-semibold text-slate-800 text-sm leading-snug">
-          {{ data.product_name || ('Sản phẩm #' + data.product_id) }}
-        </div>
-        <div class="text-xs text-slate-400 font-mono mt-0.5">Mã ID: #{{ data.product_id }}</div>
-      </template>
-
-      <!-- Cột Kho Lưu Trữ -->
-      <template #col-warehouse_name="{ data }">
-        <span class="text-xs font-medium text-slate-700">
-          {{ data.warehouse_name || ('Kho #' + data.warehouse_id) }}
-        </span>
-      </template>
-
-      <!-- Cột Tồn Thực Tế -->
-      <template #col-quantity_on_hand="{ data }">
-        <div class="text-right">
-          <span class="font-mono text-sm font-bold text-slate-800">{{ formatNumber(data.quantity_on_hand) }}</span>
-          <span class="text-xs text-slate-400 ml-1.5 font-normal">&nbsp;{{ data.unit || 'Chiếc' }}</span>
+      <template #empty>
+        <div class="text-center py-8 text-slate-500 text-sm">
+          Không tìm thấy dữ liệu tồn kho phù hợp.
         </div>
       </template>
 
-      <!-- Cột Đang Giữ Chỗ -->
-      <template #col-quantity_reserved="{ data }">
-        <div class="text-right">
-          <span class="font-mono text-sm font-semibold text-amber-600">{{ formatNumber(data.quantity_reserved) }}</span>
-          <span v-if="data.quantity_reserved > 0" class="text-xs text-amber-600 ml-1.5 font-normal">&nbsp;{{ data.unit || 'Chiếc' }}</span>
-        </div>
-      </template>
-
-      <!-- Cột Khả Dụng (Available = OnHand - Reserved) -->
-      <template #col-available="{ data }">
-        <div class="text-right">
-          <span 
-            class="font-mono text-sm font-bold" 
-            :class="data.available > 0 ? 'text-sky-700' : 'text-rose-600'"
-          >
-            {{ formatNumber(data.available) }}
-          </span>
-          <span class="text-xs text-slate-400 ml-1.5 font-normal">&nbsp;{{ data.unit || 'Chiếc' }}</span>
-        </div>
-      </template>
-
-      <!-- Cột Ngưỡng An Toàn Min-Stock -->
-      <template #col-min_stock="{ data }">
-        <div class="text-right">
-          <span class="font-mono text-xs text-slate-500">{{ formatNumber(data.min_stock || 0) }}</span>
-        </div>
-      </template>
-
-      <!-- Cột Trạng Thái -->
-      <template #col-status="{ data }">
-        <div class="text-center">
-          <span 
-            class="font-semibold text-xs" 
-            :class="getStockStatusClass(data.available, data.min_stock)"
-          >
-            {{ getStockStatusText(data.available, data.min_stock) }}
-          </span>
-        </div>
-      </template>
-
-      <!-- Cột Hành Động Thao Tác -->
-      <Column header="Hành Động" style="width: 140px" class="text-center">
+      <!-- SKU -->
+      <Column field="sku" header="Mã SKU" style="width: 140px">
         <template #body="{ data }">
-          <div class="flex items-center justify-center gap-1.5">
-            <Button 
-              icon="pi pi-history" 
-              size="small" 
-              outlined 
-              severity="secondary" 
-              class="!w-7 !h-7 !p-0 !rounded-[6px]" 
-              v-tooltip.top="'Xem lịch sử thẻ kho'" 
-              @click="emit('view-movement', data)" 
-            />
-            <Button 
-              v-if="canReserve && (data.quantity_reserved > 0)"
-              icon="pi pi-lock-open" 
-              size="small" 
-              outlined 
-              severity="warn" 
-              class="!w-7 !h-7 !p-0 !rounded-[6px]" 
-              v-tooltip.top="'Hủy giải phóng lượng đang giữ chỗ'" 
-              @click="emit('open-release', data)" 
-            />
-            <Button 
-              v-if="canReceive"
-              icon="pi pi-plus" 
-              size="small" 
-              outlined 
-              severity="success" 
-              class="!w-7 !h-7 !p-0 !rounded-[6px]" 
-              v-tooltip.top="'Nhập thêm hàng'" 
-              @click="emit('quick-receive', data)" 
-            />
-            <Button 
-              icon="pi pi-file-plus" 
-              size="small" 
-              outlined 
-              severity="info" 
-              class="!w-7 !h-7 !p-0 !rounded-[6px]" 
-              v-tooltip.top="'Tạo Đề Nghị Mua (PR)'" 
-              @click="createPurchaseRequisition(data)" 
-            />
+          <span class="font-mono text-xs font-semibold text-slate-800">{{ data.sku || ('SKU-' + data.product_id) }}</span>
+        </template>
+      </Column>
+
+      <!-- Tên Sản Phẩm -->
+      <Column field="product_name" header="Tên Sản Phẩm" style="min-width: 220px">
+        <template #body="{ data }">
+          <div class="font-semibold text-slate-800 text-sm leading-snug">
+            {{ data.product_name || ('Sản phẩm #' + data.product_id) }}
+          </div>
+          <div class="text-[11px] text-slate-400 font-mono mt-0.5">ID: #{{ data.product_id }}</div>
+        </template>
+      </Column>
+
+      <!-- Kho Lưu Trữ -->
+      <Column field="warehouse_name" header="Kho Lưu Trữ" style="min-width: 180px">
+        <template #body="{ data }">
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs font-medium text-slate-700">
+              {{ data.warehouse_name || ('Kho #' + data.warehouse_id) }}
+            </span>
+            <span 
+              v-if="data.can_sell" 
+              class="text-[10px] px-1.5 py-0.2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded font-semibold"
+              v-tooltip.top="'Kho này được bật để bán hàng'"
+            >
+              Bán
+            </span>
           </div>
         </template>
       </Column>
-    </CommonDataTable>
+
+      <!-- Tồn Thực Tế -->
+      <Column field="quantity_on_hand" header="Tồn Thực Tế" style="width: 130px" class="text-right">
+        <template #body="{ data }">
+          <span class="font-mono text-sm font-bold text-slate-800">{{ formatNumber(data.quantity_on_hand) }}</span>
+          <span class="text-xs text-slate-400 ml-1 font-normal">{{ data.unit || 'Chiếc' }}</span>
+        </template>
+      </Column>
+
+      <!-- Đang Giữ Chỗ (Clickable để xem đơn giữ) -->
+      <Column field="quantity_reserved" header="Đang Giữ Chỗ" style="width: 140px" class="text-right">
+        <template #body="{ data }">
+          <div 
+            v-if="data.quantity_reserved > 0"
+            class="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded cursor-pointer hover:bg-amber-100 transition-colors"
+            v-tooltip.top="'Nhấn vào để xem chi tiết các đơn đang giữ chỗ'"
+            @click="showReservationDetails(data)"
+          >
+            <i class="pi pi-lock text-[11px]"></i>
+            <span class="font-mono text-xs font-bold">{{ formatNumber(data.quantity_reserved) }}</span>
+          </div>
+          <span v-else class="font-mono text-xs text-slate-400">0</span>
+        </template>
+      </Column>
+
+      <!-- Khả Dụng Tại Kho -->
+      <Column field="available" header="Khả Dụng Tại Kho" style="width: 140px" class="text-right">
+        <template #body="{ data }">
+          <span 
+            class="font-mono text-sm font-bold" 
+            :class="data.available > 0 ? 'text-sky-700' : 'text-slate-400'"
+          >
+            {{ formatNumber(data.available) }}
+          </span>
+          <span class="text-xs text-slate-400 ml-1 font-normal">{{ data.unit || 'Chiếc' }}</span>
+        </template>
+      </Column>
+
+      <!-- Tổng Khả Dụng Bán Hàng (Tính từ tất cả các kho được phép bán) -->
+      <Column field="sales_available" header="Tồn Bán Hàng" style="width: 140px" class="text-right">
+        <template #body="{ data }">
+          <span 
+            class="font-mono text-sm font-bold text-emerald-600"
+            v-tooltip.top="'Tổng tồn khả dụng của sản phẩm này tại các kho được chọn để bán hàng'"
+          >
+            {{ formatNumber(data.sales_available) }}
+          </span>
+          <span class="text-xs text-slate-400 ml-1 font-normal">{{ data.unit || 'Chiếc' }}</span>
+        </template>
+      </Column>
+
+      <!-- Thao Tác (Chỉ để lại nút Tạo đề nghị mua) -->
+      <Column header="Thao Tác" style="width: 150px" class="text-center">
+        <template #body="{ data }">
+          <Button 
+            label="Đề nghị mua" 
+            icon="pi pi-file-plus" 
+            size="small" 
+            outlined 
+            severity="info" 
+            class="!text-xs !py-1 !px-2.5 !rounded-[6px]" 
+            v-tooltip.top="'Tạo Đề Nghị Mua Hàng (PR) cho sản phẩm này'" 
+            @click="createPurchaseRequisition(data)" 
+          />
+        </template>
+      </Column>
+    </DataTable>
+
+    <!-- Dialog Hiển Thị Danh Sách Đơn Hàng Đang Giữ Chỗ -->
+    <Dialog 
+      v-model:visible="showReserveDialog" 
+      :header="`Chi Tiết Đơn Hàng Giữ Chỗ: ${activeItem?.product_name || ''}`" 
+      modal 
+      class="w-full max-w-2xl"
+    >
+      <div class="py-2">
+        <div class="flex items-center gap-3 mb-3 p-2.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600">
+          <div>Kho: <strong class="text-slate-800">{{ activeItem?.warehouse_name }}</strong></div>
+          <div>Tổng giữ chỗ: <strong class="text-amber-700 font-mono text-sm">{{ formatNumber(activeItem?.quantity_reserved) }}</strong> chiếc</div>
+        </div>
+
+        <DataTable 
+          :value="reservationOrders" 
+          :loading="loadingOrders" 
+          responsiveLayout="scroll" 
+          class="p-datatable-sm border border-slate-200 rounded overflow-hidden"
+        >
+          <template #empty>
+            <div class="text-center py-6 text-slate-500 text-xs">
+              Chưa có thông tin đơn hàng cụ thể.
+            </div>
+          </template>
+
+          <Column field="order_id" header="Mã Đơn Hàng" style="width: 150px">
+            <template #body="{ data }">
+              <span class="font-mono text-xs font-bold text-sky-700">{{ data.order_id }}</span>
+            </template>
+          </Column>
+
+          <Column field="quantity" header="Số Lượng Giữ" style="width: 110px" class="text-right">
+            <template #body="{ data }">
+              <span class="font-mono text-xs font-bold text-amber-700">{{ formatNumber(data.quantity) }}</span>
+            </template>
+          </Column>
+
+          <Column field="notes" header="Ghi Chú" style="min-width: 180px">
+            <template #body="{ data }">
+              <span class="text-xs text-slate-600">{{ data.notes || 'Giữ chỗ đơn hàng' }}</span>
+            </template>
+          </Column>
+
+          <Column field="created_at" header="Thời Gian Giữ" style="width: 140px">
+            <template #body="{ data }">
+              <span class="text-xs font-mono text-slate-500">{{ formatDateTime(data.created_at) }}</span>
+            </template>
+          </Column>
+        </DataTable>
+      </div>
+
+      <template #footer>
+        <Button label="Đóng" size="small" text severity="secondary" @click="showReserveDialog = false" />
+      </template>
+    </Dialog>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
-import Checkbox from 'primevue/checkbox'
-import Column from 'primevue/column'
-import CommonDataTable from '../../components/common/CommonDataTable.vue'
-import { useInventory } from '../../composables/useInventory'
+import Dialog from 'primevue/dialog'
+import { inventoryApi } from '../../api/inventory.api'
+import { catalogApi } from '../../api/catalog.api'
+import { formatNumber, formatDateTime } from '../../utils/format'
 
 const router = useRouter()
-const createPurchaseRequisition = (item) => {
-  const qtyNeeded = Math.max(10, (item.min_stock || 10) - (item.available || 0))
-  router.push(`/purchase/requisitions/create?sku=${item.sku}&warehouseId=${item.warehouse_id}&name=${encodeURIComponent(item.product_name || '')}&qty=${qtyNeeded}`)
-}
 
-const props = defineProps({
-  currentUser: {
-    type: Object,
-    default: null
+const stocks = ref([])
+const warehouses = ref([])
+const catalogProducts = ref([])
+const loading = ref(false)
+const search = ref('')
+const selectedWarehouseId = ref(null)
+
+const showReserveDialog = ref(false)
+const activeItem = ref(null)
+const reservationOrders = ref([])
+const loadingOrders = ref(false)
+
+const warehouseOptions = computed(() => {
+  const list = [{ label: 'Tất cả kho', value: null }]
+  warehouses.value.forEach(w => {
+    list.push({ label: `${w.name} (${w.code})`, value: w.id })
+  })
+  return list
+})
+
+const filteredStocks = computed(() => {
+  let list = stocks.value || []
+  if (selectedWarehouseId.value) {
+    list = list.filter(s => Number(s.warehouse_id) === Number(selectedWarehouseId.value))
   }
+  if (search.value) {
+    const q = search.value.toLowerCase().trim()
+    list = list.filter(s => {
+      const sku = String(s.sku || '').toLowerCase()
+      const name = String(s.product_name || '').toLowerCase()
+      const wh = String(s.warehouse_name || '').toLowerCase()
+      return sku.includes(q) || name.includes(q) || wh.includes(q)
+    })
+  }
+  return list
 })
 
-const emit = defineEmits([
-  'open-receive', 
-  'open-reserve', 
-  'open-release', 
-  'open-issue', 
-  'open-transfer', 
-  'view-movement', 
-  'quick-receive'
-])
+const resetFilters = () => {
+  search.value = ''
+  selectedWarehouseId.value = null
+  loadStocks()
+}
 
-const {
-  warehouses,
-  filteredStocks,
-  loading,
-  filters,
-  fetchStocks
-} = useInventory()
+const loadCatalogProducts = async () => {
+  if (catalogProducts.value.length > 0) return
+  try {
+    const res = await catalogApi.getProducts({ per_page: 500 })
+    catalogProducts.value = res.data || (Array.isArray(res) ? res : [])
+  } catch (err) {
+    console.error('Lỗi tải danh mục sản phẩm từ catalog:', err)
+  }
+}
 
-const tableColumns = [
-  { field: 'sku', header: 'Mã SKU', width: '140px', sortable: true },
-  { field: 'product_name', header: 'Tên Mặt Hàng', width: '240px', sortable: true },
-  { field: 'warehouse_name', header: 'Kho Bãi', width: '170px', sortable: true },
-  { field: 'quantity_on_hand', header: 'Tồn Thực Tế', width: '125px', align: 'right', sortable: true },
-  { field: 'quantity_reserved', header: 'Đang Giữ Chỗ', width: '120px', align: 'right', sortable: true },
-  { field: 'available', header: 'Khả Dụng', width: '145px', align: 'right', sortable: true },
-  { field: 'min_stock', header: 'Ngưỡng An Toàn', width: '120px', align: 'right', sortable: true },
-  { field: 'status', header: 'Trạng Thái', width: '135px', align: 'center', sortable: false }
-]
+const loadWarehouses = async () => {
+  try {
+    const res = await inventoryApi.getWarehouses()
+    warehouses.value = res.data || []
+  } catch (err) {
+    console.error('Lỗi tải danh mục kho:', err)
+  }
+}
 
-const warehouseFilterOptions = computed(() => [
-  { label: 'Tất cả kho bãi', value: null },
-  ...warehouses.value.map(w => ({ label: `${w.code} - ${w.name}`, value: w.id }))
-])
+const loadStocks = async () => {
+  loading.value = true
+  try {
+    await loadCatalogProducts()
+    const productMap = new Map()
+    catalogProducts.value.forEach(p => productMap.set(Number(p.id), p))
 
-const canReceive = computed(() => {
-  if (!props.currentUser) return true
-  return props.currentUser?.permissions?.includes('inventory.receipt') || 
-         props.currentUser?.permissions?.includes('inventory.receive') ||
-         props.currentUser?.department === 'Ban Giám Đốc (BOD)' ||
-         props.currentUser?.department === 'Kho Vận'
+    const params = { pageSize: 1000 }
+    if (selectedWarehouseId.value) params.warehouseId = selectedWarehouseId.value
+    const res = await inventoryApi.getStocks(params)
+    const rawStocks = res.data || []
+
+    stocks.value = rawStocks.map(s => {
+      const p = productMap.get(Number(s.product_id))
+      return {
+        ...s,
+        sku: p?.sku || `SKU-${s.product_id}`,
+        product_name: p?.item_description || p?.designation || p?.name || `Sản phẩm #${s.product_id}`,
+        unit: p?.unit || 'Chiếc',
+        brand: p?.brand || '',
+        category: p?.category || ''
+      }
+    })
+  } catch (err) {
+    console.error('Lỗi tải bảng tồn kho:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+const showReservationDetails = async (item) => {
+  activeItem.value = item
+  showReserveDialog.value = true
+  loadingOrders.value = true
+  try {
+    const res = await inventoryApi.getReservationOrders(item.product_id, item.warehouse_id)
+    reservationOrders.value = res.data || []
+  } catch (err) {
+    console.error('Lỗi tải đơn hàng giữ chỗ:', err)
+    reservationOrders.value = []
+  } finally {
+    loadingOrders.value = false
+  }
+}
+
+const createPurchaseRequisition = (item) => {
+  router.push({
+    path: '/purchase/requisition/create',
+    query: {
+      product_id: item.product_id,
+      sku: item.sku,
+      product_name: item.product_name
+    }
+  })
+}
+
+onMounted(async () => {
+  await loadWarehouses()
+  await loadStocks()
 })
-
-const canReserve = computed(() => {
-  if (!props.currentUser) return true
-  return props.currentUser?.permissions?.includes('inventory.reserve') || 
-         props.currentUser?.permissions?.includes('order.create') ||
-         props.currentUser?.permissions?.includes('quotation.create') ||
-         props.currentUser?.department === 'Ban Giám Đốc (BOD)' ||
-         props.currentUser?.department === 'Phòng Sales'
-})
-
-const canIssue = computed(() => {
-  if (!props.currentUser) return true
-  return props.currentUser?.permissions?.includes('inventory.issue') || 
-         props.currentUser?.permissions?.includes('inventory.dispatch') ||
-         props.currentUser?.department === 'Ban Giám Đốc (BOD)' ||
-         props.currentUser?.department === 'Kho Vận'
-})
-
-const resetStockFilters = () => {
-  filters.search = ''
-  filters.warehouseId = null
-  filters.lowStockOnly = false
-  fetchStocks()
-}
-
-const formatNumber = (num) => {
-  if (num === null || num === undefined) return '0'
-  return new Intl.NumberFormat('vi-VN').format(num)
-}
-
-const getStockStatusText = (available, minStock) => {
-  if ((available ?? 0) <= 0) return 'Hết Hàng'
-  if ((available ?? 0) <= (minStock ?? 0)) return 'Sắp Hết'
-  return 'Còn Hàng'
-}
-
-const getStockStatusClass = (available, minStock) => {
-  if ((available ?? 0) <= 0) return 'text-rose-600 font-bold'
-  if ((available ?? 0) <= (minStock ?? 0)) return 'text-amber-600 font-semibold'
-  return 'text-emerald-600 font-semibold'
-}
 </script>

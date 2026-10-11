@@ -8,6 +8,7 @@ public class Warehouse
     public string? Location { get; set; }
     public long? ManagerId { get; set; }
     public bool IsActive { get; set; } = true;
+    public bool CanSell { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

@@ -1,261 +1,463 @@
 <template>
-  <div class="flex flex-col">
-    <!-- Header Tiêu Đề Tab -->
-    <div class="flex items-center justify-between flex-wrap gap-4 mb-4">
+  <div class="flex flex-col gap-4">
+    <!-- Header -->
+    <div class="flex items-center justify-between flex-wrap gap-3 pb-2 border-b border-slate-100">
       <div>
-        <h4 class="text-sm font-bold text-slate-800 m-0">
-          Lịch Sử Biến Động Kho
-        </h4>
+        <h3 class="text-base font-bold text-slate-800 m-0">Lịch Sử Tồn Kho</h3>
+        <p class="text-xs text-slate-500 m-0 mt-0.5">
+          Theo dõi chi tiết mọi biến động nhập, xuất kho thực tế và nhật ký giữ chỗ tồn kho khả dụng.
+        </p>
       </div>
-      <div class="flex items-center gap-3">
-        <Tag :value="`${filteredMovements.length} / ${movements.length} Bản Ghi Sổ Cái`" severity="info" class="font-mono !text-xs !rounded-[6px]" />
+      <div class="flex items-center gap-2">
         <Button 
           label="Làm mới" 
-          icon="pi pi-refresh"
+          icon="pi pi-refresh" 
           size="small" 
           text 
           class="!rounded-[6px]"
-          v-tooltip.top="'Tải lại nhật ký biến động'" 
-          :loading="loading.movements" 
-          @click="fetchMovements" 
+          :loading="loading" 
+          @click="loadCurrentTab" 
         />
       </div>
     </div>
 
-    <!-- Toolbar lọc riêng cho Sổ Cái Thẻ Kho -->
-    <div class="flex items-center justify-between flex-wrap gap-3 bg-slate-50 p-3 rounded-[6px] border border-slate-200 mb-6">
+    <!-- Thanh chuyển 2 Tab con -->
+    <div class="flex items-center gap-2 border-b border-slate-200">
+      <button 
+        class="px-4 py-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2"
+        :class="activeSubTab === 'physical' 
+          ? 'border-sky-600 text-sky-700 bg-sky-50/50' 
+          : 'border-transparent text-slate-600 hover:text-slate-900'"
+        @click="switchSubTab('physical')"
+      >
+        <i class="pi pi-box"></i>
+        Lịch Sử Tồn Kho Thực Tế
+      </button>
+
+      <button 
+        class="px-4 py-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2"
+        :class="activeSubTab === 'reservation' 
+          ? 'border-amber-600 text-amber-700 bg-amber-50/50' 
+          : 'border-transparent text-slate-600 hover:text-slate-900'"
+        @click="switchSubTab('reservation')"
+      >
+        <i class="pi pi-lock"></i>
+        Lịch Sử Tồn Kho Khả Dụng
+      </button>
+    </div>
+
+    <!-- Toolbar tìm kiếm & lọc kho -->
+    <div class="flex items-center justify-between flex-wrap gap-3 bg-slate-50 p-2.5 rounded-[6px] border border-slate-200">
       <div class="flex items-center flex-wrap gap-2.5">
-        <!-- Tìm kiếm theo mã chứng từ, SKU, sản phẩm, ghi chú -->
         <InputText 
-          v-model="movementFilters.search" 
+          v-model="search" 
           placeholder="Tìm theo số chứng từ, SKU, ghi chú..." 
           size="small"
-          class="w-64 bg-white !rounded-[6px]" 
+          class="w-72 bg-white !rounded-[6px]" 
         />
 
-        <!-- Lọc theo loại nghiệp vụ -->
         <Select 
-          v-model="movementFilters.type" 
-          :options="movementTypeOptions" 
-          optionLabel="label" 
-          optionValue="value" 
-          placeholder="Loại nghiệp vụ" 
-          size="small"
-          class="min-w-[160px] !rounded-[6px]" 
-        />
-
-        <!-- Lọc theo kho bãi -->
-        <Select 
-          v-model="movementFilters.warehouseId" 
-          :options="warehouseFilterOptions" 
+          v-model="selectedWarehouseId" 
+          :options="warehouseOptions" 
           optionLabel="label" 
           optionValue="value" 
           placeholder="Tất cả kho" 
           size="small"
-          class="min-w-[160px] !rounded-[6px]" 
+          class="min-w-[180px] !rounded-[6px]" 
+          @change="loadCurrentTab" 
         />
 
-        <!-- Nút xóa bộ lọc -->
         <Button 
-          v-if="movementFilters.search || movementFilters.type || movementFilters.warehouseId"
+          v-if="search || selectedWarehouseId"
           label="Xóa lọc" 
           size="small" 
           text 
           severity="secondary" 
           class="!rounded-[6px]"
-          @click="resetMovementFilters" 
+          @click="resetFilters" 
         />
       </div>
     </div>
 
-    <!-- Bảng Sổ Cái Thẻ Kho Sử Dụng CommonDataTable Đồng Bộ -->
-    <CommonDataTable 
-      :value="filteredMovements" 
-      :columns="tableColumns"
-      :loading="loading.movements" 
-      :rows="10"
-      emptyIcon="pi pi-history"
-      emptyTitle="Không tìm thấy bản ghi biến động thẻ kho"
-      emptySubtitle="Không có giao dịch nhập, xuất hoặc điều chuyển nào phù hợp với bộ lọc."
+    <!-- BẢNG 1: LỊCH SỬ TỒN KHO THỰC TẾ -->
+    <DataTable 
+      v-if="activeSubTab === 'physical'"
+      :value="filteredPhysicalTxs" 
+      :loading="loading" 
+      paginator 
+      :rows="15" 
+      :rowsPerPageOptions="[15, 30, 50, 100]"
+      responsiveLayout="scroll" 
+      class="p-datatable-sm border border-slate-200 rounded-[6px] overflow-hidden"
     >
-      <!-- Thời gian -->
-      <template #col-created_at="{ data }">
-        <span class="text-xs font-mono text-slate-700">{{ formatDateTime(data.created_at) }}</span>
+      <template #empty>
+        <div class="text-center py-8 text-slate-500 text-sm">
+          Chưa có giao dịch biến động tồn kho thực tế nào.
+        </div>
       </template>
 
-      <!-- Mã chứng từ -->
-      <template #col-reference_doc="{ data }">
-        <span 
-          class="text-[11px] px-1.5 py-0.5 rounded-[4px] border font-mono inline-block"
-          :class="getDocTagClass(data.reference_doc)"
-        >
-          {{ formatReferenceDoc(data.reference_doc) }}
-        </span>
-      </template>
+      <!-- Thời Gian -->
+      <Column field="created_at" header="Thời Gian" style="width: 150px">
+        <template #body="{ data }">
+          <span class="font-mono text-xs text-slate-700">{{ formatDateTime(data.created_at) }}</span>
+        </template>
+      </Column>
 
-      <!-- Kho bãi -->
-      <template #col-warehouse_name="{ data }">
-        <span class="text-xs text-slate-700 font-medium">
-          {{ data.warehouse_name }}
-        </span>
-      </template>
+      <!-- Loại Chứng Từ -->
+      <Column field="document_type" header="Loại Giao Dịch" style="width: 160px">
+        <template #body="{ data }">
+          <Tag 
+            :value="getPhysicalTypeLabel(data.document_type || data.movement_type)" 
+            :severity="getPhysicalTypeSeverity(data.document_type || data.movement_type)"
+            class="!text-[11px] !rounded-[4px]" 
+          />
+        </template>
+      </Column>
 
-      <!-- Sản phẩm & SKU -->
-      <template #col-product_name="{ data }">
-        <div class="text-xs font-semibold text-slate-800 leading-snug">{{ data.product_name }}</div>
-        <div class="text-xs text-slate-400 font-mono mt-0.5">{{ data.sku }}</div>
-      </template>
-
-      <!-- Loại nghiệp vụ -->
-      <template #col-movement_type="{ data }">
-        <span 
-          class="font-semibold text-xs" 
-          :class="getMovementClass(data.movement_type)"
-        >
-          {{ formatMovementType(data.movement_type) }}
-        </span>
-      </template>
-
-      <!-- Độ Biến động +/- -->
-      <template #col-quantity_delta="{ data }">
-        <div class="text-right">
-          <span 
-            class="font-mono font-bold text-xs px-1.5 py-0.5 rounded-[4px]" 
-            :class="data.quantity_delta >= 0 ? 'text-emerald-700 bg-emerald-50' : 'text-rose-700 bg-rose-50'"
-          >
-            {{ data.quantity_delta > 0 ? '+' + formatNumber(data.quantity_delta) : formatNumber(data.quantity_delta) }}
+      <!-- Mã Chứng Từ -->
+      <Column field="document_id" header="Mã Chứng Từ" style="width: 150px">
+        <template #body="{ data }">
+          <span class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200">
+            {{ data.document_id || data.reference_doc }}
           </span>
+        </template>
+      </Column>
+
+      <!-- Kho Hàng -->
+      <Column field="warehouse_name" header="Kho Hàng" style="min-width: 160px">
+        <template #body="{ data }">
+          <span class="text-xs font-medium text-slate-800">{{ data.warehouse_name || ('Kho #' + data.warehouse_id) }}</span>
+        </template>
+      </Column>
+
+      <!-- Sản Phẩm -->
+      <Column field="product_id" header="Sản Phẩm" style="min-width: 180px">
+        <template #body="{ data }">
+          <div class="text-xs font-semibold text-slate-800">{{ data.product_name || ('Sản phẩm #' + data.product_id) }}</div>
+          <div class="text-[11px] font-mono text-slate-400">ID: #{{ data.product_id }}</div>
+        </template>
+      </Column>
+
+      <!-- Biến Động (Quantity Delta) -->
+      <Column field="quantity_delta" header="Biến Động" style="width: 130px" class="text-right">
+        <template #body="{ data }">
+          <span 
+            class="font-mono text-sm font-bold"
+            :class="data.quantity_delta > 0 ? 'text-emerald-600' : 'text-rose-600'"
+          >
+            {{ data.quantity_delta > 0 ? ('+' + formatNumber(data.quantity_delta)) : formatNumber(data.quantity_delta) }}
+          </span>
+        </template>
+      </Column>
+
+      <!-- Tồn Sau Giao Dịch -->
+      <Column field="balance_after" header="Tồn Thực Tế Sau" style="width: 140px" class="text-right">
+        <template #body="{ data }">
+          <span class="font-mono text-sm font-bold text-slate-800">
+            {{ formatNumber(data.balance_after ?? data.balance_on_hand_after) }}
+          </span>
+        </template>
+      </Column>
+
+      <!-- Ghi Chú -->
+      <Column field="notes" header="Ghi Chú" style="min-width: 200px">
+        <template #body="{ data }">
+          <span class="text-xs text-slate-600">{{ data.notes || '---' }}</span>
+        </template>
+      </Column>
+    </DataTable>
+
+    <!-- BẢNG 2: LỊCH SỬ TỒN KHO KHẢ DỤNG -->
+    <DataTable 
+      v-else
+      :value="filteredReservationTxs" 
+      :loading="loading" 
+      paginator 
+      :rows="15" 
+      :rowsPerPageOptions="[15, 30, 50, 100]"
+      responsiveLayout="scroll" 
+      class="p-datatable-sm border border-slate-200 rounded-[6px] overflow-hidden"
+    >
+      <template #empty>
+        <div class="text-center py-8 text-slate-500 text-sm">
+          Chưa có giao dịch biến động tồn kho khả dụng nào.
         </div>
       </template>
 
-      <!-- Số dư sau thao tác -->
-      <template #col-balance="{ data }">
-        <div class="text-right">
-          <div class="font-mono text-xs text-slate-800">
-            Tồn: <strong>{{ formatNumber(data.balance_on_hand_after) }}</strong>
-          </div>
-          <div class="text-xs text-slate-400 font-mono mt-0.5">
-            Giữ: {{ formatNumber(data.balance_reserved_after) }}
-          </div>
-        </div>
-      </template>
+      <!-- Thời Gian -->
+      <Column field="created_at" header="Thời Gian" style="width: 150px">
+        <template #body="{ data }">
+          <span class="font-mono text-xs text-slate-700">{{ formatDateTime(data.created_at) }}</span>
+        </template>
+      </Column>
 
-      <!-- Ghi chú / Nguồn gốc -->
-      <template #col-notes="{ data }">
-        <span class="text-xs text-slate-600 leading-relaxed">{{ formatNotes(data.notes) }}</span>
-      </template>
-    </CommonDataTable>
+      <!-- Loại Giao Dịch Khả Dụng -->
+      <Column field="document_type" header="Loại Thao Tác" style="width: 160px">
+        <template #body="{ data }">
+          <Tag 
+            :value="getReservationTypeLabel(data.document_type)" 
+            :severity="getReservationTypeSeverity(data.document_type)"
+            class="!text-[11px] !rounded-[4px]" 
+          />
+        </template>
+      </Column>
+
+      <!-- Mã Đơn Hàng / Chứng Từ -->
+      <Column field="document_id" header="Mã Đơn / Chứng Từ" style="width: 160px">
+        <template #body="{ data }">
+          <span class="font-mono text-xs font-bold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+            {{ data.document_id }}
+          </span>
+        </template>
+      </Column>
+
+      <!-- Kho Hàng -->
+      <Column field="warehouse_name" header="Kho Hàng" style="min-width: 160px">
+        <template #body="{ data }">
+          <span class="text-xs font-medium text-slate-800">{{ data.warehouse_name || ('Kho #' + data.warehouse_id) }}</span>
+        </template>
+      </Column>
+
+      <!-- Sản Phẩm -->
+      <Column field="product_id" header="Sản Phẩm" style="min-width: 180px">
+        <template #body="{ data }">
+          <div class="text-xs font-semibold text-slate-800">{{ data.product_name || ('Sản phẩm #' + data.product_id) }}</div>
+          <div class="text-[11px] font-mono text-slate-400">ID: #{{ data.product_id }}</div>
+        </template>
+      </Column>
+
+      <!-- Biến Động Khả Dụng -->
+      <Column field="quantity_delta" header="Biến Động Khả Dụng" style="width: 150px" class="text-right">
+        <template #body="{ data }">
+          <span 
+            class="font-mono text-sm font-bold"
+            :class="data.quantity_delta < 0 ? 'text-amber-600' : 'text-emerald-600'"
+          >
+            {{ data.quantity_delta > 0 ? ('+' + formatNumber(data.quantity_delta)) : formatNumber(data.quantity_delta) }}
+          </span>
+        </template>
+      </Column>
+
+      <!-- Khả Dụng Sau Biến Động -->
+      <Column field="balance_after" header="Khả Dụng Sau" style="width: 140px" class="text-right">
+        <template #body="{ data }">
+          <span class="font-mono text-sm font-bold text-emerald-700">
+            {{ formatNumber(data.balance_after) }}
+          </span>
+        </template>
+      </Column>
+
+      <!-- Ghi Chú -->
+      <Column field="notes" header="Ghi Chú" style="min-width: 200px">
+        <template #body="{ data }">
+          <span class="text-xs text-slate-600">{{ data.notes || '---' }}</span>
+        </template>
+      </Column>
+    </DataTable>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import Tag from 'primevue/tag'
+import { ref, computed, onMounted } from 'vue'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
-import CommonDataTable from '../../components/common/CommonDataTable.vue'
-import { useInventory } from '../../composables/useInventory'
+import Tag from 'primevue/tag'
+import { inventoryApi } from '../../api/inventory.api'
+import { catalogApi } from '../../api/catalog.api'
+import { formatNumber, formatDateTime } from '../../utils/format'
 
-const tableColumns = [
-  { field: 'created_at', header: 'Thời Điểm', width: '175px', sortable: true },
-  { field: 'reference_doc', header: 'Mã Chứng Từ', width: '160px', sortable: true },
-  { field: 'warehouse_name', header: 'Kho Bãi', width: '160px', sortable: true },
-  { field: 'product_name', header: 'Mặt Hàng', width: '220px', sortable: true },
-  { field: 'movement_type', header: 'Loại Nghiệp Vụ', width: '140px', sortable: true },
-  { field: 'quantity_delta', header: 'Biến Động', width: '110px', align: 'right', sortable: true },
-  { field: 'balance', header: 'Số Dư Sau Thao Tác', width: '150px', align: 'right', sortable: false },
-  { field: 'notes', header: 'Ghi Chú / Nguồn Gốc Giao Dịch', width: '220px', sortable: false }
-]
+const activeSubTab = ref('physical') // 'physical' | 'reservation'
+const loading = ref(false)
+const search = ref('')
+const selectedWarehouseId = ref(null)
 
-const {
-  movements,
-  warehouses,
-  loading,
-  movementFilters,
-  filteredMovements,
-  fetchMovements
-} = useInventory()
+const warehouses = ref([])
+const catalogProducts = ref([])
+const physicalTxs = ref([])
+const reservationTxs = ref([])
 
-const movementTypeOptions = [
-  { label: 'Tất cả loại nghiệp vụ', value: null },
-  { label: 'Nhập Hàng', value: 'PO_RECEIPT' },
-  { label: 'Giữ Chỗ', value: 'SO_RESERVE' },
-  { label: 'Xuất Kho', value: 'SO_ISSUE' },
-  { label: 'Hủy Giữ Chỗ', value: 'SO_RELEASE' }
-]
+const warehouseOptions = computed(() => {
+  const list = [{ label: 'Tất cả kho', value: null }]
+  warehouses.value.forEach(w => {
+    list.push({ label: `${w.name} (${w.code})`, value: w.id })
+  })
+  return list
+})
 
-const warehouseFilterOptions = computed(() => [
-  { label: 'Tất cả kho bãi', value: null },
-  ...warehouses.value.map(w => ({ label: `${w.code} - ${w.name}`, value: w.id }))
-])
-
-const resetMovementFilters = () => {
-  movementFilters.search = ''
-  movementFilters.type = null
-  movementFilters.warehouseId = null
-}
-
-const formatDateTime = (isoStr) => {
-  if (!isoStr) return '---'
-  try {
-    const d = new Date(isoStr)
-    return d.toLocaleString('vi-VN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
+const filteredPhysicalTxs = computed(() => {
+  let list = physicalTxs.value || []
+  if (selectedWarehouseId.value) {
+    list = list.filter(t => Number(t.warehouse_id) === Number(selectedWarehouseId.value))
+  }
+  if (search.value) {
+    const q = search.value.toLowerCase().trim()
+    list = list.filter(t => {
+      const doc = String(t.document_id || t.reference_doc || '').toLowerCase()
+      const notes = String(t.notes || '').toLowerCase()
+      const wh = String(t.warehouse_name || '').toLowerCase()
+      const prod = String(t.product_name || '').toLowerCase()
+      return doc.includes(q) || notes.includes(q) || wh.includes(q) || prod.includes(q)
     })
-  } catch (e) {
-    return isoStr
+  }
+  return list
+})
+
+const filteredReservationTxs = computed(() => {
+  let list = reservationTxs.value || []
+  if (selectedWarehouseId.value) {
+    list = list.filter(t => Number(t.warehouse_id) === Number(selectedWarehouseId.value))
+  }
+  if (search.value) {
+    const q = search.value.toLowerCase().trim()
+    list = list.filter(t => {
+      const doc = String(t.document_id || '').toLowerCase()
+      const notes = String(t.notes || '').toLowerCase()
+      const wh = String(t.warehouse_name || '').toLowerCase()
+      const prod = String(t.product_name || '').toLowerCase()
+      return doc.includes(q) || notes.includes(q) || wh.includes(q) || prod.includes(q)
+    })
+  }
+  return list
+})
+
+const resetFilters = () => {
+  search.value = ''
+  selectedWarehouseId.value = null
+  loadCurrentTab()
+}
+
+const switchSubTab = (tab) => {
+  activeSubTab.value = tab
+  loadCurrentTab()
+}
+
+const loadCatalogProducts = async () => {
+  if (catalogProducts.value.length > 0) return
+  try {
+    const res = await catalogApi.getProducts({ per_page: 500 })
+    catalogProducts.value = res.data || (Array.isArray(res) ? res : [])
+  } catch (err) {
+    console.error('Lỗi tải danh mục sản phẩm từ catalog:', err)
   }
 }
 
-const formatMovementType = (type) => {
+const loadWarehouses = async () => {
+  try {
+    const res = await inventoryApi.getWarehouses()
+    warehouses.value = res.data || []
+  } catch (err) {
+    console.error('Lỗi tải danh mục kho:', err)
+  }
+}
+
+const loadPhysicalTxs = async () => {
+  loading.value = true
+  try {
+    await loadCatalogProducts()
+    const productMap = new Map()
+    catalogProducts.value.forEach(p => productMap.set(Number(p.id), p))
+
+    const params = {}
+    if (selectedWarehouseId.value) params.warehouseId = selectedWarehouseId.value
+    const res = await inventoryApi.getPhysicalTransactions(params)
+    const rawList = res.data || []
+
+    physicalTxs.value = rawList.map(t => {
+      const p = productMap.get(Number(t.product_id))
+      return {
+        ...t,
+        product_name: p?.item_description || p?.designation || p?.name || `Sản phẩm #${t.product_id}`,
+        sku: p?.sku || `SKU-${t.product_id}`
+      }
+    })
+  } catch (err) {
+    console.error('Lỗi tải giao dịch kho thực tế:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadReservationTxs = async () => {
+  loading.value = true
+  try {
+    await loadCatalogProducts()
+    const productMap = new Map()
+    catalogProducts.value.forEach(p => productMap.set(Number(p.id), p))
+
+    const params = {}
+    if (selectedWarehouseId.value) params.warehouseId = selectedWarehouseId.value
+    const res = await inventoryApi.getReservationTransactions(params)
+    const rawList = res.data || []
+
+    reservationTxs.value = rawList.map(t => {
+      const p = productMap.get(Number(t.product_id))
+      return {
+        ...t,
+        product_name: p?.item_description || p?.designation || p?.name || `Sản phẩm #${t.product_id}`,
+        sku: p?.sku || `SKU-${t.product_id}`
+      }
+    })
+  } catch (err) {
+    console.error('Lỗi tải giao dịch kho khả dụng:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadCurrentTab = () => {
+  if (activeSubTab.value === 'physical') {
+    loadPhysicalTxs()
+  } else {
+    loadReservationTxs()
+  }
+}
+
+const getPhysicalTypeLabel = (type) => {
   switch (type) {
-    case 'PO_RECEIPT': return 'Nhập Hàng'
-    case 'SO_RESERVE': return 'Giữ Chỗ'
-    case 'SO_ISSUE': return 'Xuất Kho'
-    case 'SO_RELEASE': return 'Hủy Giữ Chỗ'
-    default: return type
+    case 'PURCHASE_RECEIPT': return 'Nhập mua hàng'
+    case 'DELIVERY_NOTE': return 'Xuất giao hàng'
+    case 'TRANSFER_IN': return 'Nhập điều chuyển'
+    case 'TRANSFER_OUT': return 'Xuất điều chuyển'
+    case 'ADJUSTMENT': return 'Kiểm kê điều chỉnh'
+    default: return type || 'Khác'
   }
 }
 
-const getMovementClass = (type) => {
+const getPhysicalTypeSeverity = (type) => {
   switch (type) {
-    case 'PO_RECEIPT': return 'text-emerald-700'
-    case 'SO_RESERVE': return 'text-amber-700'
-    case 'SO_ISSUE': return 'text-sky-700'
-    case 'SO_RELEASE': return 'text-slate-600'
-    default: return 'text-slate-500'
+    case 'PURCHASE_RECEIPT': return 'success'
+    case 'DELIVERY_NOTE': return 'info'
+    case 'TRANSFER_IN': return 'success'
+    case 'TRANSFER_OUT': return 'warn'
+    case 'ADJUSTMENT': return 'secondary'
+    default: return 'secondary'
   }
 }
 
-const formatReferenceDoc = (doc) => {
-  if (!doc || doc.trim() === '' || doc.trim().toLowerCase() === 'string') {
-    return 'null'
+const getReservationTypeLabel = (type) => {
+  switch (type) {
+    case 'SALES_ORDER': return 'Giữ chỗ đơn bán'
+    case 'CANCEL_ORDER': return 'Hủy đơn hoàn trả'
+    case 'PURCHASE_RECEIPT': return 'Tăng từ đơn nhập'
+    case 'ADJUSTMENT': return 'Điều chỉnh khả dụng'
+    default: return type || 'Khác'
   }
-  return doc
 }
 
-const formatNotes = (notes) => {
-  if (!notes || notes.trim() === '' || notes.trim().toLowerCase() === 'string') {
-    return '---'
+const getReservationTypeSeverity = (type) => {
+  switch (type) {
+    case 'SALES_ORDER': return 'warn'
+    case 'CANCEL_ORDER': return 'success'
+    case 'PURCHASE_RECEIPT': return 'success'
+    default: return 'secondary'
   }
-  return notes
 }
 
-const getDocTagClass = (doc) => {
-  if (!doc || doc.trim().toLowerCase() === 'string') return 'bg-slate-100 text-slate-600 border-slate-200'
-  if (doc.startsWith('PO-') || doc.startsWith('GR-')) return 'bg-emerald-50 text-emerald-700 border-emerald-200'
-  if (doc.startsWith('SO-')) return 'bg-amber-50 text-amber-700 border-amber-200'
-  if (doc.startsWith('DEL-') || doc.startsWith('GD-')) return 'bg-sky-50 text-sky-700 border-sky-200'
-  return 'bg-slate-100 text-slate-600 border-slate-200'
-}
-
-const formatNumber = (num) => {
-  if (num === null || num === undefined) return '0'
-  return new Intl.NumberFormat('vi-VN').format(num)
-}
+onMounted(async () => {
+  await loadWarehouses()
+  loadCurrentTab()
+})
 </script>

@@ -32,6 +32,7 @@ public class InventoryDbContext : DbContext
             entity.Property(w => w.Location).HasColumnName("location").HasMaxLength(500);
             entity.Property(w => w.ManagerId).HasColumnName("manager_id");
             entity.Property(w => w.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.Property(w => w.CanSell).HasColumnName("can_sell").HasDefaultValue(true);
             entity.Property(w => w.CreatedAt).HasColumnName("created_at");
             entity.Property(w => w.UpdatedAt).HasColumnName("updated_at");
 

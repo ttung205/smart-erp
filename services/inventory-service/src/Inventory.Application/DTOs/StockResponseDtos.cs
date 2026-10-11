@@ -34,8 +34,11 @@ public class StockResponseDto
     [JsonPropertyName("is_low_stock")]
     public bool IsLowStock { get; set; }
 
-    [JsonPropertyName("version")]
-    public int Version { get; set; }
+    [JsonPropertyName("can_sell")]
+    public bool CanSell { get; set; } = true;
+
+    [JsonPropertyName("sales_available")]
+    public int SalesAvailable { get; set; }
 
     [JsonPropertyName("updated_at")]
     public DateTime UpdatedAt { get; set; }

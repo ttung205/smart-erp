@@ -47,6 +47,18 @@ public class StocksController : ControllerBase
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 1000);
 
+        var sellableWarehouseIds = await _context.Warehouses
+            .AsNoTracking()
+            .Where(w => w.CanSell && w.IsActive)
+            .Select(w => w.Id)
+            .ToListAsync(ct);
+
+        var salesAvailableDict = await (from r in _context.InventoryStockReservations.AsNoTracking()
+                                        where sellableWarehouseIds.Contains(r.WarehouseId)
+                                        group r by r.ProductId into g
+                                        select new { ProductId = g.Key, Total = g.Sum(x => x.Quantity) })
+                                        .ToDictionaryAsync(x => x.ProductId, x => x.Total, ct);
+
         var query = from s in _context.InventoryStocks.AsNoTracking().Include(s => s.Warehouse)
                     join r in _context.InventoryStockReservations.AsNoTracking()
                          on new { s.WarehouseId, s.ProductId } equals new { r.WarehouseId, r.ProductId } into grp
@@ -58,6 +70,7 @@ public class StocksController : ControllerBase
                         s.WarehouseId,
                         WarehouseCode = s.Warehouse != null ? s.Warehouse.Code : null,
                         WarehouseName = s.Warehouse != null ? s.Warehouse.Name : null,
+                        CanSell = s.Warehouse != null && s.Warehouse.CanSell,
                         QuantityOnHand = s.Quantity,
                         Available = res != null ? res.Quantity : s.Quantity,
                         s.UpdatedAt
@@ -69,33 +82,32 @@ public class StocksController : ControllerBase
         if (warehouseId.HasValue)
             query = query.Where(s => s.WarehouseId == warehouseId.Value);
 
-        if (lowStock.HasValue && lowStock.Value)
-            query = query.Where(s => s.Available <= 10);
-
         var totalItems = await query.CountAsync(ct);
         var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
 
-        var stocks = await query
+        var rawList = await query
             .OrderBy(s => s.WarehouseId)
             .ThenBy(s => s.ProductId)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(s => new StockResponseDto
-            {
-                Id = s.Id,
-                ProductId = s.ProductId,
-                WarehouseId = s.WarehouseId,
-                WarehouseCode = s.WarehouseCode,
-                WarehouseName = s.WarehouseName,
-                QuantityOnHand = s.QuantityOnHand,
-                QuantityReserved = Math.Max(0, s.QuantityOnHand - s.Available),
-                Available = s.Available,
-                MinStock = 10,
-                IsLowStock = s.Available <= 10,
-                Version = 1,
-                UpdatedAt = s.UpdatedAt
-            })
             .ToListAsync(ct);
+
+        var stocks = rawList.Select(s => new StockResponseDto
+        {
+            Id = s.Id,
+            ProductId = s.ProductId,
+            WarehouseId = s.WarehouseId,
+            WarehouseCode = s.WarehouseCode,
+            WarehouseName = s.WarehouseName,
+            QuantityOnHand = s.QuantityOnHand,
+            QuantityReserved = Math.Max(0, s.QuantityOnHand - s.Available),
+            Available = s.Available,
+            CanSell = s.CanSell,
+            SalesAvailable = salesAvailableDict.GetValueOrDefault(s.ProductId, 0),
+            MinStock = 0,
+            IsLowStock = false,
+            UpdatedAt = s.UpdatedAt
+        }).ToList();
 
         var meta = new ApiMeta
         {
@@ -237,6 +249,40 @@ public class StocksController : ControllerBase
         };
 
         return Ok(ApiEnvelope<List<StockMovementResponseDto>>.Ok(movements, meta));
+    }
+
+    /// <summary>
+    /// Lấy danh sách các đơn hàng đang giữ chỗ cho sản phẩm này.
+    /// </summary>
+    [HttpGet("reservations/orders")]
+    public async Task<IActionResult> GetReservationOrders(
+        [FromQuery] long productId,
+        [FromQuery] long? warehouseId,
+        CancellationToken ct = default)
+    {
+        var query = _context.InventoryStockReservationTransactions
+            .AsNoTracking()
+            .Include(t => t.Warehouse)
+            .Where(t => t.ProductId == productId && t.QuantityDelta < 0);
+
+        if (warehouseId.HasValue)
+            query = query.Where(t => t.WarehouseId == warehouseId.Value);
+
+        var orders = await query
+            .OrderByDescending(t => t.CreatedAt)
+            .Select(t => new
+            {
+                order_id = t.DocumentId,
+                document_type = t.DocumentType,
+                warehouse_id = t.WarehouseId,
+                warehouse_name = t.Warehouse != null ? t.Warehouse.Name : null,
+                quantity = Math.Abs(t.QuantityDelta),
+                notes = t.Notes,
+                created_at = t.CreatedAt
+            })
+            .ToListAsync(ct);
+
+        return Ok(ApiEnvelope<object>.Ok(orders));
     }
 
     #endregion

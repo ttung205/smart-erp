@@ -1,279 +1,327 @@
 <template>
-  <div class="flex flex-col gap-6">
-    <!-- 1.1 Khối 4 Thẻ KPI Toàn Hệ Thống -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <!-- KPI 1: Tổng Mã Hàng Đang Quản Lý -->
-      <div 
-        class="bg-white border border-slate-200 rounded-[6px] p-4 flex flex-col hover:border-sky-300 cursor-pointer transition-colors"
-        @click="emit('navigate', 'stocks')" 
-        v-tooltip.top="'Click để xem bảng danh mục sản phẩm'"
-      >
-        <div class="mb-1.5">
-          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tổng Mã Hàng Quản Lý</span>
-        </div>
-        <div class="text-2xl font-bold text-slate-800 leading-tight mb-2 font-mono">
-          {{ kpiSummary.uniqueSkus }}
-          <span class="text-xs font-medium text-slate-500 ml-1">mã SKU</span>
-        </div>
-        <div class="mt-auto pt-2 border-t border-slate-100 text-xs text-slate-500">
-          {{ kpiSummary.totalStockRecords }} vị trí tồn kho • {{ warehouses.length || 3 }} kho bãi
-        </div>
+  <div class="flex flex-col gap-4">
+    <!-- Header Toolbar -->
+    <div class="flex items-center justify-between flex-wrap gap-3 pb-2 border-b border-slate-100">
+      <div>
+        <h3 class="text-base font-bold text-slate-800 m-0">Danh Sách Kho Hàng</h3>
+        <p class="text-xs text-slate-500 m-0 mt-0.5">
+          Quản lý các kho bãi và thiết lập kho được phép xuất bán hàng (tính vào tồn khả dụng bán).
+        </p>
       </div>
-
-      <!-- KPI 2: Tồn Kho Vật Lý Thực Tế (OnHand) -->
-      <div 
-        class="bg-white border border-slate-200 rounded-[6px] p-4 flex flex-col hover:border-sky-300 cursor-pointer transition-colors"
-        @click="emit('navigate', 'stocks')" 
-        v-tooltip.top="'Click để xem chi tiết tồn kho'"
-      >
-        <div class="mb-1.5">
-          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tồn Thực Tế (OnHand)</span>
-        </div>
-        <div class="text-2xl font-bold text-emerald-600 leading-tight mb-2 font-mono">
-          {{ formatNumber(kpiSummary.totalOnHand) }}
-          <span class="text-xs font-medium text-emerald-600 ml-1">chiếc</span>
-        </div>
-        <div class="mt-auto pt-2 border-t border-slate-100 text-xs text-slate-500">
-          Khả dụng xuất bán: <strong class="text-slate-700">{{ formatNumber(kpiSummary.totalAvailable) }}</strong> chiếc
-        </div>
-      </div>
-
-      <!-- KPI 3: Tồn Đang Giữ Chỗ Cho Đơn Bán (Reserved) -->
-      <div 
-        class="bg-white border border-slate-200 rounded-[6px] p-4 flex flex-col hover:border-sky-300 cursor-pointer transition-colors"
-        @click="emit('navigate', 'reservations')" 
-        v-tooltip.top="'Click để xem danh sách các đơn đang giữ hàng'"
-      >
-        <div class="mb-1.5">
-          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Đang Giữ Chỗ (Reserved)</span>
-        </div>
-        <div class="text-2xl font-bold text-amber-600 leading-tight mb-2 font-mono">
-          {{ formatNumber(kpiSummary.totalReserved) }}
-          <span class="text-xs font-medium text-amber-600 ml-1">chiếc</span>
-        </div>
-        <div class="mt-auto pt-2 border-t border-slate-100 text-xs text-slate-500">
-          Tỉ lệ cam kết đơn SO: <strong class="text-amber-700">{{ kpiSummary.reservedPercentage }}%</strong> tổng tồn
-        </div>
-      </div>
-
-      <!-- KPI 4: Cảnh Báo Dưới Định Mức An Toàn (Low Stock Warning) -->
-      <div 
-        class="border rounded-[6px] p-4 flex flex-col cursor-pointer transition-colors"
-        :class="[
-          kpiSummary.lowStockCount > 0 ? 'bg-rose-50/40 border-rose-200 hover:border-rose-300' : 'bg-white border-slate-200 hover:border-sky-300',
-          filters.lowStockOnly ? 'ring-2 ring-rose-400' : ''
-        ]"
-        @click="emit('filter-low-stock')"
-        v-tooltip.top="'Click để xem các mặt hàng chạm hoặc dưới Min-Stock'"
-      >
-        <div class="mb-1.5">
-          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Cảnh Báo Định Mức (Min-Stock)</span>
-        </div>
-        <div class="text-2xl font-bold leading-tight mb-2 font-mono" :class="kpiSummary.lowStockCount > 0 ? 'text-rose-600' : 'text-emerald-600'">
-          {{ kpiSummary.lowStockCount }}
-          <span class="text-xs font-medium ml-1" :class="kpiSummary.lowStockCount > 0 ? 'text-rose-500' : 'text-emerald-500'">
-            mặt hàng
-          </span>
-        </div>
-        <div class="mt-auto pt-2 border-t border-slate-100 text-xs flex justify-between items-center">
-          <span :class="kpiSummary.lowStockCount > 0 ? 'text-rose-600 font-semibold' : 'text-emerald-600 font-semibold'">
-            {{ kpiSummary.lowStockCount > 0 ? 'Có mặt hàng chạm Min-Stock' : 'Tất cả đạt ngưỡng an toàn' }}
-          </span>
-          <span class="text-sky-600 font-medium">Xem chi tiết</span>
-        </div>
+      <div class="flex items-center gap-2">
+        <Button 
+          label="Làm mới" 
+          icon="pi pi-refresh" 
+          size="small" 
+          text 
+          class="!rounded-[6px]"
+          :loading="loading" 
+          @click="loadWarehouses" 
+        />
+        <Button 
+          label="Thêm kho mới" 
+          icon="pi pi-plus" 
+          size="small" 
+          class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px]" 
+          @click="openCreateDialog" 
+        />
       </div>
     </div>
 
-    <!-- 1.2 Tình Hình Sức Chứa & Lưu Trữ Từng Kho Bãi -->
-    <div>
-      <div class="flex items-center justify-between flex-wrap gap-4 mb-3">
-        <div>
-          <h4 class="text-sm font-bold text-slate-800 m-0">
-            Tình Hình Sức Chứa & Lưu Trữ Tại Các Kho Chi Nhánh
-          </h4>
-          <p class="text-xs text-slate-500 m-0 mt-0.5">
-            Click vào thẻ kho để mở Dashboard quản trị chuyên sâu của thủ kho khu vực.
-          </p>
+    <!-- Bảng Danh Sách Các Kho (Index Table) -->
+    <DataTable 
+      :value="warehouses" 
+      :loading="loading" 
+      dataKey="id" 
+      responsiveLayout="scroll" 
+      class="p-datatable-sm border border-slate-200 rounded-[6px] overflow-hidden"
+    >
+      <template #empty>
+        <div class="text-center py-8 text-slate-500 text-sm">
+          Chưa có kho hàng nào được tạo.
         </div>
-        <Button 
-          label="Điều chuyển kho" 
-          icon="pi pi-arrows-h"
-          size="small" 
-          outlined 
-          class="!border-sky-300 !text-sky-700 hover:!bg-sky-50 !rounded-[6px]" 
-          @click="emit('open-transfer')" 
-        />
-      </div>
+      </template>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div 
-          v-for="wh in warehouseSummaryList" 
-          :key="wh.id" 
-          class="group bg-white border border-slate-200 rounded-[6px] p-4 hover:border-sky-400 hover:shadow-md cursor-pointer transition-all flex flex-col relative"
-          @click="emit('select-warehouse', wh.id)"
-          v-tooltip.top="`Click để mở Dashboard quản lý kho ${wh.name}`"
-        >
-          <div class="flex items-center justify-between mb-2.5">
-            <div class="flex items-center gap-2">
-              <span class="font-bold text-slate-800 text-sm group-hover:text-sky-600 transition-colors">{{ wh.name }}</span>
-              <span class="text-xs font-mono px-1.5 py-0.5 bg-sky-50 text-sky-700 rounded-[4px] border border-sky-200 font-semibold">{{ wh.code }}</span>
-            </div>
-            <span v-if="wh.lowCount > 0" class="text-[11px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-[4px] border border-rose-200">
-              {{ wh.lowCount }} hàng chạm Min
+      <!-- ID -->
+      <Column field="id" header="ID" style="width: 70px" class="text-center">
+        <template #body="{ data }">
+          <span class="font-mono text-xs font-bold text-slate-600">#{{ data.id }}</span>
+        </template>
+      </Column>
+
+      <!-- Mã Kho -->
+      <Column field="code" header="Mã Kho" style="width: 140px">
+        <template #body="{ data }">
+          <span class="font-mono text-xs font-bold px-2 py-0.5 bg-slate-100 text-slate-800 rounded-[4px] border border-slate-200">
+            {{ data.code }}
+          </span>
+        </template>
+      </Column>
+
+      <!-- Tên Kho -->
+      <Column field="name" header="Tên Kho Hàng" style="min-width: 220px">
+        <template #body="{ data }">
+          <div class="font-semibold text-slate-800 text-sm">{{ data.name }}</div>
+          <div v-if="data.location" class="text-xs text-slate-500 mt-0.5">
+            <i class="pi pi-map-marker text-[11px] text-slate-400 mr-1"></i>{{ data.location }}
+          </div>
+        </template>
+      </Column>
+
+      <!-- Tồn Thực Tế (On-Hand) -->
+      <Column field="total_on_hand" header="Tồn Thực Tế" style="width: 140px" class="text-right">
+        <template #body="{ data }">
+          <span class="font-mono text-sm font-bold text-slate-800">
+            {{ formatNumber(data.total_on_hand) }}
+          </span>
+          <span class="text-xs text-slate-400 ml-1">chiếc</span>
+        </template>
+      </Column>
+
+      <!-- Tồn Khả Dụng (Available) -->
+      <Column field="total_available" header="Tồn Khả Dụng" style="width: 140px" class="text-right">
+        <template #body="{ data }">
+          <span class="font-mono text-sm font-bold text-emerald-600">
+            {{ formatNumber(data.total_available) }}
+          </span>
+          <span class="text-xs text-emerald-600 ml-1">chiếc</span>
+        </template>
+      </Column>
+
+      <!-- Cấu hình Dùng Cho Bán Hàng -->
+      <Column header="Bán Hàng" style="width: 160px" class="text-center">
+        <template #body="{ data }">
+          <div class="flex items-center justify-center gap-2">
+            <Checkbox 
+              :modelValue="Boolean(data.can_sell)" 
+              :binary="true"
+              @update:modelValue="toggleCanSell(data)"
+            />
+            <span 
+              class="text-xs font-semibold cursor-pointer select-none"
+              :class="data.can_sell ? 'text-emerald-700' : 'text-slate-400'"
+              @click="toggleCanSell(data)"
+            >
+              {{ data.can_sell ? 'Được bán' : 'Không bán' }}
             </span>
           </div>
-          
-          <div class="text-xs text-slate-400 mb-3 truncate flex items-center gap-1">
-            <i class="pi pi-map-marker text-[11px] text-slate-400"></i>
-            {{ wh.address || 'Kho chi nhánh trực thuộc Smart ERP' }}
-          </div>
+        </template>
+      </Column>
 
-          <div class="grid grid-cols-3 gap-2.5 py-2.5 px-3 bg-slate-50 rounded-[6px] text-xs mb-3 border border-slate-100 group-hover:bg-sky-50/40 transition-colors">
-            <div>
-              <div class="text-slate-500 text-[11px]">Tồn thực tế</div>
-              <div class="font-mono font-bold text-slate-800 text-sm mt-0.5">{{ formatNumber(wh.onHand) }}</div>
-            </div>
-            <div>
-              <div class="text-slate-500 text-[11px]">Đang giữ chỗ</div>
-              <div class="font-mono font-semibold text-amber-600 text-sm mt-0.5">{{ formatNumber(wh.reserved) }}</div>
-            </div>
-            <div>
-              <div class="text-slate-500 text-[11px]">Khả dụng</div>
-              <div class="font-mono font-bold text-emerald-700 text-sm mt-0.5">{{ formatNumber(wh.available) }}</div>
-            </div>
-          </div>
+      <!-- Trạng Thái Hoạt Động -->
+      <Column field="is_active" header="Trạng Thái" style="width: 130px" class="text-center">
+        <template #body="{ data }">
+          <Tag 
+            :value="data.is_active ? 'Hoạt động' : 'Tạm khóa'" 
+            :severity="data.is_active ? 'success' : 'secondary'"
+            class="!text-xs !rounded-[4px]" 
+          />
+        </template>
+      </Column>
 
-          <div class="flex justify-between items-center text-[11px] text-slate-500 pt-2 border-t border-slate-100 mt-auto">
-            <div>
-              <span>Tỷ lệ giữ: </span>
-              <span class="font-mono font-bold" :class="wh.reservedRate > 25 ? 'text-amber-600' : 'text-slate-700'">{{ wh.reservedRate }}%</span>
-            </div>
-            <div class="inline-flex items-center gap-1 text-sky-600 font-semibold text-xs group-hover:translate-x-1 transition-transform">
-              <span>Vào Dashboard kho</span>
-              <i class="pi pi-arrow-right text-[10px]"></i>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 1.3 Cảnh Báo Tồn Kho Sắp Hết Toàn Hệ Thống -->
-    <div class="bg-slate-50 border border-slate-200 rounded-[6px] p-4">
-      <div class="flex items-center justify-between mb-3">
-        <h5 class="text-xs font-bold text-slate-800 m-0 uppercase tracking-wide">
-          Mặt Hàng Dưới Định Mức An Toàn (Toàn Hệ Thống)
-        </h5>
-        <Button 
-          label="Xem tất cả" 
-          text 
-          size="small" 
-          class="!text-xs !p-0 !text-sky-600" 
-          @click="emit('filter-low-stock')" 
-        />
-      </div>
-
-      <div v-if="criticalLowStockList.length === 0" class="p-4 text-center text-xs text-emerald-700 bg-emerald-50 rounded-[6px] border border-emerald-200">
-        <span>Tất cả mặt hàng đều đạt ngưỡng định mức an toàn Min-Stock.</span>
-      </div>
-
-      <div v-else class="flex flex-col gap-2">
-        <div 
-          v-for="item in criticalLowStockList" 
-          :key="`${item.warehouse_id}-${item.product_id}`" 
-          class="p-3 rounded-[6px] border border-rose-200 bg-white flex items-center justify-between text-xs"
-        >
-          <div>
-            <div class="font-semibold text-slate-800">{{ item.product_name }}</div>
-            <div class="text-[11px] text-slate-500 font-mono mt-0.5">
-              {{ item.sku }} • {{ item.warehouse_name }}
-            </div>
-          </div>
-          <div class="flex items-center gap-3">
-            <div class="text-right">
-              <div class="font-mono font-bold text-rose-600">{{ item.available }} / {{ item.min_stock }}</div>
-              <div class="text-[10px] text-rose-500">Khả dụng / Min</div>
-            </div>
+      <!-- Thao Tác -->
+      <Column header="Thao Tác" style="width: 120px" class="text-center">
+        <template #body="{ data }">
+          <div class="flex items-center justify-center gap-1.5">
             <Button 
-              v-if="canReceive"
-              icon="pi pi-plus" 
+              icon="pi pi-pencil" 
               size="small" 
-              severity="success"
+              outlined 
+              severity="secondary" 
               class="!w-7 !h-7 !p-0 !rounded-[6px]" 
-              v-tooltip.top="'Nhập thêm hàng'" 
-              @click="emit('quick-receive', item)" 
+              v-tooltip.top="'Chỉnh sửa kho'" 
+              @click="openEditDialog(data)" 
+            />
+            <Button 
+              icon="pi pi-trash" 
+              size="small" 
+              outlined 
+              severity="danger" 
+              class="!w-7 !h-7 !p-0 !rounded-[6px]" 
+              v-tooltip.top="'Xóa kho'" 
+              @click="confirmDelete(data)" 
             />
           </div>
+        </template>
+      </Column>
+    </DataTable>
+
+    <!-- Dialog Thêm Mới / Sửa Kho -->
+    <Dialog 
+      v-model:visible="showDialog" 
+      :header="editingWarehouse ? 'Chỉnh Sửa Kho Hàng' : 'Thêm Mới Kho Hàng'" 
+      modal 
+      class="w-full max-w-lg"
+    >
+      <div class="flex flex-col gap-4 py-2">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-bold text-slate-700">Mã kho <span class="text-rose-500">*</span></label>
+          <InputText 
+            v-model="form.code" 
+            placeholder="VD: WH-MAIN, WH-HCM..." 
+            class="!text-xs font-mono !rounded-[6px]" 
+          />
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-bold text-slate-700">Tên kho hàng <span class="text-rose-500">*</span></label>
+          <InputText 
+            v-model="form.name" 
+            placeholder="VD: Kho Chính, Kho Kĩ Thuật..." 
+            class="!text-xs !rounded-[6px]" 
+          />
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-bold text-slate-700">Vị trí / Địa chỉ</label>
+          <InputText 
+            v-model="form.location" 
+            placeholder="Địa chỉ hoặc ghi chú vị trí kho..." 
+            class="!text-xs !rounded-[6px]" 
+          />
+        </div>
+
+        <div class="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-[6px]">
+          <div>
+            <div class="text-xs font-bold text-slate-800">Sử dụng cho Bán Hàng</div>
+            <div class="text-[11px] text-slate-500">Tồn khả dụng tại kho này sẽ được tính vào tổng tồn xuất bán</div>
+          </div>
+          <Checkbox v-model="form.can_sell" :binary="true" />
+        </div>
+
+        <div class="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-[6px]">
+          <div>
+            <div class="text-xs font-bold text-slate-800">Trạng thái hoạt động</div>
+            <div class="text-[11px] text-slate-500">Cho phép thực hiện các thao tác nhập xuất kho</div>
+          </div>
+          <Checkbox v-model="form.is_active" :binary="true" />
         </div>
       </div>
-    </div>
+
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <Button label="Hủy" text severity="secondary" size="small" @click="showDialog = false" />
+          <Button 
+            :label="editingWarehouse ? 'Lưu cập nhật' : 'Tạo mới'" 
+            size="small" 
+            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600" 
+            :loading="submitting" 
+            @click="saveWarehouse" 
+          />
+        </div>
+      </template>
+    </Dialog>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, onMounted } from 'vue'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
 import Button from 'primevue/button'
-import { useInventory } from '../../composables/useInventory'
+import InputText from 'primevue/inputtext'
+import Checkbox from 'primevue/checkbox'
+import Tag from 'primevue/tag'
+import Dialog from 'primevue/dialog'
+import { inventoryApi } from '../../api/inventory.api'
+import { formatNumber } from '../../utils/format'
 
-const props = defineProps({
-  currentUser: {
-    type: Object,
-    default: null
+const warehouses = ref([])
+const loading = ref(false)
+const submitting = ref(false)
+const showDialog = ref(false)
+const editingWarehouse = ref(null)
+
+const form = ref({
+  code: '',
+  name: '',
+  location: '',
+  can_sell: true,
+  is_active: true
+})
+
+const loadWarehouses = async () => {
+  loading.value = true
+  try {
+    const res = await inventoryApi.getWarehouses()
+    warehouses.value = res.data || []
+  } catch (err) {
+    console.error('Lỗi tải danh sách kho:', err)
+  } finally {
+    loading.value = false
   }
-})
-
-const emit = defineEmits([
-  'navigate',
-  'select-warehouse',
-  'open-transfer',
-  'quick-receive',
-  'filter-low-stock'
-])
-
-const {
-  stocks,
-  warehouses,
-  filters,
-  kpiSummary
-} = useInventory()
-
-// Thống kê phân bổ theo từng kho bãi cho Tab Tổng Quan
-const warehouseSummaryList = computed(() => {
-  return warehouses.value.map(w => {
-    const list = stocks.value.filter(s => Number(s.warehouse_id ?? s.warehouseId) === Number(w.id))
-    const onHand = list.reduce((acc, cur) => acc + (cur.quantity_on_hand || 0), 0)
-    const reserved = list.reduce((acc, cur) => acc + (cur.quantity_reserved || 0), 0)
-    const available = list.reduce((acc, cur) => acc + (cur.available || 0), 0)
-    const lowCount = list.filter(s => (s.available || 0) <= (s.min_stock || 0)).length
-    return {
-      ...w,
-      address: w.location || w.address || 'Kho chi nhánh trực thuộc Smart ERP',
-      skuCount: list.length,
-      onHand,
-      reserved,
-      available,
-      lowCount,
-      reservedRate: onHand > 0 ? Math.round((reserved / onHand) * 100) : 0
-    }
-  })
-})
-
-// Danh sách cảnh báo hàng dưới định mức cho Tab Tổng Quan
-const criticalLowStockList = computed(() => {
-  return stocks.value
-    .filter(s => (s.available || 0) <= (s.min_stock || 0))
-    .slice(0, 5)
-})
-
-const canReceive = computed(() => {
-  if (!props.currentUser) return true
-  return props.currentUser?.permissions?.includes('inventory.receipt') || 
-         props.currentUser?.permissions?.includes('inventory.receive') ||
-         props.currentUser?.department === 'Ban Giám Đốc (BOD)' ||
-         props.currentUser?.department === 'Kho Vận'
-})
-
-const formatNumber = (num) => {
-  if (num === null || num === undefined) return '0'
-  return new Intl.NumberFormat('vi-VN').format(num)
 }
+
+const openCreateDialog = () => {
+  editingWarehouse.value = null
+  form.value = {
+    code: '',
+    name: '',
+    location: '',
+    can_sell: true,
+    is_active: true
+  }
+  showDialog.value = true
+}
+
+const openEditDialog = (wh) => {
+  editingWarehouse.value = wh
+  form.value = {
+    code: wh.code,
+    name: wh.name,
+    location: wh.location || '',
+    can_sell: Boolean(wh.can_sell),
+    is_active: Boolean(wh.is_active)
+  }
+  showDialog.value = true
+}
+
+const toggleCanSell = async (wh) => {
+  const newCanSell = !wh.can_sell
+  wh.can_sell = newCanSell
+  try {
+    await inventoryApi.updateWarehouse(wh.id, {
+      can_sell: newCanSell,
+      name: wh.name,
+      code: wh.code,
+      location: wh.location,
+      is_active: wh.is_active
+    })
+  } catch (err) {
+    console.error('Lỗi cập nhật cấu hình bán hàng:', err)
+    wh.can_sell = !newCanSell
+  }
+}
+
+const saveWarehouse = async () => {
+  if (!form.value.name.trim()) return
+  submitting.value = true
+  try {
+    if (editingWarehouse.value) {
+      await inventoryApi.updateWarehouse(editingWarehouse.value.id, form.value)
+    } else {
+      await inventoryApi.createWarehouse(form.value)
+    }
+    showDialog.value = false
+    await loadWarehouses()
+  } catch (err) {
+    alert(err.message || 'Lỗi lưu thông tin kho')
+  } finally {
+    submitting.value = false
+  }
+}
+
+const confirmDelete = async (wh) => {
+  if (!confirm(`Bạn có chắc muốn xóa kho "${wh.name}"?`)) return
+  try {
+    await inventoryApi.deleteWarehouse(wh.id)
+    await loadWarehouses()
+  } catch (err) {
+    alert(err.message || 'Lỗi xóa kho')
+  }
+}
+
+onMounted(() => {
+  loadWarehouses()
+})
 </script>

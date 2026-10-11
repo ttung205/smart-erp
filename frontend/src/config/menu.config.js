@@ -196,19 +196,11 @@ export const menuCategories = [
             icon: 'pi pi-box'
           },
           {
-            id: 'inventory-reservations',
-            path: '/inventory/reservations',
-            resource: 'inventory',
-            permission: 'inventory.view',
-            label: 'Hàng giữ chỗ',
-            icon: 'pi pi-lock'
-          },
-          {
             id: 'inventory-movements',
             path: '/inventory/movements',
             resource: 'inventory',
             permission: 'inventory.view',
-            label: 'Sổ cái thẻ kho',
+            label: 'Lịch sử tồn kho',
             icon: 'pi pi-history'
           },
         ]

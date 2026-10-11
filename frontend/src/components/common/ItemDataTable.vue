@@ -686,8 +686,11 @@ const loadInventoryStocks = async () => {
     const bySku = new Map();
     const byPid = new Map();
 
+    // Dùng sales_available (tổng tồn khả dụng từ các kho được bật can_sell)
+    // thay vì cộng available từ tất cả các kho (bao gồm kho không bán).
+    // API trả về sales_available đã tính đúng cho mỗi product_id.
     stocks.forEach((s) => {
-      const avail = Number(s.available ?? s.quantity_on_hand ?? s.available_quantity ?? s.quantity ?? 0);
+      const salesAvail = Number(s.sales_available ?? 0);
       const pid = Number(s.product_id || s.productId || s.id || 0);
       let sku = (s.product_sku || s.sku || '').trim().toUpperCase();
 
@@ -695,8 +698,9 @@ const loadInventoryStocks = async () => {
         sku = pidToSkuMap.get(pid);
       }
 
-      if (pid) byPid.set(pid, (byPid.get(pid) || 0) + avail);
-      if (sku) bySku.set(sku, (bySku.get(sku) || 0) + avail);
+      // sales_available đã là tổng theo product_id, chỉ cần set (không cộng dồn)
+      if (pid && !byPid.has(pid)) byPid.set(pid, salesAvail);
+      if (sku && !bySku.has(sku)) bySku.set(sku, salesAvail);
     });
 
     inventoryAvailableBySku.value = bySku;
