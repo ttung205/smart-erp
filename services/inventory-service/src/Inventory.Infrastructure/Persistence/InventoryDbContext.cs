@@ -11,8 +11,9 @@ public class InventoryDbContext : DbContext
 
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
     public DbSet<InventoryStock> InventoryStocks => Set<InventoryStock>();
-    public DbSet<StockReservation> StockReservations => Set<StockReservation>();
-    public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+    public DbSet<InventoryStockReservation> InventoryStockReservations => Set<InventoryStockReservation>();
+    public DbSet<InventoryStockTransaction> InventoryStockTransactions => Set<InventoryStockTransaction>();
+    public DbSet<InventoryStockReservationTransaction> InventoryStockReservationTransactions => Set<InventoryStockReservationTransaction>();
     public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
     public DbSet<ProcessedEvent> ProcessedEvents => Set<ProcessedEvent>();
 
@@ -29,6 +30,7 @@ public class InventoryDbContext : DbContext
             entity.Property(w => w.Code).HasColumnName("code").HasMaxLength(50).IsRequired();
             entity.Property(w => w.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
             entity.Property(w => w.Location).HasColumnName("location").HasMaxLength(500);
+            entity.Property(w => w.ManagerId).HasColumnName("manager_id");
             entity.Property(w => w.IsActive).HasColumnName("is_active").HasDefaultValue(true);
             entity.Property(w => w.CreatedAt).HasColumnName("created_at");
             entity.Property(w => w.UpdatedAt).HasColumnName("updated_at");
@@ -36,79 +38,65 @@ public class InventoryDbContext : DbContext
             entity.HasIndex(w => w.Code).IsUnique();
         });
 
-        // 2. InventoryStock Configuration
+        // 2. InventoryStock Configuration (Physical On-Hand Balance)
         modelBuilder.Entity<InventoryStock>(entity =>
         {
             entity.ToTable("inventory_stocks");
             entity.HasKey(s => s.Id);
             entity.Property(s => s.Id).HasColumnName("id");
-            entity.Property(s => s.ProductId).HasColumnName("product_id").IsRequired();
             entity.Property(s => s.WarehouseId).HasColumnName("warehouse_id").IsRequired();
-            entity.Property(s => s.QuantityOnHand).HasColumnName("quantity_on_hand").HasDefaultValue(0);
-            entity.Property(s => s.QuantityReserved).HasColumnName("quantity_reserved").HasDefaultValue(0);
-            entity.Property(s => s.MinStock).HasColumnName("min_stock").HasDefaultValue(0);
-            
-            // Optimistic Concurrency Token
-            entity.Property(s => s.Version).HasColumnName("version").HasDefaultValue(1).IsConcurrencyToken();
-            
-            entity.Property(s => s.CreatedAt).HasColumnName("created_at");
+            entity.Property(s => s.ProductId).HasColumnName("product_id").IsRequired();
+            entity.Property(s => s.Quantity).HasColumnName("quantity").HasDefaultValue(0);
             entity.Property(s => s.UpdatedAt).HasColumnName("updated_at");
 
-            // Unique constraint: product_id + warehouse_id
-            entity.HasIndex(s => new { s.ProductId, s.WarehouseId }).IsUnique();
+            // Unique constraint: warehouse_id + product_id
+            entity.HasIndex(s => new { s.WarehouseId, s.ProductId }).IsUnique();
 
             // Foreign Key to Warehouse
             entity.HasOne(s => s.Warehouse)
                   .WithMany(w => w.Stocks)
                   .HasForeignKey(s => s.WarehouseId)
                   .OnDelete(DeleteBehavior.Restrict);
-
-            // Ignore computed property
-            entity.Ignore(s => s.Available);
         });
 
-        // 3. StockReservation Configuration
-        modelBuilder.Entity<StockReservation>(entity =>
+        // 3. InventoryStockReservation Configuration (Available / Reservation Balance)
+        modelBuilder.Entity<InventoryStockReservation>(entity =>
         {
-            entity.ToTable("stock_reservations");
+            entity.ToTable("inventory_stocks_reservation");
             entity.HasKey(r => r.Id);
             entity.Property(r => r.Id).HasColumnName("id");
-            entity.Property(r => r.OrderId).HasColumnName("order_id").HasMaxLength(100).IsRequired();
             entity.Property(r => r.WarehouseId).HasColumnName("warehouse_id").IsRequired();
             entity.Property(r => r.ProductId).HasColumnName("product_id").IsRequired();
-            entity.Property(r => r.Quantity).HasColumnName("quantity").IsRequired();
-            entity.Property(r => r.Status).HasColumnName("status").HasMaxLength(30).HasDefaultValue("ACTIVE");
-            entity.Property(r => r.ExpiresAt).HasColumnName("expires_at");
-            entity.Property(r => r.CreatedAt).HasColumnName("created_at");
+            entity.Property(r => r.Quantity).HasColumnName("quantity").HasDefaultValue(0);
             entity.Property(r => r.UpdatedAt).HasColumnName("updated_at");
 
-            entity.HasIndex(r => new { r.OrderId, r.Status });
-            entity.HasIndex(r => new { r.ProductId, r.WarehouseId });
+            // Unique constraint: warehouse_id + product_id
+            entity.HasIndex(r => new { r.WarehouseId, r.ProductId }).IsUnique();
 
             entity.HasOne(r => r.Warehouse)
-                  .WithMany()
+                  .WithMany(w => w.Reservations)
                   .HasForeignKey(r => r.WarehouseId)
                   .OnDelete(DeleteBehavior.Restrict);
         });
 
-        // 4. StockMovement Configuration (Immutable Ledger)
-        modelBuilder.Entity<StockMovement>(entity =>
+        // 4. InventoryStockTransaction Configuration (Physical Stock Ledger)
+        modelBuilder.Entity<InventoryStockTransaction>(entity =>
         {
-            entity.ToTable("stock_movements");
+            entity.ToTable("inventory_stocks_transaction");
             entity.HasKey(m => m.Id);
             entity.Property(m => m.Id).HasColumnName("id");
-            entity.Property(m => m.ProductId).HasColumnName("product_id").IsRequired();
             entity.Property(m => m.WarehouseId).HasColumnName("warehouse_id").IsRequired();
-            entity.Property(m => m.MovementType).HasColumnName("movement_type").HasMaxLength(50).IsRequired();
+            entity.Property(m => m.ProductId).HasColumnName("product_id").IsRequired();
+            entity.Property(m => m.DocumentType).HasColumnName("document_type").HasMaxLength(100).IsRequired();
+            entity.Property(m => m.DocumentId).HasColumnName("document_id").HasMaxLength(100).IsRequired();
             entity.Property(m => m.QuantityDelta).HasColumnName("quantity_delta").IsRequired();
-            entity.Property(m => m.BalanceOnHandAfter).HasColumnName("balance_on_hand_after").IsRequired();
-            entity.Property(m => m.BalanceReservedAfter).HasColumnName("balance_reserved_after").IsRequired();
-            entity.Property(m => m.ReferenceDoc).HasColumnName("reference_doc").HasMaxLength(100).IsRequired();
+            entity.Property(m => m.BalanceAfter).HasColumnName("balance_after").IsRequired();
+            entity.Property(m => m.Notes).HasColumnName("notes").HasMaxLength(500);
             entity.Property(m => m.CreatedBy).HasColumnName("created_by");
             entity.Property(m => m.CreatedAt).HasColumnName("created_at");
 
             entity.HasIndex(m => new { m.ProductId, m.WarehouseId, m.CreatedAt });
-            entity.HasIndex(m => m.ReferenceDoc);
+            entity.HasIndex(m => new { m.DocumentType, m.DocumentId });
 
             entity.HasOne(m => m.Warehouse)
                   .WithMany()
@@ -116,7 +104,32 @@ public class InventoryDbContext : DbContext
                   .OnDelete(DeleteBehavior.Restrict);
         });
 
-        // 5. OutboxEvent Configuration
+        // 5. InventoryStockReservationTransaction Configuration (Reservation Stock Ledger)
+        modelBuilder.Entity<InventoryStockReservationTransaction>(entity =>
+        {
+            entity.ToTable("inventory_stocks_reservation_transaction");
+            entity.HasKey(m => m.Id);
+            entity.Property(m => m.Id).HasColumnName("id");
+            entity.Property(m => m.WarehouseId).HasColumnName("warehouse_id").IsRequired();
+            entity.Property(m => m.ProductId).HasColumnName("product_id").IsRequired();
+            entity.Property(m => m.DocumentType).HasColumnName("document_type").HasMaxLength(100).IsRequired();
+            entity.Property(m => m.DocumentId).HasColumnName("document_id").HasMaxLength(100).IsRequired();
+            entity.Property(m => m.QuantityDelta).HasColumnName("quantity_delta").IsRequired();
+            entity.Property(m => m.BalanceAfter).HasColumnName("balance_after").IsRequired();
+            entity.Property(m => m.Notes).HasColumnName("notes").HasMaxLength(500);
+            entity.Property(m => m.CreatedBy).HasColumnName("created_by");
+            entity.Property(m => m.CreatedAt).HasColumnName("created_at");
+
+            entity.HasIndex(m => new { m.ProductId, m.WarehouseId, m.CreatedAt });
+            entity.HasIndex(m => new { m.DocumentType, m.DocumentId });
+
+            entity.HasOne(m => m.Warehouse)
+                  .WithMany()
+                  .HasForeignKey(m => m.WarehouseId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // 6. OutboxEvent Configuration
         modelBuilder.Entity<OutboxEvent>(entity =>
         {
             entity.ToTable("outbox_events");
@@ -138,7 +151,7 @@ public class InventoryDbContext : DbContext
             entity.HasIndex(e => new { e.Status, e.CreatedAt });
         });
 
-        // 6. ProcessedEvent Configuration (Idempotency)
+        // 7. ProcessedEvent Configuration (Idempotency)
         modelBuilder.Entity<ProcessedEvent>(entity =>
         {
             entity.ToTable("processed_events");

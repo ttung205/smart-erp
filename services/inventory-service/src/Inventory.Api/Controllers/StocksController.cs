@@ -30,10 +30,10 @@ public class StocksController : ControllerBase
             ?? $"req_corr_{Guid.NewGuid():N}";
     }
 
-    #region Query Side (Tối ưu hiệu năng cao với .AsNoTracking)
+    #region Query Side
 
     /// <summary>
-    /// Tra cứu danh sách tồn kho theo bộ lọc kèm phân trang.
+    /// Tra cứu danh sách tồn kho theo bộ lọc kèm phân trang (kết hợp tồn thực tế và tồn khả dụng).
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetStocks(
@@ -47,10 +47,21 @@ public class StocksController : ControllerBase
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 1000);
 
-        var query = _context.InventoryStocks
-            .AsNoTracking()
-            .Include(s => s.Warehouse)
-            .AsQueryable();
+        var query = from s in _context.InventoryStocks.AsNoTracking().Include(s => s.Warehouse)
+                    join r in _context.InventoryStockReservations.AsNoTracking()
+                         on new { s.WarehouseId, s.ProductId } equals new { r.WarehouseId, r.ProductId } into grp
+                    from res in grp.DefaultIfEmpty()
+                    select new
+                    {
+                        s.Id,
+                        s.ProductId,
+                        s.WarehouseId,
+                        WarehouseCode = s.Warehouse != null ? s.Warehouse.Code : null,
+                        WarehouseName = s.Warehouse != null ? s.Warehouse.Name : null,
+                        QuantityOnHand = s.Quantity,
+                        Available = res != null ? res.Quantity : s.Quantity,
+                        s.UpdatedAt
+                    };
 
         if (productId.HasValue)
             query = query.Where(s => s.ProductId == productId.Value);
@@ -59,7 +70,7 @@ public class StocksController : ControllerBase
             query = query.Where(s => s.WarehouseId == warehouseId.Value);
 
         if (lowStock.HasValue && lowStock.Value)
-            query = query.Where(s => (s.QuantityOnHand - s.QuantityReserved) <= s.MinStock);
+            query = query.Where(s => s.Available <= 10);
 
         var totalItems = await query.CountAsync(ct);
         var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
@@ -74,14 +85,14 @@ public class StocksController : ControllerBase
                 Id = s.Id,
                 ProductId = s.ProductId,
                 WarehouseId = s.WarehouseId,
-                WarehouseCode = s.Warehouse != null ? s.Warehouse.Code : null,
-                WarehouseName = s.Warehouse != null ? s.Warehouse.Name : null,
+                WarehouseCode = s.WarehouseCode,
+                WarehouseName = s.WarehouseName,
                 QuantityOnHand = s.QuantityOnHand,
-                QuantityReserved = s.QuantityReserved,
-                Available = s.QuantityOnHand - s.QuantityReserved,
-                MinStock = s.MinStock,
-                IsLowStock = (s.QuantityOnHand - s.QuantityReserved) <= s.MinStock,
-                Version = s.Version,
+                QuantityReserved = Math.Max(0, s.QuantityOnHand - s.Available),
+                Available = s.Available,
+                MinStock = 10,
+                IsLowStock = s.Available <= 10,
+                Version = 1,
                 UpdatedAt = s.UpdatedAt
             })
             .ToListAsync(ct);
@@ -108,14 +119,22 @@ public class StocksController : ControllerBase
     [HttpGet("{productId:long}")]
     public async Task<IActionResult> GetStockByProductId(long productId, CancellationToken ct = default)
     {
-        var stocks = await _context.InventoryStocks
-            .AsNoTracking()
-            .Include(s => s.Warehouse)
-            .Where(s => s.ProductId == productId)
-            .OrderBy(s => s.WarehouseId)
-            .ToListAsync(ct);
+        var rawStocks = await (from s in _context.InventoryStocks.AsNoTracking().Include(s => s.Warehouse)
+                               join r in _context.InventoryStockReservations.AsNoTracking()
+                                    on new { s.WarehouseId, s.ProductId } equals new { r.WarehouseId, r.ProductId } into grp
+                               from res in grp.DefaultIfEmpty()
+                               where s.ProductId == productId
+                               orderby s.WarehouseId
+                               select new
+                               {
+                                   s.WarehouseId,
+                                   WarehouseCode = s.Warehouse != null ? s.Warehouse.Code : string.Empty,
+                                   WarehouseName = s.Warehouse != null ? s.Warehouse.Name : string.Empty,
+                                   QuantityOnHand = s.Quantity,
+                                   Available = res != null ? res.Quantity : s.Quantity
+                               }).ToListAsync(ct);
 
-        if (stocks.Count == 0)
+        if (rawStocks.Count == 0)
         {
             return NotFound(ApiEnvelope<object>.Fail(
                 "RESOURCE_NOT_FOUND",
@@ -127,19 +146,19 @@ public class StocksController : ControllerBase
         var overview = new ProductStockOverviewDto
         {
             ProductId = productId,
-            TotalOnHand = stocks.Sum(s => s.QuantityOnHand),
-            TotalReserved = stocks.Sum(s => s.QuantityReserved),
-            TotalAvailable = stocks.Sum(s => s.Available),
-            Warehouses = stocks.Select(s => new WarehouseStockBreakdownDto
+            TotalOnHand = rawStocks.Sum(s => s.QuantityOnHand),
+            TotalReserved = rawStocks.Sum(s => Math.Max(0, s.QuantityOnHand - s.Available)),
+            TotalAvailable = rawStocks.Sum(s => s.Available),
+            Warehouses = rawStocks.Select(s => new WarehouseStockBreakdownDto
             {
                 WarehouseId = s.WarehouseId,
-                WarehouseCode = s.Warehouse?.Code ?? string.Empty,
-                WarehouseName = s.Warehouse?.Name ?? string.Empty,
+                WarehouseCode = s.WarehouseCode,
+                WarehouseName = s.WarehouseName,
                 QuantityOnHand = s.QuantityOnHand,
-                QuantityReserved = s.QuantityReserved,
+                QuantityReserved = Math.Max(0, s.QuantityOnHand - s.Available),
                 Available = s.Available,
-                MinStock = s.MinStock,
-                IsLowStock = s.Available <= s.MinStock
+                MinStock = 10,
+                IsLowStock = s.Available <= 10
             }).ToList()
         };
 
@@ -153,9 +172,10 @@ public class StocksController : ControllerBase
     }
 
     /// <summary>
-    /// Lịch sử sổ cái thẻ kho (Audit Log).
+    /// Sổ cái lịch sử giao dịch tồn kho thực tế (Audit Movements Ledger).
     /// </summary>
     [HttpGet("movements")]
+    [HttpGet("transactions")]
     public async Task<IActionResult> GetMovements(
         [FromQuery] long? productId,
         [FromQuery] long? warehouseId,
@@ -167,7 +187,7 @@ public class StocksController : ControllerBase
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 1000);
 
-        var query = _context.StockMovements
+        var query = _context.InventoryStockTransactions
             .AsNoTracking()
             .Include(m => m.Warehouse)
             .AsQueryable();
@@ -179,7 +199,7 @@ public class StocksController : ControllerBase
             query = query.Where(m => m.WarehouseId == warehouseId.Value);
 
         if (!string.IsNullOrWhiteSpace(movementType))
-            query = query.Where(m => m.MovementType == movementType);
+            query = query.Where(m => m.DocumentType == movementType);
 
         var totalItems = await query.CountAsync(ct);
         var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
@@ -194,11 +214,11 @@ public class StocksController : ControllerBase
                 ProductId = m.ProductId,
                 WarehouseId = m.WarehouseId,
                 WarehouseName = m.Warehouse != null ? m.Warehouse.Name : null,
-                MovementType = m.MovementType,
+                MovementType = m.DocumentType,
                 QuantityDelta = m.QuantityDelta,
-                BalanceOnHandAfter = m.BalanceOnHandAfter,
-                BalanceReservedAfter = m.BalanceReservedAfter,
-                ReferenceDoc = m.ReferenceDoc,
+                BalanceOnHandAfter = m.BalanceAfter,
+                BalanceReservedAfter = 0,
+                ReferenceDoc = m.DocumentId,
                 CreatedAt = m.CreatedAt
             })
             .ToListAsync(ct);
@@ -221,10 +241,48 @@ public class StocksController : ControllerBase
 
     #endregion
 
-    #region Command Side (Atomic Operations & SCM State Mutations)
+    #region Command Side (Atomic Operations)
 
     /// <summary>
-    /// Khóa giữ chỗ tồn kho (Reserve) cho một sản phẩm theo đơn bán hàng SO.
+    /// Biến động số dư tồn kho thực tế (Physical Stock Mutation).
+    /// Tự động cập nhật bảng inventory_stocks và ghi sổ inventory_stocks_transaction.
+    /// </summary>
+    [HttpPost("change")]
+    public async Task<IActionResult> ChangePhysicalStock([FromBody] ChangeStockRequest request, CancellationToken ct)
+    {
+        var command = new ChangeStockCommand(
+            WarehouseId: request.WarehouseId,
+            ProductId: request.ProductId,
+            QuantityDelta: request.QuantityDelta,
+            DocumentType: request.DocumentType,
+            DocumentId: request.DocumentId,
+            Notes: request.Notes,
+            CreatedBy: request.CreatedBy
+        );
+
+        var result = await _stockManager.ChangePhysicalStockAsync(command, ct);
+
+        var meta = new ApiMeta
+        {
+            CorrelationId = GetCorrelationId(),
+            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+        };
+
+        return Ok(ApiEnvelope<object>.Ok(new
+        {
+            warehouse_id = result.WarehouseId,
+            product_id = result.ProductId,
+            balance_on_hand_after = result.QuantityOnHand,
+            quantity_delta = result.QuantityDelta,
+            document_type = result.OperationType,
+            document_id = result.ReferenceDoc,
+            transaction_id = result.MovementId,
+            timestamp = result.Timestamp
+        }, meta));
+    }
+
+    /// <summary>
+    /// Khóa giữ chỗ tồn kho (Reserve) theo đơn bán hàng SO.
     /// </summary>
     [HttpPost("reserve")]
     public async Task<IActionResult> ReserveStock([FromBody] ReserveStockRequest request, CancellationToken ct)
@@ -264,7 +322,7 @@ public class StocksController : ControllerBase
     }
 
     /// <summary>
-    /// Khóa giữ chỗ theo lô (Batch Reserve) nhiều mặt hàng trong cùng đơn hàng (triệt tiêu Deadlock).
+    /// Khóa giữ chỗ theo lô (Batch Reserve).
     /// </summary>
     [HttpPost("reserve/batch")]
     public async Task<IActionResult> BatchReserveStock([FromBody] BatchReserveStockRequest request, CancellationToken ct)
@@ -299,7 +357,7 @@ public class StocksController : ControllerBase
     }
 
     /// <summary>
-    /// Giải phóng giữ chỗ (Release) khi đơn bán hàng bị hủy hoặc quá hạn.
+    /// Giải phóng giữ chỗ (Release) khi đơn bán hàng bị hủy.
     /// </summary>
     [HttpPost("release")]
     public async Task<IActionResult> ReleaseStock([FromBody] ReleaseStockRequest request, CancellationToken ct)
@@ -339,6 +397,7 @@ public class StocksController : ControllerBase
 
     /// <summary>
     /// Phiếu nhập kho thực tế (Goods Receipt / Receive) từ đơn mua hàng PO.
+    /// Tăng cả tồn thực tế và tồn khả dụng.
     /// </summary>
     [HttpPost("receive")]
     public async Task<IActionResult> ReceiveStock([FromBody] ReceiveStockRequest request, CancellationToken ct)
@@ -348,7 +407,7 @@ public class StocksController : ControllerBase
             WarehouseId: request.WarehouseId,
             ProductId: request.ProductId,
             Quantity: request.Quantity,
-            MinStock: request.MinStock
+            MinStock: 0
         );
 
         var result = await _stockManager.ReceiveStockAsync(command, ct);
@@ -378,6 +437,7 @@ public class StocksController : ControllerBase
 
     /// <summary>
     /// Phiếu xuất kho thực tế (Goods Issue / Delivery) cho đơn hàng đã giữ chỗ.
+    /// Trừ tồn thực tế.
     /// </summary>
     [HttpPost("issue")]
     public async Task<IActionResult> IssueStock([FromBody] IssueStockRequest request, CancellationToken ct)

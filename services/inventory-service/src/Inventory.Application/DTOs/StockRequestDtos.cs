@@ -3,6 +3,35 @@ using System.Text.Json.Serialization;
 
 namespace Inventory.Application.DTOs;
 
+public class ChangeStockRequest
+{
+    [Range(1, long.MaxValue, ErrorMessage = "warehouse_id phải lớn hơn 0.")]
+    [JsonPropertyName("warehouse_id")]
+    public long WarehouseId { get; set; }
+
+    [Range(1, long.MaxValue, ErrorMessage = "product_id phải lớn hơn 0.")]
+    [JsonPropertyName("product_id")]
+    public long ProductId { get; set; }
+
+    [Required(ErrorMessage = "quantity_delta không được để trống.")]
+    [JsonPropertyName("quantity_delta")]
+    public int QuantityDelta { get; set; }
+
+    [Required(ErrorMessage = "document_type không được để trống.")]
+    [JsonPropertyName("document_type")]
+    public string DocumentType { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "document_id không được để trống.")]
+    [JsonPropertyName("document_id")]
+    public string DocumentId { get; set; } = string.Empty;
+
+    [JsonPropertyName("notes")]
+    public string? Notes { get; set; }
+
+    [JsonPropertyName("created_by")]
+    public long? CreatedBy { get; set; }
+}
+
 public class ReserveStockRequest
 {
     [Required(ErrorMessage = "Mã đơn hàng (order_id) không được để trống.")]
@@ -91,10 +120,6 @@ public class ReceiveStockRequest
     [Range(1, int.MaxValue, ErrorMessage = "quantity phải lớn hơn 0.")]
     [JsonPropertyName("quantity")]
     public int Quantity { get; set; }
-
-    [Range(0, int.MaxValue, ErrorMessage = "min_stock không được là số âm.")]
-    [JsonPropertyName("min_stock")]
-    public int MinStock { get; set; } = 0;
 }
 
 public class IssueStockRequest
@@ -123,7 +148,6 @@ public class StockFilterQuery
 {
     public long? ProductId { get; set; }
     public long? WarehouseId { get; set; }
-    public bool? LowStock { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 20;
 }

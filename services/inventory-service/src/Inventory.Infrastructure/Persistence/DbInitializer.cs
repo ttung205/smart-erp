@@ -48,13 +48,15 @@ public static class DbInitializer
             await context.SaveChangesAsync();
         }
 
-        // 3. Seed Initial Inventory Stocks (100 products from Catalog, 100 units each)
+        // 3. Seed Initial Inventory Stocks & Reservations (100 products from Catalog, 100 units each)
         if (!await context.InventoryStocks.AnyAsync())
         {
             var warehouses = await context.Warehouses.ToListAsync();
             if (warehouses.Any())
             {
                 var initialStocks = new List<InventoryStock>();
+                var initialReservations = new List<InventoryStockReservation>();
+
                 for (int productId = 1; productId <= 100; productId++)
                 {
                     foreach (var w in warehouses)
@@ -63,17 +65,22 @@ public static class DbInitializer
                         {
                             ProductId = productId,
                             WarehouseId = w.Id,
-                            QuantityOnHand = 100,
-                            QuantityReserved = 0,
-                            MinStock = 10,
-                            Version = 1,
-                            CreatedAt = DateTime.UtcNow,
+                            Quantity = 100,
+                            UpdatedAt = DateTime.UtcNow
+                        });
+
+                        initialReservations.Add(new InventoryStockReservation
+                        {
+                            ProductId = productId,
+                            WarehouseId = w.Id,
+                            Quantity = 100,
                             UpdatedAt = DateTime.UtcNow
                         });
                     }
                 }
 
                 await context.InventoryStocks.AddRangeAsync(initialStocks);
+                await context.InventoryStockReservations.AddRangeAsync(initialReservations);
                 await context.SaveChangesAsync();
             }
         }

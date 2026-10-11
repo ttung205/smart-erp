@@ -2,15 +2,14 @@ using Inventory.Application.Common;
 using Inventory.Application.Common.Commands;
 using Inventory.Application.Interfaces;
 using Inventory.Domain.Entities;
-using Inventory.Domain.Exceptions;
-using Inventory.Domain.Extensions;
 using Inventory.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Inventory.Infrastructure.Services;
 
 /// <summary>
-/// Động cơ quản lý tồn kho nguyên tử (Atomic Concurrency Engine) và Sổ cái thẻ kho bất biến (Immutable Stock Ledger).
+/// Quản lý biến động 2 tầng tồn kho: Tồn kho thực tế (Physical) và Tồn kho khả dụng (Reservation).
+/// Tự động cập nhật số dư và ghi sổ cái giao dịch bất biến tương ứng.
 /// </summary>
 public class InventoryStockManager : IInventoryStockManager
 {
@@ -21,457 +20,248 @@ public class InventoryStockManager : IInventoryStockManager
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
-    /// <inheritdoc />
-    public async Task<StockOperationResult> ReserveStockAsync(ReserveStockCommand command, CancellationToken ct = default)
+    /// <summary>
+    /// Thay đổi số dư tồn kho thực tế và tự động ghi sổ cái giao dịch thực tế.
+    /// </summary>
+    public async Task<StockOperationResult> ChangePhysicalStockAsync(ChangeStockCommand command, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        if (command.Quantity <= 0)
-            throw new InvalidStockOperationException($"Số lượng giữ kho phải lớn hơn 0 (nhận: {command.Quantity}).");
-
         await using var tx = await _context.Database.BeginTransactionAsync(ct);
 
-        var now = DateTime.UtcNow;
+        var stock = await _context.InventoryStocks
+            .FirstOrDefaultAsync(s => s.WarehouseId == command.WarehouseId && s.ProductId == command.ProductId, ct);
 
-        // 1. Atomic SQL Guard: Chỉ tăng QuantityReserved khi (OnHand - Reserved) >= Quantity
-        var affected = await _context.InventoryStocks
-            .Where(s => s.ProductId == command.ProductId
-                     && s.WarehouseId == command.WarehouseId
-                     && (s.QuantityOnHand - s.QuantityReserved) >= command.Quantity)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(s => s.QuantityReserved, s => s.QuantityReserved + command.Quantity)
-                .SetProperty(s => s.Version, s => s.Version + 1)
-                .SetProperty(s => s.UpdatedAt, now), ct);
-
-        if (affected == 0)
+        if (stock == null)
         {
-            // Kiểm tra nguyên nhân thất bại để trả về lỗi chính xác
-            var existingStock = await _context.InventoryStocks
-                .AsNoTracking()
-                .FirstOrDefaultAsync(s => s.ProductId == command.ProductId && s.WarehouseId == command.WarehouseId, ct);
-
-            if (existingStock is null)
+            stock = new InventoryStock
             {
-                throw new InsufficientStockException(command.ProductId, command.WarehouseId, command.Quantity, 0);
-            }
-
-            throw new InsufficientStockException(
-                command.ProductId,
-                command.WarehouseId,
-                command.Quantity,
-                existingStock.Available);
+                WarehouseId = command.WarehouseId,
+                ProductId = command.ProductId,
+                Quantity = 0,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _context.InventoryStocks.Add(stock);
+            await _context.SaveChangesAsync(ct);
         }
 
-        // 2. Lấy snapshot số dư sau cập nhật
-        var updatedStock = await _context.InventoryStocks
-            .AsNoTracking()
-            .FirstAsync(s => s.ProductId == command.ProductId && s.WarehouseId == command.WarehouseId, ct);
-
-        // 3. Tạo bản ghi giữ chỗ StockReservation
-        var reservation = new StockReservation
+        if (command.QuantityDelta < 0 && (stock.Quantity + command.QuantityDelta) < 0)
         {
-            OrderId = command.OrderId,
+            throw new InvalidOperationException(
+                $"Tồn kho thực tế không đủ! Hiện có {stock.Quantity}, yêu cầu xuất {-command.QuantityDelta} (Sản phẩm ID {command.ProductId}, Kho ID {command.WarehouseId}).");
+        }
+
+        stock.Quantity += command.QuantityDelta;
+        stock.UpdatedAt = DateTime.UtcNow;
+
+        var transaction = new InventoryStockTransaction
+        {
             WarehouseId = command.WarehouseId,
             ProductId = command.ProductId,
-            Quantity = command.Quantity,
-            Status = "ACTIVE",
-            ExpiresAt = command.ExpiresAt,
-            CreatedAt = now,
-            UpdatedAt = now
+            DocumentType = command.DocumentType,
+            DocumentId = command.DocumentId,
+            QuantityDelta = command.QuantityDelta,
+            BalanceAfter = stock.Quantity,
+            Notes = command.Notes,
+            CreatedBy = command.CreatedBy,
+            CreatedAt = DateTime.UtcNow
         };
-        _context.StockReservations.Add(reservation);
 
-        // 4. Ghi Sổ Cái Bất Biến (Immutable Stock Ledger)
-        var movement = new StockMovement
-        {
-            ProductId = command.ProductId,
-            WarehouseId = command.WarehouseId,
-            MovementType = "SO_RESERVE",
-            QuantityDelta = command.Quantity,
-            BalanceOnHandAfter = updatedStock.QuantityOnHand,
-            BalanceReservedAfter = updatedStock.QuantityReserved,
-            ReferenceDoc = command.OrderId,
-            CreatedBy = command.UserId,
-            CreatedAt = now
-        };
-        _context.StockMovements.Add(movement);
-
+        _context.InventoryStockTransactions.Add(transaction);
         await _context.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
         return new StockOperationResult
         {
-            ProductId = updatedStock.ProductId,
-            WarehouseId = updatedStock.WarehouseId,
-            QuantityOnHand = updatedStock.QuantityOnHand,
-            QuantityReserved = updatedStock.QuantityReserved,
-            OperationType = "SO_RESERVE",
-            QuantityDelta = command.Quantity,
-            ReferenceDoc = command.OrderId,
-            MovementId = movement.Id,
-            ReservationId = reservation.Id,
-            Timestamp = now
-        };
-    }
-
-    /// <inheritdoc />
-    public async Task<IReadOnlyList<StockOperationResult>> BatchReserveStockAsync(BatchReserveStockCommand command, CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(command);
-
-        if (command.Items is null || command.Items.Count == 0)
-            throw new InvalidStockOperationException("Danh sách mặt hàng giữ kho không được để trống.");
-
-        // 1. Gộp các dòng có cùng (WarehouseId, ProductId)
-        var consolidated = command.Items
-            .GroupBy(x => new { x.WarehouseId, x.ProductId })
-            .Select(g => new ReserveStockItem(g.Key.WarehouseId, g.Key.ProductId, g.Sum(x => x.Quantity)))
-            .ToList();
-
-        // 2. Sắp xếp thứ tự khóa tài nguyên xác định để TRIỆT TIÊU DEADLOCK 100%
-        var orderedItems = consolidated.ToDeterministicLockOrder();
-
-        await using var tx = await _context.Database.BeginTransactionAsync(ct);
-
-        var now = DateTime.UtcNow;
-        var results = new List<StockOperationResult>(orderedItems.Count);
-
-        foreach (var item in orderedItems)
-        {
-            if (item.Quantity <= 0)
-                throw new InvalidStockOperationException($"Số lượng giữ kho của sản phẩm {item.ProductId} phải > 0.");
-
-            // Atomic Guard trên từng item theo thứ tự cố định
-            var affected = await _context.InventoryStocks
-                .Where(s => s.ProductId == item.ProductId
-                         && s.WarehouseId == item.WarehouseId
-                         && (s.QuantityOnHand - s.QuantityReserved) >= item.Quantity)
-                .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(s => s.QuantityReserved, s => s.QuantityReserved + item.Quantity)
-                    .SetProperty(s => s.Version, s => s.Version + 1)
-                    .SetProperty(s => s.UpdatedAt, now), ct);
-
-            if (affected == 0)
-            {
-                var existing = await _context.InventoryStocks
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(s => s.ProductId == item.ProductId && s.WarehouseId == item.WarehouseId, ct);
-
-                var available = existing?.Available ?? 0;
-                throw new InsufficientStockException(item.ProductId, item.WarehouseId, item.Quantity, available);
-            }
-
-            var updatedStock = await _context.InventoryStocks
-                .AsNoTracking()
-                .FirstAsync(s => s.ProductId == item.ProductId && s.WarehouseId == item.WarehouseId, ct);
-
-            var reservation = new StockReservation
-            {
-                OrderId = command.OrderId,
-                WarehouseId = item.WarehouseId,
-                ProductId = item.ProductId,
-                Quantity = item.Quantity,
-                Status = "ACTIVE",
-                ExpiresAt = command.ExpiresAt,
-                CreatedAt = now,
-                UpdatedAt = now
-            };
-            _context.StockReservations.Add(reservation);
-
-            var movement = new StockMovement
-            {
-                ProductId = item.ProductId,
-                WarehouseId = item.WarehouseId,
-                MovementType = "SO_RESERVE",
-                QuantityDelta = item.Quantity,
-                BalanceOnHandAfter = updatedStock.QuantityOnHand,
-                BalanceReservedAfter = updatedStock.QuantityReserved,
-                ReferenceDoc = command.OrderId,
-                CreatedBy = command.UserId,
-                CreatedAt = now
-            };
-            _context.StockMovements.Add(movement);
-
-            results.Add(new StockOperationResult
-            {
-                ProductId = item.ProductId,
-                WarehouseId = item.WarehouseId,
-                QuantityOnHand = updatedStock.QuantityOnHand,
-                QuantityReserved = updatedStock.QuantityReserved,
-                OperationType = "SO_RESERVE",
-                QuantityDelta = item.Quantity,
-                ReferenceDoc = command.OrderId,
-                Timestamp = now
-            });
-        }
-
-        await _context.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
-
-        return results.AsReadOnly();
-    }
-
-    /// <inheritdoc />
-    public async Task<StockOperationResult> ReleaseStockAsync(ReleaseStockCommand command, CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(command);
-
-        if (command.Quantity <= 0)
-            throw new InvalidStockOperationException($"Số lượng giải phóng phải lớn hơn 0 (nhận: {command.Quantity}).");
-
-        await using var tx = await _context.Database.BeginTransactionAsync(ct);
-
-        var now = DateTime.UtcNow;
-
-        // 1. Atomic SQL Guard: Chỉ giảm QuantityReserved khi QuantityReserved >= Quantity
-        var affected = await _context.InventoryStocks
-            .Where(s => s.ProductId == command.ProductId
-                     && s.WarehouseId == command.WarehouseId
-                     && s.QuantityReserved >= command.Quantity)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(s => s.QuantityReserved, s => s.QuantityReserved - command.Quantity)
-                .SetProperty(s => s.Version, s => s.Version + 1)
-                .SetProperty(s => s.UpdatedAt, now), ct);
-
-        if (affected == 0)
-        {
-            var existing = await _context.InventoryStocks
-                .AsNoTracking()
-                .FirstOrDefaultAsync(s => s.ProductId == command.ProductId && s.WarehouseId == command.WarehouseId, ct);
-
-            var currentReserved = existing?.QuantityReserved ?? 0;
-            throw new InvalidStockOperationException(
-                $"Không thể giải phóng {command.Quantity} sản phẩm ID {command.ProductId} tại kho {command.WarehouseId} vì số lượng giữ hiện tại là {currentReserved}.");
-        }
-
-        var updatedStock = await _context.InventoryStocks
-            .AsNoTracking()
-            .FirstAsync(s => s.ProductId == command.ProductId && s.WarehouseId == command.WarehouseId, ct);
-
-        // 2. Cập nhật reservation tương ứng
-        var reservation = await _context.StockReservations
-            .Where(r => r.OrderId == command.OrderId
-                     && r.ProductId == command.ProductId
-                     && r.WarehouseId == command.WarehouseId
-                     && r.Status == "ACTIVE")
-            .OrderByDescending(r => r.CreatedAt)
-            .FirstOrDefaultAsync(ct);
-
-        if (reservation is not null)
-        {
-            reservation.Status = "RELEASED";
-            reservation.UpdatedAt = now;
-        }
-
-        // 3. Ghi sổ cái thẻ kho
-        var movement = new StockMovement
-        {
-            ProductId = command.ProductId,
             WarehouseId = command.WarehouseId,
-            MovementType = "SO_RELEASE",
-            QuantityDelta = -command.Quantity,
-            BalanceOnHandAfter = updatedStock.QuantityOnHand,
-            BalanceReservedAfter = updatedStock.QuantityReserved,
-            ReferenceDoc = command.OrderId,
-            CreatedBy = command.UserId,
-            CreatedAt = now
+            ProductId = command.ProductId,
+            QuantityOnHand = stock.Quantity,
+            OperationType = command.DocumentType,
+            QuantityDelta = command.QuantityDelta,
+            ReferenceDoc = command.DocumentId,
+            MovementId = transaction.Id,
+            Timestamp = DateTime.UtcNow
         };
-        _context.StockMovements.Add(movement);
+    }
 
+    /// <summary>
+    /// Thay đổi số dư tồn kho khả dụng và tự động ghi sổ cái giao dịch khả dụng.
+    /// </summary>
+    public async Task<StockOperationResult> ChangeReservationStockAsync(ChangeStockCommand command, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        await using var tx = await _context.Database.BeginTransactionAsync(ct);
+
+        var res = await _context.InventoryStockReservations
+            .FirstOrDefaultAsync(r => r.WarehouseId == command.WarehouseId && r.ProductId == command.ProductId, ct);
+
+        if (res == null)
+        {
+            res = new InventoryStockReservation
+            {
+                WarehouseId = command.WarehouseId,
+                ProductId = command.ProductId,
+                Quantity = 0,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _context.InventoryStockReservations.Add(res);
+            await _context.SaveChangesAsync(ct);
+        }
+
+        if (command.QuantityDelta < 0 && (res.Quantity + command.QuantityDelta) < 0)
+        {
+            throw new InvalidOperationException(
+                $"Tồn kho khả dụng không đủ! Hiện có {res.Quantity}, yêu cầu trừ {-command.QuantityDelta} (Sản phẩm ID {command.ProductId}, Kho ID {command.WarehouseId}).");
+        }
+
+        res.Quantity += command.QuantityDelta;
+        res.UpdatedAt = DateTime.UtcNow;
+
+        var transaction = new InventoryStockReservationTransaction
+        {
+            WarehouseId = command.WarehouseId,
+            ProductId = command.ProductId,
+            DocumentType = command.DocumentType,
+            DocumentId = command.DocumentId,
+            QuantityDelta = command.QuantityDelta,
+            BalanceAfter = res.Quantity,
+            Notes = command.Notes,
+            CreatedBy = command.CreatedBy,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.InventoryStockReservationTransactions.Add(transaction);
         await _context.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
         return new StockOperationResult
         {
-            ProductId = updatedStock.ProductId,
-            WarehouseId = updatedStock.WarehouseId,
-            QuantityOnHand = updatedStock.QuantityOnHand,
-            QuantityReserved = updatedStock.QuantityReserved,
-            OperationType = "SO_RELEASE",
-            QuantityDelta = -command.Quantity,
-            ReferenceDoc = command.OrderId,
-            MovementId = movement.Id,
-            ReservationId = reservation?.Id,
-            Timestamp = now
+            WarehouseId = command.WarehouseId,
+            ProductId = command.ProductId,
+            QuantityReserved = res.Quantity,
+            OperationType = command.DocumentType,
+            QuantityDelta = command.QuantityDelta,
+            ReferenceDoc = command.DocumentId,
+            MovementId = transaction.Id,
+            Timestamp = DateTime.UtcNow
         };
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Nhập kho: Tăng cả tồn thực tế và tồn khả dụng.
+    /// </summary>
     public async Task<StockOperationResult> ReceiveStockAsync(ReceiveStockCommand command, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        if (command.Quantity <= 0)
-            throw new InvalidStockOperationException($"Số lượng nhập kho phải lớn hơn 0 (nhận: {command.Quantity}).");
+        // 1. Tăng tồn thực tế
+        var physicalResult = await ChangePhysicalStockAsync(new ChangeStockCommand(
+            command.WarehouseId,
+            command.ProductId,
+            command.Quantity,
+            "PURCHASE_RECEIPT",
+            command.ReferenceDoc,
+            "Nhập kho mua hàng (PO Receipt)"
+        ), ct);
 
-        await using var tx = await _context.Database.BeginTransactionAsync(ct);
+        // 2. Tăng tồn khả dụng
+        await ChangeReservationStockAsync(new ChangeStockCommand(
+            command.WarehouseId,
+            command.ProductId,
+            command.Quantity,
+            "PURCHASE_RECEIPT",
+            command.ReferenceDoc,
+            "Tăng tồn khả dụng từ đơn nhập kho"
+        ), ct);
 
-        var now = DateTime.UtcNow;
-
-        // 1. Thử Atomic Update cộng dồn QuantityOnHand nếu bản ghi đã tồn tại
-        var affected = await _context.InventoryStocks
-            .Where(s => s.ProductId == command.ProductId && s.WarehouseId == command.WarehouseId)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(s => s.QuantityOnHand, s => s.QuantityOnHand + command.Quantity)
-                .SetProperty(s => s.Version, s => s.Version + 1)
-                .SetProperty(s => s.UpdatedAt, now), ct);
-
-        InventoryStock updatedStock;
-
-        if (affected == 0)
-        {
-            // 2. Nếu chưa có bản ghi (sản phẩm mới nhập lần đầu vào kho này), tạo mới
-            var newStock = new InventoryStock(
-                command.ProductId,
-                command.WarehouseId,
-                initialOnHand: command.Quantity,
-                minStock: command.MinStock);
-
-            _context.InventoryStocks.Add(newStock);
-            await _context.SaveChangesAsync(ct);
-            updatedStock = newStock;
-        }
-        else
-        {
-            updatedStock = await _context.InventoryStocks
-                .AsNoTracking()
-                .FirstAsync(s => s.ProductId == command.ProductId && s.WarehouseId == command.WarehouseId, ct);
-        }
-
-        // 3. Ghi Sổ Cái Bất Biến (Immutable Stock Ledger)
-        var movement = new StockMovement
-        {
-            ProductId = command.ProductId,
-            WarehouseId = command.WarehouseId,
-            MovementType = "PO_RECEIPT",
-            QuantityDelta = command.Quantity,
-            BalanceOnHandAfter = updatedStock.QuantityOnHand,
-            BalanceReservedAfter = updatedStock.QuantityReserved,
-            ReferenceDoc = command.ReferenceDoc,
-            CreatedBy = command.UserId,
-            CreatedAt = now
-        };
-        _context.StockMovements.Add(movement);
-
-        await _context.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
-
-        return new StockOperationResult
-        {
-            ProductId = updatedStock.ProductId,
-            WarehouseId = updatedStock.WarehouseId,
-            QuantityOnHand = updatedStock.QuantityOnHand,
-            QuantityReserved = updatedStock.QuantityReserved,
-            OperationType = "PO_RECEIPT",
-            QuantityDelta = command.Quantity,
-            ReferenceDoc = command.ReferenceDoc,
-            MovementId = movement.Id,
-            Timestamp = now
-        };
+        return physicalResult;
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Giữ chỗ khi tạo đơn hàng: Trừ tồn khả dụng.
+    /// </summary>
+    public async Task<StockOperationResult> ReserveStockAsync(ReserveStockCommand command, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        return await ChangeReservationStockAsync(new ChangeStockCommand(
+            command.WarehouseId,
+            command.ProductId,
+            -command.Quantity,
+            "SALES_ORDER",
+            command.OrderId,
+            "Giữ chỗ đơn bán hàng"
+        ), ct);
+    }
+
+    /// <summary>
+    /// Giữ chỗ hàng loạt.
+    /// </summary>
+    public async Task<IReadOnlyList<StockOperationResult>> BatchReserveStockAsync(BatchReserveStockCommand command, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        var results = new List<StockOperationResult>();
+        foreach (var item in command.Items)
+        {
+            var res = await ReserveStockAsync(new ReserveStockCommand(
+                command.OrderId,
+                item.WarehouseId,
+                item.ProductId,
+                item.Quantity,
+                command.ExpiresAt
+            ), ct);
+            results.Add(res);
+        }
+        return results;
+    }
+
+    /// <summary>
+    /// Hủy đơn hàng / Hoàn trả: Cộng lại tồn khả dụng.
+    /// </summary>
+    public async Task<StockOperationResult> ReleaseStockAsync(ReleaseStockCommand command, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        return await ChangeReservationStockAsync(new ChangeStockCommand(
+            command.WarehouseId,
+            command.ProductId,
+            +command.Quantity,
+            "CANCEL_ORDER",
+            command.OrderId,
+            "Hoàn trả tồn khả dụng do hủy đơn"
+        ), ct);
+    }
+
+    /// <summary>
+    /// Ghi sổ xuất kho thực tế: Trừ tồn thực tế.
+    /// </summary>
     public async Task<StockOperationResult> IssueStockAsync(IssueStockCommand command, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        if (command.Quantity <= 0)
-            throw new InvalidStockOperationException($"Số lượng xuất kho phải lớn hơn 0 (nhận: {command.Quantity}).");
-
-        await using var tx = await _context.Database.BeginTransactionAsync(ct);
-
-        var now = DateTime.UtcNow;
-
-        // 1. Atomic SQL Guard: Giảm đồng thời cả QuantityOnHand và QuantityReserved
-        var affected = await _context.InventoryStocks
-            .Where(s => s.ProductId == command.ProductId
-                     && s.WarehouseId == command.WarehouseId
-                     && s.QuantityOnHand >= command.Quantity
-                     && s.QuantityReserved >= command.Quantity)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(s => s.QuantityOnHand, s => s.QuantityOnHand - command.Quantity)
-                .SetProperty(s => s.QuantityReserved, s => s.QuantityReserved - command.Quantity)
-                .SetProperty(s => s.Version, s => s.Version + 1)
-                .SetProperty(s => s.UpdatedAt, now), ct);
-
-        if (affected == 0)
-        {
-            var existing = await _context.InventoryStocks
-                .AsNoTracking()
-                .FirstOrDefaultAsync(s => s.ProductId == command.ProductId && s.WarehouseId == command.WarehouseId, ct);
-
-            if (existing is null)
-                throw new InsufficientStockException(command.ProductId, command.WarehouseId, command.Quantity, 0);
-
-            if (existing.QuantityOnHand < command.Quantity)
-                throw new InsufficientStockException(command.ProductId, command.WarehouseId, command.Quantity, existing.QuantityOnHand);
-
-            throw new InvalidStockOperationException(
-                $"Không thể xuất kho {command.Quantity} sản phẩm ID {command.ProductId} vì số lượng đã giữ chỗ chỉ là {existing.QuantityReserved}.");
-        }
-
-        var updatedStock = await _context.InventoryStocks
-            .AsNoTracking()
-            .FirstAsync(s => s.ProductId == command.ProductId && s.WarehouseId == command.WarehouseId, ct);
-
-        // 2. Cập nhật StockReservation nếu có OrderId chỉ định
-        StockReservation? reservation = null;
-        if (!string.IsNullOrWhiteSpace(command.OrderId))
-        {
-            reservation = await _context.StockReservations
-                .Where(r => r.OrderId == command.OrderId
-                         && r.ProductId == command.ProductId
-                         && r.WarehouseId == command.WarehouseId
-                         && r.Status == "ACTIVE")
-                .OrderByDescending(r => r.CreatedAt)
-                .FirstOrDefaultAsync(ct);
-
-            if (reservation is not null)
-            {
-                reservation.Status = "FULFILLED";
-                reservation.UpdatedAt = now;
-            }
-        }
-
-        // 3. Ghi Sổ Cái Bất Biến (Immutable Stock Ledger)
-        var movement = new StockMovement
-        {
-            ProductId = command.ProductId,
-            WarehouseId = command.WarehouseId,
-            MovementType = "SO_ISSUE",
-            QuantityDelta = -command.Quantity,
-            BalanceOnHandAfter = updatedStock.QuantityOnHand,
-            BalanceReservedAfter = updatedStock.QuantityReserved,
-            ReferenceDoc = command.ReferenceDoc,
-            CreatedBy = command.UserId,
-            CreatedAt = now
-        };
-        _context.StockMovements.Add(movement);
-
-        await _context.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
-
-        return new StockOperationResult
-        {
-            ProductId = updatedStock.ProductId,
-            WarehouseId = updatedStock.WarehouseId,
-            QuantityOnHand = updatedStock.QuantityOnHand,
-            QuantityReserved = updatedStock.QuantityReserved,
-            OperationType = "SO_ISSUE",
-            QuantityDelta = -command.Quantity,
-            ReferenceDoc = command.ReferenceDoc,
-            MovementId = movement.Id,
-            ReservationId = reservation?.Id,
-            Timestamp = now
-        };
+        return await ChangePhysicalStockAsync(new ChangeStockCommand(
+            command.WarehouseId,
+            command.ProductId,
+            -command.Quantity,
+            "DELIVERY_NOTE",
+            command.ReferenceDoc,
+            $"Xuất kho giao hàng (Đơn hàng: {command.OrderId ?? "N/A"})"
+        ), ct);
     }
 
-    /// <inheritdoc />
-    public async Task<InventoryStock?> GetStockAsync(long productId, long warehouseId, CancellationToken ct = default)
+    public async Task<InventoryStock?> GetPhysicalStockAsync(long productId, long warehouseId, CancellationToken ct = default)
     {
         return await _context.InventoryStocks
             .AsNoTracking()
-            .Include(s => s.Warehouse)
             .FirstOrDefaultAsync(s => s.ProductId == productId && s.WarehouseId == warehouseId, ct);
+    }
+
+    public async Task<InventoryStockReservation?> GetReservationStockAsync(long productId, long warehouseId, CancellationToken ct = default)
+    {
+        return await _context.InventoryStockReservations
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.ProductId == productId && r.WarehouseId == warehouseId, ct);
     }
 }

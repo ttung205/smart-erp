@@ -211,14 +211,6 @@ export const menuCategories = [
             label: 'Sổ cái thẻ kho',
             icon: 'pi pi-history'
           },
-          {
-            id: 'warehouse-request-sale',
-            path: '/warehouse-request-sale',
-            resource: 'inventory',
-            permission: 'inventory.view',
-            label: 'Yêu cầu xuất kho',
-            icon: 'pi pi-dolly'
-          }
         ]
       },
       {
