@@ -90,6 +90,7 @@ public class InventoryDbContext : DbContext
             entity.Property(m => m.ProductId).HasColumnName("product_id").IsRequired();
             entity.Property(m => m.DocumentType).HasColumnName("document_type").HasMaxLength(100).IsRequired();
             entity.Property(m => m.DocumentId).HasColumnName("document_id").HasMaxLength(100).IsRequired();
+            entity.Property(m => m.BalanceBefore).HasColumnName("balance_before").IsRequired();
             entity.Property(m => m.QuantityDelta).HasColumnName("quantity_delta").IsRequired();
             entity.Property(m => m.BalanceAfter).HasColumnName("balance_after").IsRequired();
             entity.Property(m => m.Notes).HasColumnName("notes").HasMaxLength(500);
@@ -115,6 +116,7 @@ public class InventoryDbContext : DbContext
             entity.Property(m => m.ProductId).HasColumnName("product_id").IsRequired();
             entity.Property(m => m.DocumentType).HasColumnName("document_type").HasMaxLength(100).IsRequired();
             entity.Property(m => m.DocumentId).HasColumnName("document_id").HasMaxLength(100).IsRequired();
+            entity.Property(m => m.BalanceBefore).HasColumnName("balance_before").IsRequired();
             entity.Property(m => m.QuantityDelta).HasColumnName("quantity_delta").IsRequired();
             entity.Property(m => m.BalanceAfter).HasColumnName("balance_after").IsRequired();
             entity.Property(m => m.Notes).HasColumnName("notes").HasMaxLength(500);

@@ -13,6 +13,7 @@ public class InventoryStockTransaction : IStockResourceIdentifier
     public long ProductId { get; set; }
     public string DocumentType { get; set; } = string.Empty;
     public string DocumentId { get; set; } = string.Empty;
+    public int BalanceBefore { get; set; }
     public int QuantityDelta { get; set; }
     public int BalanceAfter { get; set; }
     public string? Notes { get; set; }

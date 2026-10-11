@@ -47,20 +47,34 @@ router.isReady().then(() => {
   app.mount('#app')
 })
 
-// Tự động gỡ bỏ watermark 'Invalid PrimeUI License' nếu thư viện chèn vào DOM
+// Triệt tiêu hoàn toàn watermark 'Invalid PrimeUI License' của PrimeVue v5
 if (typeof window !== 'undefined') {
   const purgeLicense = () => {
-    document.querySelectorAll('*').forEach(el => {
-      if (el.childNodes.length === 1 && el.textContent && el.textContent.includes('Invalid PrimeUI License')) {
-        el.parentElement ? el.parentElement.remove() : el.remove();
+    const host = document.getElementById('p-license-host');
+    if (host && (host.shadowRoot || host.childNodes.length > 0)) {
+      host.remove();
+    }
+    if (!document.getElementById('p-license-host')) {
+      const dummy = document.createElement('div');
+      dummy.id = 'p-license-host';
+      dummy.style.display = 'none';
+      if (document.body) {
+        document.body.appendChild(dummy);
       }
-    });
+    }
   };
+  purgeLicense();
   window.addEventListener('DOMContentLoaded', purgeLicense);
+  setTimeout(purgeLicense, 100);
   setTimeout(purgeLicense, 500);
   setTimeout(purgeLicense, 1500);
   try {
-    const obs = new MutationObserver(purgeLicense);
+    const obs = new MutationObserver(() => {
+      const host = document.getElementById('p-license-host');
+      if (host && (host.shadowRoot || host.childNodes.length > 0)) {
+        host.remove();
+      }
+    });
     obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
   } catch (e) {}
 }

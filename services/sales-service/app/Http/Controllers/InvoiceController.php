@@ -360,10 +360,10 @@ class InvoiceController extends Controller
         $posterName = $request->input('posted_by') ?: ($request->input('warehouse_posted_by') ?: 'Kho vận');
         $postedById = $request->input('posted_by_id') ?: null;
         $nowStr = now()->format('Y-m-d H:i:s');
-        $warehouseName = $request->input('warehouse_name') ?: ($inv->deliveryRequest?->warehouse_name ?: 'Kho Tổng Miền Bắc (Hà Nội)');
-        $warehouseId = $this->resolveWarehouseId($warehouseName);
+        $warehouseName = $request->input('warehouse_name') ?: ($inv->warehouse_name ?: ($inv->deliveryRequest?->warehouse_name ?: 'Kho Chính'));
+        $warehouseId = $request->input('warehouse_id') ?: ($inv->warehouse_id ?: $this->resolveWarehouseId($warehouseName));
 
-        DB::transaction(function () use ($inv, $posterName, $postedById, $nowStr) {
+        DB::transaction(function () use ($inv, $posterName, $postedById, $nowStr, $warehouseName, $warehouseId) {
             // 1. Cập nhật Invoice
             $inv->update([
                 'warehouse_status' => 'DELIVERED',
@@ -378,6 +378,14 @@ class InvoiceController extends Controller
             WarehouseDispatch::updateOrCreate(
                 ['invoice_id' => $inv->id],
                 [
+                    'invoice_number' => $inv->invoice_number,
+                    'delivery_request_id' => $inv->delivery_request_id,
+                    'delivery_request_number' => $inv->delivery_request_number,
+                    'order_id' => $inv->order_id,
+                    'order_number' => $inv->order_number,
+                    'customer_name' => $inv->customer_name,
+                    'warehouse_name' => $inv->warehouse_name ?: $warehouseName,
+                    'warehouse_id' => $warehouseId,
                     'status' => 'DELIVERED',
                     'posted_at' => $nowStr,
                     'posted_by_id' => $postedById,
@@ -506,6 +514,12 @@ class InvoiceController extends Controller
     {
         if (!$warehouseName) return 1;
         $nameLower = mb_strtolower($warehouseName);
+        if (str_contains($nameLower, 'kĩ thuật') || str_contains($nameLower, 'kỹ thuật') || str_contains($nameLower, 'ki thuat') || str_contains($nameLower, 'ky thuat')) {
+            return 2;
+        }
+        if (str_contains($nameLower, 'chờ xử lí') || str_contains($nameLower, 'chờ xử lý') || str_contains($nameLower, 'cho xu li') || str_contains($nameLower, 'cho xu ly')) {
+            return 3;
+        }
         if (str_contains($nameLower, 'hồ chí minh') || str_contains($nameLower, 'tp.hcm') || str_contains($nameLower, 'hcm') || str_contains($nameLower, 'nam')) {
             return 2;
         }

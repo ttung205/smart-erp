@@ -175,6 +175,7 @@ public class ReservationsController : ControllerBase
                 product_id = t.ProductId,
                 document_type = t.DocumentType,
                 document_id = t.DocumentId,
+                balance_before = t.BalanceBefore,
                 quantity_delta = t.QuantityDelta,
                 balance_after = t.BalanceAfter,
                 notes = t.Notes,

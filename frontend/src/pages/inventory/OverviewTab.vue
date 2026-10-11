@@ -28,99 +28,83 @@
       </div>
     </div>
 
-    <!-- Bảng Danh Sách Các Kho (Index Table) -->
-    <DataTable 
-      :value="warehouses" 
-      :loading="loading" 
-      dataKey="id" 
-      responsiveLayout="scroll" 
-      class="p-datatable-sm border border-slate-200 rounded-[6px] overflow-hidden"
+    <!-- Bảng Danh Sách Các Kho -->
+    <CommonDataTable
+      :value="warehouses"
+      :columns="tableColumns"
+      :loading="loading"
+      :paginator="false"
+      emptyIcon="pi pi-building"
+      emptyTitle="Chưa có kho hàng nào"
+      emptySubtitle="Nhấn 'Thêm kho mới' để tạo kho hàng đầu tiên."
     >
-      <template #empty>
-        <div class="text-center py-8 text-slate-500 text-sm">
-          Chưa có kho hàng nào được tạo.
+      <!-- ID -->
+      <template #col-id="{ data }">
+        <span class="font-mono text-xs font-bold text-slate-600">#{{ data.id }}</span>
+      </template>
+
+      <!-- Mã Kho -->
+      <template #col-code="{ data }">
+        <span class="font-mono text-xs font-bold px-2 py-0.5 bg-slate-100 text-slate-800 rounded-[4px] border border-slate-200">
+          {{ data.code }}
+        </span>
+      </template>
+
+      <!-- Tên Kho -->
+      <template #col-name="{ data }">
+        <div class="font-semibold text-slate-800 text-sm">{{ data.name }}</div>
+        <div v-if="data.location" class="text-xs text-slate-500 mt-0.5">
+          <i class="pi pi-map-marker text-[11px] text-slate-400 mr-1"></i>{{ data.location }}
         </div>
       </template>
 
-      <!-- ID -->
-      <Column field="id" header="ID" style="width: 70px" class="text-center">
-        <template #body="{ data }">
-          <span class="font-mono text-xs font-bold text-slate-600">#{{ data.id }}</span>
-        </template>
-      </Column>
-
-      <!-- Mã Kho -->
-      <Column field="code" header="Mã Kho" style="width: 140px">
-        <template #body="{ data }">
-          <span class="font-mono text-xs font-bold px-2 py-0.5 bg-slate-100 text-slate-800 rounded-[4px] border border-slate-200">
-            {{ data.code }}
-          </span>
-        </template>
-      </Column>
-
-      <!-- Tên Kho -->
-      <Column field="name" header="Tên Kho Hàng" style="min-width: 220px">
-        <template #body="{ data }">
-          <div class="font-semibold text-slate-800 text-sm">{{ data.name }}</div>
-          <div v-if="data.location" class="text-xs text-slate-500 mt-0.5">
-            <i class="pi pi-map-marker text-[11px] text-slate-400 mr-1"></i>{{ data.location }}
-          </div>
-        </template>
-      </Column>
-
-      <!-- Tồn Thực Tế (On-Hand) -->
-      <Column field="total_on_hand" header="Tồn Thực Tế" style="width: 140px" class="text-right">
-        <template #body="{ data }">
-          <span class="font-mono text-sm font-bold text-slate-800">
-            {{ formatNumber(data.total_on_hand) }}
-          </span>
+      <!-- Tồn Thực Tế -->
+      <template #col-total_on_hand="{ data }">
+        <div class="text-right">
+          <span class="font-mono text-sm font-bold text-slate-800">{{ formatNumber(data.total_on_hand) }}</span>
           <span class="text-xs text-slate-400 ml-1">chiếc</span>
-        </template>
-      </Column>
+        </div>
+      </template>
 
-      <!-- Tồn Khả Dụng (Available) -->
-      <Column field="total_available" header="Tồn Khả Dụng" style="width: 140px" class="text-right">
-        <template #body="{ data }">
-          <span class="font-mono text-sm font-bold text-emerald-600">
-            {{ formatNumber(data.total_available) }}
-          </span>
+      <!-- Tồn Khả Dụng -->
+      <template #col-total_available="{ data }">
+        <div class="text-right">
+          <span class="font-mono text-sm font-bold text-emerald-600">{{ formatNumber(data.total_available) }}</span>
           <span class="text-xs text-emerald-600 ml-1">chiếc</span>
-        </template>
-      </Column>
+        </div>
+      </template>
 
-      <!-- Cấu hình Dùng Cho Bán Hàng -->
-      <Column header="Bán Hàng" style="width: 160px" class="text-center">
-        <template #body="{ data }">
-          <div class="flex items-center justify-center gap-2">
-            <Checkbox 
-              :modelValue="Boolean(data.can_sell)" 
-              :binary="true"
-              @update:modelValue="toggleCanSell(data)"
-            />
-            <span 
-              class="text-xs font-semibold cursor-pointer select-none"
-              :class="data.can_sell ? 'text-emerald-700' : 'text-slate-400'"
-              @click="toggleCanSell(data)"
-            >
-              {{ data.can_sell ? 'Được bán' : 'Không bán' }}
-            </span>
-          </div>
-        </template>
-      </Column>
+      <!-- Bán Hàng -->
+      <template #col-can_sell="{ data }">
+        <div class="flex items-center justify-center gap-2">
+          <Checkbox 
+            :modelValue="Boolean(data.can_sell)" 
+            :binary="true"
+            @update:modelValue="toggleCanSell(data)"
+          />
+          <span 
+            class="text-xs font-semibold cursor-pointer select-none"
+            :class="data.can_sell ? 'text-emerald-700' : 'text-slate-400'"
+            @click="toggleCanSell(data)"
+          >
+            {{ data.can_sell ? 'Được bán' : 'Không bán' }}
+          </span>
+        </div>
+      </template>
 
-      <!-- Trạng Thái Hoạt Động -->
-      <Column field="is_active" header="Trạng Thái" style="width: 130px" class="text-center">
-        <template #body="{ data }">
+      <!-- Trạng Thái -->
+      <template #col-is_active="{ data }">
+        <div class="text-center">
           <Tag 
             :value="data.is_active ? 'Hoạt động' : 'Tạm khóa'" 
             :severity="data.is_active ? 'success' : 'secondary'"
             class="!text-xs !rounded-[4px]" 
           />
-        </template>
-      </Column>
+        </div>
+      </template>
 
       <!-- Thao Tác -->
-      <Column header="Thao Tác" style="width: 120px" class="text-center">
+      <Column header="Thao Tác" class="text-center" style="width: 120px">
         <template #body="{ data }">
           <div class="flex items-center justify-center gap-1.5">
             <Button 
@@ -144,7 +128,7 @@
           </div>
         </template>
       </Column>
-    </DataTable>
+    </CommonDataTable>
 
     <!-- Dialog Thêm Mới / Sửa Kho -->
     <Dialog 
@@ -216,15 +200,25 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Checkbox from 'primevue/checkbox'
 import Tag from 'primevue/tag'
 import Dialog from 'primevue/dialog'
+import CommonDataTable from '../../components/common/CommonDataTable.vue'
 import { inventoryApi } from '../../api/inventory.api'
 import { formatNumber } from '../../utils/format'
+
+const tableColumns = [
+  { field: 'id', header: 'ID', width: '70px', sortable: true },
+  { field: 'code', header: 'Mã Kho', width: '140px', sortable: true },
+  { field: 'name', header: 'Tên Kho Hàng', width: 'auto', sortable: true },
+  { field: 'total_on_hand', header: 'Tồn Thực Tế', width: '140px', align: 'right', sortable: true },
+  { field: 'total_available', header: 'Tồn Khả Dụng', width: '140px', align: 'right', sortable: true },
+  { field: 'can_sell', header: 'Bán Hàng', width: '160px', align: 'center', sortable: false },
+  { field: 'is_active', header: 'Trạng Thái', width: '130px', align: 'center', sortable: true }
+]
 
 const warehouses = ref([])
 const loading = ref(false)

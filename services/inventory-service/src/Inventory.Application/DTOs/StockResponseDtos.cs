@@ -106,8 +106,14 @@ public class StockMovementResponseDto
     [JsonPropertyName("movement_type")]
     public string MovementType { get; set; } = string.Empty;
 
+    [JsonPropertyName("balance_before")]
+    public int BalanceBefore { get; set; }
+
     [JsonPropertyName("quantity_delta")]
     public int QuantityDelta { get; set; }
+
+    [JsonPropertyName("balance_after")]
+    public int BalanceAfter { get; set; }
 
     [JsonPropertyName("balance_on_hand_after")]
     public int BalanceOnHandAfter { get; set; }

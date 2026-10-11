@@ -51,6 +51,7 @@ public class InventoryStockManager : IInventoryStockManager
                 $"Tồn kho thực tế không đủ! Hiện có {stock.Quantity}, yêu cầu xuất {-command.QuantityDelta} (Sản phẩm ID {command.ProductId}, Kho ID {command.WarehouseId}).");
         }
 
+        var balanceBefore = stock.Quantity;
         stock.Quantity += command.QuantityDelta;
         stock.UpdatedAt = DateTime.UtcNow;
 
@@ -60,6 +61,7 @@ public class InventoryStockManager : IInventoryStockManager
             ProductId = command.ProductId,
             DocumentType = command.DocumentType,
             DocumentId = command.DocumentId,
+            BalanceBefore = balanceBefore,
             QuantityDelta = command.QuantityDelta,
             BalanceAfter = stock.Quantity,
             Notes = command.Notes,
@@ -115,6 +117,7 @@ public class InventoryStockManager : IInventoryStockManager
                 $"Tồn kho khả dụng không đủ! Hiện có {res.Quantity}, yêu cầu trừ {-command.QuantityDelta} (Sản phẩm ID {command.ProductId}, Kho ID {command.WarehouseId}).");
         }
 
+        var balanceBefore = res.Quantity;
         res.Quantity += command.QuantityDelta;
         res.UpdatedAt = DateTime.UtcNow;
 
@@ -124,6 +127,7 @@ public class InventoryStockManager : IInventoryStockManager
             ProductId = command.ProductId,
             DocumentType = command.DocumentType,
             DocumentId = command.DocumentId,
+            BalanceBefore = balanceBefore,
             QuantityDelta = command.QuantityDelta,
             BalanceAfter = res.Quantity,
             Notes = command.Notes,
