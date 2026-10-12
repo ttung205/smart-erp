@@ -7,5 +7,6 @@ public record ChangeStockCommand(
     string DocumentType,
     string DocumentId,
     string? Notes = null,
-    long? CreatedBy = null
+    long? CreatedBy = null,
+    string? Origin = null
 );

@@ -152,6 +152,7 @@ import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
 import Select from 'primevue/select';
+import { useWarehouses } from '../../composables/useWarehouses';
 
 const props = defineProps({
   visible: {
@@ -166,11 +167,8 @@ const props = defineProps({
 
 const emit = defineEmits(['update:visible', 'create-delivery-request']);
 
-const warehouseOptions = ref([
-  { id: 1, name: 'Kho Tổng Miền Bắc (Hà Nội)', label: 'WH-HN-01: Kho Tổng Hà Nội' },
-  { id: 2, name: 'Kho Trung Chuyển Đà Nẵng', label: 'WH-DN-01: Kho Đà Nẵng' },
-  { id: 3, name: 'Kho Phía Nam (TP. Hồ Chí Minh)', label: 'WH-HCM-01: Kho TP.HCM' }
-]);
+const { warehouseOptions, fetchWarehouses } = useWarehouses();
+fetchWarehouses();
 
 const generateRequestNumber = () => {
   const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');

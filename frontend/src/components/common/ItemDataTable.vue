@@ -172,6 +172,14 @@
                     @change="notifyChange && notifyChange()"
                   />
                 </template>
+                <template v-else-if="col.field === 'origin' || col.field === 'com'">
+                  <InputText
+                    v-model="data[col.field]"
+                    class="w-full text-xs text-center !py-1 !px-1 rounded-[4px] !border-slate-200 hover:!border-slate-300 focus:!border-sky-500 bg-white"
+                    placeholder="Việt Nam"
+                    @change="notifyChange && notifyChange()"
+                  />
+                </template>
                 <template v-else-if="col.field === 'quantity'">
                   <InputNumber
                     v-model="data.quantity"
@@ -402,11 +410,10 @@ import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
 import Dialog from 'primevue/dialog';
 import IconField from 'primevue/iconfield';
-import InputIcon from 'primevue/inputicon';
 import * as XLSX from 'xlsx';
 import { catalogApi } from '../../api/catalog.api';
 import { inventoryApi } from '../../api/inventory.api';
-import { FALLBACK_CATALOG_PRODUCTS } from '../../constants/catalogProducts.constant';
+import { FALLBACK_CATALOG_PRODUCTS, getProductOrigin } from '../../constants/catalogProducts.constant';
 import { formatCurrency } from '../../utils/format';
 
 const props = defineProps({
@@ -529,9 +536,12 @@ watch(
         const vat = Number(it.vat_percent ?? it.vat ?? 10);
         const sub = Number(it.subtotal ?? Math.round(qty * price * (1 - disc / 100)));
         const name = it.item_name || it.description || it.product_name || '';
+        const originVal = it.origin || it.com || getProductOrigin(it.sku || it.product_id);
         return {
           ...it,
           sku: it.sku || '',
+          origin: originVal,
+          com: originVal,
           item_name: name,
           description: name,
           unit: it.unit || 'Cái',
@@ -591,6 +601,11 @@ const onDefaultFieldChange = (row, field) => {
   const val = row[field];
   if (field === 'item_name') row.description = val;
   if (field === 'description') row.item_name = val;
+  if (field === 'sku' && val) {
+    const orig = getProductOrigin(val);
+    row.origin = orig;
+    row.com = orig;
+  }
   notifyChange();
 };
 
@@ -725,20 +740,25 @@ const loadCatalogProducts = async () => {
   try {
     const res = await catalogApi.getProducts();
     if (res && res.data) {
-      catalogProducts.value = res.data.map((p) => ({
-        id: p.id,
-        sku: p.sku,
-        designation: p.designation || '',
-        brand: p.brand || '',
-        description: p.name || p.description || '',
-        gross_price: Number(p.gross_price) || Number(p.price) || 0,
-        unit: p.unit || 'Cái',
-        com: p.com || 'Chính hãng',
-        stock: 0,
-        lead_time: 'Có sẵn',
-        vat_percent: 10,
-        spec: p.spec || ''
-      }));
+      catalogProducts.value = res.data.map((p) => {
+        const orig = p.com || p.origin || getProductOrigin(p.sku || p.id);
+        return {
+          id: p.id,
+          sku: p.sku,
+          designation: p.designation || '',
+          brand: p.brand || '',
+          description: p.name || p.description || '',
+          name: p.name || p.description || '',
+          gross_price: Number(p.gross_price) || Number(p.price) || 0,
+          unit: p.unit || 'Cái',
+          com: orig,
+          origin: orig,
+          stock: 0,
+          lead_time: 'Có sẵn',
+          vat_percent: 10,
+          spec: p.spec || ''
+        };
+      });
     }
   } catch (err) {
     catalogProducts.value = FALLBACK_CATALOG_PRODUCTS;
@@ -769,38 +789,49 @@ const openSearchDialog = async () => {
 
 const confirmAddCatalogItems = () => {
   selectedCatalogItems.value.forEach((prod) => {
+    const prodOrigin = prod.origin || prod.com || getProductOrigin(prod.sku || prod.id);
     const lastItem = items.value[items.value.length - 1];
     if (lastItem && !lastItem.sku && items.value.length === 1) {
+      lastItem.product_id = prod.id;
       lastItem.sku = prod.sku;
       lastItem.designation = prod.designation;
       lastItem.brand = prod.brand;
       lastItem.description = prod.description;
+      lastItem.item_name = prod.description;
+      lastItem.product_name = prod.description;
       lastItem.unit = prod.unit || 'Cái';
-      lastItem.com = prod.com || 'Chính hãng';
+      lastItem.com = prodOrigin;
+      lastItem.origin = prodOrigin;
       lastItem.stock = getAvailableStock(prod);
+      lastItem.unit_price = prod.gross_price || 0;
       lastItem.gross_price = prod.gross_price || 0;
       lastItem.vat_percent = prod.vat_percent || 10;
       lastItem.lead_time = prod.lead_time || 'Có sẵn';
       lastItem.selling_price = Math.round(prod.gross_price * 0.9);
-      lastItem.subtotal = (Number(lastItem.quantity) || 1) * lastItem.selling_price;
+      lastItem.subtotal = (Number(lastItem.quantity) || 1) * (lastItem.unit_price || lastItem.selling_price);
     } else {
       items.value.push({
         id: Date.now() + Math.random(),
+        product_id: prod.id,
         sku: prod.sku,
         designation: prod.designation,
         brand: prod.brand,
         description: prod.description,
+        item_name: prod.description,
+        product_name: prod.description,
         unit: prod.unit || 'Cái',
-        com: prod.com || 'Chính hãng',
+        com: prodOrigin,
+        origin: prodOrigin,
         stock: getAvailableStock(prod),
         quantity: 1,
+        unit_price: prod.gross_price || 0,
         gross_price: prod.gross_price || 0,
-        discount_percent: 10,
+        discount_percent: 0,
         selling_price: Math.round(prod.gross_price * 0.9),
         vat_percent: prod.vat_percent || 10,
         lead_time: prod.lead_time || 'Có sẵn',
         delivery_date: '',
-        subtotal: Math.round(prod.gross_price * 0.9)
+        subtotal: Math.round(prod.gross_price * 1.0)
       });
     }
   });

@@ -41,6 +41,9 @@ public class CreatePurchaseRequisitionItemDto
     [JsonPropertyName("unit")]
     public string Unit { get; set; } = "Cái";
 
+    [JsonPropertyName("origin")]
+    public string? Origin { get; set; } = "Việt Nam";
+
     [JsonPropertyName("quantity_requested")]
     public int QuantityRequested { get; set; }
 
@@ -146,6 +149,9 @@ public class PurchaseRequisitionItemDto
     [JsonPropertyName("unit")]
     public string Unit { get; set; } = "Cái";
 
+    [JsonPropertyName("origin")]
+    public string? Origin { get; set; }
+
     [JsonPropertyName("quantity_requested")]
     public int QuantityRequested { get; set; }
 
@@ -190,6 +196,9 @@ public class ApprovedPrItemForOrderingDto
 
     [JsonPropertyName("unit")]
     public string Unit { get; set; } = "Cái";
+
+    [JsonPropertyName("origin")]
+    public string? Origin { get; set; }
 
     [JsonPropertyName("quantity_approved")]
     public int QuantityApproved { get; set; }

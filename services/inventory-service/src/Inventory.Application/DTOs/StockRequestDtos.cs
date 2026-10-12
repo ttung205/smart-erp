@@ -30,6 +30,9 @@ public class ChangeStockRequest
 
     [JsonPropertyName("created_by")]
     public long? CreatedBy { get; set; }
+
+    [JsonPropertyName("origin")]
+    public string? Origin { get; set; }
 }
 
 public class ReserveStockRequest

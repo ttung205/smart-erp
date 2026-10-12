@@ -201,10 +201,13 @@ import Column from 'primevue/column';
 import PageHeader from '../../../components/common/PageHeader.vue';
 import CommonDataTable from '../../../components/common/CommonDataTable.vue';
 import { purchaseApi } from '../../../api/purchase.api';
-import { GOODS_RECEIPT_STATUS, DEFAULT_WAREHOUSES } from '../../../constants/purchase.constant';
+import { GOODS_RECEIPT_STATUS } from '../../../constants/purchase.constant';
+import { useWarehouses } from '../../../composables/useWarehouses';
 
 const router = useRouter();
 const toast = useToast();
+
+const { getWarehouseName, fetchWarehouses } = useWarehouses();
 
 const receipts = ref([]);
 const loading = ref(false);
@@ -289,11 +292,6 @@ const resetFilters = () => {
   statusFilter.value = null;
 };
 
-const getWarehouseName = (id) => {
-  const found = DEFAULT_WAREHOUSES.find(w => w.id === id);
-  return found ? found.name : `Kho #${id}`;
-};
-
 const getStatusSeverity = (status) => {
   return GOODS_RECEIPT_STATUS[status]?.severity || 'secondary';
 };
@@ -324,6 +322,7 @@ const confirmReceipt = async (item) => {
 };
 
 onMounted(() => {
+  fetchWarehouses();
   loadReceipts();
 });
 </script>

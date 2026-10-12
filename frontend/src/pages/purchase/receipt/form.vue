@@ -236,7 +236,8 @@ import Select from 'primevue/select';
 
 import PageHeader from '../../../components/common/PageHeader.vue';
 import { purchaseApi } from '../../../api/purchase.api';
-import { GOODS_RECEIPT_STATUS, DEFAULT_WAREHOUSES } from '../../../constants/purchase.constant';
+import { GOODS_RECEIPT_STATUS } from '../../../constants/purchase.constant';
+import { useWarehouses } from '../../../composables/useWarehouses';
 
 const route = useRoute();
 const router = useRouter();
@@ -247,7 +248,7 @@ const isEditMode = computed(() => !!receiptId.value);
 const saving = ref(false);
 const confirming = ref(false);
 
-const warehouseOptions = DEFAULT_WAREHOUSES.map(w => ({ label: w.name, value: w.id }));
+const { warehouseOptions, fetchWarehouses } = useWarehouses();
 
 const poOptions = ref([
   { label: 'PO-202610-0001 (LG Electronics - Smart Tivi)', value: 1 },
@@ -435,6 +436,7 @@ const getStatusLabel = (status) => {
 };
 
 onMounted(() => {
+  fetchWarehouses();
   if (isEditMode.value) {
     loadReceipt(receiptId.value);
   } else {

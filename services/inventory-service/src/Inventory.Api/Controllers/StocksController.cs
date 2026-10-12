@@ -53,11 +53,15 @@ public class StocksController : ControllerBase
             .Select(w => w.Id)
             .ToListAsync(ct);
 
-        var salesAvailableDict = await (from r in _context.InventoryStockReservations.AsNoTracking()
-                                        where sellableWarehouseIds.Contains(r.WarehouseId)
-                                        group r by r.ProductId into g
-                                        select new { ProductId = g.Key, Total = g.Sum(x => x.Quantity) })
-                                        .ToDictionaryAsync(x => x.ProductId, x => x.Total, ct);
+        var rawReservations = await _context.InventoryStockReservations
+            .AsNoTracking()
+            .Where(r => sellableWarehouseIds.Contains(r.WarehouseId))
+            .Select(r => new { r.ProductId, r.Quantity })
+            .ToListAsync(ct);
+
+        var salesAvailableDict = rawReservations
+            .GroupBy(r => r.ProductId)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
 
         var query = from s in _context.InventoryStocks.AsNoTracking().Include(s => s.Warehouse)
                     join r in _context.InventoryStockReservations.AsNoTracking()
@@ -68,6 +72,7 @@ public class StocksController : ControllerBase
                         s.Id,
                         s.ProductId,
                         s.WarehouseId,
+                        Origin = s.Origin,
                         WarehouseCode = s.Warehouse != null ? s.Warehouse.Code : null,
                         WarehouseName = s.Warehouse != null ? s.Warehouse.Name : null,
                         CanSell = s.Warehouse != null && s.Warehouse.CanSell,
@@ -99,6 +104,7 @@ public class StocksController : ControllerBase
             WarehouseId = s.WarehouseId,
             WarehouseCode = s.WarehouseCode,
             WarehouseName = s.WarehouseName,
+            Origin = s.Origin,
             QuantityOnHand = s.QuantityOnHand,
             QuantityReserved = Math.Max(0, s.QuantityOnHand - s.Available),
             Available = s.Available,
@@ -140,6 +146,7 @@ public class StocksController : ControllerBase
                                select new
                                {
                                    s.WarehouseId,
+                                   Origin = s.Origin,
                                    WarehouseCode = s.Warehouse != null ? s.Warehouse.Code : string.Empty,
                                    WarehouseName = s.Warehouse != null ? s.Warehouse.Name : string.Empty,
                                    QuantityOnHand = s.Quantity,
@@ -165,6 +172,7 @@ public class StocksController : ControllerBase
             {
                 WarehouseId = s.WarehouseId,
                 WarehouseCode = s.WarehouseCode,
+                Origin = s.Origin,
                 WarehouseName = s.WarehouseName,
                 QuantityOnHand = s.QuantityOnHand,
                 QuantityReserved = Math.Max(0, s.QuantityOnHand - s.Available),
@@ -305,7 +313,8 @@ public class StocksController : ControllerBase
             DocumentType: request.DocumentType,
             DocumentId: request.DocumentId,
             Notes: request.Notes,
-            CreatedBy: request.CreatedBy
+            CreatedBy: request.CreatedBy,
+            Origin: request.Origin
         );
 
         var result = await _stockManager.ChangePhysicalStockAsync(command, ct);

@@ -67,6 +67,10 @@ public class PurchaseRequisitionItemConfiguration : IEntityTypeConfiguration<Pur
             .HasMaxLength(50)
             .HasDefaultValue("Cái");
 
+        builder.Property(x => x.Origin)
+            .HasMaxLength(100)
+            .HasDefaultValue("Việt Nam");
+
         builder.Property(x => x.EstimatedUnitCost)
             .HasPrecision(15, 2);
 

@@ -225,13 +225,17 @@ import ItemDataTable from '../../../components/common/ItemDataTable.vue';
 import PurchasePrLineSelectorDialog from '../../../components/purchase/PurchasePrLineSelectorDialog.vue';
 import PurchaseOrderCancelDialog from '../../../components/purchase/PurchaseOrderCancelDialog.vue';
 import { purchaseApi } from '../../../api/purchase.api';
-import { PURCHASE_ORDER_STATUS, DEFAULT_SUPPLIERS, DEFAULT_WAREHOUSES } from '../../../constants/purchase.constant';
+import { PURCHASE_ORDER_STATUS, DEFAULT_SUPPLIERS } from '../../../constants/purchase.constant';
+import { getProductOrigin } from '../../../constants/catalogProducts.constant';
+import { useWarehouses } from '../../../composables/useWarehouses';
 import { isSuperAdmin, hasPermission, canManage } from '../../../utils/rbac';
 import { storage } from '../../../utils/storage';
 
 const route = useRoute();
 const router = useRouter();
 const toast = useToast();
+
+const { warehouseOptions, fetchWarehouses } = useWarehouses();
 
 const orderId = computed(() => route.params.id);
 const isEditMode = computed(() => !!orderId.value);
@@ -246,11 +250,11 @@ const selectedPrLines = ref([]);
 const cancelReason = ref('');
 
 const supplierOptions = DEFAULT_SUPPLIERS;
-const warehouseOptions = DEFAULT_WAREHOUSES.map(w => ({ label: w.name, value: w.id }));
 
 const orderColumns = [
   { field: 'sku', header: 'MÃ SKU', width: '120px' },
   { field: 'item_name', header: 'TÊN MẶT HÀNG / THIẾT BỊ', width: '220px' },
+  { field: 'origin', header: 'XUẤT XỨ', width: '110px' },
   { field: 'stock', header: 'TỒN KHO', width: '85px', align: 'center' },
   { field: 'unit', header: 'ĐVT', width: '65px', align: 'center' },
   { field: 'quantity', header: 'SỐ LƯỢNG', width: '90px', align: 'right' },
@@ -352,6 +356,7 @@ const loadOrder = async (id) => {
           sku: i.sku || `SKU-${idx + 1}`,
           item_name: i.product_name || i.item_name || i.name || 'Thiết bị điện tử',
           product_name: i.product_name || i.item_name || i.name,
+          origin: i.origin || i.com || getProductOrigin(i.sku || i.product_id),
           quantity: qty,
           unit_price: price,
           unit: i.unit || 'Cái',
@@ -447,6 +452,7 @@ const openPrSelector = async () => {
           product_name: d.product_name || d.item_name,
           product_id: d.product_id || 99,
           unit: d.unit || 'Cái',
+          origin: d.origin || d.com || getProductOrigin(d.sku || d.product_id),
           quantity_approved: Number(d.quantity_approved || 0),
           quantity_ordered: Number(d.quantity_ordered || 0),
           quantity_available: Number(d.available_to_order ?? d.quantity_available ?? (d.quantity_approved - (d.quantity_ordered || 0))),
@@ -481,6 +487,7 @@ const openPrSelector = async () => {
               product_name: it.product_name || it.item_name,
               product_id: it.product_id || 99,
               unit: it.unit || 'Cái',
+              origin: it.origin || getProductOrigin(it.sku || it.product_id),
               quantity_approved: approvedQty,
               quantity_ordered: orderedQty,
               quantity_available: availQty,
@@ -496,8 +503,8 @@ const openPrSelector = async () => {
   // 3. Fallback dự phòng nếu chưa có dữ liệu nào
   if (lines.length === 0) {
     lines.push(
-      { id: 1, pr_id: 1, pr_number: 'PR-202610-0001', sku: 'ELEC-TV-LG55', item_name: 'Smart Tivi LG 4K 55 inch OLED Cinema', product_id: 1, quantity_approved: 40, quantity_ordered: 25, quantity_available: 15, estimated_unit_price: 18500000, unit: 'Cái' },
-      { id: 2, pr_id: 1, pr_number: 'PR-202610-0001', sku: 'ELEC-FR-ELX341', item_name: 'Tủ Lạnh Electrolux Inverter 341L MultiDoor', product_id: 2, quantity_approved: 30, quantity_ordered: 0, quantity_available: 30, estimated_unit_price: 12200000, unit: 'Cái' }
+      { id: 1, pr_id: 1, pr_number: 'PR-202610-0001', sku: 'ELEC-TV-LG55', item_name: 'Smart Tivi LG 4K 55 inch OLED Cinema', origin: 'Hàn Quốc', product_id: 1, quantity_approved: 40, quantity_ordered: 25, quantity_available: 15, estimated_unit_price: 18500000, unit: 'Cái' },
+      { id: 2, pr_id: 1, pr_number: 'PR-202610-0001', sku: 'ELEC-FR-ELX341', item_name: 'Tủ Lạnh Electrolux Inverter 341L MultiDoor', origin: 'Thái Lan', product_id: 2, quantity_approved: 30, quantity_ordered: 0, quantity_available: 30, estimated_unit_price: 12200000, unit: 'Cái' }
     );
   }
 
@@ -512,6 +519,7 @@ const confirmPullPrLines = (lines) => {
       product_id: line.product_id || 99,
       sku: line.sku,
       item_name: line.item_name,
+      origin: line.origin || getProductOrigin(line.sku || line.product_id),
       stock: line.stock || 0,
       quantity: Number(line.quantity_available || 1),
       unit_price: Number(line.estimated_unit_price || 15000000),
@@ -557,6 +565,7 @@ const saveOrder = async (andSubmit = false) => {
         sku: it.sku || `SKU-${idx + 1}`,
         product_name: it.item_name || it.product_name || 'Thiết bị điện tử',
         unit: it.unit || 'Cái',
+        origin: it.origin || getProductOrigin(it.sku || it.product_id),
         unit_cost: Number(it.unit_price || 0),
         quantity_ordered: Number(it.quantity || 1),
         tax_rate: Number(it.vat_percent ?? it.vat ?? 10),
@@ -680,6 +689,7 @@ const getStatusLabel = (status) => {
 };
 
 onMounted(async () => {
+  fetchWarehouses();
   if (isEditMode.value) {
     loadOrder(orderId.value);
   } else if (route.query.prId) {
@@ -712,6 +722,7 @@ onMounted(async () => {
             product_id: it.product_id || 99,
             sku: it.sku,
             item_name: it.product_name || it.item_name || 'Thiết bị',
+            origin: it.origin || getProductOrigin(it.sku || it.product_id),
             stock: it.stock || 0,
             quantity: qty,
             unit_price: price,
