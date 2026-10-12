@@ -234,11 +234,16 @@ const form = ref({
   is_active: true
 })
 
+import { useWarehouses } from '../../composables/useWarehouses'
+
+const { fetchWarehouses } = useWarehouses()
+
 const loadWarehouses = async () => {
   loading.value = true
   try {
     const res = await inventoryApi.getWarehouses()
     warehouses.value = res.data || []
+    fetchWarehouses(true)
   } catch (err) {
     console.error('Lỗi tải danh sách kho:', err)
   } finally {

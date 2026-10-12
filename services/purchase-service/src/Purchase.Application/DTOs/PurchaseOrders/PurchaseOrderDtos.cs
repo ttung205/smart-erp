@@ -46,6 +46,9 @@ public class CreatePurchaseOrderItemDto
     [JsonPropertyName("unit")]
     public string Unit { get; set; } = "Cái";
 
+    [JsonPropertyName("origin")]
+    public string? Origin { get; set; } = "Việt Nam";
+
     [JsonPropertyName("unit_cost")]
     public decimal UnitCost { get; set; }
 
@@ -160,6 +163,9 @@ public class PurchaseOrderItemDto
 
     [JsonPropertyName("unit")]
     public string Unit { get; set; } = "Cái";
+
+    [JsonPropertyName("origin")]
+    public string? Origin { get; set; }
 
     [JsonPropertyName("unit_cost")]
     public decimal UnitCost { get; set; }

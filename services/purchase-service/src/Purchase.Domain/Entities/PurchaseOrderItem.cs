@@ -12,6 +12,7 @@ public class PurchaseOrderItem
     public string Sku { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
     public string Unit { get; set; } = "Cái";
+    public string? Origin { get; set; } = "Việt Nam";
     public decimal UnitCost { get; set; }
 
     public int QuantityOrdered { get; set; }

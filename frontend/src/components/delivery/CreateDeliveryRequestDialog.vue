@@ -198,6 +198,7 @@ import { salesApi } from '../../api/sales.api';
 import { inventoryApi } from '../../api/inventory.api';
 import { catalogApi } from '../../api/catalog.api';
 import { FALLBACK_CATALOG_PRODUCTS } from '../../constants/catalogProducts.constant';
+import { useWarehouses } from '../../composables/useWarehouses';
 
 const props = defineProps({
   visible: {
@@ -223,11 +224,8 @@ const rawStocks = ref([]);
 const pidToSkuMap = ref(new Map());
 const skuToPidMap = ref(new Map());
 
-const warehouseOptions = [
-  { id: 1, name: 'Kho Tổng Miền Bắc (Hà Nội)', label: 'WH-HN-01: Kho Tổng Miền Bắc (Hà Nội)' },
-  { id: 2, name: 'Kho Trung Tâm Miền Nam (TP.HCM)', label: 'WH-HCM-01: Kho Trung Tâm Miền Nam (TP.HCM)' },
-  { id: 3, name: 'Kho Trung Chuyển Miền Trung (Đà Nẵng)', label: 'WH-DN-01: Kho Trung Chuyển Miền Trung (Đà Nẵng)' }
-];
+const { warehouseOptions, fetchWarehouses } = useWarehouses();
+fetchWarehouses();
 
 const form = ref({
   warehouse_id: 1,

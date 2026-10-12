@@ -39,10 +39,15 @@ public class InventoryStockManager : IInventoryStockManager
                 WarehouseId = command.WarehouseId,
                 ProductId = command.ProductId,
                 Quantity = 0,
+                Origin = !string.IsNullOrWhiteSpace(command.Origin) ? command.Origin : "Việt Nam",
                 UpdatedAt = DateTime.UtcNow
             };
             _context.InventoryStocks.Add(stock);
             await _context.SaveChangesAsync(ct);
+        }
+        else if (!string.IsNullOrWhiteSpace(command.Origin))
+        {
+            stock.Origin = command.Origin;
         }
 
         if (command.QuantityDelta < 0 && (stock.Quantity + command.QuantityDelta) < 0)

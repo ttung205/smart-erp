@@ -210,7 +210,9 @@ import ItemDataTable from '../../../components/common/ItemDataTable.vue';
 import PurchaseRequisitionApproveDialog from '../../../components/purchase/PurchaseRequisitionApproveDialog.vue';
 import PurchaseRequisitionRejectDialog from '../../../components/purchase/PurchaseRequisitionRejectDialog.vue';
 import { purchaseApi } from '../../../api/purchase.api';
-import { REQUISITION_STATUS, DEFAULT_WAREHOUSES } from '../../../constants/purchase.constant';
+import { REQUISITION_STATUS } from '../../../constants/purchase.constant';
+import { getProductOrigin } from '../../../constants/catalogProducts.constant';
+import { useWarehouses } from '../../../composables/useWarehouses';
 
 const route = useRoute();
 const router = useRouter();
@@ -228,11 +230,12 @@ const approvalLines = ref([]);
 const approvalComments = ref('');
 const rejectReason = ref('');
 
-const warehouseOptions = DEFAULT_WAREHOUSES.map(w => ({ label: w.name, value: w.id }));
+const { warehouseOptions, fetchWarehouses } = useWarehouses();
 
 const requisitionColumns = [
   { field: 'sku', header: 'MÃ SKU', width: '120px' },
   { field: 'item_name', header: 'TÊN MẶT HÀNG / THIẾT BỊ', width: '220px' },
+  { field: 'origin', header: 'XUẤT XỨ', width: '110px' },
   { field: 'stock', header: 'TỒN KHO', width: '85px', align: 'center' },
   { field: 'unit', header: 'ĐVT', width: '65px', align: 'center' },
   { field: 'quantity', header: 'SL ĐỀ NGHỊ', width: '90px', align: 'right' },
@@ -255,6 +258,7 @@ const form = reactive({
       product_id: 99,
       sku: 'US131-PHI',
       item_name: 'Máy lọc không khí Philips 60 m²',
+      origin: 'Hà Lan',
       quantity: 5,
       unit_price: 8910000,
       unit: 'Cái',
@@ -299,6 +303,7 @@ const loadRequisition = async (id) => {
           product_id: i.product_id || i.productId || i.id,
           sku: i.sku,
           item_name: i.product_name || i.item_name || i.name,
+          origin: i.origin || getProductOrigin(i.sku || i.product_id),
           quantity: i.quantity_requested || i.quantity || 1,
           quantity_approved: i.quantity_approved,
           unit_price: i.estimated_unit_cost || i.estimated_unit_price || i.unit_price || 0,
@@ -318,8 +323,8 @@ const loadRequisition = async (id) => {
   form.pr_number = `PR-202610-000${id}`;
   form.status = id == 1 ? 'APPROVED' : 'SUBMITTED';
   form.items = [
-    { id: 1, product_id: 1, sku: 'ELEC-TV-LG55', item_name: 'Smart Tivi LG 4K 55 inch OLED Cinema', quantity: 50, quantity_approved: 40, unit_price: 18500000, unit: 'Cái', discount: 0, vat: 10 },
-    { id: 2, product_id: 2, sku: 'ELEC-FR-ELX341', item_name: 'Tủ Lạnh Electrolux Inverter 341L MultiDoor', quantity: 30, quantity_approved: 30, unit_price: 12200000, unit: 'Cái', discount: 0, vat: 10 }
+    { id: 1, product_id: 1, sku: 'ELEC-TV-LG55', item_name: 'Smart Tivi LG 4K 55 inch OLED Cinema', origin: 'Hàn Quốc', quantity: 50, quantity_approved: 40, unit_price: 18500000, unit: 'Cái', discount: 0, vat: 10 },
+    { id: 2, product_id: 2, sku: 'ELEC-FR-ELX341', item_name: 'Tủ Lạnh Electrolux Inverter 341L MultiDoor', origin: 'Thái Lan', quantity: 30, quantity_approved: 30, unit_price: 12200000, unit: 'Cái', discount: 0, vat: 10 }
   ];
 };
 
@@ -354,6 +359,7 @@ const saveRequisition = async (andSubmit = false) => {
         sku: it.sku || `SKU-PR-${idx + 1}`,
         product_name: it.item_name || it.product_name || 'Thiết bị đề nghị',
         unit: it.unit || 'Cái',
+        origin: it.origin || getProductOrigin(it.sku || it.product_id),
         quantity_requested: Number(it.quantity || it.quantity_requested || 1),
         estimated_unit_cost: Number(it.unit_price || it.estimated_unit_cost || 0),
         notes: it.notes || ''
@@ -552,20 +558,26 @@ const getStatusLabel = (status) => {
 };
 
 onMounted(() => {
+  fetchWarehouses();
   if (isEditMode.value) {
     loadRequisition(prId.value);
   } else {
     // Check query params if redirected from StocksTab
     if (route.query.sku) {
-      form.items.push({
+      const realOrigin = route.query.origin || getProductOrigin(route.query.sku || route.query.productId);
+      form.items = [{
+        id: 1,
+        product_id: Number(route.query.productId || 1),
         sku: route.query.sku,
-        item_name: route.query.name || `Sản phẩm ${route.query.sku}`,
-        quantity: Number(route.query.qty || 10),
-        unit_price: 5000000,
-        unit: 'Cái',
+        item_name: route.query.name || route.query.product_name || `Sản phẩm ${route.query.sku}`,
+        origin: realOrigin,
+        quantity: Number(route.query.qty || 20),
+        unit_price: Number(route.query.price || 5000000),
+        unit: route.query.unit || 'Cái',
         discount: 0,
-        vat: 10
-      });
+        vat: 10,
+        stock: 0
+      }];
     }
     if (route.query.warehouseId) {
       form.warehouse_id = Number(route.query.warehouseId);

@@ -1,5 +1,5 @@
 /**
- * Danh mục sản phẩm đồng bộ từ catalog-service (100 sản phẩm điện máy chuẩn)
+ * Danh mục sản phẩm đồng bộ từ catalog-service (100 sản phẩm điện máy chuẩn kèm xuất xứ chuẩn)
  */
 export const FALLBACK_CATALOG_PRODUCTS = [
   {
@@ -9,8 +9,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Tủ lạnh LG Ngăn đá dưới 350 lít",
     "description": "Tủ lạnh LG Ngăn đá dưới 350 lít",
     "unit": "Cái",
-    "gross_price": 11800000,
-    "min_stock": 10
+    "gross_price": 11800000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 2,
@@ -19,8 +21,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Tủ lạnh Electrolux Inverter 256 lít",
     "description": "Tủ lạnh Electrolux Inverter 256 lít",
     "unit": "Cái",
-    "gross_price": 7900000,
-    "min_stock": 10
+    "gross_price": 7900000.0,
+    "min_stock": 10,
+    "com": "Thái Lan",
+    "origin": "Thái Lan"
   },
   {
     "id": 3,
@@ -29,8 +33,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Tủ lạnh Toshiba Ngăn đá trên 400 lít",
     "description": "Tủ lạnh Toshiba Ngăn đá trên 400 lít",
     "unit": "Cái",
-    "gross_price": 14500000,
-    "min_stock": 10
+    "gross_price": 14500000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 4,
@@ -39,8 +45,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Tủ lạnh Hitachi Side by Side 450 lít",
     "description": "Tủ lạnh Hitachi Side by Side 450 lít",
     "unit": "Cái",
-    "gross_price": 17900000,
-    "min_stock": 10
+    "gross_price": 17900000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 5,
@@ -49,8 +57,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Tủ lạnh LG Ngăn đá dưới 400 lít",
     "description": "Tủ lạnh LG Ngăn đá dưới 400 lít",
     "unit": "Cái",
-    "gross_price": 14900000,
-    "min_stock": 10
+    "gross_price": 14900000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 6,
@@ -59,8 +69,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Tủ lạnh Toshiba Ngăn đá trên 236 lít",
     "description": "Tủ lạnh Toshiba Ngăn đá trên 236 lít",
     "unit": "Cái",
-    "gross_price": 6800000,
-    "min_stock": 10
+    "gross_price": 6800000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 7,
@@ -69,8 +81,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Tủ lạnh Electrolux Multi Door 566 lít",
     "description": "Tủ lạnh Electrolux Multi Door 566 lít",
     "unit": "Cái",
-    "gross_price": 22800000,
-    "min_stock": 10
+    "gross_price": 22800000.0,
+    "min_stock": 10,
+    "com": "Thái Lan",
+    "origin": "Thái Lan"
   },
   {
     "id": 8,
@@ -79,8 +93,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Tủ lạnh Toshiba Ngăn đá trên 322 lít",
     "description": "Tủ lạnh Toshiba Ngăn đá trên 322 lít",
     "unit": "Cái",
-    "gross_price": 9000000,
-    "min_stock": 10
+    "gross_price": 9000000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 9,
@@ -89,8 +105,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Tủ lạnh Toshiba Ngăn đá dưới 322 lít",
     "description": "Tủ lạnh Toshiba Ngăn đá dưới 322 lít",
     "unit": "Cái",
-    "gross_price": 9700000,
-    "min_stock": 10
+    "gross_price": 9700000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 10,
@@ -99,8 +117,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Tủ lạnh Sharp Side by Side 450 lít",
     "description": "Tủ lạnh Sharp Side by Side 450 lít",
     "unit": "Cái",
-    "gross_price": 17400000,
-    "min_stock": 10
+    "gross_price": 17400000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 11,
@@ -109,8 +129,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Tủ lạnh Samsung Side by Side 450 lít",
     "description": "Tủ lạnh Samsung Side by Side 450 lít",
     "unit": "Cái",
-    "gross_price": 17900000,
-    "min_stock": 10
+    "gross_price": 17900000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 12,
@@ -119,8 +141,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Tủ lạnh Panasonic Mini 180 lít",
     "description": "Tủ lạnh Panasonic Mini 180 lít",
     "unit": "Cái",
-    "gross_price": 4900000,
-    "min_stock": 10
+    "gross_price": 4900000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 13,
@@ -129,8 +153,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Tủ lạnh Hitachi Multi Door 566 lít",
     "description": "Tủ lạnh Hitachi Multi Door 566 lít",
     "unit": "Cái",
-    "gross_price": 22600000,
-    "min_stock": 10
+    "gross_price": 22600000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 14,
@@ -139,8 +165,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Tủ lạnh Samsung Mini 180 lít",
     "description": "Tủ lạnh Samsung Mini 180 lít",
     "unit": "Cái",
-    "gross_price": 4500000,
-    "min_stock": 10
+    "gross_price": 4500000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 15,
@@ -149,8 +177,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Tủ lạnh Toshiba Ngăn đá dưới 400 lít",
     "description": "Tủ lạnh Toshiba Ngăn đá dưới 400 lít",
     "unit": "Cái",
-    "gross_price": 14500000,
-    "min_stock": 10
+    "gross_price": 14500000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 16,
@@ -159,8 +189,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy giặt Aqua Cửa trước Inverter 14 kg",
     "description": "Máy giặt Aqua Cửa trước Inverter 14 kg",
     "unit": "Cái",
-    "gross_price": 14700000,
-    "min_stock": 10
+    "gross_price": 14700000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 17,
@@ -169,8 +201,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy giặt LG Cửa trước Inverter 14 kg",
     "description": "Máy giặt LG Cửa trước Inverter 14 kg",
     "unit": "Cái",
-    "gross_price": 14900000,
-    "min_stock": 10
+    "gross_price": 14900000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 18,
@@ -179,8 +213,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy giặt Toshiba Cửa trên 14 kg",
     "description": "Máy giặt Toshiba Cửa trên 14 kg",
     "unit": "Cái",
-    "gross_price": 15300000,
-    "min_stock": 10
+    "gross_price": 15300000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 19,
@@ -189,8 +225,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy giặt Casper Cửa trước 14 kg",
     "description": "Máy giặt Casper Cửa trước 14 kg",
     "unit": "Cái",
-    "gross_price": 15000000,
-    "min_stock": 10
+    "gross_price": 15000000.0,
+    "min_stock": 10,
+    "com": "Thái Lan",
+    "origin": "Thái Lan"
   },
   {
     "id": 20,
@@ -199,8 +237,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy giặt Samsung Cửa trên 14 kg",
     "description": "Máy giặt Samsung Cửa trên 14 kg",
     "unit": "Cái",
-    "gross_price": 14900000,
-    "min_stock": 10
+    "gross_price": 14900000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 21,
@@ -209,8 +249,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy giặt Electrolux Cửa trên 12 kg",
     "description": "Máy giặt Electrolux Cửa trên 12 kg",
     "unit": "Cái",
-    "gross_price": 13400000,
-    "min_stock": 10
+    "gross_price": 13400000.0,
+    "min_stock": 10,
+    "com": "Thái Lan",
+    "origin": "Thái Lan"
   },
   {
     "id": 22,
@@ -219,8 +261,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy giặt Aqua Cửa trước Inverter 8 kg",
     "description": "Máy giặt Aqua Cửa trước Inverter 8 kg",
     "unit": "Cái",
-    "gross_price": 9200000,
-    "min_stock": 10
+    "gross_price": 9200000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 23,
@@ -229,8 +273,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy giặt Toshiba Cửa trước 8 kg",
     "description": "Máy giặt Toshiba Cửa trước 8 kg",
     "unit": "Cái",
-    "gross_price": 8500000,
-    "min_stock": 10
+    "gross_price": 8500000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 24,
@@ -239,8 +285,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy giặt Electrolux Cửa trước Inverter 12 kg",
     "description": "Máy giặt Electrolux Cửa trước Inverter 12 kg",
     "unit": "Cái",
-    "gross_price": 13500000,
-    "min_stock": 10
+    "gross_price": 13500000.0,
+    "min_stock": 10,
+    "com": "Thái Lan",
+    "origin": "Thái Lan"
   },
   {
     "id": 25,
@@ -249,8 +297,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy giặt Casper Cửa trước Inverter 12 kg",
     "description": "Máy giặt Casper Cửa trước Inverter 12 kg",
     "unit": "Cái",
-    "gross_price": 13000000,
-    "min_stock": 10
+    "gross_price": 13000000.0,
+    "min_stock": 10,
+    "com": "Thái Lan",
+    "origin": "Thái Lan"
   },
   {
     "id": 26,
@@ -259,8 +309,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy giặt Aqua Cửa trước 10 kg",
     "description": "Máy giặt Aqua Cửa trước 10 kg",
     "unit": "Cái",
-    "gross_price": 11100000,
-    "min_stock": 10
+    "gross_price": 11100000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 27,
@@ -269,8 +321,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy giặt LG Cửa trước Inverter 10 kg",
     "description": "Máy giặt LG Cửa trước Inverter 10 kg",
     "unit": "Cái",
-    "gross_price": 11400000,
-    "min_stock": 10
+    "gross_price": 11400000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 28,
@@ -279,8 +333,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy giặt Aqua Cửa trước 14 kg",
     "description": "Máy giặt Aqua Cửa trước 14 kg",
     "unit": "Cái",
-    "gross_price": 14900000,
-    "min_stock": 10
+    "gross_price": 14900000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 29,
@@ -289,8 +345,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy giặt Toshiba Cửa trên 10 kg",
     "description": "Máy giặt Toshiba Cửa trên 10 kg",
     "unit": "Cái",
-    "gross_price": 10700000,
-    "min_stock": 10
+    "gross_price": 10700000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 30,
@@ -299,8 +357,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy giặt Samsung Cửa trước Inverter 14 kg",
     "description": "Máy giặt Samsung Cửa trước Inverter 14 kg",
     "unit": "Cái",
-    "gross_price": 14700000,
-    "min_stock": 10
+    "gross_price": 14700000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 31,
@@ -309,8 +369,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Điều hòa Toshiba 1 chiều 1.5 HP",
     "description": "Điều hòa Toshiba 1 chiều 1.5 HP",
     "unit": "Cái",
-    "gross_price": 9400000,
-    "min_stock": 10
+    "gross_price": 9400000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 32,
@@ -319,8 +381,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Điều hòa Samsung 1 chiều 1.5 HP",
     "description": "Điều hòa Samsung 1 chiều 1.5 HP",
     "unit": "Cái",
-    "gross_price": 9600000,
-    "min_stock": 10
+    "gross_price": 9600000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 33,
@@ -329,8 +393,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Điều hòa LG 2 chiều Inverter 1 HP",
     "description": "Điều hòa LG 2 chiều Inverter 1 HP",
     "unit": "Cái",
-    "gross_price": 8500000,
-    "min_stock": 10
+    "gross_price": 8500000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 34,
@@ -339,8 +405,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Điều hòa Daikin 2 chiều Inverter 2.5 HP",
     "description": "Điều hòa Daikin 2 chiều Inverter 2.5 HP",
     "unit": "Cái",
-    "gross_price": 17800000,
-    "min_stock": 10
+    "gross_price": 17800000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 35,
@@ -349,8 +417,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Điều hòa LG 2 chiều Inverter 2 HP",
     "description": "Điều hòa LG 2 chiều Inverter 2 HP",
     "unit": "Cái",
-    "gross_price": 14800000,
-    "min_stock": 10
+    "gross_price": 14800000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 36,
@@ -359,8 +429,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Điều hòa Mitsubishi Electric 1 chiều 2 HP",
     "description": "Điều hòa Mitsubishi Electric 1 chiều 2 HP",
     "unit": "Cái",
-    "gross_price": 12200000,
-    "min_stock": 10
+    "gross_price": 12200000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 37,
@@ -369,8 +441,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Điều hòa Toshiba 2 chiều Inverter 1 HP",
     "description": "Điều hòa Toshiba 2 chiều Inverter 1 HP",
     "unit": "Cái",
-    "gross_price": 8400000,
-    "min_stock": 10
+    "gross_price": 8400000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 38,
@@ -379,8 +453,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Điều hòa Toshiba 2 chiều Inverter 2.5 HP",
     "description": "Điều hòa Toshiba 2 chiều Inverter 2.5 HP",
     "unit": "Cái",
-    "gross_price": 17100000,
-    "min_stock": 10
+    "gross_price": 17100000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 39,
@@ -389,8 +465,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Điều hòa Midea 2 chiều Inverter 2 HP",
     "description": "Điều hòa Midea 2 chiều Inverter 2 HP",
     "unit": "Cái",
-    "gross_price": 14300000,
-    "min_stock": 10
+    "gross_price": 14300000.0,
+    "min_stock": 10,
+    "com": "Trung Quốc",
+    "origin": "Trung Quốc"
   },
   {
     "id": 40,
@@ -399,8 +477,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Điều hòa Mitsubishi Electric 1 chiều Inverter 2 HP",
     "description": "Điều hòa Mitsubishi Electric 1 chiều Inverter 2 HP",
     "unit": "Cái",
-    "gross_price": 12300000,
-    "min_stock": 10
+    "gross_price": 12300000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 41,
@@ -409,8 +489,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Điều hòa Samsung 2 chiều Inverter 1.5 HP",
     "description": "Điều hòa Samsung 2 chiều Inverter 1.5 HP",
     "unit": "Cái",
-    "gross_price": 11900000,
-    "min_stock": 10
+    "gross_price": 11900000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 42,
@@ -419,8 +501,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Điều hòa LG 1 chiều Inverter 2 HP",
     "description": "Điều hòa LG 1 chiều Inverter 2 HP",
     "unit": "Cái",
-    "gross_price": 12500000,
-    "min_stock": 10
+    "gross_price": 12500000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 43,
@@ -429,8 +513,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Điều hòa Mitsubishi Electric 1 chiều Inverter 1.5 HP",
     "description": "Điều hòa Mitsubishi Electric 1 chiều Inverter 1.5 HP",
     "unit": "Cái",
-    "gross_price": 9400000,
-    "min_stock": 10
+    "gross_price": 9400000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 44,
@@ -439,8 +525,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Điều hòa Toshiba 1 chiều Inverter 1 HP",
     "description": "Điều hòa Toshiba 1 chiều Inverter 1 HP",
     "unit": "Cái",
-    "gross_price": 6300000,
-    "min_stock": 10
+    "gross_price": 6300000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 45,
@@ -449,8 +537,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Điều hòa Panasonic 1 chiều 1.5 HP",
     "description": "Điều hòa Panasonic 1 chiều 1.5 HP",
     "unit": "Cái",
-    "gross_price": 9000000,
-    "min_stock": 10
+    "gross_price": 9000000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 46,
@@ -459,8 +549,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Điều hòa Panasonic 1 chiều 2.5 HP",
     "description": "Điều hòa Panasonic 1 chiều 2.5 HP",
     "unit": "Cái",
-    "gross_price": 15800000,
-    "min_stock": 10
+    "gross_price": 15800000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 47,
@@ -469,8 +561,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Điều hòa Daikin 1 chiều Inverter 2.5 HP",
     "description": "Điều hòa Daikin 1 chiều Inverter 2.5 HP",
     "unit": "Cái",
-    "gross_price": 15000000,
-    "min_stock": 10
+    "gross_price": 15000000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 48,
@@ -479,8 +573,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Điều hòa Casper 1 chiều 1.5 HP",
     "description": "Điều hòa Casper 1 chiều 1.5 HP",
     "unit": "Cái",
-    "gross_price": 9000000,
-    "min_stock": 10
+    "gross_price": 9000000.0,
+    "min_stock": 10,
+    "com": "Thái Lan",
+    "origin": "Thái Lan"
   },
   {
     "id": 49,
@@ -489,8 +585,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Điều hòa Panasonic 2 chiều Inverter 2 HP",
     "description": "Điều hòa Panasonic 2 chiều Inverter 2 HP",
     "unit": "Cái",
-    "gross_price": 14500000,
-    "min_stock": 10
+    "gross_price": 14500000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 50,
@@ -499,8 +597,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Điều hòa Panasonic 1 chiều Inverter 1.5 HP",
     "description": "Điều hòa Panasonic 1 chiều Inverter 1.5 HP",
     "unit": "Cái",
-    "gross_price": 9700000,
-    "min_stock": 10
+    "gross_price": 9700000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 51,
@@ -509,8 +609,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy sấy LG Ngưng tụ 9 kg",
     "description": "Máy sấy LG Ngưng tụ 9 kg",
     "unit": "Cái",
-    "gross_price": 16000000,
-    "min_stock": 10
+    "gross_price": 16000000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 52,
@@ -519,8 +621,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy sấy Bosch Ngưng tụ 7 kg",
     "description": "Máy sấy Bosch Ngưng tụ 7 kg",
     "unit": "Cái",
-    "gross_price": 15000000,
-    "min_stock": 10
+    "gross_price": 15000000.0,
+    "min_stock": 10,
+    "com": "Đức",
+    "origin": "Đức"
   },
   {
     "id": 53,
@@ -529,8 +633,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy sấy Bosch Thông hơi 7 kg",
     "description": "Máy sấy Bosch Thông hơi 7 kg",
     "unit": "Cái",
-    "gross_price": 14000000,
-    "min_stock": 10
+    "gross_price": 14000000.0,
+    "min_stock": 10,
+    "com": "Đức",
+    "origin": "Đức"
   },
   {
     "id": 54,
@@ -539,8 +645,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy sấy Casper Ngưng tụ 7 kg",
     "description": "Máy sấy Casper Ngưng tụ 7 kg",
     "unit": "Cái",
-    "gross_price": 14000000,
-    "min_stock": 10
+    "gross_price": 14000000.0,
+    "min_stock": 10,
+    "com": "Thái Lan",
+    "origin": "Thái Lan"
   },
   {
     "id": 55,
@@ -549,8 +657,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy sấy Samsung Ngưng tụ 9 kg",
     "description": "Máy sấy Samsung Ngưng tụ 9 kg",
     "unit": "Cái",
-    "gross_price": 17000000,
-    "min_stock": 10
+    "gross_price": 17000000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 56,
@@ -559,8 +669,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy sấy LG Bơm nhiệt 8 kg",
     "description": "Máy sấy LG Bơm nhiệt 8 kg",
     "unit": "Cái",
-    "gross_price": 13000000,
-    "min_stock": 10
+    "gross_price": 13000000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 57,
@@ -569,8 +681,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy sấy Samsung Bơm nhiệt 10 kg",
     "description": "Máy sấy Samsung Bơm nhiệt 10 kg",
     "unit": "Cái",
-    "gross_price": 16000000,
-    "min_stock": 10
+    "gross_price": 16000000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 58,
@@ -579,8 +693,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy sấy Electrolux Thông hơi 8 kg",
     "description": "Máy sấy Electrolux Thông hơi 8 kg",
     "unit": "Cái",
-    "gross_price": 15000000,
-    "min_stock": 10
+    "gross_price": 15000000.0,
+    "min_stock": 10,
+    "com": "Thái Lan",
+    "origin": "Thái Lan"
   },
   {
     "id": 59,
@@ -589,8 +705,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy sấy Casper Ngưng tụ 10 kg",
     "description": "Máy sấy Casper Ngưng tụ 10 kg",
     "unit": "Cái",
-    "gross_price": 18000000,
-    "min_stock": 10
+    "gross_price": 18000000.0,
+    "min_stock": 10,
+    "com": "Thái Lan",
+    "origin": "Thái Lan"
   },
   {
     "id": 60,
@@ -599,8 +717,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy sấy Panasonic Bơm nhiệt 7 kg",
     "description": "Máy sấy Panasonic Bơm nhiệt 7 kg",
     "unit": "Cái",
-    "gross_price": 14000000,
-    "min_stock": 10
+    "gross_price": 14000000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 61,
@@ -609,8 +729,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy hút bụi Deerma Hút bụi có dây",
     "description": "Máy hút bụi Deerma Hút bụi có dây",
     "unit": "Cái",
-    "gross_price": 4700000,
-    "min_stock": 10
+    "gross_price": 4700000.0,
+    "min_stock": 10,
+    "com": "Trung Quốc",
+    "origin": "Trung Quốc"
   },
   {
     "id": 62,
@@ -619,8 +741,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy hút bụi Samsung Hút bụi đứng",
     "description": "Máy hút bụi Samsung Hút bụi đứng",
     "unit": "Cái",
-    "gross_price": 4000000,
-    "min_stock": 10
+    "gross_price": 4000000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 63,
@@ -629,8 +753,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy hút bụi Sharp Không dây cầm tay",
     "description": "Máy hút bụi Sharp Không dây cầm tay",
     "unit": "Cái",
-    "gross_price": 3900000,
-    "min_stock": 10
+    "gross_price": 3900000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 64,
@@ -639,8 +765,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy hút bụi Electrolux Không dây cầm tay",
     "description": "Máy hút bụi Electrolux Không dây cầm tay",
     "unit": "Cái",
-    "gross_price": 7500000,
-    "min_stock": 10
+    "gross_price": 7500000.0,
+    "min_stock": 10,
+    "com": "Thái Lan",
+    "origin": "Thái Lan"
   },
   {
     "id": 65,
@@ -649,8 +777,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy hút bụi Dyson Hút bụi đứng",
     "description": "Máy hút bụi Dyson Hút bụi đứng",
     "unit": "Cái",
-    "gross_price": 4300000,
-    "min_stock": 10
+    "gross_price": 4300000.0,
+    "min_stock": 10,
+    "com": "Anh",
+    "origin": "Anh"
   },
   {
     "id": 66,
@@ -659,8 +789,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy hút bụi Philips Robot hút bụi lau nhà",
     "description": "Máy hút bụi Philips Robot hút bụi lau nhà",
     "unit": "Cái",
-    "gross_price": 7900000,
-    "min_stock": 10
+    "gross_price": 7900000.0,
+    "min_stock": 10,
+    "com": "Hà Lan",
+    "origin": "Hà Lan"
   },
   {
     "id": 67,
@@ -669,8 +801,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy hút bụi Xiaomi Robot hút bụi lau nhà",
     "description": "Máy hút bụi Xiaomi Robot hút bụi lau nhà",
     "unit": "Cái",
-    "gross_price": 8800000,
-    "min_stock": 10
+    "gross_price": 8800000.0,
+    "min_stock": 10,
+    "com": "Trung Quốc",
+    "origin": "Trung Quốc"
   },
   {
     "id": 68,
@@ -679,8 +813,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy hút bụi Sharp Hút bụi đứng",
     "description": "Máy hút bụi Sharp Hút bụi đứng",
     "unit": "Cái",
-    "gross_price": 4300000,
-    "min_stock": 10
+    "gross_price": 4300000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 69,
@@ -689,8 +825,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy hút bụi Philips Không dây cầm tay",
     "description": "Máy hút bụi Philips Không dây cầm tay",
     "unit": "Cái",
-    "gross_price": 4500000,
-    "min_stock": 10
+    "gross_price": 4500000.0,
+    "min_stock": 10,
+    "com": "Hà Lan",
+    "origin": "Hà Lan"
   },
   {
     "id": 70,
@@ -699,8 +837,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy hút bụi Samsung Không dây cầm tay",
     "description": "Máy hút bụi Samsung Không dây cầm tay",
     "unit": "Cái",
-    "gross_price": 7200000,
-    "min_stock": 10
+    "gross_price": 7200000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 71,
@@ -709,8 +849,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Nồi cơm điện Philips Nắp gài 1.0 lít",
     "description": "Nồi cơm điện Philips Nắp gài 1.0 lít",
     "unit": "Cái",
-    "gross_price": 1600000,
-    "min_stock": 10
+    "gross_price": 1600000.0,
+    "min_stock": 10,
+    "com": "Hà Lan",
+    "origin": "Hà Lan"
   },
   {
     "id": 72,
@@ -719,8 +861,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Nồi cơm điện Toshiba Điện tử 1.2 lít",
     "description": "Nồi cơm điện Toshiba Điện tử 1.2 lít",
     "unit": "Cái",
-    "gross_price": 1080000,
-    "min_stock": 10
+    "gross_price": 1080000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 73,
@@ -729,8 +873,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Nồi cơm điện Tiger Nắp gài 1.5 lít",
     "description": "Nồi cơm điện Tiger Nắp gài 1.5 lít",
     "unit": "Cái",
-    "gross_price": 2500000,
-    "min_stock": 10
+    "gross_price": 2500000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 74,
@@ -739,8 +885,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Nồi cơm điện Panasonic Nắp gài 2.0 lít",
     "description": "Nồi cơm điện Panasonic Nắp gài 2.0 lít",
     "unit": "Cái",
-    "gross_price": 900000,
-    "min_stock": 10
+    "gross_price": 900000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 75,
@@ -749,8 +897,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Nồi cơm điện Cuckoo Cao tần IH 1.0 lít",
     "description": "Nồi cơm điện Cuckoo Cao tần IH 1.0 lít",
     "unit": "Cái",
-    "gross_price": 500000,
-    "min_stock": 10
+    "gross_price": 500000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 76,
@@ -759,8 +909,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Nồi cơm điện Sunhouse Áp suất 1.0 lít",
     "description": "Nồi cơm điện Sunhouse Áp suất 1.0 lít",
     "unit": "Cái",
-    "gross_price": 2300000,
-    "min_stock": 10
+    "gross_price": 2300000.0,
+    "min_stock": 10,
+    "com": "Việt Nam",
+    "origin": "Việt Nam"
   },
   {
     "id": 77,
@@ -769,8 +921,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Nồi cơm điện Toshiba Điện tử 1.8 lít",
     "description": "Nồi cơm điện Toshiba Điện tử 1.8 lít",
     "unit": "Cái",
-    "gross_price": 1620000,
-    "min_stock": 10
+    "gross_price": 1620000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 78,
@@ -779,8 +933,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Nồi cơm điện Sharp Điện tử 1.2 lít",
     "description": "Nồi cơm điện Sharp Điện tử 1.2 lít",
     "unit": "Cái",
-    "gross_price": 1780000,
-    "min_stock": 10
+    "gross_price": 1780000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 79,
@@ -789,8 +945,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Nồi cơm điện Sharp Điện tử 2.0 lít",
     "description": "Nồi cơm điện Sharp Điện tử 2.0 lít",
     "unit": "Cái",
-    "gross_price": 2600000,
-    "min_stock": 10
+    "gross_price": 2600000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 80,
@@ -799,8 +957,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Nồi cơm điện Panasonic Áp suất 1.2 lít",
     "description": "Nồi cơm điện Panasonic Áp suất 1.2 lít",
     "unit": "Cái",
-    "gross_price": 2380000,
-    "min_stock": 10
+    "gross_price": 2380000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 81,
@@ -809,8 +969,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Lò vi sóng LG Không nướng 25 lít",
     "description": "Lò vi sóng LG Không nướng 25 lít",
     "unit": "Cái",
-    "gross_price": 2700000,
-    "min_stock": 10
+    "gross_price": 2700000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 82,
@@ -819,8 +981,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Lò vi sóng Sanaky Có nướng đối lưu 23 lít",
     "description": "Lò vi sóng Sanaky Có nướng đối lưu 23 lít",
     "unit": "Cái",
-    "gross_price": 3040000,
-    "min_stock": 10
+    "gross_price": 3040000.0,
+    "min_stock": 10,
+    "com": "Việt Nam",
+    "origin": "Việt Nam"
   },
   {
     "id": 83,
@@ -829,8 +993,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Lò vi sóng Electrolux Có nướng 32 lít",
     "description": "Lò vi sóng Electrolux Có nướng 32 lít",
     "unit": "Cái",
-    "gross_price": 3660000,
-    "min_stock": 10
+    "gross_price": 3660000.0,
+    "min_stock": 10,
+    "com": "Thái Lan",
+    "origin": "Thái Lan"
   },
   {
     "id": 84,
@@ -839,8 +1005,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Lò vi sóng Electrolux Không nướng 23 lít",
     "description": "Lò vi sóng Electrolux Không nướng 23 lít",
     "unit": "Cái",
-    "gross_price": 2740000,
-    "min_stock": 10
+    "gross_price": 2740000.0,
+    "min_stock": 10,
+    "com": "Thái Lan",
+    "origin": "Thái Lan"
   },
   {
     "id": 85,
@@ -849,8 +1017,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Lò vi sóng Sharp Không nướng 20 lít",
     "description": "Lò vi sóng Sharp Không nướng 20 lít",
     "unit": "Cái",
-    "gross_price": 2300000,
-    "min_stock": 10
+    "gross_price": 2300000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 86,
@@ -859,8 +1029,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Lò vi sóng Sharp Có nướng đối lưu 20 lít",
     "description": "Lò vi sóng Sharp Có nướng đối lưu 20 lít",
     "unit": "Cái",
-    "gross_price": 3000000,
-    "min_stock": 10
+    "gross_price": 3000000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 87,
@@ -869,8 +1041,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Lò vi sóng Panasonic Có nướng đối lưu 30 lít",
     "description": "Lò vi sóng Panasonic Có nướng đối lưu 30 lít",
     "unit": "Cái",
-    "gross_price": 2600000,
-    "min_stock": 10
+    "gross_price": 2600000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 88,
@@ -879,8 +1053,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Lò vi sóng Samsung Có nướng 30 lít",
     "description": "Lò vi sóng Samsung Có nướng 30 lít",
     "unit": "Cái",
-    "gross_price": 3100000,
-    "min_stock": 10
+    "gross_price": 3100000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 89,
@@ -889,8 +1065,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Lò vi sóng Panasonic Có nướng đối lưu 32 lít",
     "description": "Lò vi sóng Panasonic Có nướng đối lưu 32 lít",
     "unit": "Cái",
-    "gross_price": 3060000,
-    "min_stock": 10
+    "gross_price": 3060000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 90,
@@ -899,8 +1077,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Lò vi sóng Midea Không nướng 32 lít",
     "description": "Lò vi sóng Midea Không nướng 32 lít",
     "unit": "Cái",
-    "gross_price": 3060000,
-    "min_stock": 10
+    "gross_price": 3060000.0,
+    "min_stock": 10,
+    "com": "Trung Quốc",
+    "origin": "Trung Quốc"
   },
   {
     "id": 91,
@@ -909,8 +1089,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy lọc không khí Coway 35 m²",
     "description": "Máy lọc không khí Coway 35 m²",
     "unit": "Cái",
-    "gross_price": 9100000,
-    "min_stock": 10
+    "gross_price": 9100000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 92,
@@ -919,8 +1101,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy lọc không khí Levoit 60 m²",
     "description": "Máy lọc không khí Levoit 60 m²",
     "unit": "Cái",
-    "gross_price": 9800000,
-    "min_stock": 10
+    "gross_price": 9800000.0,
+    "min_stock": 10,
+    "com": "Mỹ",
+    "origin": "Mỹ"
   },
   {
     "id": 93,
@@ -929,8 +1113,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy lọc không khí Xiaomi 35 m²",
     "description": "Máy lọc không khí Xiaomi 35 m²",
     "unit": "Cái",
-    "gross_price": 7100000,
-    "min_stock": 10
+    "gross_price": 7100000.0,
+    "min_stock": 10,
+    "com": "Trung Quốc",
+    "origin": "Trung Quốc"
   },
   {
     "id": 94,
@@ -939,8 +1125,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy lọc không khí Samsung 35 m²",
     "description": "Máy lọc không khí Samsung 35 m²",
     "unit": "Cái",
-    "gross_price": 9000000,
-    "min_stock": 10
+    "gross_price": 9000000.0,
+    "min_stock": 10,
+    "com": "Hàn Quốc",
+    "origin": "Hàn Quốc"
   },
   {
     "id": 95,
@@ -949,8 +1137,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy lọc không khí Xiaomi 60 m²",
     "description": "Máy lọc không khí Xiaomi 60 m²",
     "unit": "Cái",
-    "gross_price": 10900000,
-    "min_stock": 10
+    "gross_price": 10900000.0,
+    "min_stock": 10,
+    "com": "Trung Quốc",
+    "origin": "Trung Quốc"
   },
   {
     "id": 96,
@@ -959,8 +1149,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy lọc không khí Daikin 60 m²",
     "description": "Máy lọc không khí Daikin 60 m²",
     "unit": "Cái",
-    "gross_price": 11600000,
-    "min_stock": 10
+    "gross_price": 11600000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   },
   {
     "id": 97,
@@ -969,8 +1161,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy lọc không khí Philips 48 m²",
     "description": "Máy lọc không khí Philips 48 m²",
     "unit": "Cái",
-    "gross_price": 10100000,
-    "min_stock": 10
+    "gross_price": 10100000.0,
+    "min_stock": 10,
+    "com": "Hà Lan",
+    "origin": "Hà Lan"
   },
   {
     "id": 98,
@@ -979,8 +1173,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy lọc không khí Xiaomi 40 m²",
     "description": "Máy lọc không khí Xiaomi 40 m²",
     "unit": "Cái",
-    "gross_price": 8600000,
-    "min_stock": 10
+    "gross_price": 8600000.0,
+    "min_stock": 10,
+    "com": "Trung Quốc",
+    "origin": "Trung Quốc"
   },
   {
     "id": 99,
@@ -989,8 +1185,10 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy lọc không khí Philips 60 m²",
     "description": "Máy lọc không khí Philips 60 m²",
     "unit": "Cái",
-    "gross_price": 9900000,
-    "min_stock": 10
+    "gross_price": 9900000.0,
+    "min_stock": 10,
+    "com": "Hà Lan",
+    "origin": "Hà Lan"
   },
   {
     "id": 100,
@@ -999,7 +1197,118 @@ export const FALLBACK_CATALOG_PRODUCTS = [
     "name": "Máy lọc không khí Sharp 35 m²",
     "description": "Máy lọc không khí Sharp 35 m²",
     "unit": "Cái",
-    "gross_price": 6100000,
-    "min_stock": 10
+    "gross_price": 6100000.0,
+    "min_stock": 10,
+    "com": "Nhật Bản",
+    "origin": "Nhật Bản"
   }
 ];
+
+export const SKU_ORIGIN_MAP = {
+  "XQ530-LG": "Hàn Quốc",
+  "GC111-ELE": "Thái Lan",
+  "ZN178-TOS": "Nhật Bản",
+  "WJ572-HIT": "Nhật Bản",
+  "YG530-LG": "Hàn Quốc",
+  "MM334-TOS": "Nhật Bản",
+  "PR815-ELE": "Thái Lan",
+  "RQ569-TOS": "Nhật Bản",
+  "VP134-TOS": "Nhật Bản",
+  "CT521-SHA": "Nhật Bản",
+  "CB659-SAM": "Hàn Quốc",
+  "PM234-PAN": "Nhật Bản",
+  "KZ498-HIT": "Nhật Bản",
+  "HC577-SAM": "Hàn Quốc",
+  "SB508-TOS": "Nhật Bản",
+  "TX232-AQU": "Nhật Bản",
+  "NW492-LG": "Hàn Quốc",
+  "HM222-TOS": "Nhật Bản",
+  "XR517-CAS": "Thái Lan",
+  "QG869-SAM": "Hàn Quốc",
+  "CL208-ELE": "Thái Lan",
+  "GH367-AQU": "Nhật Bản",
+  "CS690-TOS": "Nhật Bản",
+  "QQ536-ELE": "Thái Lan",
+  "BT999-CAS": "Thái Lan",
+  "EB215-AQU": "Nhật Bản",
+  "LD525-LG": "Hàn Quốc",
+  "XU333-AQU": "Nhật Bản",
+  "PR943-TOS": "Nhật Bản",
+  "BF620-SAM": "Hàn Quốc",
+  "JM568-TOS": "Nhật Bản",
+  "XY933-SAM": "Hàn Quốc",
+  "TC118-LG": "Hàn Quốc",
+  "CT441-DAI": "Nhật Bản",
+  "DK864-LG": "Hàn Quốc",
+  "HD129-MIT": "Nhật Bản",
+  "QF208-TOS": "Nhật Bản",
+  "SL699-TOS": "Nhật Bản",
+  "LP430-MID": "Trung Quốc",
+  "WY877-MIT": "Nhật Bản",
+  "GW427-SAM": "Hàn Quốc",
+  "GP748-LG": "Hàn Quốc",
+  "JR524-MIT": "Nhật Bản",
+  "HU909-TOS": "Nhật Bản",
+  "HF574-PAN": "Nhật Bản",
+  "AY145-PAN": "Nhật Bản",
+  "GU303-DAI": "Nhật Bản",
+  "TR621-CAS": "Thái Lan",
+  "EZ984-PAN": "Nhật Bản",
+  "LW229-PAN": "Nhật Bản",
+  "DP256-LG": "Hàn Quốc",
+  "DZ809-BOS": "Đức",
+  "RM659-BOS": "Đức",
+  "XD620-CAS": "Thái Lan",
+  "NW192-SAM": "Hàn Quốc",
+  "DZ532-LG": "Hàn Quốc",
+  "XF300-SAM": "Hàn Quốc",
+  "XZ538-ELE": "Thái Lan",
+  "ZC247-CAS": "Thái Lan",
+  "ZB579-PAN": "Nhật Bản",
+  "BY677-DEE": "Trung Quốc",
+  "AK272-SAM": "Hàn Quốc",
+  "FT579-SHA": "Nhật Bản",
+  "UQ704-ELE": "Thái Lan",
+  "FN373-DYS": "Anh",
+  "LV920-PHI": "Hà Lan",
+  "XC271-XIA": "Trung Quốc",
+  "RG107-SHA": "Nhật Bản",
+  "FK189-PHI": "Hà Lan",
+  "PN445-SAM": "Hàn Quốc",
+  "ZP629-PHI": "Hà Lan",
+  "DV191-TOS": "Nhật Bản",
+  "FK350-TIG": "Nhật Bản",
+  "TQ348-PAN": "Nhật Bản",
+  "DY120-CUC": "Hàn Quốc",
+  "VL169-SUN": "Việt Nam",
+  "MW937-TOS": "Nhật Bản",
+  "DC494-SHA": "Nhật Bản",
+  "JY348-SHA": "Nhật Bản",
+  "RS726-PAN": "Nhật Bản",
+  "UN113-LG": "Hàn Quốc",
+  "FE732-SAN": "Việt Nam",
+  "CK568-ELE": "Thái Lan",
+  "UR571-ELE": "Thái Lan",
+  "YX663-SHA": "Nhật Bản",
+  "ML459-SHA": "Nhật Bản",
+  "CY111-PAN": "Nhật Bản",
+  "XB886-SAM": "Hàn Quốc",
+  "PG571-PAN": "Nhật Bản",
+  "HW352-MID": "Trung Quốc",
+  "QQ791-COW": "Hàn Quốc",
+  "AJ853-LEV": "Mỹ",
+  "NP155-XIA": "Trung Quốc",
+  "BF150-SAM": "Hàn Quốc",
+  "WF811-XIA": "Trung Quốc",
+  "ZP124-DAI": "Nhật Bản",
+  "HG649-PHI": "Hà Lan",
+  "UG899-XIA": "Trung Quốc",
+  "US131-PHI": "Hà Lan",
+  "SM456-SHA": "Nhật Bản"
+};
+
+export const getProductOrigin = (skuOrId) => {
+  if (!skuOrId) return 'Việt Nam';
+  const found = FALLBACK_CATALOG_PRODUCTS.find(p => p.sku === skuOrId || p.id === Number(skuOrId));
+  return found ? (found.origin || found.com || 'Việt Nam') : 'Việt Nam';
+};

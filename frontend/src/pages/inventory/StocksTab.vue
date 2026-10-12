@@ -5,7 +5,7 @@
       <div class="flex items-center flex-wrap gap-2.5">
         <InputText 
           v-model="search" 
-          placeholder="Tìm theo SKU, tên sản phẩm hoặc kho..." 
+          placeholder="Tìm theo SKU, tên sản phẩm, xuất xứ, kho..." 
           size="small"
           class="w-72 bg-white !rounded-[6px]" 
         />
@@ -21,8 +21,18 @@
           @change="loadStocks" 
         />
 
+        <Select 
+          v-model="selectedOrigin" 
+          :options="originOptions" 
+          optionLabel="label" 
+          optionValue="value" 
+          placeholder="Tất cả xuất xứ" 
+          size="small"
+          class="min-w-[150px] !rounded-[6px]" 
+        />
+
         <Button 
-          v-if="search || selectedWarehouseId"
+          v-if="search || selectedWarehouseId || selectedOrigin"
           label="Xóa lọc" 
           size="small" 
           text 
@@ -53,7 +63,7 @@
       :rows="15"
       :rowsPerPageOptions="[15, 30, 50, 100]"
       :searchQuery="search"
-      :searchFields="['sku', 'product_name', 'warehouse_name']"
+      :searchFields="['sku', 'product_name', 'origin', 'warehouse_name']"
       emptyIcon="pi pi-box"
       emptyTitle="Không tìm thấy dữ liệu tồn kho"
       emptySubtitle="Thử thay đổi bộ lọc hoặc kiểm tra lại dữ liệu."
@@ -69,6 +79,11 @@
           {{ data.product_name || ('Sản phẩm #' + data.product_id) }}
         </div>
         <div class="text-[11px] text-slate-400 font-mono mt-0.5">ID: #{{ data.product_id }}</div>
+      </template>
+
+      <!-- Xuất Xứ -->
+      <template #col-origin="{ data }">
+        <span class="text-xs font-medium text-slate-700">{{ data.origin || 'Việt Nam' }}</span>
       </template>
 
       <!-- Kho Lưu Trữ -->
@@ -138,16 +153,15 @@
       </template>
 
       <!-- Thao Tác -->
-      <Column header="Thao Tác" class="text-center" style="width: 120px">
+      <Column header="Thao Tác" class="text-center" style="width: 140px">
         <template #body="{ data }">
           <Button 
-            label="Đề nghị mua" 
             icon="pi pi-file-plus" 
             size="small" 
             outlined 
             severity="info" 
-            class="!text-xs !py-1 !px-2.5 !rounded-[6px]" 
-            v-tooltip.top="'Tạo Đề Nghị Mua Hàng (PR) cho sản phẩm này'" 
+            class="!text-xs !py-1 !px-2.5 !rounded-[6px] !whitespace-nowrap hover:!bg-sky-50" 
+            v-tooltip.top="'Tạo Phiếu Đề Nghị Mua Sắm (PR) cho sản phẩm này'" 
             @click="createPurchaseRequisition(data)" 
           />
         </template>
@@ -164,6 +178,7 @@
       <div class="py-2">
         <div class="flex items-center gap-3 mb-3 p-2.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600">
           <div>Kho: <strong class="text-slate-800">{{ activeItem?.warehouse_name }}</strong></div>
+          <div v-if="activeItem?.origin">Xuất xứ: <strong class="text-slate-800">{{ activeItem?.origin }}</strong></div>
           <div>Tổng giữ chỗ: <strong class="text-amber-700 font-mono text-sm">{{ formatNumber(activeItem?.quantity_reserved) }}</strong> chiếc</div>
         </div>
 
@@ -216,8 +231,9 @@ import { formatNumber, formatDateTime } from '../../utils/format'
 const router = useRouter()
 
 const tableColumns = [
-  { field: 'sku', header: 'Mã SKU', width: '140px', sortable: true },
+  { field: 'sku', header: 'Mã SKU', width: '130px', sortable: true },
   { field: 'product_name', header: 'Tên Sản Phẩm', width: 'auto', sortable: true },
+  { field: 'origin', header: 'Xuất Xứ', width: '130px', sortable: true },
   { field: 'warehouse_name', header: 'Kho Lưu Trữ', width: '180px', sortable: true },
   { field: 'quantity_on_hand', header: 'Tồn Thực Tế', width: '130px', align: 'right', sortable: true },
   { field: 'quantity_reserved', header: 'Đang Giữ Chỗ', width: '130px', align: 'right', sortable: true },
@@ -238,6 +254,7 @@ const catalogProducts = ref([])
 const loading = ref(false)
 const search = ref('')
 const selectedWarehouseId = ref(null)
+const selectedOrigin = ref(null)
 
 const showReserveDialog = ref(false)
 const activeItem = ref(null)
@@ -252,10 +269,25 @@ const warehouseOptions = computed(() => {
   return list
 })
 
+const originOptions = computed(() => {
+  const origins = new Set()
+  stocks.value.forEach(s => {
+    if (s.origin) origins.add(s.origin)
+  })
+  const list = [{ label: 'Tất cả xuất xứ', value: null }]
+  Array.from(origins).sort().forEach(o => {
+    list.push({ label: o, value: o })
+  })
+  return list
+})
+
 const filteredStocks = computed(() => {
   let list = stocks.value || []
   if (selectedWarehouseId.value) {
     list = list.filter(s => Number(s.warehouse_id) === Number(selectedWarehouseId.value))
+  }
+  if (selectedOrigin.value) {
+    list = list.filter(s => s.origin === selectedOrigin.value)
   }
   return list
 })
@@ -263,6 +295,7 @@ const filteredStocks = computed(() => {
 const resetFilters = () => {
   search.value = ''
   selectedWarehouseId.value = null
+  selectedOrigin.value = null
   loadStocks()
 }
 
@@ -305,7 +338,8 @@ const loadStocks = async () => {
         product_name: p?.item_description || p?.designation || p?.name || `Sản phẩm #${s.product_id}`,
         unit: p?.unit || 'Chiếc',
         brand: p?.brand || '',
-        category: p?.category || ''
+        category: p?.category || '',
+        origin: s.origin || p?.com || 'Việt Nam'
       }
     })
   } catch (err) {
@@ -332,14 +366,18 @@ const showReservationDetails = async (item) => {
 
 const createPurchaseRequisition = (item) => {
   router.push({
-    path: '/purchase/requisition/create',
+    path: '/purchase/requisitions/create',
     query: {
-      product_id: item.product_id,
+      productId: item.product_id,
       sku: item.sku,
-      product_name: item.product_name
+      name: item.product_name,
+      origin: item.origin || 'Việt Nam',
+      warehouseId: item.warehouse_id,
+      unit: item.unit || 'Cái',
+      qty: 20
     }
-  })
-}
+  });
+};
 
 onMounted(async () => {
   await loadWarehouses()
