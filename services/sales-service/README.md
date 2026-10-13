@@ -1,58 +1,72 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Smart ERP Sales Service
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Laravel service for quotations, sales orders, delivery requests, sales documents, warehouse posting, VAT invoices, attachments, and sales/revenue reports.
 
-## About Laravel
+## Requirements
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- PHP 8.3 or newer
+- Composer
+- MySQL for local integration, or SQLite for tests
+- Identity Service for JWT issuance
+- Inventory Service for stock reservation and goods issue
+- Catalog and Identity databases configured as the `catalog` and `identity` connections
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Local setup
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+composer install
+copy .env.example .env
+php artisan key:generate
+php artisan migrate
+php artisan serve --port=8005
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Set `JWT_SECRET` to the same HS256 secret used by Identity Service. Configure `INVENTORY_SERVICE_URL` and the database connections before starting the service.
 
-## Contributing
+## Authentication and permissions
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Except for `GET /api/health`, every endpoint requires:
 
-## Code of Conduct
+```http
+Authorization: Bearer <identity-service-jwt>
+Accept: application/json
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+The token must be signed with HS256, have issuer `identity-service`, contain a valid `sub` and `exp`, and include `roles` and/or `permissions`. `SUPER_ADMIN` bypasses individual permission checks. Other callers need the permission declared on each route in `routes/api.php`.
 
-## Security Vulnerabilities
+## Main API groups
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+All paths below are relative to `/api` inside this service. Through the gateway they are normally exposed under `/api/v1/sales`.
 
-## License
+| Area | Endpoints |
+|---|---|
+| Health | `GET /health` |
+| Quotations | `GET/POST /quotations`, `GET/PUT/PATCH/DELETE /quotations/{id}`, approval and conversion actions |
+| Sales orders | `GET/POST /orders`, `GET/PUT/PATCH/DELETE /orders/{id}`, approval actions |
+| Deliveries | `GET/POST /deliveries`, `PUT /deliveries/{id}/status` |
+| Sales documents | `GET/POST /invoices`, `GET /invoices/{id}`, reserve, logistics, warehouse and accounting actions |
+| VAT invoices | `GET/POST /vat-invoices`, next number and unbilled item endpoints |
+| Reports | `GET /reports/sale-items`, `GET /reports/revenue-items` and detail endpoints |
+| Attachments | filtered list, private upload, authenticated download and delete |
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+List endpoints accept `page` and `per_page`. `per_page` defaults to 50 and is capped at 200. Responses return rows in `data` and pagination information in `meta`.
+
+## Workflows
+
+- Quotation: `DRAFT/REJECTED -> PENDING_APPROVAL -> APPROVED -> CONVERTED`
+- Sales order: `DRAFT/REJECTED -> PENDING_APPROVAL -> APPROVED`
+- Delivery transitions are validated by `App\Support\SalesWorkflow`.
+- Documents in an approval workflow cannot be edited or deleted after they are locked.
+- Totals, VAT, document numbers and actor fields are calculated by the server.
+- Warehouse posting uses a stable reference per invoice item. Retrying the same posting is idempotent in both Sales and Inventory.
+- VAT creation locks the selected revenue rows and rejects quantities above the unbilled balance.
+
+## Verification
+
+```bash
+php artisan test
+vendor/bin/pint --dirty
+php artisan route:list --path=api
+```
+
+The test suite covers JWT and permission checks, approval transitions, idempotent warehouse posting, and VAT over-invoicing protection.

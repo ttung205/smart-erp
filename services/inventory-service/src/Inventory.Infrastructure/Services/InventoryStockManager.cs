@@ -29,6 +29,34 @@ public class InventoryStockManager : IInventoryStockManager
 
         await using var tx = await _context.Database.BeginTransactionAsync(ct);
 
+        var existingTransaction = await _context.InventoryStockTransactions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.DocumentType == command.DocumentType
+                && t.DocumentId == command.DocumentId
+                && t.WarehouseId == command.WarehouseId
+                && t.ProductId == command.ProductId, ct);
+
+        if (existingTransaction != null)
+        {
+            if (existingTransaction.QuantityDelta != command.QuantityDelta)
+            {
+                throw new InvalidOperationException(
+                    $"Chung tu {command.DocumentId} da duoc ghi so voi so luong khac.");
+            }
+
+            return new StockOperationResult
+            {
+                WarehouseId = existingTransaction.WarehouseId,
+                ProductId = existingTransaction.ProductId,
+                QuantityOnHand = existingTransaction.BalanceAfter,
+                OperationType = existingTransaction.DocumentType,
+                QuantityDelta = existingTransaction.QuantityDelta,
+                ReferenceDoc = existingTransaction.DocumentId,
+                MovementId = existingTransaction.Id,
+                Timestamp = existingTransaction.CreatedAt
+            };
+        }
+
         var stock = await _context.InventoryStocks
             .FirstOrDefaultAsync(s => s.WarehouseId == command.WarehouseId && s.ProductId == command.ProductId, ct);
 

@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\RevenueReportItem;
+use Illuminate\Http\Request;
 
 class RevenueReportController extends Controller
 {
@@ -43,39 +43,55 @@ class RevenueReportController extends Controller
         }
 
         if ($request->filled('sku')) {
-            $query->where('sku', 'like', '%' . $request->input('sku') . '%');
+            $query->where('sku', 'like', '%'.$request->input('sku').'%');
         }
 
         if ($request->filled('search')) {
             $s = trim($request->input('search'));
             $query->where(function ($q) use ($s) {
                 $q->where('invoice_number', 'like', "%{$s}%")
-                  ->orWhere('vat_invoice_number', 'like', "%{$s}%")
-                  ->orWhere('order_number', 'like', "%{$s}%")
-                  ->orWhere('sku', 'like', "%{$s}%")
-                  ->orWhere('product_name', 'like', "%{$s}%")
-                  ->orWhereHas('customer', function ($cq) use ($s) {
-                      $cq->where('name', 'like', "%{$s}%");
-                  });
+                    ->orWhere('vat_invoice_number', 'like', "%{$s}%")
+                    ->orWhere('order_number', 'like', "%{$s}%")
+                    ->orWhere('sku', 'like', "%{$s}%")
+                    ->orWhere('product_name', 'like', "%{$s}%")
+                    ->orWhereHas('customer', function ($cq) use ($s) {
+                        $cq->where('name', 'like', "%{$s}%");
+                    });
             });
         }
 
-        $items = $query->get();
+        $summaryQuery = clone $query;
+        $summaryRow = $summaryQuery->toBase()->selectRaw("
+            COUNT(*) as total_items,
+            COALESCE(SUM(quantity), 0) as total_quantity,
+            COALESCE(SUM(subtotal), 0) as total_subtotal,
+            COALESCE(SUM(vat_amount), 0) as total_vat,
+            COALESCE(SUM(total_amount), 0) as total_revenue,
+            COALESCE(SUM(CASE WHEN account_code = '1311' THEN total_amount ELSE 0 END), 0) as revenue_1311,
+            COALESCE(SUM(CASE WHEN account_code = '1312' THEN total_amount ELSE 0 END), 0) as revenue_1312
+        ")->first();
+        $items = $query->paginate(min(max($request->integer('per_page', 50), 1), 200));
 
         $summary = [
-            'total_items' => $items->count(),
-            'total_quantity' => $items->sum('quantity'),
-            'total_subtotal' => $items->sum('subtotal'),
-            'total_vat' => $items->sum('vat_amount'),
-            'total_revenue' => $items->sum('total_amount'),
-            'revenue_1311' => $items->where('account_code', '1311')->sum('total_amount'),
-            'revenue_1312' => $items->where('account_code', '1312')->sum('total_amount'),
+            'total_items' => (int) $summaryRow->total_items,
+            'total_quantity' => (float) $summaryRow->total_quantity,
+            'total_subtotal' => (float) $summaryRow->total_subtotal,
+            'total_vat' => (float) $summaryRow->total_vat,
+            'total_revenue' => (float) $summaryRow->total_revenue,
+            'revenue_1311' => (float) $summaryRow->revenue_1311,
+            'revenue_1312' => (float) $summaryRow->revenue_1312,
         ];
 
         return response()->json([
             'success' => true,
-            'data' => $items,
+            'data' => $items->items(),
             'summary' => $summary,
+            'meta' => [
+                'current_page' => $items->currentPage(),
+                'last_page' => $items->lastPage(),
+                'per_page' => $items->perPage(),
+                'total' => $items->total(),
+            ],
         ]);
     }
 
@@ -85,7 +101,7 @@ class RevenueReportController extends Controller
     public function show($id)
     {
         $item = RevenueReportItem::with(['invoice', 'vatInvoice', 'product', 'customer', 'salesperson'])->find($id);
-        if (!$item) {
+        if (! $item) {
             return response()->json(['success' => false, 'message' => 'Không tìm thấy dòng báo cáo doanh thu'], 404);
         }
 

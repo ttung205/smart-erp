@@ -2,93 +2,114 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Http\Requests\StoreDeliveryRequest;
+use App\Http\Requests\UpdateStatusRequest;
 use App\Models\DeliveryRequest;
 use App\Models\DeliveryRequestItem;
-use App\Models\Invoice;
-use App\Models\InvoiceItem;
 use App\Models\SalesOrder;
+use App\Support\DocumentNumberGenerator;
+use App\Support\SalesWorkflow;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class DeliveryController extends Controller
 {
-    public function index()
+    public function index(Request $request): JsonResponse
     {
-        $drs = DeliveryRequest::with(['items.orderItem', 'order.creator', 'order.customer'])->orderBy('id', 'desc')->get();
-        return response()->json(['success' => true, 'data' => $drs]);
-    }
+        $deliveries = DeliveryRequest::with(['items.orderItem', 'order.creator', 'order.customer'])
+            ->orderByDesc('id')
+            ->paginate(min(max($request->integer('per_page', 50), 1), 200));
 
-    public function store(Request $request)
-    {
-        $randNum = rand(100, 999);
-        $drNumber = "DR-2026-{$randNum}";
-
-        $orderId = $request->input('order_id');
-        $so = null;
-        if ($orderId) {
-            $so = SalesOrder::find($orderId);
-        } elseif ($request->filled('order_number')) {
-            $so = SalesOrder::where('order_number', $request->input('order_number'))->orWhere('id', $request->input('order_number'))->first();
-            $orderId = $so?->id;
-        }
-
-        $dr = DeliveryRequest::create([
-            'order_id' => $orderId,
-            'request_number' => $request->input('request_number') ?: $drNumber,
-            'warehouse_name' => $request->input('warehouse_name', 'Kho Tổng Miền Bắc (Hà Nội)'),
-            'shipping_address' => $request->input('shipping_address') ?: $so?->shipping_address,
-            'contact_phone' => $request->input('contact_phone') ?: $so?->contact?->phone,
-            'request_date' => now()->format('Y-m-d'),
-            'expected_delivery_date' => $request->input('expected_delivery_date'),
-            'status' => 'PENDING',
+        return response()->json([
+            'success' => true,
+            'data' => $deliveries->items(),
+            'meta' => [
+                'current_page' => $deliveries->currentPage(),
+                'last_page' => $deliveries->lastPage(),
+                'per_page' => $deliveries->perPage(),
+                'total' => $deliveries->total(),
+            ],
         ]);
-
-        foreach ($request->input('items', []) as $it) {
-            $reqQty = (float)($it['quantity'] ?? $it['request_quantity'] ?? 1);
-            $orderItemId = $it['order_item_id'] ?? null;
-            $productId = $it['product_id'] ?? null;
-            $sku = $it['sku'] ?? $it['product_sku'] ?? '';
-
-            if ($orderItemId && $so) {
-                $soItem = $so->items->firstWhere('id', $orderItemId);
-                if ($soItem) {
-                    $productId = $productId ?: $soItem->product_id;
-                    $sku = $sku ?: $soItem->sku;
-                }
-            } elseif ($so) {
-                if ($productId) {
-                    $soItem = $so->items()->where('product_id', $productId)->first();
-                } else {
-                    $soItem = $so->items()->where('sku', $sku)->first();
-                }
-                $orderItemId = $soItem?->id;
-                $productId = $productId ?: $soItem?->product_id;
-                $sku = $sku ?: ($soItem?->sku ?? '');
-            }
-
-            if (!$productId && !empty($sku)) {
-                $productId = \App\Models\Product::where('sku', $sku)->value('id');
-            }
-
-            DeliveryRequestItem::create([
-                'delivery_request_id' => $dr->id,
-                'order_item_id' => $orderItemId,
-                'product_id' => $productId,
-                'sku' => $sku,
-                'quantity' => $reqQty,
-            ]);
-        }
-
-        return response()->json(['success' => true, 'data' => $dr->load(['items.orderItem', 'items.product'])], 201);
     }
 
-    public function updateStatus(Request $request, $id)
+    public function store(StoreDeliveryRequest $request): JsonResponse
+    {
+        $order = SalesOrder::with('items')->findOrFail($request->integer('order_id'));
+        if (! in_array($order->status, ['APPROVED', 'PROCESSING'], true)) {
+            return response()->json([
+                'success' => false,
+                'error' => ['code' => 'INVALID_ORDER_STATUS', 'message' => 'Chỉ có thể tạo yêu cầu giao cho đơn đã được duyệt.'],
+            ], 409);
+        }
+
+        $delivery = DB::transaction(function () use ($request, $order): DeliveryRequest {
+            $requestNumber = $request->input('request_number') ?: DocumentNumberGenerator::next(
+                'delivery-'.now()->format('Y'),
+                'DR-'.now()->format('Y').'-',
+                6
+            );
+
+            $delivery = DeliveryRequest::create([
+                'order_id' => $order->id,
+                'request_number' => $requestNumber,
+                'warehouse_name' => $request->string('warehouse_name')->toString(),
+                'shipping_address' => $request->string('shipping_address')->toString(),
+                'contact_phone' => $request->input('contact_phone') ?: $order->contact?->phone,
+                'request_date' => now()->toDateString(),
+                'expected_delivery_date' => $request->input('expected_delivery_date'),
+                'status' => 'PENDING',
+            ]);
+
+            foreach ($request->validated('items') as $itemData) {
+                $orderItem = $order->items->firstWhere('id', (int) $itemData['order_item_id']);
+                if (! $orderItem) {
+                    abort(422, 'Mặt hàng không thuộc đơn bán hàng đã chọn.');
+                }
+
+                $alreadyRequested = (float) DB::table('delivery_request_items')
+                    ->join('delivery_requests', 'delivery_requests.id', '=', 'delivery_request_items.delivery_request_id')
+                    ->where('delivery_request_items.order_item_id', $orderItem->id)
+                    ->whereNotIn('delivery_requests.status', ['REJECTED'])
+                    ->sum('delivery_request_items.quantity');
+                $remaining = max(0, (float) $orderItem->quantity - $alreadyRequested);
+                if ((float) $itemData['quantity'] > $remaining) {
+                    abort(422, "Số lượng yêu cầu của SKU {$orderItem->sku} vượt quá số lượng còn lại {$remaining}.");
+                }
+
+                DeliveryRequestItem::create([
+                    'delivery_request_id' => $delivery->id,
+                    'order_item_id' => $orderItem->id,
+                    'product_id' => $orderItem->product_id,
+                    'sku' => $orderItem->sku,
+                    'quantity' => (float) $itemData['quantity'],
+                ]);
+            }
+
+            return $delivery;
+        });
+
+        return response()->json(['success' => true, 'data' => $delivery->load(['items.orderItem', 'items.product'])], 201);
+    }
+
+    public function updateStatus(UpdateStatusRequest $request, int|string $id): JsonResponse
     {
         $dr = DeliveryRequest::with('items.orderItem')->where('id', $id)->orWhere('request_number', $id)->first();
-        if (!$dr) {
+        if (! $dr) {
             return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND']], 404);
         }
 
-        $nextStatus = $request->input('status', 'APPROVED');
+        $nextStatus = $request->string('status')->upper()->toString();
+        if (! SalesWorkflow::canTransition('delivery', $dr->status, $nextStatus)) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'INVALID_STATUS_TRANSITION',
+                    'message' => "Không thể chuyển trạng thái từ {$dr->status} sang {$nextStatus}.",
+                ],
+            ], 409);
+        }
+
         $dr->update(['status' => $nextStatus]);
 
         return response()->json(['success' => true, 'data' => $dr]);

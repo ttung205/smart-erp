@@ -47,14 +47,8 @@ return [
         'timeout' => (int) env('INVENTORY_SERVICE_TIMEOUT', 3),
     ],
 
-    'catalog' => [
-        'url' => rtrim(env('CATALOG_SERVICE_URL', 'http://127.0.0.1:8002'), '/'),
-        'timeout' => (int) env('CATALOG_SERVICE_TIMEOUT', 3),
-    ],
-
     'identity' => [
-        'url' => rtrim(env('IDENTITY_SERVICE_URL', 'http://127.0.0.1:8001'), '/'),
-        'timeout' => (int) env('IDENTITY_SERVICE_TIMEOUT', 3),
+        'jwt_secret' => env('JWT_SECRET'),
     ],
 
 ];

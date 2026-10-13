@@ -498,15 +498,17 @@ const removeAttachment = async (index, item) => {
 };
 
 // Download file directly
-const downloadFileDirectly = (item) => {
+const downloadFileDirectly = async (item) => {
   if (item.id) {
-    const downloadUrl = salesApi.getDownloadAttachmentUrl(item.id);
+    const blob = await salesApi.downloadAttachment(item.id);
+    const downloadUrl = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = downloadUrl;
     link.setAttribute('download', item.name || item.file_name || 'attachment');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(downloadUrl);
   } else if (item.file_url || item.url) {
     window.open(item.file_url || item.url, '_blank');
   }

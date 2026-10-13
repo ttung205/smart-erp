@@ -99,7 +99,7 @@ public class InventoryDbContext : DbContext
             entity.Property(m => m.CreatedAt).HasColumnName("created_at");
 
             entity.HasIndex(m => new { m.ProductId, m.WarehouseId, m.CreatedAt });
-            entity.HasIndex(m => new { m.DocumentType, m.DocumentId });
+            entity.HasIndex(m => new { m.DocumentType, m.DocumentId, m.WarehouseId, m.ProductId }).IsUnique();
 
             entity.HasOne(m => m.Warehouse)
                   .WithMany()

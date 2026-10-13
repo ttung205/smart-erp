@@ -14,6 +14,12 @@ class AttachmentController extends Controller
      */
     public function index(Request $request)
     {
+        $request->validate([
+            'type' => ['required_without:attachable_type', 'nullable', 'in:quotation,sales_order,invoice'],
+            'attachable_type' => ['required_without:type', 'nullable', 'in:quotation,sales_order,invoice'],
+            'id' => ['required_without:attachable_id', 'nullable', 'integer'],
+            'attachable_id' => ['required_without:id', 'nullable', 'integer'],
+        ]);
         $type = $request->query('type') ?? $request->query('attachable_type');
         $id = $request->query('id') ?? $request->query('attachable_id');
 
@@ -26,11 +32,17 @@ class AttachmentController extends Controller
             $query->where('attachable_id', $id);
         }
 
-        $attachments = $query->latest()->get();
+        $attachments = $query->latest()->paginate(min(max($request->integer('per_page', 50), 1), 200));
 
         return response()->json([
             'success' => true,
-            'data' => $attachments
+            'data' => $attachments->items(),
+            'meta' => [
+                'current_page' => $attachments->currentPage(),
+                'last_page' => $attachments->lastPage(),
+                'per_page' => $attachments->perPage(),
+                'total' => $attachments->total(),
+            ],
         ]);
     }
 
@@ -40,9 +52,9 @@ class AttachmentController extends Controller
     public function upload(Request $request)
     {
         $request->validate([
-            'file' => 'nullable|file|max:20480', // Max 20MB
-            'files.*' => 'nullable|file|max:20480',
-            'attachable_type' => 'nullable|string|max:50',
+            'file' => 'nullable|file|max:20480|mimes:pdf,png,jpg,jpeg,webp,doc,docx,xls,xlsx,csv,txt',
+            'files.*' => 'nullable|file|max:20480|mimes:pdf,png,jpg,jpeg,webp,doc,docx,xls,xlsx,csv,txt',
+            'attachable_type' => 'nullable|in:quotation,sales_order,invoice',
             'attachable_id' => 'nullable|integer',
         ]);
 
@@ -65,41 +77,42 @@ class AttachmentController extends Controller
         if (empty($filesToProcess)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Không tìm thấy tệp tải lên'
+                'message' => 'Không tìm thấy tệp tải lên',
             ], 422);
         }
 
         $type = $request->input('attachable_type') ?: 'general';
         $attachableId = $request->input('attachable_id') ?: null;
-        $userName = $request->input('uploaded_by') ?: ($request->user()?->name ?? 'admin');
+        $userName = $request->attributes->get('actor')->name;
 
         $year = date('Y');
         $month = date('m');
         $directory = "attachments/{$type}/{$year}/{$month}";
 
         foreach ($filesToProcess as $file) {
-            if (!$file->isValid()) continue;
+            if (! $file->isValid()) {
+                continue;
+            }
 
             $origName = $file->getClientOriginalName();
             $ext = $file->getClientOriginalExtension();
             $size = $file->getSize();
             $mime = $file->getMimeType();
 
-            $safeName = Str::random(24) . ($ext ? ".{$ext}" : '');
-            $path = $file->storeAs($directory, $safeName, 'public');
-
-            $fileUrl = asset("storage/{$path}");
+            $safeName = Str::random(24).($ext ? ".{$ext}" : '');
+            $path = $file->storeAs($directory, $safeName, 'local');
 
             $attachment = SalesAttachment::create([
                 'attachable_type' => $type,
                 'attachable_id' => $attachableId,
                 'file_name' => $origName,
                 'file_path' => $path,
-                'file_url' => $fileUrl,
+                'file_url' => null,
                 'file_size' => $size,
                 'mime_type' => $mime,
                 'uploaded_by' => $userName,
             ]);
+            $attachment->update(['file_url' => "/api/v1/sales/attachments/{$attachment->id}/download"]);
 
             $uploadedFiles[] = $attachment;
         }
@@ -107,7 +120,7 @@ class AttachmentController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Tải lên tệp đính kèm thành công',
-            'data' => count($uploadedFiles) === 1 ? $uploadedFiles[0] : $uploadedFiles
+            'data' => count($uploadedFiles) === 1 ? $uploadedFiles[0] : $uploadedFiles,
         ], 201);
     }
 
@@ -118,14 +131,15 @@ class AttachmentController extends Controller
     {
         $attachment = SalesAttachment::findOrFail($id);
 
-        if (!Storage::disk('public')->exists($attachment->file_path)) {
+        $disk = Storage::disk('local')->exists($attachment->file_path) ? 'local' : 'public';
+        if (! Storage::disk($disk)->exists($attachment->file_path)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Tệp không tồn tại trên hệ thống lưu trữ'
+                'message' => 'Tệp không tồn tại trên hệ thống lưu trữ',
             ], 404);
         }
 
-        return Storage::disk('public')->download(
+        return Storage::disk($disk)->download(
             $attachment->file_path,
             $attachment->file_name
         );
@@ -138,15 +152,16 @@ class AttachmentController extends Controller
     {
         $attachment = SalesAttachment::findOrFail($id);
 
-        if (Storage::disk('public')->exists($attachment->file_path)) {
-            Storage::disk('public')->delete($attachment->file_path);
+        $disk = Storage::disk('local')->exists($attachment->file_path) ? 'local' : 'public';
+        if (Storage::disk($disk)->exists($attachment->file_path)) {
+            Storage::disk($disk)->delete($attachment->file_path);
         }
 
         $attachment->delete();
 
         return response()->json([
             'success' => true,
-            'message' => 'Đã xóa tệp đính kèm thành công'
+            'message' => 'Đã xóa tệp đính kèm thành công',
         ]);
     }
 }

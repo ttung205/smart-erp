@@ -30,6 +30,19 @@ class Invoice extends Model
         'accounting_status',
         'posted_at',
         'posted_by',
+        'inventory_reservation_status',
+        'inventory_reservation_error',
+        'inventory_reserved_at',
+        'inventory_issue_status',
+        'inventory_issue_error',
+        'inventory_issued_at',
+    ];
+
+    protected $casts = [
+        'exchange_rate' => 'float',
+        'total_amount' => 'float',
+        'inventory_reserved_at' => 'datetime',
+        'inventory_issued_at' => 'datetime',
     ];
 
     protected $appends = [
@@ -140,6 +153,7 @@ class Invoice extends Model
         if ($this->warehouseDispatch) {
             return $this->warehouseDispatch->shipper_display_name;
         }
+
         return $this->attributes['shipper_name'] ?? null;
     }
 

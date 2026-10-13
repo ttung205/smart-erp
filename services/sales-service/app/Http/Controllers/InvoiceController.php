@@ -2,25 +2,29 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\Invoice;
-use App\Models\InvoiceItem;
+use App\Http\Requests\StoreInvoiceRequest;
 use App\Models\DeliveryRequest;
 use App\Models\DeliveryRequestItem;
+use App\Models\Invoice;
+use App\Models\InvoiceItem;
+use App\Models\Product;
+use App\Models\SalesAttachment;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
-use App\Models\Product;
-use App\Models\WarehouseDispatch;
 use App\Models\User;
-use App\Services\SaleReportService;
+use App\Models\WarehouseDispatch;
 use App\Services\RevenueReportService;
+use App\Services\SaleReportService;
+use App\Support\DocumentNumberGenerator;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class InvoiceController extends Controller
 {
-    public function index()
+    public function index(Request $request): JsonResponse
     {
         $invoices = Invoice::with([
             'items.orderItem',
@@ -30,17 +34,23 @@ class InvoiceController extends Controller
             'warehouseDispatch.picker',
             'warehouseDispatch.packer',
             'warehouseDispatch.shipper',
-            'warehouseDispatch.postedBy'
-        ])->orderBy('id', 'desc')->get();
+            'warehouseDispatch.postedBy',
+        ])->orderByDesc('id')->paginate(min(max($request->integer('per_page', 50), 1), 200));
 
-        return response()->json(['success' => true, 'data' => $invoices]);
+        return response()->json([
+            'success' => true,
+            'data' => $invoices->items(),
+            'meta' => [
+                'current_page' => $invoices->currentPage(),
+                'last_page' => $invoices->lastPage(),
+                'per_page' => $invoices->perPage(),
+                'total' => $invoices->total(),
+            ],
+        ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreInvoiceRequest $request): JsonResponse
     {
-        $randNum = rand(1000, 9999);
-        $invNumber = $request->input('invoice_number') ?: "INV-2026-{$randNum}";
-
         $drId = $request->input('delivery_request_id');
         $drNumber = $request->input('delivery_request_number');
         $dr = null;
@@ -53,14 +63,27 @@ class InvoiceController extends Controller
 
         $order = $dr?->order;
 
+        if (! $dr || ! in_array($dr->status, ['APPROVED', 'PARTIAL'], true)) {
+            return response()->json([
+                'success' => false,
+                'error' => ['code' => 'INVALID_DELIVERY_STATUS', 'message' => 'Chỉ có thể tạo chứng từ cho yêu cầu giao hàng đã duyệt.'],
+            ], 409);
+        }
+
         $currency = $request->input('currency') ?: ($order?->currency ?: 'VND');
-        $exchangeRate = (float)($request->input('exchange_rate') ?: ($order?->exchange_rate ?: 1.0));
-        $createdBy = $request->input('created_by') ?: 'admin';
+        $exchangeRate = (float) ($request->input('exchange_rate') ?: ($order?->exchange_rate ?: 1.0));
+        $actor = $request->attributes->get('actor');
+        $createdBy = $actor->name;
         $sendImmediately = $request->boolean('send_to_warehouse', false);
         $warehouseName = $request->input('warehouse_name') ?: ($dr?->warehouse_name ?: 'Kho Tổng Miền Bắc (Hà Nội)');
         $warehouseId = $this->resolveWarehouseId($warehouseName);
 
-        $inv = DB::transaction(function () use ($request, $invNumber, $drId, $drNumber, $dr, $order, $currency, $exchangeRate, $createdBy, $sendImmediately) {
+        $inv = DB::transaction(function () use ($request, $drId, $drNumber, $dr, $order, $currency, $exchangeRate, $createdBy, $sendImmediately) {
+            $invNumber = $request->input('invoice_number') ?: DocumentNumberGenerator::next(
+                'invoice-'.now()->format('Y'),
+                'INV-'.now()->format('Y').'-',
+                6
+            );
             $inv = Invoice::create([
                 'invoice_number' => $invNumber,
                 'delivery_request_id' => $drId,
@@ -70,7 +93,7 @@ class InvoiceController extends Controller
                 'exchange_rate' => $exchangeRate,
                 'created_by' => $createdBy,
                 'payment_terms' => $request->input('payment_terms', 'Công nợ 30 ngày'),
-                'total_amount' => (float)$request->input('total_amount', 0),
+                'total_amount' => (float) $request->input('total_amount', 0),
                 'notes' => $request->input('notes'),
                 'warehouse_status' => $sendImmediately ? 'SENT_TO_WAREHOUSE' : 'PENDING_WAREHOUSE',
                 'accounting_status' => 'UNPOSTED',
@@ -84,6 +107,7 @@ class InvoiceController extends Controller
                 $sku = $it['sku'] ?? $it['product_sku'] ?? '';
                 $orderItemId = $it['order_item_id'] ?? null;
                 $drItemId = $it['delivery_request_item_id'] ?? null;
+                $drItem = null;
 
                 if ($orderItemId && $order) {
                     $orderItem = $order->items->firstWhere('id', $orderItemId);
@@ -102,49 +126,61 @@ class InvoiceController extends Controller
                     }
                 }
 
-                if (!$drItemId && $dr) {
+                if (! $drItemId || ! isset($drItem) || ! $drItem) {
+                    abort(422, 'Mặt hàng không thuộc yêu cầu giao hàng đã chọn.');
+                }
+
+                if ($orderItemId !== $drItem->order_item_id) {
+                    abort(422, 'Mặt hàng đơn bán không khớp với yêu cầu giao hàng.');
+                }
+
+                if (! $drItemId && $dr) {
                     $matchDrItem = null;
                     if ($productId) {
                         $matchDrItem = $dr->items->firstWhere('product_id', $productId);
                     }
-                    if (!$matchDrItem && $sku) {
+                    if (! $matchDrItem && $sku) {
                         $matchDrItem = $dr->items->firstWhere('sku', $sku);
                     }
                     $drItemId = $matchDrItem?->id;
-                    if (!$orderItemId) {
+                    if (! $orderItemId) {
                         $orderItemId = $matchDrItem?->order_item_id;
                     }
-                    if (!$productId && $matchDrItem) {
+                    if (! $productId && $matchDrItem) {
                         $productId = $matchDrItem->product_id;
                     }
                 }
 
-                if (!$orderItemId && $order) {
+                if (! $orderItemId && $order) {
                     $matchSoItem = null;
                     if ($productId) {
                         $matchSoItem = $order->items->firstWhere('product_id', $productId);
                     }
-                    if (!$matchSoItem && $sku) {
+                    if (! $matchSoItem && $sku) {
                         $matchSoItem = $order->items->firstWhere('sku', $sku);
                     }
                     $orderItemId = $matchSoItem?->id;
-                    if (!$productId && $matchSoItem) {
+                    if (! $productId && $matchSoItem) {
                         $productId = $matchSoItem->product_id;
                     }
                 }
 
-                if (!$productId && !empty($sku)) {
+                if (! $productId && ! empty($sku)) {
                     $productId = Product::where('sku', $sku)->value('id');
                 }
 
-                $requestedQty = (float)($it['requested_quantity'] ?? $it['request_quantity'] ?? 0);
+                $requestedQty = (float) ($it['requested_quantity'] ?? $it['request_quantity'] ?? 0);
                 if ($requestedQty <= 0 && $drItemId) {
                     $drIt = $dr?->items->firstWhere('id', $drItemId);
-                    $requestedQty = (float)($drIt?->quantity ?? 0);
+                    $requestedQty = (float) ($drIt?->quantity ?? 0);
                 }
 
-                $qty = (float)($it['quantity'] ?? $requestedQty ?: 1);
-                $unitPrice = (float)($it['unit_price'] ?? $it['price'] ?? 0);
+                $qty = (float) ($it['quantity'] ?? $requestedQty ?: 1);
+                $remainingQty = max(0, (float) $drItem->quantity - (float) $drItem->delivered_quantity);
+                if ($qty > $remainingQty) {
+                    abort(422, "Số lượng chứng từ của SKU {$sku} vượt quá số lượng còn phải giao {$remainingQty}.");
+                }
+                $unitPrice = (float) ($it['unit_price'] ?? $it['price'] ?? 0);
                 $calculatedTotal += ($qty * $unitPrice);
 
                 InvoiceItem::create([
@@ -161,9 +197,7 @@ class InvoiceController extends Controller
                 ]);
             }
 
-            if ($calculatedTotal > 0 && !(float)$request->input('total_amount')) {
-                $inv->update(['total_amount' => $calculatedTotal]);
-            }
+            $inv->update(['total_amount' => $calculatedTotal]);
 
             if ($dr) {
                 $dr->update(['status' => 'INVOICED']);
@@ -171,10 +205,12 @@ class InvoiceController extends Controller
 
             // Liên kết tệp đính kèm nếu có
             if ($request->has('attachment_ids')) {
-                \App\Models\SalesAttachment::whereIn('id', (array)$request->input('attachment_ids'))
+                SalesAttachment::whereIn('id', (array) $request->input('attachment_ids'))
+                    ->whereNull('attachable_id')
+                    ->where('uploaded_by', $request->attributes->get('actor')->name)
                     ->update([
                         'attachable_id' => $inv->id,
-                        'attachable_type' => 'invoice'
+                        'attachable_type' => 'invoice',
                     ]);
             }
 
@@ -183,12 +219,22 @@ class InvoiceController extends Controller
 
         // Tự động giữ chỗ tồn kho (Reserve Stock) cho chứng từ bán hàng
         $reservationResult = $this->reserveStockForInvoice($inv, $warehouseId);
+        $reservationSucceeded = count($reservationResult) === $inv->items()->count()
+            && collect($reservationResult)->every(fn (array $result): bool => $result['success'] === true);
+        $hasReservedItems = collect($reservationResult)->contains(fn (array $result): bool => $result['success'] === true);
+        $inv->update([
+            'inventory_reservation_status' => $reservationSucceeded ? 'RESERVED' : ($hasReservedItems ? 'PARTIAL' : 'FAILED'),
+            'inventory_reservation_error' => $reservationSucceeded ? null : json_encode($reservationResult, JSON_UNESCAPED_UNICODE),
+            'inventory_reserved_at' => $reservationSucceeded ? now() : null,
+        ]);
 
         return response()->json([
             'success' => true,
             'data' => $inv->load('items', 'deliveryRequest.order.customer', 'attachments'),
             'reservation' => $reservationResult,
-            'message' => "Đã tạo chứng từ {$inv->invoice_number} và gửi lệnh giữ chỗ tồn kho thành công."
+            'message' => $reservationSucceeded
+                ? "Đã tạo chứng từ {$inv->invoice_number} và giữ chỗ tồn kho thành công."
+                : "Đã tạo chứng từ {$inv->invoice_number}, nhưng giữ chỗ tồn kho thất bại. Vui lòng kiểm tra và thử đồng bộ lại.",
         ], 201);
     }
 
@@ -199,10 +245,10 @@ class InvoiceController extends Controller
             'deliveryRequest.order.customer',
             'deliveryRequest.order.creator',
             'deliveryRequest.items',
-            'attachments'
+            'attachments',
         ])->where('id', $id)->orWhere('invoice_number', $id)->first();
 
-        if (!$inv) {
+        if (! $inv) {
             return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND']], 404);
         }
 
@@ -215,21 +261,49 @@ class InvoiceController extends Controller
     public function syncReserve(Request $request, $id)
     {
         $inv = Invoice::with(['items', 'deliveryRequest'])->where('id', $id)->orWhere('invoice_number', $id)->first();
-        if (!$inv) {
+        if (! $inv) {
             return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND']], 404);
+        }
+
+        if ($inv->inventory_reservation_status === 'RESERVED') {
+            return response()->json([
+                'success' => true,
+                'data' => $inv,
+                'reservation' => [],
+                'message' => 'Chứng từ đã được giữ chỗ tồn kho trước đó.',
+            ]);
+        }
+        if ($inv->inventory_reservation_status === 'PARTIAL') {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'PARTIAL_RESERVATION_REQUIRES_RECONCILIATION',
+                    'message' => 'Một phần hàng đã được giữ chỗ. Cần đối soát Inventory trước khi thử lại để tránh giữ chỗ hai lần.',
+                ],
+            ], 409);
         }
 
         $warehouseName = $request->input('warehouse_name') ?: ($inv->deliveryRequest?->warehouse_name ?: 'Kho Tổng Miền Bắc (Hà Nội)');
         $warehouseId = $this->resolveWarehouseId($warehouseName);
 
         $result = $this->reserveStockForInvoice($inv, $warehouseId);
+        $succeeded = count($result) === $inv->items()->count()
+            && collect($result)->every(fn (array $item): bool => $item['success'] === true);
+        $hasReservedItems = collect($result)->contains(fn (array $item): bool => $item['success'] === true);
+        $inv->update([
+            'inventory_reservation_status' => $succeeded ? 'RESERVED' : ($hasReservedItems ? 'PARTIAL' : 'FAILED'),
+            'inventory_reservation_error' => $succeeded ? null : json_encode($result, JSON_UNESCAPED_UNICODE),
+            'inventory_reserved_at' => $succeeded ? now() : null,
+        ]);
 
         return response()->json([
-            'success' => true,
+            'success' => $succeeded,
             'data' => $inv,
             'reservation' => $result,
-            'message' => "Đã đồng bộ giữ chỗ tồn kho cho chứng từ {$inv->invoice_number} thành công."
-        ]);
+            'message' => $succeeded
+                ? "Đã đồng bộ giữ chỗ tồn kho cho chứng từ {$inv->invoice_number} thành công."
+                : 'Không thể giữ chỗ đầy đủ tại Inventory Service.',
+        ], $succeeded ? 200 : 502);
     }
 
     /**
@@ -238,12 +312,24 @@ class InvoiceController extends Controller
     public function sendToWarehouse(Request $request, $id)
     {
         $inv = Invoice::where('id', $id)->orWhere('invoice_number', $id)->first();
-        if (!$inv) {
+        if (! $inv) {
             return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND']], 404);
+        }
+        if ($inv->inventory_reservation_status !== 'RESERVED') {
+            return response()->json([
+                'success' => false,
+                'error' => ['code' => 'STOCK_NOT_RESERVED', 'message' => 'Chứng từ chưa giữ chỗ tồn kho thành công.'],
+            ], 409);
+        }
+        if ($inv->warehouse_status !== 'PENDING_WAREHOUSE') {
+            return response()->json([
+                'success' => false,
+                'error' => ['code' => 'INVALID_WAREHOUSE_STATUS', 'message' => 'Chứng từ đã được gửi xuống kho trước đó.'],
+            ], 409);
         }
 
         $inv->update([
-            'warehouse_status' => 'SENT_TO_WAREHOUSE'
+            'warehouse_status' => 'SENT_TO_WAREHOUSE',
         ]);
 
         WarehouseDispatch::updateOrCreate(
@@ -263,7 +349,7 @@ class InvoiceController extends Controller
         return response()->json([
             'success' => true,
             'data' => $inv->fresh(['warehouseDispatch.picker', 'warehouseDispatch.packer', 'warehouseDispatch.shipper']),
-            'message' => "Đã gửi chứng từ {$inv->invoice_number} xuống phòng Logistics thành công."
+            'message' => "Đã gửi chứng từ {$inv->invoice_number} xuống phòng Logistics thành công.",
         ]);
     }
 
@@ -273,31 +359,39 @@ class InvoiceController extends Controller
     public function assignLogistics(Request $request, $id)
     {
         $inv = Invoice::where('id', $id)->orWhere('invoice_number', $id)->first();
-        if (!$inv) {
+        if (! $inv) {
             return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND']], 404);
         }
 
         $pickerId = $request->input('picker_id') ?: null;
         $pickerName = $request->input('picker_name') ?: null;
-        if ($pickerId && !$pickerName) {
+        if ($pickerId && ! $pickerName) {
             $pickerName = User::find($pickerId)?->name;
         }
 
         $packerId = $request->input('packer_id') ?: null;
         $packerName = $request->input('packer_name') ?: null;
-        if ($packerId && !$packerName) {
+        if ($packerId && ! $packerName) {
             $packerName = User::find($packerId)?->name;
         }
 
         $shippingMethod = $request->input('shipping_method', 'CUSTOMER_PICKUP');
         $shipperId = $request->input('shipper_id') ?: null;
         $shipperName = $request->input('shipper_name') ?: null;
-        if ($shippingMethod === 'WAREHOUSE_DELIVERY' && $shipperId && !$shipperName) {
+        if ($shippingMethod === 'WAREHOUSE_DELIVERY' && $shipperId && ! $shipperName) {
             $shipperName = User::find($shipperId)?->name;
         }
 
         $shippingNote = $request->input('shipping_note');
-        $status = $request->input('status', 'PROCESSED');
+        $validated = $request->validate([
+            'picker_id' => ['nullable', 'integer'],
+            'packer_id' => ['nullable', 'integer'],
+            'shipper_id' => ['nullable', 'integer'],
+            'shipping_method' => ['required', 'in:CUSTOMER_PICKUP,WAREHOUSE_DELIVERY,THIRD_PARTY'],
+            'status' => ['nullable', 'in:SENT_TO_WAREHOUSE,PROCESSING,PROCESSED,READY_TO_SHIP'],
+            'shipping_note' => ['nullable', 'string', 'max:2000'],
+        ]);
+        $status = $validated['status'] ?? 'PROCESSED';
 
         // 1. Cập nhật bảng riêng warehouse_dispatches
         $dispatch = WarehouseDispatch::updateOrCreate(
@@ -335,7 +429,7 @@ class InvoiceController extends Controller
         return response()->json([
             'success' => true,
             'data' => $inv->fresh(['warehouseDispatch.picker', 'warehouseDispatch.packer', 'warehouseDispatch.shipper']),
-            'message' => 'Cập nhật tiến độ điều phối kho thành công.'
+            'message' => 'Cập nhật tiến độ điều phối kho thành công.',
         ]);
     }
 
@@ -353,15 +447,45 @@ class InvoiceController extends Controller
             ->orWhere('invoice_number', $id)
             ->first();
 
-        if (!$inv) {
+        if (! $inv) {
             return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND']], 404);
         }
 
-        $posterName = $request->input('posted_by') ?: ($request->input('warehouse_posted_by') ?: 'Kho vận');
-        $postedById = $request->input('posted_by_id') ?: null;
+        if ($inv->accounting_status === 'POSTED' || $inv->inventory_issue_status === 'ISSUED') {
+            return response()->json([
+                'success' => true,
+                'data' => $inv,
+                'inventory_issue' => [],
+                'message' => 'Chứng từ đã được ghi sổ trước đó; không thực hiện xuất kho lần nữa.',
+            ]);
+        }
+
+        $actor = $request->attributes->get('actor');
+        $posterName = $actor->name;
+        $postedById = $actor->id;
         $nowStr = now()->format('Y-m-d H:i:s');
         $warehouseName = $request->input('warehouse_name') ?: ($inv->warehouse_name ?: ($inv->deliveryRequest?->warehouse_name ?: 'Kho Chính'));
         $warehouseId = $request->input('warehouse_id') ?: ($inv->warehouse_id ?: $this->resolveWarehouseId($warehouseName));
+
+        $issueResult = $this->issueStockForInvoice($inv, $warehouseId);
+        $issueSucceeded = count($issueResult) === $inv->items->count()
+            && collect($issueResult)->every(fn (array $result): bool => $result['success'] === true);
+
+        if (! $issueSucceeded) {
+            $inv->update([
+                'inventory_issue_status' => 'FAILED',
+                'inventory_issue_error' => json_encode($issueResult, JSON_UNESCAPED_UNICODE),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'INVENTORY_ISSUE_FAILED',
+                    'message' => 'Inventory Service chưa xuất kho đầy đủ; chứng từ chưa được ghi sổ.',
+                    'details' => $issueResult,
+                ],
+            ], 502);
+        }
 
         DB::transaction(function () use ($inv, $posterName, $postedById, $nowStr, $warehouseName, $warehouseId) {
             // 1. Cập nhật Invoice
@@ -372,6 +496,9 @@ class InvoiceController extends Controller
                 'warehouse_posted_by' => $posterName,
                 'posted_at' => $nowStr,
                 'posted_by' => $posterName,
+                'inventory_issue_status' => 'ISSUED',
+                'inventory_issue_error' => null,
+                'inventory_issued_at' => now(),
             ]);
 
             // 1.1 Cập nhật bảng riêng warehouse_dispatches
@@ -395,7 +522,7 @@ class InvoiceController extends Controller
 
             // 2. Cập nhật số lượng đã giao thực tế trên từng InvoiceItem & DeliveryRequestItem & SalesOrderItem
             foreach ($inv->items as $invItem) {
-                $actualDeliveredQty = (float)$invItem->quantity;
+                $actualDeliveredQty = (float) $invItem->quantity;
                 $invItem->update(['delivered_quantity' => $actualDeliveredQty]);
 
                 // Update DeliveryRequestItem
@@ -411,7 +538,7 @@ class InvoiceController extends Controller
                             ->where('product_id', $invItem->product_id)
                             ->first();
                     }
-                    if (!$drItem && !empty($invItem->sku)) {
+                    if (! $drItem && ! empty($invItem->sku)) {
                         $drItem = DeliveryRequestItem::where('delivery_request_id', $inv->delivery_request_id)
                             ->where('sku', $invItem->sku)
                             ->first();
@@ -434,7 +561,7 @@ class InvoiceController extends Controller
                             ->where('product_id', $invItem->product_id)
                             ->first();
                     }
-                    if (!$soItem && !empty($invItem->sku)) {
+                    if (! $soItem && ! empty($invItem->sku)) {
                         $soItem = SalesOrderItem::where('order_id', $inv->deliveryRequest->order_id)
                             ->where('sku', $invItem->sku)
                             ->first();
@@ -477,27 +604,25 @@ class InvoiceController extends Controller
             RevenueReportService::recordGoodsIssue($inv, $posterName);
         });
 
-        // 5. Thực hiện xuất kho vật lý (Goods Issue) tại Inventory Service
-        $issueResult = $this->issueStockForInvoice($inv, $warehouseId);
-
         return response()->json([
             'success' => true,
             'data' => $inv->fresh(['items', 'deliveryRequest.order']),
             'inventory_issue' => $issueResult,
-            'message' => 'Đã ghi sổ xuất kho, trừ tồn kho vật lý và cập nhật tiến độ giao hàng thành công.'
+            'message' => 'Đã ghi sổ xuất kho, trừ tồn kho vật lý và cập nhật tiến độ giao hàng thành công.',
         ]);
     }
 
     public function updateWarehouseStatus(Request $request, $id)
     {
         $inv = Invoice::where('id', $id)->orWhere('invoice_number', $id)->first();
-        if (!$inv) {
+        if (! $inv) {
             return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND']], 404);
         }
 
-        $inv->update([
-            'warehouse_status' => $request->input('status', 'DELIVERED')
+        $validated = $request->validate([
+            'status' => ['required', 'in:SENT_TO_WAREHOUSE,PROCESSING,PROCESSED,READY_TO_SHIP'],
         ]);
+        $inv->update(['warehouse_status' => $validated['status']]);
 
         return response()->json(['success' => true, 'data' => $inv]);
     }
@@ -512,7 +637,9 @@ class InvoiceController extends Controller
      */
     protected function resolveWarehouseId(?string $warehouseName): int
     {
-        if (!$warehouseName) return 1;
+        if (! $warehouseName) {
+            return 1;
+        }
         $nameLower = mb_strtolower($warehouseName);
         if (str_contains($nameLower, 'kĩ thuật') || str_contains($nameLower, 'kỹ thuật') || str_contains($nameLower, 'ki thuat') || str_contains($nameLower, 'ky thuat')) {
             return 2;
@@ -526,6 +653,7 @@ class InvoiceController extends Controller
         if (str_contains($nameLower, 'đà nẵng') || str_contains($nameLower, 'da nang') || str_contains($nameLower, 'trung')) {
             return 3;
         }
+
         return 1;
     }
 
@@ -541,42 +669,50 @@ class InvoiceController extends Controller
 
         foreach ($items as $item) {
             $productId = $item->product_id ?: $item->orderItem?->product_id ?: $item->deliveryRequestItem?->product_id;
-            if (!$productId && !empty($item->sku)) {
+            if (! $productId && ! empty($item->sku)) {
                 $productId = Product::where('sku', $item->sku)->value('id');
             }
 
-            if (!$productId && !empty($item->sku)) {
+            if (! $productId && ! empty($item->sku)) {
                 // Thử tìm trong bảng products
                 $prod = DB::table('products')->where('sku', $item->sku)->first();
                 $productId = $prod?->id;
             }
 
-            if ($productId && (float)$item->quantity > 0) {
+            if ($productId && (float) $item->quantity > 0) {
                 try {
                     $response = Http::timeout($timeout)->post("{$inventoryUrl}/api/v1/inventory/stocks/reserve", [
                         'order_id' => $inv->invoice_number,
                         'warehouse_id' => $warehouseId,
-                        'product_id' => (int)$productId,
-                        'quantity' => (float)$item->quantity
+                        'product_id' => (int) $productId,
+                        'quantity' => (float) $item->quantity,
                     ]);
 
                     $results[] = [
                         'sku' => $item->sku,
                         'product_id' => $productId,
-                        'quantity' => (float)$item->quantity,
+                        'quantity' => (float) $item->quantity,
                         'success' => $response->successful(),
-                        'data' => $response->json()
+                        'status_code' => $response->status(),
                     ];
                 } catch (\Throwable $e) {
-                    Log::warning("[InvoiceController] Lỗi gọi Inventory Service Reserve ({$inventoryUrl}): " . $e->getMessage());
+                    Log::warning("[InvoiceController] Lỗi gọi Inventory Service Reserve ({$inventoryUrl}): ".$e->getMessage());
                     $results[] = [
                         'sku' => $item->sku,
                         'product_id' => $productId,
-                        'quantity' => (float)$item->quantity,
+                        'quantity' => (float) $item->quantity,
                         'success' => false,
-                        'error' => $e->getMessage()
+                        'error' => 'Inventory Service khong san sang.',
                     ];
                 }
+            } else {
+                $results[] = [
+                    'sku' => $item->sku,
+                    'product_id' => $productId,
+                    'quantity' => (float) $item->quantity,
+                    'success' => false,
+                    'error' => 'Không xác định được sản phẩm hoặc số lượng giữ chỗ không hợp lệ.',
+                ];
             }
         }
 
@@ -596,43 +732,51 @@ class InvoiceController extends Controller
 
         foreach ($items as $item) {
             $productId = $item->product_id ?: $item->orderItem?->product_id ?: $item->deliveryRequestItem?->product_id;
-            if (!$productId && !empty($item->sku)) {
+            if (! $productId && ! empty($item->sku)) {
                 $productId = Product::where('sku', $item->sku)->value('id');
             }
 
-            if (!$productId && !empty($item->sku)) {
+            if (! $productId && ! empty($item->sku)) {
                 $prod = DB::table('products')->where('sku', $item->sku)->first();
                 $productId = $prod?->id;
             }
 
-            if ($productId && (float)$item->quantity > 0) {
+            if ($productId && (float) $item->quantity > 0) {
                 try {
                     $response = Http::timeout($timeout)->post("{$inventoryUrl}/api/v1/inventory/stocks/issue", [
-                        'reference_doc' => $inv->invoice_number,
+                        'reference_doc' => "{$inv->invoice_number}:{$item->id}",
                         'order_id' => $orderNumber,
                         'warehouse_id' => $warehouseId,
-                        'product_id' => (int)$productId,
-                        'quantity' => (float)$item->quantity,
-                        'notes' => "Xuất kho bán hàng theo chứng từ {$inv->invoice_number}"
+                        'product_id' => (int) $productId,
+                        'quantity' => (float) $item->quantity,
+                        'notes' => "Xuất kho bán hàng theo chứng từ {$inv->invoice_number}",
                     ]);
 
                     $results[] = [
                         'sku' => $item->sku,
                         'product_id' => $productId,
-                        'quantity' => (float)$item->quantity,
+                        'quantity' => (float) $item->quantity,
                         'success' => $response->successful(),
-                        'data' => $response->json()
+                        'status_code' => $response->status(),
                     ];
                 } catch (\Throwable $e) {
-                    Log::warning("[InvoiceController] Lỗi gọi Inventory Service Issue ({$inventoryUrl}): " . $e->getMessage());
+                    Log::warning("[InvoiceController] Lỗi gọi Inventory Service Issue ({$inventoryUrl}): ".$e->getMessage());
                     $results[] = [
                         'sku' => $item->sku,
                         'product_id' => $productId,
-                        'quantity' => (float)$item->quantity,
+                        'quantity' => (float) $item->quantity,
                         'success' => false,
-                        'error' => $e->getMessage()
+                        'error' => 'Inventory Service khong san sang.',
                     ];
                 }
+            } else {
+                $results[] = [
+                    'sku' => $item->sku,
+                    'product_id' => $productId,
+                    'quantity' => (float) $item->quantity,
+                    'success' => false,
+                    'error' => 'Không xác định được sản phẩm hoặc số lượng xuất kho không hợp lệ.',
+                ];
             }
         }
 

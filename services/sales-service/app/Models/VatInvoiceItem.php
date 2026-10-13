@@ -14,6 +14,7 @@ class VatInvoiceItem extends Model
     protected $fillable = [
         'vat_invoice_id',
         'sales_invoice_item_id',
+        'revenue_report_item_id',
         'order_item_id',
         'product_id',
         'sku',

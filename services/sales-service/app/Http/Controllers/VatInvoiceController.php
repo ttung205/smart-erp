@@ -2,37 +2,32 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use App\Models\VatInvoice;
-use App\Models\VatInvoiceItem;
+use App\Http\Requests\StoreVatInvoiceRequest;
 use App\Models\Invoice;
 use App\Models\RevenueReportItem;
+use App\Models\VatInvoice;
+use App\Models\VatInvoiceItem;
 use App\Services\RevenueReportService;
+use App\Support\DocumentNumberGenerator;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class VatInvoiceController extends Controller
 {
     /**
      * Tự động sinh số hóa đơn tiếp theo: 8 số tăng dần (VD: 00000001, 00000002, 00000123)
      */
-    public function getNextInvoiceNumber()
+    public function getNextInvoiceNumber(Request $request)
     {
-        $lastInvoice = VatInvoice::orderBy('id', 'desc')->first();
-        $nextNum = 1;
-
-        if ($lastInvoice && !empty($lastInvoice->invoice_number)) {
-            $numOnly = (int)preg_replace('/\D/', '', $lastInvoice->invoice_number);
-            if ($numOnly > 0) {
-                $nextNum = $numOnly + 1;
-            }
-        }
-
-        $formatted = str_pad((string)$nextNum, 8, '0', STR_PAD_LEFT);
+        $series = $request->input('series', '1C'.now()->format('y').'TBB');
+        $nextNum = (int) (DB::table('document_sequences')->where('name', "vat-invoice-{$series}")->value('next_value') ?? 1);
+        $formatted = str_pad((string) $nextNum, 8, '0', STR_PAD_LEFT);
 
         return response()->json([
             'success' => true,
             'next_number' => $formatted,
-            'series' => '1C26TBB',
+            'series' => $series,
         ]);
     }
 
@@ -47,10 +42,10 @@ class VatInvoiceController extends Controller
             $s = trim($request->input('search'));
             $query->where(function ($q) use ($s) {
                 $q->where('invoice_number', 'like', "%{$s}%")
-                  ->orWhere('invoice_series', 'like', "%{$s}%")
-                  ->orWhere('customer_name', 'like', "%{$s}%")
-                  ->orWhere('sales_invoice_number', 'like', "%{$s}%")
-                  ->orWhere('order_number', 'like', "%{$s}%");
+                    ->orWhere('invoice_series', 'like', "%{$s}%")
+                    ->orWhere('customer_name', 'like', "%{$s}%")
+                    ->orWhere('sales_invoice_number', 'like', "%{$s}%")
+                    ->orWhere('order_number', 'like', "%{$s}%");
             });
         }
 
@@ -58,12 +53,17 @@ class VatInvoiceController extends Controller
             $query->where('customer_id', $request->input('customer_id'));
         }
 
-        $invoices = $query->get();
+        $invoices = $query->paginate(min(max($request->integer('per_page', 50), 1), 200));
 
         return response()->json([
             'success' => true,
-            'data' => $invoices,
-            'total' => $invoices->count()
+            'data' => $invoices->items(),
+            'total' => $invoices->total(),
+            'meta' => [
+                'current_page' => $invoices->currentPage(),
+                'last_page' => $invoices->lastPage(),
+                'per_page' => $invoices->perPage(),
+            ],
         ]);
     }
 
@@ -90,32 +90,31 @@ class VatInvoiceController extends Controller
             $s = trim($request->input('search'));
             $query->where(function ($q) use ($s) {
                 $q->where('invoice_number', 'like', "%{$s}%")
-                  ->orWhere('order_number', 'like', "%{$s}%")
-                  ->orWhere('sku', 'like', "%{$s}%")
-                  ->orWhere('product_name', 'like', "%{$s}%");
+                    ->orWhere('order_number', 'like', "%{$s}%")
+                    ->orWhere('sku', 'like', "%{$s}%")
+                    ->orWhere('product_name', 'like', "%{$s}%");
             });
         }
 
-        $items = $query->get();
+        $items = $query->paginate(min(max($request->integer('per_page', 50), 1), 200));
 
         return response()->json([
             'success' => true,
-            'data' => $items,
-            'total' => $items->count()
+            'data' => $items->items(),
+            'total' => $items->total(),
+            'meta' => [
+                'current_page' => $items->currentPage(),
+                'last_page' => $items->lastPage(),
+                'per_page' => $items->perPage(),
+            ],
         ]);
     }
 
     /**
      * Lập hóa đơn VAT mới (cho phép xuất toàn bộ hoặc 1 phần các mặt hàng đã xuất kho)
      */
-    public function store(Request $request)
+    public function store(StoreVatInvoiceRequest $request)
     {
-        $request->validate([
-            'invoice_number' => 'required|string|max:50',
-            'invoice_date' => 'required|string',
-            'items' => 'required|array|min:1',
-        ]);
-
         try {
             DB::beginTransaction();
 
@@ -131,9 +130,11 @@ class VatInvoiceController extends Controller
             $customerAddress = $request->input('customer_address') ?: ($customer?->address ?: $salesInvoice?->shipping_address);
             $orderNumber = $salesInvoice?->deliveryRequest?->customer_order_number ?: ($salesInvoice?->deliveryRequest?->order_number ?: '');
 
+            $series = trim($request->input('invoice_series', '1C'.now()->format('y').'TBB'));
+            $invoiceNumber = DocumentNumberGenerator::next("vat-invoice-{$series}", '', 8);
             $vatInvoice = VatInvoice::create([
-                'invoice_number' => trim($request->input('invoice_number')),
-                'invoice_series' => trim($request->input('invoice_series', '1C26TBB')),
+                'invoice_number' => $invoiceNumber,
+                'invoice_series' => $series,
                 'invoice_date' => $request->input('invoice_date', now()->format('Y-m-d')),
                 'sales_invoice_id' => $salesInvoiceId,
                 'sales_invoice_number' => $salesInvoice?->invoice_number,
@@ -144,8 +145,8 @@ class VatInvoiceController extends Controller
                 'customer_tax_code' => $customerTaxCode,
                 'customer_address' => $customerAddress,
                 'currency' => $request->input('currency') ?: ($salesInvoice?->currency ?: 'VND'),
-                'exchange_rate' => (float)($request->input('exchange_rate') ?: ($salesInvoice?->exchange_rate ?: 1.0)),
-                'created_by' => $request->input('created_by') ?: 'Kế toán viên',
+                'exchange_rate' => (float) ($request->input('exchange_rate') ?: ($salesInvoice?->exchange_rate ?: 1.0)),
+                'created_by' => $request->attributes->get('actor')->name,
                 'status' => 'ISSUED',
                 'notes' => $request->input('notes'),
                 'subtotal' => 0,
@@ -158,22 +159,31 @@ class VatInvoiceController extends Controller
             $createdItems = [];
 
             foreach ($request->input('items', []) as $it) {
-                $qty = (float)($it['quantity'] ?? 1);
-                if ($qty <= 0) continue;
+                $qty = (float) ($it['quantity'] ?? 1);
+                $reportItem = RevenueReportItem::whereKey($it['revenue_report_item_id'])->lockForUpdate()->firstOrFail();
+                if ($reportItem->account_code !== '1312'
+                    || (int) $reportItem->invoice_id !== (int) $salesInvoiceId
+                    || (int) $reportItem->invoice_item_id !== (int) $it['sales_invoice_item_id']) {
+                    abort(422, 'Dòng doanh thu không thuộc chứng từ bán hàng đã chọn hoặc đã được xuất hóa đơn.');
+                }
+                if ($qty > (float) $reportItem->remaining_invoice_quantity) {
+                    abort(422, "Số lượng xuất hóa đơn của SKU {$reportItem->sku} vượt quá số lượng còn lại.");
+                }
 
-                $price = (float)($it['unit_price'] ?? $it['selling_price'] ?? 0);
-                $lineSub = (float)($it['subtotal'] ?? ($qty * $price));
-                $vatPercent = (float)($it['vat_percent'] ?? $it['vat_rate'] ?? 10);
+                $price = (float) $reportItem->unit_price;
+                $lineSub = $qty * $price;
+                $vatPercent = (float) $reportItem->vat_rate;
                 $lineVat = round($lineSub * ($vatPercent / 100), 2);
                 $lineTotal = $lineSub + $lineVat;
 
                 $created = VatInvoiceItem::create([
                     'vat_invoice_id' => $vatInvoice->id,
                     'sales_invoice_item_id' => $it['sales_invoice_item_id'] ?? $it['invoice_item_id'] ?? null,
+                    'revenue_report_item_id' => $reportItem->id,
                     'order_item_id' => $it['order_item_id'] ?? null,
-                    'product_id' => $it['product_id'] ?? null,
-                    'sku' => $it['sku'] ?? '',
-                    'product_name' => $it['product_name'] ?? ($it['description'] ?? 'Sản phẩm'),
+                    'product_id' => $reportItem->product_id,
+                    'sku' => $reportItem->sku,
+                    'product_name' => $reportItem->product_name,
                     'quantity' => $qty,
                     'unit_price' => $price,
                     'subtotal' => $lineSub,
@@ -201,13 +211,18 @@ class VatInvoiceController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $vatInvoice->load('items', 'customer'),
-                'message' => "Lập hóa đơn VAT {$vatInvoice->invoice_number} thành công và đã ghi nhận doanh thu TK 1311."
+                'message' => "Lập hóa đơn VAT {$vatInvoice->invoice_number} thành công và đã ghi nhận doanh thu TK 1311.",
             ], 201);
+        } catch (HttpExceptionInterface $e) {
+            DB::rollBack();
+            throw $e;
         } catch (\Throwable $e) {
             DB::rollBack();
+            report($e);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Lỗi lập hóa đơn VAT: ' . $e->getMessage()
+                'message' => 'Không thể lập hóa đơn VAT.',
             ], 500);
         }
     }
@@ -218,7 +233,7 @@ class VatInvoiceController extends Controller
     public function show($id)
     {
         $inv = VatInvoice::with(['items', 'customer', 'salesInvoice'])->find($id);
-        if (!$inv) {
+        if (! $inv) {
             return response()->json(['success' => false, 'message' => 'Không tìm thấy hóa đơn VAT'], 404);
         }
 

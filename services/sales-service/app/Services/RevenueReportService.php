@@ -3,9 +3,9 @@
 namespace App\Services;
 
 use App\Models\Invoice;
-use App\Models\VatInvoice;
 use App\Models\RevenueReportItem;
 use App\Models\SalesOrder;
+use App\Models\VatInvoice;
 
 class RevenueReportService
 {
@@ -16,16 +16,16 @@ class RevenueReportService
     {
         $invoice->loadMissing(['items.orderItem', 'deliveryRequest.order']);
         $order = $invoice->deliveryRequest?->order ?: ($invoice->order_id ? SalesOrder::find($invoice->order_id) : null);
-        
+
         $customerId = $order?->customer_id;
         $salespersonId = $order?->assigned_to ?: $order?->created_by;
         $issueDate = now()->format('Y-m-d');
 
         foreach ($invoice->items as $item) {
-            $qty = (float)($item->quantity ?? 1);
-            $price = (float)($item->unit_price ?: ($item->selling_price ?: 0));
-            $subtotal = (float)($item->subtotal ?: ($qty * $price));
-            $vatRate = (float)($item->vat_percent ?? 10);
+            $qty = (float) ($item->quantity ?? 1);
+            $price = (float) ($item->unit_price ?: ($item->selling_price ?: 0));
+            $subtotal = (float) ($item->subtotal ?: ($qty * $price));
+            $vatRate = (float) ($item->vat_percent ?? 10);
             $vatAmount = round($subtotal * ($vatRate / 100), 2);
             $totalAmount = $subtotal + $vatAmount;
 
@@ -47,7 +47,7 @@ class RevenueReportService
                     'invoiced_quantity' => 0,
                     'remaining_invoice_quantity' => $qty,
                     'currency' => $invoice->currency ?: 'VND',
-                    'exchange_rate' => (float)($invoice->exchange_rate ?: 1.0),
+                    'exchange_rate' => (float) ($invoice->exchange_rate ?: 1.0),
                     'unit_price' => $price,
                     'subtotal' => $subtotal,
                     'vat_rate' => $vatRate,
@@ -67,20 +67,24 @@ class RevenueReportService
     public static function processVatInvoiceIssued(VatInvoice $vatInvoice, array $createdItems): void
     {
         foreach ($createdItems as $vItem) {
-            $invItemId = $vItem->sales_invoice_item_id;
-            if (!$invItemId) continue;
-
-            $reportItem = RevenueReportItem::where('invoice_item_id', $invItemId)
+            $reportItem = RevenueReportItem::whereKey($vItem->revenue_report_item_id)
                 ->where('account_code', '1312')
+                ->lockForUpdate()
                 ->first();
 
-            if (!$reportItem) continue;
+            if (! $reportItem) {
+                continue;
+            }
 
-            $invoicedQty = (float)$vItem->quantity;
-            $unitPrice = (float)$reportItem->unit_price;
-            $vatRate = (float)$reportItem->vat_rate;
+            $invoicedQty = (float) $vItem->quantity;
+            $unitPrice = (float) $reportItem->unit_price;
+            $vatRate = (float) $reportItem->vat_rate;
 
-            if ($invoicedQty >= $reportItem->remaining_invoice_quantity) {
+            if ($invoicedQty > (float) $reportItem->remaining_invoice_quantity) {
+                throw new \DomainException("Số lượng xuất hóa đơn vượt quá số lượng còn lại của SKU {$reportItem->sku}.");
+            }
+
+            if (abs($invoicedQty - (float) $reportItem->remaining_invoice_quantity) < 0.000001) {
                 // Xuất hóa đơn đủ toàn bộ số lượng còn lại
                 $subtotal = $invoicedQty * $unitPrice;
                 $vatAmount = round($subtotal * ($vatRate / 100), 2);
@@ -94,7 +98,7 @@ class RevenueReportService
                     'vat_invoice_series' => $vatInvoice->invoice_series,
                     'vat_invoice_item_id' => $vItem->id,
                     'vat_invoice_date' => $vatInvoice->invoice_date,
-                    'invoiced_quantity' => $invoicedQty,
+                    'invoiced_quantity' => (float) $reportItem->invoiced_quantity + $invoicedQty,
                     'remaining_invoice_quantity' => 0,
                     'subtotal' => $subtotal,
                     'vat_amount' => $vatAmount,

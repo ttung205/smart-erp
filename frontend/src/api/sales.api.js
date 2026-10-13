@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import { storage } from '../utils/storage';
 
 export const salesApi = {
   checkHealth() {
@@ -253,8 +254,15 @@ export const salesApi = {
     });
   },
 
-  getDownloadAttachmentUrl(id) {
-    return `/api/v1/sales/attachments/${id}/download`;
+  async downloadAttachment(id) {
+    const token = storage.getToken();
+    const response = await fetch(`/api/v1/sales/attachments/${id}/download`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    if (!response.ok) {
+      throw new Error('Không thể tải tệp đính kèm.');
+    }
+    return response.blob();
   }
 };
 

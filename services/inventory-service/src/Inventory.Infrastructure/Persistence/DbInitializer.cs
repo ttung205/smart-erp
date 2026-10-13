@@ -112,6 +112,29 @@ public static class DbInitializer
     {
         // 1. Ensure Database & Tables Created
         await context.Database.EnsureCreatedAsync();
+        const string idempotencyIndex = "ux_inventory_stock_transaction_document";
+        if (context.Database.IsSqlite())
+        {
+            await context.Database.ExecuteSqlRawAsync($"""
+                CREATE UNIQUE INDEX IF NOT EXISTS {idempotencyIndex}
+                ON inventory_stocks_transaction (document_type, document_id, warehouse_id, product_id)
+                """);
+        }
+        else
+        {
+            try
+            {
+                await context.Database.ExecuteSqlRawAsync($"""
+                    CREATE UNIQUE INDEX {idempotencyIndex}
+                    ON inventory_stocks_transaction (document_type, document_id, warehouse_id, product_id)
+                    """);
+            }
+            catch (Exception exception) when (exception.Message.Contains("Duplicate key name", StringComparison.OrdinalIgnoreCase)
+                || exception.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+            {
+                // The deployment already has the idempotency index.
+            }
+        }
 
         // 2. Seed Warehouses
         if (!await context.Warehouses.AnyAsync())

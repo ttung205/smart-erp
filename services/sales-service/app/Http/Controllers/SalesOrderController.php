@@ -2,25 +2,39 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use App\Models\Customer;
+use App\Models\Product;
+use App\Models\Quotation;
+use App\Models\QuotationItem;
+use App\Models\SaleReportItem;
+use App\Models\SalesAttachment;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
-use App\Models\Quotation;
-use App\Models\Customer;
 use App\Models\User;
-use App\Models\SaleReportItem;
 use App\Services\SaleReportService;
+use App\Support\DocumentNumberGenerator;
+use App\Support\SalesWorkflow;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SalesOrderController extends Controller
 {
     public function index(Request $request)
     {
         $orders = SalesOrder::with(['items', 'customer', 'contact', 'quotation', 'creator', 'assignee', 'approver'])
-            ->orderBy('id', 'desc')
-            ->get();
+            ->orderByDesc('id')
+            ->paginate(min(max($request->integer('per_page', 50), 1), 200));
 
-        return response()->json(['success' => true, 'data' => $orders]);
+        return response()->json([
+            'success' => true,
+            'data' => $orders->items(),
+            'meta' => [
+                'current_page' => $orders->currentPage(),
+                'last_page' => $orders->lastPage(),
+                'per_page' => $orders->perPage(),
+                'total' => $orders->total(),
+            ],
+        ]);
     }
 
     public function show($id)
@@ -30,7 +44,7 @@ class SalesOrderController extends Controller
             ->orWhere('order_number', $id)
             ->first();
 
-        if (!$so) {
+        if (! $so) {
             return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND']], 404);
         }
 
@@ -40,73 +54,72 @@ class SalesOrderController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'customer_id' => 'required',
+            'customer_id' => ['required', 'integer', 'exists:catalog.customers,id'],
+            'quotation_id' => ['nullable', 'integer', 'exists:quotations,id'],
+            'order_date' => ['required', 'date'],
+            'exchange_rate' => ['nullable', 'numeric', 'gt:0'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['required', 'integer', 'exists:catalog.products,id'],
+            'items.*.sku' => ['required', 'string', 'max:100'],
+            'items.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'items.*.selling_price' => ['required', 'numeric', 'gte:0'],
+            'items.*.vat_percent' => ['nullable', 'numeric', 'between:0,100'],
         ]);
 
         try {
             DB::beginTransaction();
 
-            $customer = Customer::find($request->input('customer_id'));
-            $customerCode = strtoupper(trim($customer ? $customer->code : ($request->input('customer_code') ?: 'CUST')));
-            $dateStr = now()->format('dmy'); // ddmmyy e.g. 300926
-            $baseNumber = "OD-{$customerCode}-{$dateStr}";
-
-            // Quy định số đơn hàng nội bộ: OD-mã khách hàng-ddmmyy
-            if (!SalesOrder::where('order_number', $baseNumber)->exists()) {
-                $odNumber = $baseNumber;
-            } else {
-                $letters = range('A', 'Z');
-                $letterIdx = 0;
-                do {
-                    $letterSuffix = $letters[$letterIdx] ?? ('Z' . ($letterIdx - 25));
-                    $odNumber = "{$baseNumber}-{$letterSuffix}";
-                    $letterIdx++;
-                } while (SalesOrder::where('order_number', $odNumber)->exists());
-            }
+            $customer = Customer::findOrFail($request->input('customer_id'));
+            $odNumber = DocumentNumberGenerator::next('sales-order-'.now()->format('Y'), 'OD-'.now()->format('Y').'-', 6);
 
             // Số đơn hàng của khách: nếu người dùng điền số khác thì dùng số đó, còn không thì tự động dùng số hệ thống
             $custOrderNo = trim($request->input('customer_order_number', ''));
-            if (!$custOrderNo || str_starts_with($custOrderNo, '(Tự động') || str_starts_with($custOrderNo, '(Để trống')) {
+            if (! $custOrderNo || str_starts_with($custOrderNo, '(Tự động') || str_starts_with($custOrderNo, '(Để trống')) {
                 $custOrderNo = $odNumber;
             }
 
             // Xử lý quotation_id
             $quotationId = $request->input('quotation_id');
-            if (!$quotationId && $request->filled('quotation_number')) {
+            if (! $quotationId && $request->filled('quotation_number')) {
                 $q = Quotation::where('quotation_number', $request->input('quotation_number'))->first();
                 if ($q) {
                     $quotationId = $q->id;
                 }
             }
+            if ($quotationId) {
+                $quotation = Quotation::lockForUpdate()->find($quotationId);
+                if (! $quotation || $quotation->status !== 'APPROVED') {
+                    DB::rollBack();
+
+                    return response()->json(['success' => false, 'error' => ['code' => 'QUOTATION_NOT_APPROVED']], 409);
+                }
+                if (SalesOrder::where('quotation_id', $quotationId)->exists()) {
+                    DB::rollBack();
+
+                    return response()->json(['success' => false, 'error' => ['code' => 'QUOTATION_ALREADY_CONVERTED']], 409);
+                }
+            }
 
             // Xử lý created_by / assigned_to dạng ID
-            $createdBy = $this->resolveUserId($request->input('created_by'));
-            $assignedTo = $this->resolveUserId($request->input('assigned_to'));
+            $createdBy = $request->attributes->get('actor')->id;
+            $assignedTo = $this->resolveUserId($request->input('assigned_to'), $createdBy);
 
             $items = $request->input('items', []);
             $calcSubtotal = 0;
             $calcVatTotal = 0;
             foreach ($items as $it) {
-                $qty = (float)($it['quantity'] ?? 1);
-                $price = (float)($it['selling_price'] ?? $it['unit_price'] ?? 0);
-                $lineSub = (float)($it['subtotal'] ?? 0);
-                if ($lineSub <= 0) {
-                    $lineSub = $qty * $price;
-                }
-                $vatP = (float)($it['vat_percent'] ?? 10);
+                $qty = (float) ($it['quantity'] ?? 1);
+                $price = (float) ($it['selling_price'] ?? $it['unit_price'] ?? 0);
+                $lineSub = $qty * $price;
+                $vatP = (float) ($it['vat_percent'] ?? 10);
                 $lineVat = round($lineSub * ($vatP / 100), 2);
                 $calcSubtotal += $lineSub;
                 $calcVatTotal += $lineVat;
             }
 
-            $subtotal = (float)$request->input('subtotal', 0);
-            if ($subtotal <= 0 && $calcSubtotal > 0) $subtotal = $calcSubtotal;
-
-            $vatTotal = (float)$request->input('vat_total', 0);
-            if ($vatTotal <= 0 && $calcVatTotal > 0) $vatTotal = $calcVatTotal;
-
-            $totalAmount = (float)$request->input('total_amount', 0);
-            if ($totalAmount <= 0 && ($subtotal + $vatTotal) > 0) $totalAmount = $subtotal + $vatTotal;
+            $subtotal = $calcSubtotal;
+            $vatTotal = $calcVatTotal;
+            $totalAmount = $subtotal + $vatTotal;
 
             $so = SalesOrder::create([
                 'order_number' => $odNumber,
@@ -116,13 +129,13 @@ class SalesOrderController extends Controller
                 'contact_id' => $request->input('contact_id'),
                 'order_date' => $request->input('order_date', now()->format('d/m/Y')),
                 'currency' => $request->input('currency', 'VND'),
-                'exchange_rate' => (float)$request->input('exchange_rate', 1.0),
+                'exchange_rate' => (float) $request->input('exchange_rate', 1.0),
                 'created_by' => $createdBy,
                 'assigned_to' => $assignedTo,
                 'subtotal' => $subtotal,
                 'vat_total' => $vatTotal,
                 'total_amount' => $totalAmount,
-                'status' => $request->input('status', 'DRAFT'),
+                'status' => 'DRAFT',
                 'notes' => $request->input('notes'),
                 'shipping_address' => $request->input('shipping_address'),
             ]);
@@ -130,25 +143,29 @@ class SalesOrderController extends Controller
                 $prodId = $it['product_id'] ?? null;
                 $prod = null;
                 if ($prodId) {
-                    $prod = \App\Models\Product::find($prodId);
-                } elseif (!empty($it['sku'])) {
-                    $prod = \App\Models\Product::where('sku', $it['sku'])->first();
+                    $prod = Product::find($prodId);
+                } elseif (! empty($it['sku'])) {
+                    $prod = Product::where('sku', $it['sku'])->first();
                     $prodId = $prod?->id;
                 }
 
                 $qItemId = $it['quotation_item_id'] ?? null;
-                if (!$qItemId && $quotationId) {
-                    $qItem = \App\Models\QuotationItem::where('quotation_id', $quotationId)
+                if (! $qItemId && $quotationId) {
+                    $qItem = QuotationItem::where('quotation_id', $quotationId)
                         ->where(function ($q) use ($prodId, $it) {
-                            if ($prodId) $q->where('product_id', $prodId);
-                            if (!empty($it['sku'])) $q->orWhere('sku', $it['sku']);
+                            if ($prodId) {
+                                $q->where('product_id', $prodId);
+                            }
+                            if (! empty($it['sku'])) {
+                                $q->orWhere('sku', $it['sku']);
+                            }
                         })->first();
                     $qItemId = $qItem?->id;
                 }
 
-                $grossPrice = (float)($it['gross_price'] ?? 0);
+                $grossPrice = (float) ($it['gross_price'] ?? 0);
                 if ($grossPrice <= 0 && $prod) {
-                    $grossPrice = (float)($prod->gross_price ?? 0);
+                    $grossPrice = (float) ($prod->gross_price ?? 0);
                 }
 
                 SalesOrderItem::create([
@@ -158,13 +175,13 @@ class SalesOrderController extends Controller
                     'sku' => $it['sku'] ?? $prod?->sku ?? 'UNKNOWN',
                     'product_name' => $it['product_name'] ?? $it['designation'] ?? $it['description'] ?? ($prod?->designation ?? 'Sản phẩm'),
                     'delivery_date' => $it['delivery_date'] ?? $it['expected_delivery_date'] ?? null,
-                    'quantity' => (float)($it['quantity'] ?? 1),
+                    'quantity' => (float) ($it['quantity'] ?? 1),
                     'gross_price' => $grossPrice,
-                    'discount_percent' => (float)($it['discount_percent'] ?? 0),
-                    'selling_price' => (float)($it['selling_price'] ?? $it['unit_price'] ?? 0),
-                    'vat_percent' => (float)($it['vat_percent'] ?? 10),
+                    'discount_percent' => (float) ($it['discount_percent'] ?? 0),
+                    'selling_price' => (float) ($it['selling_price'] ?? $it['unit_price'] ?? 0),
+                    'vat_percent' => (float) ($it['vat_percent'] ?? 10),
                     'lead_time' => $it['lead_time'] ?? 'Có sẵn',
-                    'subtotal' => (float)($it['subtotal'] ?? 0),
+                    'subtotal' => (float) $it['quantity'] * (float) ($it['selling_price'] ?? $it['unit_price']),
                     'status' => $it['status'] ?? 'WIN',
                 ]);
             }
@@ -180,10 +197,12 @@ class SalesOrderController extends Controller
 
             // Liên kết tệp đính kèm nếu có
             if ($request->has('attachment_ids')) {
-                \App\Models\SalesAttachment::whereIn('id', (array)$request->input('attachment_ids'))
+                SalesAttachment::whereIn('id', (array) $request->input('attachment_ids'))
+                    ->whereNull('attachable_id')
+                    ->where('uploaded_by', $request->attributes->get('actor')->name)
                     ->update([
                         'attachable_id' => $so->id,
-                        'attachable_type' => 'sales_order'
+                        'attachable_type' => 'sales_order',
                     ]);
             }
 
@@ -192,13 +211,15 @@ class SalesOrderController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $so->load(['items.product', 'customer', 'contact', 'quotation', 'creator', 'assignee', 'approver', 'attachments']),
-                'message' => "Tạo đơn bán hàng {$so->order_number} thành công."
+                'message' => "Tạo đơn bán hàng {$so->order_number} thành công.",
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
+            report($e);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Lỗi tạo đơn bán hàng: ' . $e->getMessage()
+                'message' => 'Không thể tạo đơn bán hàng.',
             ], 500);
         }
     }
@@ -206,54 +227,70 @@ class SalesOrderController extends Controller
     public function update(Request $request, $id)
     {
         $so = SalesOrder::find($id);
-        if (!$so) {
+        if (! $so) {
             return response()->json(['success' => false, 'message' => 'Không tìm thấy đơn bán hàng'], 404);
         }
+        if (! in_array($so->status, ['DRAFT', 'REJECTED'], true)) {
+            return response()->json(['success' => false, 'error' => ['code' => 'DOCUMENT_LOCKED', 'message' => 'Chỉ được sửa đơn nháp hoặc bị từ chối.']], 409);
+        }
+
+        $request->validate([
+            'customer_id' => ['sometimes', 'required', 'integer', 'exists:catalog.customers,id'],
+            'quotation_id' => ['sometimes', 'nullable', 'integer', 'exists:quotations,id'],
+            'order_date' => ['sometimes', 'required', 'date'],
+            'exchange_rate' => ['sometimes', 'numeric', 'gt:0'],
+            'items' => ['sometimes', 'array', 'min:1'],
+            'items.*.product_id' => ['required_with:items', 'integer', 'exists:catalog.products,id'],
+            'items.*.sku' => ['required_with:items', 'string', 'max:100'],
+            'items.*.quantity' => ['required_with:items', 'numeric', 'gt:0'],
+            'items.*.selling_price' => ['required_with:items', 'numeric', 'gte:0'],
+            'items.*.vat_percent' => ['nullable', 'numeric', 'between:0,100'],
+        ]);
 
         try {
             DB::beginTransaction();
 
             $custOrderNo = trim($request->input('customer_order_number', ''));
-            if (!$custOrderNo || str_starts_with($custOrderNo, '(Tự động') || str_starts_with($custOrderNo, '(Để trống')) {
+            if (! $custOrderNo || str_starts_with($custOrderNo, '(Tự động') || str_starts_with($custOrderNo, '(Để trống')) {
                 $custOrderNo = $so->order_number;
             }
 
             $quotationId = $request->input('quotation_id', $so->quotation_id);
-            if (!$quotationId && $request->filled('quotation_number')) {
+            if (! $quotationId && $request->filled('quotation_number')) {
                 $q = Quotation::where('quotation_number', $request->input('quotation_number'))->first();
                 if ($q) {
                     $quotationId = $q->id;
                 }
             }
+            if ($quotationId && (int) $quotationId !== (int) $so->quotation_id) {
+                DB::rollBack();
 
-            $assignedTo = $this->resolveUserId($request->input('assigned_to', $so->assigned_to));
+                return response()->json(['success' => false, 'error' => ['code' => 'QUOTATION_LINK_IMMUTABLE']], 409);
+            }
+
+            $assignedTo = $this->resolveUserId(
+                $request->input('assigned_to', $so->assigned_to),
+                $request->attributes->get('actor')->id,
+            );
 
             $calcSubtotal = 0;
             $calcVatTotal = 0;
             $items = $request->input('items', []);
-            if (!empty($items)) {
+            if (! empty($items)) {
                 foreach ($items as $it) {
-                    $qty = (float)($it['quantity'] ?? 1);
-                    $price = (float)($it['selling_price'] ?? $it['unit_price'] ?? 0);
-                    $lineSub = (float)($it['subtotal'] ?? 0);
-                    if ($lineSub <= 0) {
-                        $lineSub = $qty * $price;
-                    }
-                    $vatP = (float)($it['vat_percent'] ?? 10);
+                    $qty = (float) ($it['quantity'] ?? 1);
+                    $price = (float) ($it['selling_price'] ?? $it['unit_price'] ?? 0);
+                    $lineSub = $qty * $price;
+                    $vatP = (float) ($it['vat_percent'] ?? 10);
                     $lineVat = round($lineSub * ($vatP / 100), 2);
                     $calcSubtotal += $lineSub;
                     $calcVatTotal += $lineVat;
                 }
             }
 
-            $subtotal = (float)$request->input('subtotal', $so->subtotal);
-            if ($subtotal <= 0 && $calcSubtotal > 0) $subtotal = $calcSubtotal;
-
-            $vatTotal = (float)$request->input('vat_total', $so->vat_total);
-            if ($vatTotal <= 0 && $calcVatTotal > 0) $vatTotal = $calcVatTotal;
-
-            $totalAmount = (float)$request->input('total_amount', $so->total_amount);
-            if ($totalAmount <= 0 && ($subtotal + $vatTotal) > 0) $totalAmount = $subtotal + $vatTotal;
+            $subtotal = empty($items) ? (float) $so->subtotal : $calcSubtotal;
+            $vatTotal = empty($items) ? (float) $so->vat_total : $calcVatTotal;
+            $totalAmount = $subtotal + $vatTotal;
 
             $so->update([
                 'customer_order_number' => $custOrderNo,
@@ -262,12 +299,12 @@ class SalesOrderController extends Controller
                 'contact_id' => $request->input('contact_id', $so->contact_id),
                 'order_date' => $request->input('order_date', $so->order_date),
                 'currency' => $request->input('currency', $so->currency),
-                'exchange_rate' => (float)$request->input('exchange_rate', $so->exchange_rate),
+                'exchange_rate' => (float) $request->input('exchange_rate', $so->exchange_rate),
                 'assigned_to' => $assignedTo,
                 'subtotal' => $subtotal,
                 'vat_total' => $vatTotal,
                 'total_amount' => $totalAmount,
-                'status' => $request->input('status', $so->status),
+                'status' => $so->status,
                 'notes' => $request->input('notes', $so->notes),
                 'shipping_address' => $request->input('shipping_address', $so->shipping_address),
             ]);
@@ -278,25 +315,29 @@ class SalesOrderController extends Controller
                     $prodId = $it['product_id'] ?? null;
                     $prod = null;
                     if ($prodId) {
-                        $prod = \App\Models\Product::find($prodId);
-                    } elseif (!empty($it['sku'])) {
-                        $prod = \App\Models\Product::where('sku', $it['sku'])->first();
+                        $prod = Product::find($prodId);
+                    } elseif (! empty($it['sku'])) {
+                        $prod = Product::where('sku', $it['sku'])->first();
                         $prodId = $prod?->id;
                     }
 
                     $qItemId = $it['quotation_item_id'] ?? null;
-                    if (!$qItemId && $quotationId) {
-                        $qItem = \App\Models\QuotationItem::where('quotation_id', $quotationId)
+                    if (! $qItemId && $quotationId) {
+                        $qItem = QuotationItem::where('quotation_id', $quotationId)
                             ->where(function ($q) use ($prodId, $it) {
-                                if ($prodId) $q->where('product_id', $prodId);
-                                if (!empty($it['sku'])) $q->orWhere('sku', $it['sku']);
+                                if ($prodId) {
+                                    $q->where('product_id', $prodId);
+                                }
+                                if (! empty($it['sku'])) {
+                                    $q->orWhere('sku', $it['sku']);
+                                }
                             })->first();
                         $qItemId = $qItem?->id;
                     }
 
-                    $grossPrice = (float)($it['gross_price'] ?? 0);
+                    $grossPrice = (float) ($it['gross_price'] ?? 0);
                     if ($grossPrice <= 0 && $prod) {
-                        $grossPrice = (float)($prod->gross_price ?? 0);
+                        $grossPrice = (float) ($prod->gross_price ?? 0);
                     }
 
                     SalesOrderItem::create([
@@ -306,13 +347,13 @@ class SalesOrderController extends Controller
                         'sku' => $it['sku'] ?? $prod?->sku ?? 'UNKNOWN',
                         'product_name' => $it['product_name'] ?? $it['designation'] ?? $it['description'] ?? ($prod?->designation ?? 'Sản phẩm'),
                         'delivery_date' => $it['delivery_date'] ?? $it['expected_delivery_date'] ?? null,
-                        'quantity' => (float)($it['quantity'] ?? 1),
+                        'quantity' => (float) ($it['quantity'] ?? 1),
                         'gross_price' => $grossPrice,
-                        'discount_percent' => (float)($it['discount_percent'] ?? 0),
-                        'selling_price' => (float)($it['selling_price'] ?? $it['unit_price'] ?? 0),
-                        'vat_percent' => (float)($it['vat_percent'] ?? 10),
+                        'discount_percent' => (float) ($it['discount_percent'] ?? 0),
+                        'selling_price' => (float) ($it['selling_price'] ?? $it['unit_price'] ?? 0),
+                        'vat_percent' => (float) ($it['vat_percent'] ?? 10),
                         'lead_time' => $it['lead_time'] ?? 'Có sẵn',
-                        'subtotal' => (float)($it['subtotal'] ?? 0),
+                        'subtotal' => (float) $it['quantity'] * (float) ($it['selling_price'] ?? $it['unit_price']),
                         'status' => $it['status'] ?? 'WIN',
                     ]);
                 }
@@ -324,10 +365,14 @@ class SalesOrderController extends Controller
 
             // Cập nhật liên kết tệp đính kèm
             if ($request->has('attachment_ids')) {
-                \App\Models\SalesAttachment::whereIn('id', (array)$request->input('attachment_ids'))
+                SalesAttachment::whereIn('id', (array) $request->input('attachment_ids'))
+                    ->where(function ($query) use ($so) {
+                        $query->whereNull('attachable_id')->orWhere('attachable_id', $so->id);
+                    })
+                    ->where('uploaded_by', $request->attributes->get('actor')->name)
                     ->update([
                         'attachable_id' => $so->id,
-                        'attachable_type' => 'sales_order'
+                        'attachable_type' => 'sales_order',
                     ]);
             }
 
@@ -336,13 +381,15 @@ class SalesOrderController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $so->load(['items', 'customer', 'contact', 'quotation', 'creator', 'assignee', 'approver', 'attachments']),
-                'message' => "Cập nhật đơn bán hàng {$so->order_number} thành công."
+                'message' => "Cập nhật đơn bán hàng {$so->order_number} thành công.",
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
+            report($e);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Lỗi cập nhật đơn hàng: ' . $e->getMessage()
+                'message' => 'Không thể cập nhật đơn bán hàng.',
             ], 500);
         }
     }
@@ -350,27 +397,33 @@ class SalesOrderController extends Controller
     public function submitApproval($id)
     {
         $so = SalesOrder::where('id', $id)->orWhere('order_number', $id)->first();
-        if (!$so) {
+        if (! $so) {
             return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND']], 404);
         }
 
+        if (! SalesWorkflow::canTransition('order', $so->status, 'PENDING_APPROVAL')) {
+            return response()->json(['success' => false, 'error' => ['code' => 'INVALID_STATUS_TRANSITION']], 409);
+        }
         $so->update(['status' => 'PENDING_APPROVAL']);
 
         return response()->json([
             'success' => true,
             'data' => $so->load(['items', 'customer', 'contact', 'quotation', 'creator', 'assignee', 'approver']),
-            'message' => "Đơn bán hàng {$so->order_number} đã được gửi xét duyệt."
+            'message' => "Đơn bán hàng {$so->order_number} đã được gửi xét duyệt.",
         ]);
     }
 
     public function approve(Request $request, $id)
     {
         $so = SalesOrder::where('id', $id)->orWhere('order_number', $id)->first();
-        if (!$so) {
+        if (! $so) {
             return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND']], 404);
         }
 
-        $approverId = $this->resolveUserId($request->input('approver_id') ?: $request->input('approved_by'));
+        if (! SalesWorkflow::canTransition('order', $so->status, 'APPROVED')) {
+            return response()->json(['success' => false, 'error' => ['code' => 'INVALID_STATUS_TRANSITION']], 409);
+        }
+        $approverId = $request->attributes->get('actor')->id;
 
         $so->update([
             'status' => 'APPROVED',
@@ -383,21 +436,27 @@ class SalesOrderController extends Controller
         return response()->json([
             'success' => true,
             'data' => $so->load(['items', 'customer', 'contact', 'quotation', 'creator', 'assignee', 'approver']),
-            'message' => "Đơn bán hàng {$so->order_number} đã được phê duyệt thành công."
+            'message' => "Đơn bán hàng {$so->order_number} đã được phê duyệt thành công.",
         ]);
     }
 
     public function reject(Request $request, $id)
     {
         $so = SalesOrder::where('id', $id)->orWhere('order_number', $id)->first();
-        if (!$so) {
+        if (! $so) {
             return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND']], 404);
         }
 
+        if (! SalesWorkflow::canTransition('order', $so->status, 'REJECTED')) {
+            return response()->json(['success' => false, 'error' => ['code' => 'INVALID_STATUS_TRANSITION']], 409);
+        }
         $reason = trim($request->input('reason', ''));
+        if ($reason === '') {
+            return response()->json(['success' => false, 'error' => ['code' => 'REJECTION_REASON_REQUIRED']], 422);
+        }
         $so->update([
             'status' => 'REJECTED',
-            'notes' => $reason ? ($so->notes ? $so->notes . "\n[Lý do từ chối: {$reason}]" : "[Lý do từ chối: {$reason}]") : $so->notes
+            'notes' => $reason ? ($so->notes ? $so->notes."\n[Lý do từ chối: {$reason}]" : "[Lý do từ chối: {$reason}]") : $so->notes,
         ]);
 
         SaleReportItem::where('order_id', $so->id)->update(['status' => 'CANCELLED']);
@@ -405,25 +464,29 @@ class SalesOrderController extends Controller
         return response()->json([
             'success' => true,
             'data' => $so->load(['items', 'customer', 'contact', 'quotation', 'creator', 'assignee', 'approver']),
-            'message' => "Đơn bán hàng {$so->order_number} đã bị từ chối."
+            'message' => "Đơn bán hàng {$so->order_number} đã bị từ chối.",
         ]);
     }
 
     public function destroy($id)
     {
         $so = SalesOrder::find($id);
-        if (!$so) {
+        if (! $so) {
             return response()->json(['success' => false, 'message' => 'Không tìm thấy đơn hàng'], 404);
+        }
+        if (! in_array($so->status, ['DRAFT', 'REJECTED'], true)) {
+            return response()->json(['success' => false, 'error' => ['code' => 'DOCUMENT_LOCKED']], 409);
         }
         SaleReportItem::where('order_id', $so->id)->delete();
         $so->delete();
+
         return response()->json(['success' => true, 'message' => 'Đã xóa đơn bán hàng thành công']);
     }
 
-    private function resolveUserId($userInput)
+    private function resolveUserId(mixed $userInput, int $fallbackUserId): int
     {
-        if (is_numeric($userInput) && (int)$userInput > 0) {
-            return (int)$userInput;
+        if (is_numeric($userInput) && (int) $userInput > 0) {
+            return (int) $userInput;
         }
 
         if (is_string($userInput) && trim($userInput) !== '') {
@@ -433,6 +496,6 @@ class SalesOrderController extends Controller
             }
         }
 
-        return 6; // Default Super Admin ID
+        return $fallbackUserId;
     }
 }
