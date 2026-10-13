@@ -30,7 +30,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-// 4. Cấu hình Swagger OpenAPI qua Swashbuckle
+// 4. Cấu hình Swagger OpenAPI qua Swashbuckle kèm bảo mật Bearer Token
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -40,15 +40,40 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1",
         Description = "Microservice Quản Lý Mua Hàng, Đề Nghị PR, Đơn PO, Nhập Kho GRN & Đối Soát 3 Chiều (.NET 10 Web API)"
     });
+
+    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Description = "Nhập JWT token theo định dạng: Bearer {token}",
+        Name = "Authorization",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
 });
 
 var app = builder.Build();
 
 app.UseCors("AllowAll");
 
-// 5. Đăng ký Middlewares: Correlation ID và Global Exception Handling
+// 5. Đăng ký Middlewares: Correlation ID, Global Exception Handling và JWT Authentication
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
+app.UseMiddleware<JwtAuthMiddleware>();
 
 // 6. Khởi tạo Database và Seed dữ liệu mẫu ban đầu
 using (var scope = app.Services.CreateScope())

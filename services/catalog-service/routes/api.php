@@ -7,6 +7,7 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\WarehouseController;
 
 // 1. Health check
@@ -32,6 +33,9 @@ Route::post('/customers/{id}/contacts', [CustomerController::class, 'addContact'
 Route::put('/customers/{customerId}/contacts/{contactId}', [CustomerController::class, 'updateContact']);
 Route::delete('/customers/{customerId}/contacts/{contactId}', [CustomerController::class, 'deleteContact']);
 
-// 6. Partners & Warehouses
+// 6. Suppliers (Nhà cung cấp)
+Route::apiResource('suppliers', SupplierController::class);
+
+// 7. Partners & Warehouses
 Route::get('/partners', [PartnerController::class, 'index']);
 Route::get('/warehouses', [WarehouseController::class, 'index']);
