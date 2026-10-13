@@ -48,6 +48,7 @@ public class InventoryDbContext : DbContext
             entity.Property(s => s.WarehouseId).HasColumnName("warehouse_id").IsRequired();
             entity.Property(s => s.ProductId).HasColumnName("product_id").IsRequired();
             entity.Property(s => s.Quantity).HasColumnName("quantity").HasDefaultValue(0);
+            entity.Property(s => s.Origin).HasColumnName("origin").HasMaxLength(100).HasDefaultValue("Việt Nam");
             entity.Property(s => s.UpdatedAt).HasColumnName("updated_at");
 
             // Unique constraint: warehouse_id + product_id

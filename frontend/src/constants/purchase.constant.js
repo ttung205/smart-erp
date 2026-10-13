@@ -38,7 +38,7 @@ export const DEFAULT_SUPPLIERS = [
 ];
 
 export const DEFAULT_WAREHOUSES = [
-  { id: 1, code: 'WH-HN', name: 'Kho Tổng Hà Nội (Logistics KCN Quang Minh)' },
-  { id: 2, code: 'WH-HCM', name: 'Kho Trung Tâm Miền Nam (Khu Công Nghệ Cao Q9)' },
-  { id: 3, code: 'WH-DN', name: 'Kho Đà Nẵng (KCN Hòa Cầm, Cẩm Lệ)' }
+  { id: 1, code: 'WH-HN-01', name: 'Kho Tổng Miền Bắc (Hà Nội)', location: 'Cụm Công Nghiệp Nam Từ Liêm, Hà Nội' },
+  { id: 2, code: 'WH-HCM-01', name: 'Kho Trung Tâm Miền Nam (TP.HCM)', location: 'Khu Công Nghiệp Tân Bình, Tân Phú, TP. Hồ Chí Minh' },
+  { id: 3, code: 'WH-DN-01', name: 'Kho Trung Chuyển Miền Trung (Đà Nẵng)', location: 'Khu Công Nghiệp Hòa Khánh, Liên Chiểu, Đà Nẵng' }
 ];

@@ -12,6 +12,7 @@ public class PurchaseRequisitionItem
     public string Sku { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
     public string Unit { get; set; } = "Cái";
+    public string? Origin { get; set; } = "Việt Nam";
 
     public int QuantityRequested { get; set; }
     public int QuantityApproved { get; set; } = 0;

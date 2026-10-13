@@ -19,6 +19,9 @@ public class StockResponseDto
     [JsonPropertyName("warehouse_name")]
     public string? WarehouseName { get; set; }
 
+    [JsonPropertyName("origin")]
+    public string? Origin { get; set; }
+
     [JsonPropertyName("quantity_on_hand")]
     public int QuantityOnHand { get; set; }
 
@@ -72,6 +75,9 @@ public class WarehouseStockBreakdownDto
 
     [JsonPropertyName("warehouse_name")]
     public string WarehouseName { get; set; } = string.Empty;
+
+    [JsonPropertyName("origin")]
+    public string? Origin { get; set; }
 
     [JsonPropertyName("quantity_on_hand")]
     public int QuantityOnHand { get; set; }

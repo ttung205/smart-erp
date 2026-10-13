@@ -160,6 +160,13 @@
         </span>
       </template>
 
+      <!-- Cột Ngày Dự Kiến Về -->
+      <template #col-expected_delivery_date="{ data }">
+        <span class="text-xs text-slate-600 font-mono whitespace-nowrap" :class="data.expected_delivery_date ? '' : 'text-slate-400 italic'">
+          {{ data.expected_delivery_date ? formatDate(data.expected_delivery_date) : '-' }}
+        </span>
+      </template>
+
       <!-- Cột Tổng Tiền Hàng -->
       <template #col-total_amount="{ data }">
         <div class="text-right">
@@ -267,13 +274,16 @@ import PageHeader from '../../../components/common/PageHeader.vue';
 import CommonDataTable from '../../../components/common/CommonDataTable.vue';
 import PurchaseOrderCancelDialog from '../../../components/purchase/PurchaseOrderCancelDialog.vue';
 import { purchaseApi } from '../../../api/purchase.api';
-import { PURCHASE_ORDER_STATUS, DEFAULT_SUPPLIERS, DEFAULT_WAREHOUSES } from '../../../constants/purchase.constant';
+import { PURCHASE_ORDER_STATUS, DEFAULT_SUPPLIERS } from '../../../constants/purchase.constant';
+import { useWarehouses } from '../../../composables/useWarehouses';
 import { formatCurrency } from '../../../utils/format';
 import { isSuperAdmin, hasPermission, canManage } from '../../../utils/rbac';
 import { storage } from '../../../utils/storage';
 
 const router = useRouter();
 const toast = useToast();
+
+const { getWarehouseName, fetchWarehouses } = useWarehouses();
 
 const orders = ref([]);
 const loading = ref(false);
@@ -298,9 +308,10 @@ const supplierOptions = [
 
 const tableColumns = [
   { field: 'po_number', header: 'Mã Đơn PO', width: '150px' },
-  { field: 'supplier_name', header: 'Nhà Cung Cấp', width: '260px' },
-  { field: 'warehouse_id', header: 'Kho Nhập Hàng', width: '180px' },
+  { field: 'supplier_name', header: 'Nhà Cung Cấp', width: '240px' },
+  { field: 'warehouse_id', header: 'Kho Nhập Hàng', width: '170px' },
   { field: 'order_date', header: 'Ngày Lập Đơn', width: '130px' },
+  { field: 'expected_delivery_date', header: 'Ngày Dự Kiến Về', width: '140px' },
   { field: 'total_amount', header: 'Tổng Tiền (VNĐ)', width: '150px', align: 'right' },
   { field: 'status', header: 'Trạng Thái', width: '160px', align: 'center' }
 ];
@@ -550,11 +561,6 @@ const resetFilters = () => {
   supplierFilter.value = null;
 };
 
-const getWarehouseName = (id) => {
-  const found = DEFAULT_WAREHOUSES.find(w => w.id === id);
-  return found ? found.name : `Kho #${id}`;
-};
-
 const getStatusSeverity = (status) => {
   return PURCHASE_ORDER_STATUS[status]?.severity || 'secondary';
 };
@@ -574,6 +580,7 @@ const formatDate = (dateStr) => {
 };
 
 onMounted(() => {
+  fetchWarehouses();
   loadOrders();
 });
 </script>

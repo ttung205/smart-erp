@@ -71,6 +71,10 @@ public class PurchaseOrderItemConfiguration : IEntityTypeConfiguration<PurchaseO
             .HasMaxLength(50)
             .HasDefaultValue("Cái");
 
+        builder.Property(x => x.Origin)
+            .HasMaxLength(100)
+            .HasDefaultValue("Việt Nam");
+
         builder.Property(x => x.UnitCost).HasPrecision(15, 2);
         builder.Property(x => x.TaxRate).HasPrecision(5, 2);
         builder.Property(x => x.DiscountPercent).HasPrecision(5, 2);

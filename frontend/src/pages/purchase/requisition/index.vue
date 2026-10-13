@@ -234,10 +234,14 @@ import Column from 'primevue/column';
 import PageHeader from '../../../components/common/PageHeader.vue';
 import CommonDataTable from '../../../components/common/CommonDataTable.vue';
 import { purchaseApi } from '../../../api/purchase.api';
-import { REQUISITION_STATUS, DEFAULT_WAREHOUSES } from '../../../constants/purchase.constant';
+import { REQUISITION_STATUS } from '../../../constants/purchase.constant';
+import { getProductOrigin } from '../../../constants/catalogProducts.constant';
+import { useWarehouses } from '../../../composables/useWarehouses';
 
 const router = useRouter();
 const toast = useToast();
+
+const { warehouseOptions: baseWarehouseOptions, fetchWarehouses, getWarehouseName } = useWarehouses();
 
 const requisitions = ref([]);
 const loading = ref(false);
@@ -255,10 +259,10 @@ const statusOptions = [
   { label: 'Từ chối duyệt', value: 'REJECTED' }
 ];
 
-const warehouseOptions = [
+const warehouseOptions = computed(() => [
   { label: 'Tất cả kho', value: null },
-  ...DEFAULT_WAREHOUSES.map(w => ({ label: w.name, value: w.id }))
-];
+  ...baseWarehouseOptions.value
+]);
 
 const tableColumns = [
   { field: 'pr_number', header: 'Mã Phiếu PR', width: '140px' },
@@ -288,7 +292,10 @@ const normalizeRequisition = (p) => {
     approval_status: status,
     created_at: p.created_at || p.request_date || new Date().toISOString(),
     items_count: p.items?.length || p.items_count || 1,
-    items: p.items || []
+    items: (p.items || []).map(i => ({
+      ...i,
+      origin: i.origin || getProductOrigin(i.sku || i.product_id)
+    }))
   };
 };
 
@@ -303,8 +310,8 @@ const fallbackData = [
     created_at: '2026-10-01T08:30:00Z',
     items_count: 2,
     items: [
-      { id: 1, sku: 'ELEC-TV-LG55', item_name: 'Smart Tivi LG 4K 55 inch OLED Cinema', quantity_requested: 50, quantity_approved: 40, quantity_ordered: 25 },
-      { id: 2, sku: 'ELEC-FR-ELX341', item_name: 'Tủ Lạnh Electrolux Inverter 341L MultiDoor', quantity_requested: 30, quantity_approved: 30, quantity_ordered: 0 }
+      { id: 1, sku: 'ELEC-TV-LG55', item_name: 'Smart Tivi LG 4K 55 inch OLED Cinema', origin: 'Hàn Quốc', quantity_requested: 50, quantity_approved: 40, quantity_ordered: 25 },
+      { id: 2, sku: 'ELEC-FR-ELX341', item_name: 'Tủ Lạnh Electrolux Inverter 341L MultiDoor', origin: 'Thái Lan', quantity_requested: 30, quantity_approved: 30, quantity_ordered: 0 }
     ]
   },
   {
@@ -317,7 +324,7 @@ const fallbackData = [
     created_at: '2026-10-02T09:15:00Z',
     items_count: 1,
     items: [
-      { id: 3, sku: 'ELEC-WM-TSB105', item_name: 'Máy Giặt Toshiba Inverter 10.5kg Lồng Ngang', quantity_requested: 20, quantity_approved: 0, quantity_ordered: 0 }
+      { id: 3, sku: 'ELEC-WM-TSB105', item_name: 'Máy Giặt Toshiba Inverter 10.5kg Lồng Ngang', origin: 'Nhật Bản', quantity_requested: 20, quantity_approved: 0, quantity_ordered: 0 }
     ]
   },
   {
@@ -330,7 +337,7 @@ const fallbackData = [
     created_at: '2026-10-02T14:00:00Z',
     items_count: 3,
     items: [
-      { id: 4, sku: 'ELEC-AC-DKN15', item_name: 'Điều Hòa Daikin Inverter 1.5HP Tiết Kiệm Điện', quantity_requested: 15, quantity_approved: 0, quantity_ordered: 0 }
+      { id: 4, sku: 'ELEC-AC-DKN15', item_name: 'Điều Hòa Daikin Inverter 1.5HP Tiết Kiệm Điện', origin: 'Nhật Bản', quantity_requested: 15, quantity_approved: 0, quantity_ordered: 0 }
     ]
   }
 ];
@@ -411,11 +418,6 @@ const resetFilters = () => {
   warehouseFilter.value = null;
 };
 
-const getWarehouseName = (id) => {
-  const found = DEFAULT_WAREHOUSES.find(w => w.id === id);
-  return found ? found.name : `Kho #${id}`;
-};
-
 const getStatusSeverity = (status) => {
   return REQUISITION_STATUS[status]?.severity || 'secondary';
 };
@@ -459,6 +461,7 @@ const submitPr = async (item) => {
 };
 
 onMounted(() => {
+  fetchWarehouses();
   loadData();
 });
 </script>

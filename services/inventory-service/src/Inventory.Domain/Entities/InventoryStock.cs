@@ -12,6 +12,7 @@ public class InventoryStock : IStockResourceIdentifier
     public long WarehouseId { get; set; }
     public long ProductId { get; set; }
     public int Quantity { get; set; } = 0;
+    public string Origin { get; set; } = "Việt Nam";
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation property
@@ -21,11 +22,12 @@ public class InventoryStock : IStockResourceIdentifier
     {
     }
 
-    public InventoryStock(long warehouseId, long productId, int initialQuantity = 0)
+    public InventoryStock(long warehouseId, long productId, int initialQuantity = 0, string origin = "Việt Nam")
     {
         WarehouseId = warehouseId;
         ProductId = productId;
         Quantity = initialQuantity;
+        Origin = origin;
         UpdatedAt = DateTime.UtcNow;
     }
 }

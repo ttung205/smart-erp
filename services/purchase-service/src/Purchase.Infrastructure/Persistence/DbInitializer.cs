@@ -38,6 +38,7 @@ public static class DbInitializer
                         Sku = "XQ530-LG",
                         ProductName = "Tủ lạnh LG Ngăn đá dưới 350 lít",
                         Unit = "Cái",
+                        Origin = "Hàn Quốc",
                         QuantityRequested = 100,
                         QuantityApproved = 80, // Quản lý duyệt 80
                         QuantityOrdered = 50,  // Đã phân bổ lên đơn PO 50
@@ -50,6 +51,7 @@ public static class DbInitializer
                         Sku = "GC111-ELE",
                         ProductName = "Tủ lạnh Electrolux Inverter 256 lít",
                         Unit = "Cái",
+                        Origin = "Thái Lan",
                         QuantityRequested = 50,
                         QuantityApproved = 50, // Duyệt đủ 50
                         QuantityOrdered = 0,   // Chưa lên đơn PO
@@ -80,6 +82,7 @@ public static class DbInitializer
                         Sku = "ZN178-TOS",
                         ProductName = "Tủ lạnh Toshiba Ngăn đá trên 400 lít",
                         Unit = "Cái",
+                        Origin = "Nhật Bản",
                         QuantityRequested = 60,
                         QuantityApproved = 0,
                         QuantityOrdered = 0,
@@ -118,6 +121,7 @@ public static class DbInitializer
                         Sku = "XQ530-LG",
                         ProductName = "Tủ lạnh LG Ngăn đá dưới 350 lít",
                         Unit = "Cái",
+                        Origin = "Hàn Quốc",
                         UnitCost = 8500000m,
                         QuantityOrdered = 50,
                         QuantityReceived = 0,

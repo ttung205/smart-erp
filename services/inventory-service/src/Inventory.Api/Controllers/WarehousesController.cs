@@ -51,17 +51,23 @@ public class WarehousesController : ControllerBase
             .OrderBy(w => w.Id)
             .ToListAsync(ct);
 
-        var stockSums = await _context.InventoryStocks
+        var rawStocks = await _context.InventoryStocks
             .AsNoTracking()
-            .GroupBy(s => s.WarehouseId)
-            .Select(g => new { WarehouseId = g.Key, TotalOnHand = g.Sum(s => s.Quantity) })
-            .ToDictionaryAsync(x => x.WarehouseId, x => x.TotalOnHand, ct);
+            .Select(s => new { s.WarehouseId, s.Quantity })
+            .ToListAsync(ct);
 
-        var resSums = await _context.InventoryStockReservations
+        var stockSums = rawStocks
+            .GroupBy(s => s.WarehouseId)
+            .ToDictionary(g => g.Key, g => g.Sum(s => s.Quantity));
+
+        var rawRes = await _context.InventoryStockReservations
             .AsNoTracking()
+            .Select(r => new { r.WarehouseId, r.Quantity })
+            .ToListAsync(ct);
+
+        var resSums = rawRes
             .GroupBy(r => r.WarehouseId)
-            .Select(g => new { WarehouseId = g.Key, TotalAvailable = g.Sum(r => r.Quantity) })
-            .ToDictionaryAsync(x => x.WarehouseId, x => x.TotalAvailable, ct);
+            .ToDictionary(g => g.Key, g => g.Sum(r => r.Quantity));
 
         var warehouses = rawWarehouses.Select(w => new
         {
@@ -105,6 +111,11 @@ public class WarehousesController : ControllerBase
             ? $"WH-{Guid.NewGuid():N}"[..8].ToUpperInvariant() 
             : request.Code.Trim();
 
+        if (await _context.Warehouses.AnyAsync(w => w.Code == code, ct))
+        {
+            return BadRequest(ApiEnvelope<object>.Fail("CONFLICT", $"Mã kho '{code}' đã tồn tại.", null, GetCorrelationId()));
+        }
+
         var warehouse = new Warehouse
         {
             Code = code,
@@ -135,7 +146,14 @@ public class WarehousesController : ControllerBase
             warehouse.Name = request.Name.Trim();
 
         if (!string.IsNullOrWhiteSpace(request.Code))
-            warehouse.Code = request.Code.Trim();
+        {
+            var newCode = request.Code.Trim();
+            if (newCode != warehouse.Code && await _context.Warehouses.AnyAsync(w => w.Code == newCode && w.Id != id, ct))
+            {
+                return BadRequest(ApiEnvelope<object>.Fail("CONFLICT", $"Mã kho '{newCode}' đã tồn tại.", null, GetCorrelationId()));
+            }
+            warehouse.Code = newCode;
+        }
 
         warehouse.Location = request.Location;
         warehouse.CanSell = request.CanSell;

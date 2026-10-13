@@ -19,6 +19,7 @@
               <th class="p-2 text-center w-10">Chọn</th>
               <th class="p-2 text-left">Mã PR</th>
               <th class="p-2 text-left">SKU & Sản Phẩm</th>
+              <th class="p-2 text-left">Xuất Xứ</th>
               <th class="p-2 text-right">SL Duyệt</th>
               <th class="p-2 text-right">Đã Lên PO</th>
               <th class="p-2 text-right text-sky-700">Còn Lại</th>
@@ -45,6 +46,9 @@
                 <div class="font-mono font-semibold text-slate-800">{{ item.sku }}</div>
                 <div class="text-[11px] text-slate-500">{{ item.item_name }}</div>
               </td>
+              <td class="p-2 text-slate-700">
+                {{ item.origin || getProductOrigin(item.sku || item.product_id) }}
+              </td>
               <td class="p-2 text-right font-mono font-medium text-slate-700">
                 {{ item.quantity_approved }}
               </td>
@@ -56,7 +60,7 @@
               </td>
             </tr>
             <tr v-if="availablePrLines.length === 0">
-              <td colspan="6" class="p-4 text-center text-slate-400">
+              <td colspan="7" class="p-4 text-center text-slate-400">
                 Không còn mặt hàng nào trong PR sẵn sàng lên đơn.
               </td>
             </tr>
@@ -98,6 +102,7 @@
 import { ref, watch } from 'vue';
 import Dialog from 'primevue/dialog';
 import Button from 'primevue/button';
+import { getProductOrigin } from '../../constants/catalogProducts.constant';
 
 const props = defineProps({
   visible: {
