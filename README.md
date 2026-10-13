@@ -31,7 +31,7 @@ Sau khi clone repo về máy, mở thư mục dự án và chạy:
    *(Hệ thống sẽ tự động bật 3 cửa sổ console cho Identity Service, Catalog Service và Vue 3 Frontend).*
 
 3. **Mở trình duyệt web truy cập**:
-   - **Frontend Web UI**: [http://localhost:5173](http://localhost:5173)
+   - **Frontend Web UI**: [http://localhost:5174](http://localhost:5174)
 
 ---
 
@@ -66,7 +66,7 @@ npm install
 npm run dev
 ```
 
-Truy cập: **[http://localhost:5173](http://localhost:5173)**
+Truy cập: **[http://localhost:5174](http://localhost:5174)**
 
 ---
 

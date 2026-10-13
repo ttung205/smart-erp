@@ -109,18 +109,6 @@
         />
       </template>
 
-      <!-- Mã Chứng Từ -->
-      <template #col-document_id="{ data }">
-        <span class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200">
-          {{ data.document_id || data.reference_doc }}
-        </span>
-      </template>
-
-      <!-- Kho Hàng -->
-      <template #col-warehouse_name="{ data }">
-        <span class="text-xs font-medium text-slate-800">{{ data.warehouse_name || ('Kho #' + data.warehouse_id) }}</span>
-      </template>
-
       <!-- Mã Nội Bộ (SKU) -->
       <template #col-sku="{ data }">
         <span class="font-mono text-xs font-semibold text-slate-800">{{ data.sku || ('SKU-' + data.product_id) }}</span>
@@ -155,6 +143,18 @@
           </span>
         </div>
       </template>
+
+      <!-- Mã Chứng Từ -->
+      <template #col-document_id="{ data }">
+        <span class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200">
+          {{ data.document_id || data.reference_doc }}
+        </span>
+      </template>
+
+      <!-- Kho Hàng -->
+      <template #col-warehouse_name="{ data }">
+        <span class="text-xs font-medium text-slate-800">{{ data.warehouse_name || ('Kho #' + data.warehouse_id) }}</span>
+      </template>
     </CommonDataTable>
 
     <!-- BẢNG 2: LỊCH SỬ TỒN KHO KHẢ DỤNG -->
@@ -185,18 +185,6 @@
           :severity="getReservationTypeSeverity(data.document_type)"
           class="!text-[11px] !rounded-[4px]" 
         />
-      </template>
-
-      <!-- Mã Chứng Từ -->
-      <template #col-document_id="{ data }">
-        <span class="font-mono text-xs font-bold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-          {{ data.document_id }}
-        </span>
-      </template>
-
-      <!-- Kho Hàng -->
-      <template #col-warehouse_name="{ data }">
-        <span class="text-xs font-medium text-slate-800">{{ data.warehouse_name || ('Kho #' + data.warehouse_id) }}</span>
       </template>
 
       <!-- Mã Nội Bộ (SKU) -->
@@ -233,6 +221,18 @@
           </span>
         </div>
       </template>
+
+      <!-- Mã Chứng Từ -->
+      <template #col-document_id="{ data }">
+        <span class="font-mono text-xs font-bold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+          {{ data.document_id }}
+        </span>
+      </template>
+
+      <!-- Kho Hàng -->
+      <template #col-warehouse_name="{ data }">
+        <span class="text-xs font-medium text-slate-800">{{ data.warehouse_name || ('Kho #' + data.warehouse_id) }}</span>
+      </template>
     </CommonDataTable>
   </div>
 </template>
@@ -248,28 +248,28 @@ import { inventoryApi } from '../../api/inventory.api'
 import { catalogApi } from '../../api/catalog.api'
 import { formatNumber, formatDateTime } from '../../utils/format'
 
-// Cột bảng lịch sử thực tế: Thời gian, Loại giao dịch, Mã chứng từ, Kho hàng, Mã nội bộ, Tồn trước, Biến động, Tồn sau
+// Cột bảng lịch sử thực tế: Thời gian, Loại giao dịch, Mã nội bộ, Tồn trước, Biến động, Tồn sau, Mã chứng từ, Kho hàng
 const physicalColumns = [
   { field: 'created_at', header: 'Thời Gian', width: '160px', sortable: true },
   { field: 'document_type', header: 'Loại Giao Dịch', width: '160px', sortable: true },
-  { field: 'document_id', header: 'Mã Chứng Từ', width: '150px', sortable: true },
-  { field: 'warehouse_name', header: 'Kho Hàng', width: '160px', sortable: true },
   { field: 'sku', header: 'Mã Nội Bộ', width: '140px', sortable: true },
   { field: 'balance_before', header: 'Tồn Trước', width: '110px', align: 'right', sortable: true },
   { field: 'quantity_delta', header: 'Biến Động', width: '110px', align: 'right', sortable: true },
-  { field: 'balance_after', header: 'Tồn Sau', width: '110px', align: 'right', sortable: true }
+  { field: 'balance_after', header: 'Tồn Sau', width: '110px', align: 'right', sortable: true },
+  { field: 'document_id', header: 'Mã Chứng Từ', width: '150px', sortable: true },
+  { field: 'warehouse_name', header: 'Kho Hàng', width: '160px', sortable: true }
 ]
 
 // Cột bảng lịch sử khả dụng: cùng cấu trúc
 const reservationColumns = [
   { field: 'created_at', header: 'Thời Gian', width: '160px', sortable: true },
   { field: 'document_type', header: 'Loại Giao Dịch', width: '160px', sortable: true },
-  { field: 'document_id', header: 'Mã Chứng Từ', width: '150px', sortable: true },
-  { field: 'warehouse_name', header: 'Kho Hàng', width: '160px', sortable: true },
   { field: 'sku', header: 'Mã Nội Bộ', width: '140px', sortable: true },
   { field: 'balance_before', header: 'Tồn Trước', width: '110px', align: 'right', sortable: true },
   { field: 'quantity_delta', header: 'Biến Động', width: '110px', align: 'right', sortable: true },
-  { field: 'balance_after', header: 'Tồn Sau', width: '110px', align: 'right', sortable: true }
+  { field: 'balance_after', header: 'Tồn Sau', width: '110px', align: 'right', sortable: true },
+  { field: 'document_id', header: 'Mã Chứng Từ', width: '150px', sortable: true },
+  { field: 'warehouse_name', header: 'Kho Hàng', width: '160px', sortable: true }
 ]
 
 const activeSubTab = ref('physical') // 'physical' | 'reservation'

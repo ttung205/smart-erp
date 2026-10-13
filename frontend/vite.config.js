@@ -18,8 +18,8 @@ export default defineConfig(({ mode }) => {
       tailwindcss()
     ],
     server: {
-      port: Number(env.VITE_PORT) || 5173,
-      strictPort: false,
+      port: Number(env.VITE_PORT) || 5174,
+      strictPort: true,
       proxy: {
         '/api/v1/auth': {
           target: identityTarget,

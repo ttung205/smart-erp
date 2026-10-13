@@ -369,7 +369,7 @@ const services = ref([
     name: 'Frontend Web Application',
     tech: 'Vue 3 + PrimeVue 4',
     runtime: 'Vite 6 / Tailwind CSS',
-    port: 5173,
+    port: 5174,
     endpoint: '/',
     scope: 'Giao diện bảng điều khiển ERP tập trung theo chuẩn kiến trúc phẳng SPA',
     icon: 'pi pi-desktop',
