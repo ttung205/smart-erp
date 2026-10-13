@@ -225,6 +225,7 @@ import ItemDataTable from '../../../components/common/ItemDataTable.vue';
 import PurchasePrLineSelectorDialog from '../../../components/purchase/PurchasePrLineSelectorDialog.vue';
 import PurchaseOrderCancelDialog from '../../../components/purchase/PurchaseOrderCancelDialog.vue';
 import { purchaseApi } from '../../../api/purchase.api';
+import { catalogApi } from '../../../api/catalog.api';
 import { PURCHASE_ORDER_STATUS, DEFAULT_SUPPLIERS } from '../../../constants/purchase.constant';
 import { getProductOrigin } from '../../../constants/catalogProducts.constant';
 import { useWarehouses } from '../../../composables/useWarehouses';
@@ -249,7 +250,26 @@ const availablePrLines = ref([]);
 const selectedPrLines = ref([]);
 const cancelReason = ref('');
 
-const supplierOptions = DEFAULT_SUPPLIERS;
+const supplierOptions = ref([...DEFAULT_SUPPLIERS]);
+
+const loadSuppliers = async () => {
+  try {
+    const res = await catalogApi.getSuppliers();
+    if (res && res.success && res.data && res.data.length > 0) {
+      supplierOptions.value = res.data.map(s => ({
+        id: s.id,
+        name: s.name,
+        code: s.code,
+        taxCode: s.tax_code || '',
+        phone: s.phone || s.contact_phone || '',
+        contact: s.contact_person || '',
+        address: s.address || ''
+      }));
+    }
+  } catch (err) {
+    console.warn('Sử dụng danh sách NCC mặc định do chưa nạp được từ Catalog:', err);
+  }
+};
 
 const orderColumns = [
   { field: 'sku', header: 'MÃ SKU', width: '120px' },
@@ -690,6 +710,7 @@ const getStatusLabel = (status) => {
 
 onMounted(async () => {
   fetchWarehouses();
+  loadSuppliers();
   if (isEditMode.value) {
     loadOrder(orderId.value);
   } else if (route.query.prId) {

@@ -144,7 +144,37 @@ export const catalogApi = {
     });
   },
 
-  // 5. Partners & Warehouses
+  // 5. Suppliers (Nhà cung cấp)
+  getSuppliers(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return apiClient(`/api/v1/catalog/suppliers${qs ? '?' + qs : ''}`);
+  },
+
+  getSupplierById(id) {
+    return apiClient(`/api/v1/catalog/suppliers/${id}`);
+  },
+
+  createSupplier(data) {
+    return apiClient('/api/v1/catalog/suppliers', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  updateSupplier(id, data) {
+    return apiClient(`/api/v1/catalog/suppliers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  deleteSupplier(id) {
+    return apiClient(`/api/v1/catalog/suppliers/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  // 6. Partners & Warehouses
   getPartners() {
     return apiClient('/api/v1/catalog/partners');
   },

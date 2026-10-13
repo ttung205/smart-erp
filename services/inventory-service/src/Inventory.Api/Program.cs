@@ -37,15 +37,40 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1",
         Description = "High-Performance Stock Engine & Concurrency Control (.NET 8 Web API)"
     });
+
+    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Description = "Nhập JWT token theo định dạng: Bearer {token}",
+        Name = "Authorization",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
 });
 
 var app = builder.Build();
 
 app.UseCors("AllowAll");
 
-// Register Global Exception Handling and Correlation ID Middlewares
+// Register Global Exception Handling, Correlation ID and JWT Authentication Middlewares
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
+app.UseMiddleware<JwtAuthMiddleware>();
 
 // Initialize and Seed Database
 using (var scope = app.Services.CreateScope())
