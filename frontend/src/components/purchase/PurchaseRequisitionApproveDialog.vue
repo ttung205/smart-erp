@@ -4,7 +4,7 @@
     @update:visible="$emit('update:visible', $event)"
     modal
     header="Phê Duyệt Đề Nghị Mua Sắm"
-    :style="{ width: '650px' }"
+    :style="{ width: '680px' }"
     class="!rounded-[6px]"
   >
     <div class="flex flex-col gap-3 pt-1 text-xs">
@@ -16,29 +16,31 @@
         <table class="w-full text-xs">
           <thead class="bg-slate-50 border-b border-slate-200">
             <tr>
-              <th class="p-2 text-left font-semibold text-slate-700">Mã SKU / Sản Phẩm</th>
-              <th class="p-2 text-right font-semibold text-slate-700">SL Xin</th>
-              <th class="p-2 text-right font-semibold text-slate-700 w-32">SL Duyệt</th>
+              <th class="p-2.5 text-left font-semibold text-slate-700">Mã SKU / Sản Phẩm</th>
+              <th class="p-2.5 text-right font-semibold text-slate-700 w-24">SL Xin</th>
+              <th class="p-2.5 text-right font-semibold text-slate-700 w-36 pr-4">SL Duyệt</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(it, idx) in lines" :key="idx" class="border-b border-slate-100 last:border-none">
-              <td class="p-2">
+            <tr v-for="(it, idx) in lines" :key="idx" class="border-b border-slate-100 last:border-none hover:bg-slate-50">
+              <td class="p-2.5">
                 <div class="font-mono font-semibold text-slate-800">{{ it.sku }}</div>
                 <div class="text-[11px] text-slate-500">{{ it.item_name }}</div>
               </td>
-              <td class="p-2 text-right font-mono font-semibold text-slate-800">
+              <td class="p-2.5 text-right font-mono font-semibold text-slate-800">
                 {{ it.quantity_requested }}
               </td>
-              <td class="p-2 text-right">
-                <InputNumber
-                  v-model="it.quantity_approved"
-                  :min="0"
-                  :max="it.quantity_requested"
-                  size="small"
-                  class="w-24 !rounded-[6px] !text-xs"
-                  inputClass="!text-right !font-mono font-bold !py-1"
-                />
+              <td class="p-2.5 text-right pr-4">
+                <div class="flex justify-end">
+                  <InputNumber
+                    v-model="it.quantity_approved"
+                    :min="0"
+                    :max="it.quantity_requested"
+                    size="small"
+                    class="w-24 !rounded-[6px]"
+                    inputClass="!text-right !font-mono font-bold !py-1 !px-2.5 text-xs bg-white !border !border-slate-300 focus:!border-sky-500 !rounded-[6px] w-full"
+                  />
+                </div>
               </td>
             </tr>
           </tbody>

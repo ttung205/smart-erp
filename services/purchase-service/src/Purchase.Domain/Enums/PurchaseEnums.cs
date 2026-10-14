@@ -69,3 +69,22 @@ public enum PrAllocationStatus
     Active,
     Released
 }
+
+public enum PurchaseReturnStatus
+{
+    Draft,
+    Submitted,
+    Approved,
+    Dispatched,
+    Completed,
+    Cancelled
+}
+
+public enum PurchaseReturnReason
+{
+    Defective,
+    WrongSpec,
+    DamagedTransit,
+    Expired,
+    Other
+}

@@ -100,6 +100,7 @@ public class GoodsReceiptService : IGoodsReceiptService
             grn.Items.Add(grnItem);
         }
 
+        grn.PurchaseOrder = po;
         _context.GoodsReceipts.Add(grn);
         await _context.SaveChangesAsync(ct);
 
@@ -127,6 +128,7 @@ public class GoodsReceiptService : IGoodsReceiptService
 
             // Chuyển trạng thái phiếu nhập kho sang Confirmed
             grn.Confirm();
+            grn.PurchaseOrder = po;
 
             // Cập nhật số lượng đã nhận trên từng dòng PO
             foreach (var grItem in grn.Items)
@@ -204,6 +206,7 @@ public class GoodsReceiptService : IGoodsReceiptService
     {
         var grn = await _context.GoodsReceipts
             .AsNoTracking()
+            .Include(x => x.PurchaseOrder)
             .Include(x => x.Items)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
@@ -214,6 +217,7 @@ public class GoodsReceiptService : IGoodsReceiptService
     {
         var query = _context.GoodsReceipts
             .AsNoTracking()
+            .Include(x => x.PurchaseOrder)
             .Include(x => x.Items)
             .AsQueryable();
 
@@ -237,6 +241,7 @@ public class GoodsReceiptService : IGoodsReceiptService
             Id = entity.Id,
             Code = entity.Code,
             PurchaseOrderId = entity.PurchaseOrderId,
+            PoCode = entity.PurchaseOrder?.Code ?? string.Empty,
             WarehouseId = entity.WarehouseId,
             ReceivedBy = entity.ReceivedBy,
             ReceivedAt = entity.ReceivedAt,

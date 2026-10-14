@@ -186,6 +186,14 @@ export const menuCategories = [
             permission: 'purchase.view',
             label: 'Hóa đơn & Đối chiếu',
             icon: 'pi pi-receipt'
+          },
+          {
+            id: 'purchase-return',
+            path: '/purchase/returns',
+            resource: 'purchase',
+            permission: 'purchase.view',
+            label: 'Trả hàng mua (RTV)',
+            icon: 'pi pi-replay'
           }
         ]
       },

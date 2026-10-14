@@ -16,8 +16,8 @@
       </template>
     </PageHeader>
 
-    <!-- 2. Thẻ Thống Kê Tổng Quan (Flat KPI Cards - Không Rung Lắc, Hairline Border) -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+    <!-- 2. Thẻ Thống Kê Tổng Quan (Flat KPI Cards - 1 Hàng Ngang 4 Thẻ) -->
+    <div class="grid grid-cols-4 gap-3">
       <div class="bg-white border border-slate-200 rounded-[6px] p-3 flex items-center justify-between">
         <div>
           <span class="text-xs text-slate-500 font-medium block">Tổng số PO</span>
@@ -321,8 +321,10 @@ const normalizeOrder = (o) => {
   let status = rawStatus;
   if (rawStatus === 'PENDING' || rawStatus === 'PENDING_APPROVAL' || rawStatus === 'PENDINGAPPROVAL') {
     status = 'SUBMITTED';
-  } else if (rawStatus === 'PARTIALLYRECEIVED') {
+  } else if (rawStatus === 'PARTIALLYRECEIVED' || rawStatus === 'PARTIALLY_RECEIVED') {
     status = 'PARTIALLY_RECEIVED';
+  } else if (rawStatus === 'COMPLETED' || rawStatus === 'RECEIVED') {
+    status = 'RECEIVED';
   }
 
   const supplierId = Number(o.supplier_id || 1);
@@ -397,15 +399,14 @@ const loadOrders = async () => {
     // 1. Fallback mẫu
     fallbackOrders.forEach(item => mergedMap.set(String(item.id), normalizeOrder(item)));
 
-    // 2. Nạp từ backend API
-    apiList.forEach(item => {
+    // 2. Nạp từ client localStorage (chỉ dùng cho các đơn tạo offline chưa có trên server)
+    localList.forEach(item => {
       mergedMap.set(String(item.id), item);
     });
 
-    // 3. Nạp và ghi đè từ client localStorage
-    localList.forEach(item => {
-      const existing = mergedMap.get(String(item.id)) || {};
-      mergedMap.set(String(item.id), { ...existing, ...item });
+    // 3. Nạp từ backend API (Nguồn dữ liệu chính thức, ghi đè toàn bộ dữ liệu mẫu hoặc local cũ)
+    apiList.forEach(item => {
+      mergedMap.set(String(item.id), item);
     });
 
     orders.value = Array.from(mergedMap.values()).sort((a, b) => new Date(b.order_date || b.created_at || 0) - new Date(a.order_date || a.created_at || 0));

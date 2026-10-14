@@ -48,6 +48,8 @@ import PurchaseReceiptPage from '../pages/purchase/receipt/index.vue';
 import PurchaseReceiptFormPage from '../pages/purchase/receipt/form.vue';
 import PurchaseInvoicePage from '../pages/purchase/invoice/index.vue';
 import PurchaseInvoiceFormPage from '../pages/purchase/invoice/form.vue';
+import PurchaseReturnPage from '../pages/purchase/return/index.vue';
+import PurchaseReturnFormPage from '../pages/purchase/return/form.vue';
 
 export const routes = [
   {
@@ -386,6 +388,39 @@ export const routes = [
       resource: 'purchase',
       permission: 'purchase.view',
       title: 'Chi Tiết Hóa Đơn & Đối Chiếu'
+    }
+  },
+  {
+    path: '/purchase/returns',
+    name: 'purchase-returns',
+    component: PurchaseReturnPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'purchase',
+      permission: 'purchase.view',
+      title: 'Trả Hàng Mua (RTV)'
+    }
+  },
+  {
+    path: '/purchase/returns/create',
+    name: 'purchase-returns-create',
+    component: PurchaseReturnFormPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'purchase',
+      permission: 'purchase.create',
+      title: 'Lập Phiếu Trả Hàng Mua'
+    }
+  },
+  {
+    path: '/purchase/returns/:id',
+    name: 'purchase-returns-detail',
+    component: PurchaseReturnFormPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'purchase',
+      permission: 'purchase.view',
+      title: 'Chi Tiết Phiếu Trả Hàng Mua'
     }
   },
   {

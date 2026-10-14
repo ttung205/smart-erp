@@ -16,8 +16,8 @@
       </template>
     </PageHeader>
 
-    <!-- 2. Thẻ Thống Kê Tổng Quan (Flat KPI Cards - Không Rung Lắc, Hairline Border) -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+    <!-- 2. Thẻ Thống Kê Tổng Quan (Flat KPI Cards - 1 Hàng Ngang 4 Thẻ) -->
+    <div class="grid grid-cols-4 gap-3">
       <div class="bg-white border border-slate-200 rounded-[6px] p-3 flex items-center justify-between">
         <div>
           <span class="text-xs text-slate-500 font-medium block">Tổng số PR</span>

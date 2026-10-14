@@ -15,6 +15,7 @@ export const PURCHASE_ORDER_STATUS = {
   APPROVED: { label: 'Đã duyệt', severity: 'info' },
   PARTIALLY_RECEIVED: { label: 'Nhận 1 phần', severity: 'warn' },
   RECEIVED: { label: 'Đã nhận đủ', severity: 'success' },
+  COMPLETED: { label: 'Đã nhận đủ', severity: 'success' },
   CANCELLED: { label: 'Đã hủy', severity: 'danger' }
 };
 
@@ -29,6 +30,23 @@ export const MATCHING_STATUS = {
   DISCREPANCY: { label: 'Lệch', severity: 'danger' },
   POSTED: { label: 'Đã ghi sổ', severity: 'info' }
 };
+
+export const PURCHASE_RETURN_STATUS = {
+  DRAFT: { label: 'Bản nháp', severity: 'secondary' },
+  SUBMITTED: { label: 'Chờ duyệt', severity: 'warn' },
+  APPROVED: { label: 'Đã duyệt', severity: 'info' },
+  DISPATCHED: { label: 'Đã xuất trả', severity: 'success' },
+  CANCELLED: { label: 'Đã hủy', severity: 'danger' }
+};
+
+export const PURCHASE_RETURN_REASONS = [
+  { value: 'Defective', label: 'Hàng lỗi kỹ thuật / Không đạt tiêu chuẩn (Defective)' },
+  { value: 'WrongItem', label: 'Giao sai mã SKU / Sai quy cách (Wrong Item)' },
+  { value: 'ExcessQuantity', label: 'Giao thừa số lượng đặt (Excess Quantity)' },
+  { value: 'DamagedInTransit', label: 'Móp méo / Hư hại do vận chuyển (Damaged)' },
+  { value: 'ExpiredNearDate', label: 'Cận date / Hết hạn bảo hành (Expired)' },
+  { value: 'Other', label: 'Lý do khác (Other)' }
+];
 
 export const DEFAULT_SUPPLIERS = [
   { id: 1, code: 'SUP-LG', name: 'Công ty TNHH LG Electronics Việt Nam', taxCode: '0100109106', contact: 'Trần Văn Long (0903.111.222)' },

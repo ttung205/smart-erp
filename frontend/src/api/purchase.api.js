@@ -148,5 +148,50 @@ export const purchaseApi = {
     return apiClient(`/api/v1/purchase/invoices/${id}/post`, {
       method: 'POST'
     });
+  },
+
+  // 5. Purchase Returns / Return To Vendor (Trả hàng mua - RTV)
+  getReturns(params = {}) {
+    const cleanParams = Object.fromEntries(
+      Object.entries(params).filter(([_, v]) => v !== null && v !== undefined && v !== '')
+    );
+    const qs = new URLSearchParams(cleanParams).toString();
+    return apiClient(`/api/v1/purchase/returns${qs ? '?' + qs : ''}`);
+  },
+
+  getReturnById(id) {
+    return apiClient(`/api/v1/purchase/returns/${id}`);
+  },
+
+  createReturn(data) {
+    return apiClient('/api/v1/purchase/returns', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  submitReturn(id) {
+    return apiClient(`/api/v1/purchase/returns/${id}/submit`, {
+      method: 'POST'
+    });
+  },
+
+  approveReturn(id) {
+    return apiClient(`/api/v1/purchase/returns/${id}/approve`, {
+      method: 'POST'
+    });
+  },
+
+  dispatchReturn(id) {
+    return apiClient(`/api/v1/purchase/returns/${id}/dispatch`, {
+      method: 'POST'
+    });
+  },
+
+  cancelReturn(id, reason) {
+    return apiClient(`/api/v1/purchase/returns/${id}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: reason || 'Hủy phiếu trả' })
+    });
   }
 };

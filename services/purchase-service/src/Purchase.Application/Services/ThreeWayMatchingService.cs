@@ -62,11 +62,14 @@ public class ThreeWayMatchingService : IThreeWayMatchingService
             if (itemDto.QuantityInvoiced <= 0)
                 throw new PurchaseDomainException("INVALID_QUANTITY", $"Số lượng trên hóa đơn của {itemDto.Sku} phải lớn hơn 0.");
 
-            var poItem = po.Items.FirstOrDefault(x => x.Id == itemDto.PurchaseOrderItemId);
+            var poItem = po.Items.FirstOrDefault(x => x.Id == itemDto.PurchaseOrderItemId)
+                         ?? po.Items.FirstOrDefault(x => !string.IsNullOrEmpty(itemDto.Sku) && x.Sku == itemDto.Sku)
+                         ?? (itemDto.ProductId > 0 ? po.Items.FirstOrDefault(x => x.ProductId == itemDto.ProductId) : null);
+
             if (poItem == null)
             {
                 throw new PurchaseDomainException("PO_ITEM_NOT_FOUND",
-                    $"Dòng PO Item ID {itemDto.PurchaseOrderItemId} không thuộc đơn hàng {po.Code}.");
+                    $"Dòng mặt hàng ({itemDto.Sku ?? itemDto.PurchaseOrderItemId.ToString()}) không thuộc đơn hàng {po.Code}.");
             }
 
             var invItem = new PurchaseInvoiceItem
@@ -87,6 +90,7 @@ public class ThreeWayMatchingService : IThreeWayMatchingService
         }
 
         invoice.RecalculateTotals();
+        invoice.PurchaseOrder = po;
         _context.PurchaseInvoices.Add(invoice);
         await _context.SaveChangesAsync(ct);
 
@@ -269,6 +273,8 @@ public class ThreeWayMatchingService : IThreeWayMatchingService
     {
         var invoice = await _context.PurchaseInvoices
             .AsNoTracking()
+            .Include(x => x.PurchaseOrder)
+            .Include(x => x.GoodsReceipt)
             .Include(x => x.Items)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
@@ -279,6 +285,8 @@ public class ThreeWayMatchingService : IThreeWayMatchingService
     {
         var query = _context.PurchaseInvoices
             .AsNoTracking()
+            .Include(x => x.PurchaseOrder)
+            .Include(x => x.GoodsReceipt)
             .Include(x => x.Items)
             .AsQueryable();
 
@@ -302,7 +310,9 @@ public class ThreeWayMatchingService : IThreeWayMatchingService
             Id = entity.Id,
             Code = entity.Code,
             PurchaseOrderId = entity.PurchaseOrderId,
+            PoCode = entity.PurchaseOrder?.Code ?? string.Empty,
             GoodsReceiptId = entity.GoodsReceiptId,
+            GoodsReceiptCode = entity.GoodsReceipt?.Code,
             SupplierId = entity.SupplierId,
             SupplierInvoiceNumber = entity.SupplierInvoiceNumber,
             InvoiceDate = entity.InvoiceDate,

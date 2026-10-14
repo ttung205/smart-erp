@@ -73,6 +73,9 @@ public class GoodsReceiptDto
     [JsonPropertyName("purchase_order_id")]
     public long PurchaseOrderId { get; set; }
 
+    [JsonPropertyName("po_code")]
+    public string PoCode { get; set; } = string.Empty;
+
     [JsonPropertyName("warehouse_id")]
     public long WarehouseId { get; set; }
 
