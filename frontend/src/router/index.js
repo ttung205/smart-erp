@@ -34,6 +34,10 @@ import InvoiceFormPage from '../pages/invoice/form.vue';
 import VatInvoicePage from '../pages/vat-invoice/index.vue';
 import WarehouseRequestSalePage from '../pages/warehouse-request-sale/index.vue';
 import AccountingPage from '../pages/accounting/index.vue';
+import SaleReturnRequestPage from '../pages/sale-return-request/index.vue';
+import SaleReturnRequestFormPage from '../pages/sale-return-request/form.vue';
+import SaleReturnPage from '../pages/sale-return/index.vue';
+import SaleReturnFormPage from '../pages/sale-return/form.vue';
 
 // Purchase sub-pages
 import PurchaseRequisitionPage from '../pages/purchase/requisition/index.vue';
@@ -531,6 +535,26 @@ export const routes = [
       permission: 'invoice.view',
       title: 'Quản Lý Xuất Hóa Đơn GTGT'
     }
+  },
+  {
+    path: '/sale-return-request', name: 'sale-return-request', component: SaleReturnRequestPage,
+    meta: { requiresAuth: true, resource: 'sale_return', permission: 'sale_return.view', title: 'Yêu cầu nhập hàng trả lại' }
+  },
+  {
+    path: '/sale-return-request/create', name: 'sale-return-request-create', component: SaleReturnRequestFormPage,
+    meta: { requiresAuth: true, resource: 'sale_return', permission: 'sale_return.create', title: 'Tạo yêu cầu nhập hàng trả lại' }
+  },
+  {
+    path: '/sale-return-request/:id', name: 'sale-return-request-detail', component: SaleReturnRequestFormPage,
+    meta: { requiresAuth: true, resource: 'sale_return', permission: 'sale_return.view', title: 'Chi tiết yêu cầu nhập trả' }
+  },
+  {
+    path: '/sale-return', name: 'sale-return', component: SaleReturnPage,
+    meta: { requiresAuth: true, resource: 'sale_return', permission: 'sale_return.view', title: 'Phiếu trả hàng bán' }
+  },
+  {
+    path: '/sale-return/:id', name: 'sale-return-detail', component: SaleReturnFormPage,
+    meta: { requiresAuth: true, resource: 'sale_return', permission: 'sale_return.view', title: 'Chi tiết phiếu trả hàng bán' }
   },
   {
     path: '/warehouse-request-sale',

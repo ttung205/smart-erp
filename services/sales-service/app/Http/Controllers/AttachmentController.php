@@ -15,8 +15,8 @@ class AttachmentController extends Controller
     public function index(Request $request)
     {
         $request->validate([
-            'type' => ['required_without:attachable_type', 'nullable', 'in:quotation,sales_order,invoice'],
-            'attachable_type' => ['required_without:type', 'nullable', 'in:quotation,sales_order,invoice'],
+            'type' => ['required_without:attachable_type', 'nullable', 'in:quotation,sales_order,invoice,sale_return_request'],
+            'attachable_type' => ['required_without:type', 'nullable', 'in:quotation,sales_order,invoice,sale_return_request'],
             'id' => ['required_without:attachable_id', 'nullable', 'integer'],
             'attachable_id' => ['required_without:id', 'nullable', 'integer'],
         ]);
@@ -54,7 +54,7 @@ class AttachmentController extends Controller
         $request->validate([
             'file' => 'nullable|file|max:20480|mimes:pdf,png,jpg,jpeg,webp,doc,docx,xls,xlsx,csv,txt',
             'files.*' => 'nullable|file|max:20480|mimes:pdf,png,jpg,jpeg,webp,doc,docx,xls,xlsx,csv,txt',
-            'attachable_type' => 'nullable|in:quotation,sales_order,invoice',
+            'attachable_type' => 'nullable|in:quotation,sales_order,invoice,sale_return_request',
             'attachable_id' => 'nullable|integer',
         ]);
 

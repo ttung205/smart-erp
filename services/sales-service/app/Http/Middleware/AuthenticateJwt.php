@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\IdentityUserResolver;
 use Closure;
 use Illuminate\Http\Request;
 use stdClass;
@@ -47,7 +48,7 @@ class AuthenticateJwt
 
         $actor = new stdClass;
         $actor->id = (int) $payload['sub'];
-        $actor->name = (string) ($payload['name'] ?? '');
+        $actor->name = IdentityUserResolver::name($actor->id, (string) ($payload['name'] ?? ''));
         $actor->email = (string) ($payload['email'] ?? '');
         $actor->roles = array_values(array_filter((array) ($payload['roles'] ?? []), 'is_string'));
         $actor->permissions = array_values(array_filter((array) ($payload['permissions'] ?? []), 'is_string'));

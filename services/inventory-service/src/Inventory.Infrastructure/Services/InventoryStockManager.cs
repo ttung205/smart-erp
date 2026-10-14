@@ -128,6 +128,34 @@ public class InventoryStockManager : IInventoryStockManager
 
         await using var tx = await _context.Database.BeginTransactionAsync(ct);
 
+        var existingTransaction = await _context.InventoryStockReservationTransactions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.DocumentType == command.DocumentType
+                && t.DocumentId == command.DocumentId
+                && t.WarehouseId == command.WarehouseId
+                && t.ProductId == command.ProductId, ct);
+
+        if (existingTransaction != null)
+        {
+            if (existingTransaction.QuantityDelta != command.QuantityDelta)
+            {
+                throw new InvalidOperationException(
+                    $"Chung tu {command.DocumentId} da duoc ghi so ton kha dung voi so luong khac.");
+            }
+
+            return new StockOperationResult
+            {
+                WarehouseId = existingTransaction.WarehouseId,
+                ProductId = existingTransaction.ProductId,
+                QuantityReserved = existingTransaction.BalanceAfter,
+                OperationType = existingTransaction.DocumentType,
+                QuantityDelta = existingTransaction.QuantityDelta,
+                ReferenceDoc = existingTransaction.DocumentId,
+                MovementId = existingTransaction.Id,
+                Timestamp = existingTransaction.CreatedAt
+            };
+        }
+
         var res = await _context.InventoryStockReservations
             .FirstOrDefaultAsync(r => r.WarehouseId == command.WarehouseId && r.ProductId == command.ProductId, ct);
 

@@ -7,6 +7,8 @@ use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\RevenueReportController;
 use App\Http\Controllers\SaleReportController;
+use App\Http\Controllers\SaleReturnController;
+use App\Http\Controllers\SaleReturnRequestController;
 use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\VatInvoiceController;
 use Illuminate\Support\Facades\Route;
@@ -15,11 +17,26 @@ use Illuminate\Support\Facades\Route;
 Route::get('/health', [HealthController::class, 'check']);
 
 Route::middleware('jwt')->group(function () {
+    Route::get('/sale-return-requests/eligible-invoices', [SaleReturnRequestController::class, 'eligibleInvoices'])->middleware('permission:sale_return.view');
+    Route::get('/sale-return-requests', [SaleReturnRequestController::class, 'index'])->middleware('permission:sale_return.view');
+    Route::post('/sale-return-requests', [SaleReturnRequestController::class, 'store'])->middleware('permission:sale_return.create');
+    Route::get('/sale-return-requests/{saleReturnRequest}', [SaleReturnRequestController::class, 'show'])->middleware('permission:sale_return.view');
+    Route::post('/sale-return-requests/{saleReturnRequest}/start-inspection', [SaleReturnRequestController::class, 'startInspection'])->middleware('permission:sale_return.technical');
+    Route::put('/sale-return-requests/{saleReturnRequest}/inspection', [SaleReturnRequestController::class, 'inspect'])->middleware('permission:sale_return.technical');
+    Route::post('/sale-return-requests/{saleReturnRequest}/reject', [SaleReturnRequestController::class, 'reject'])->middleware('permission:sale_return.technical');
+    Route::post('/sale-return-requests/{saleReturnRequest}/receive-technical', [SaleReturnRequestController::class, 'receiveTechnical'])->middleware('permission:sale_return.technical');
+    Route::post('/sale-return-requests/{saleReturnRequest}/request-main-warehouse', [SaleReturnRequestController::class, 'requestMainWarehouse'])->middleware('permission:sale_return.technical');
+    Route::post('/sale-return-requests/{saleReturnRequest}/approve-main', [SaleReturnRequestController::class, 'approveMain'])->middleware('permission:sale_return.approve');
+    Route::post('/sale-return-requests/{saleReturnRequest}/reject-main', [SaleReturnRequestController::class, 'rejectMain'])->middleware('permission:sale_return.approve');
+    Route::post('/sale-return-requests/{saleReturnRequest}/post', [SaleReturnController::class, 'post'])->middleware('permission:sale_return.post');
+    Route::get('/sale-returns', [SaleReturnController::class, 'index'])->middleware('permission:sale_return.view');
+    Route::get('/sale-returns/{saleReturn}', [SaleReturnController::class, 'show'])->middleware('permission:sale_return.view');
+
     // Attachments (Tệp đính kèm)
-    Route::get('/attachments', [AttachmentController::class, 'index'])->middleware('permission:quotation.view,order.view,invoice.view');
-    Route::post('/attachments/upload', [AttachmentController::class, 'upload'])->middleware('permission:quotation.create,quotation.update,order.create,order.update,invoice.create');
-    Route::get('/attachments/{id}/download', [AttachmentController::class, 'download'])->middleware('permission:quotation.view,order.view,invoice.view');
-    Route::delete('/attachments/{id}', [AttachmentController::class, 'destroy'])->middleware('permission:quotation.update,order.update,invoice.manage');
+    Route::get('/attachments', [AttachmentController::class, 'index'])->middleware('permission:quotation.view,order.view,invoice.view,sale_return.view');
+    Route::post('/attachments/upload', [AttachmentController::class, 'upload'])->middleware('permission:quotation.create,quotation.update,order.create,order.update,invoice.create,sale_return.create,sale_return.technical');
+    Route::get('/attachments/{id}/download', [AttachmentController::class, 'download'])->middleware('permission:quotation.view,order.view,invoice.view,sale_return.view');
+    Route::delete('/attachments/{id}', [AttachmentController::class, 'destroy'])->middleware('permission:quotation.update,order.update,invoice.manage,sale_return.technical,sale_return.manage');
 
     // 2. Quotations (Báo Giá)
     Route::post('/quotations/{id}/submit-approval', [QuotationController::class, 'submitApproval'])->middleware('permission:quotation.update');

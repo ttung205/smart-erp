@@ -72,6 +72,14 @@ class IdentitySeeder extends Seeder
             ['code' => 'invoice.create', 'module' => 'invoice', 'description' => 'Tạo chứng từ xuất hóa đơn'],
             ['code' => 'invoice.manage', 'module' => 'invoice', 'description' => 'Quản trị chứng từ và hóa đơn'],
 
+            // Phân hệ Hàng bán trả lại
+            ['code' => 'sale_return.view', 'module' => 'sale_return', 'description' => 'Xem yêu cầu nhập trả và phiếu trả hàng bán'],
+            ['code' => 'sale_return.create', 'module' => 'sale_return', 'description' => 'Tạo yêu cầu nhập hàng bán trả lại'],
+            ['code' => 'sale_return.technical', 'module' => 'sale_return', 'description' => 'Kiểm tra chất lượng và nhập kho kỹ thuật'],
+            ['code' => 'sale_return.approve', 'module' => 'sale_return', 'description' => 'Duyệt yêu cầu nhập kho chính'],
+            ['code' => 'sale_return.post', 'module' => 'sale_return', 'description' => 'Ghi sổ và lập phiếu trả hàng bán'],
+            ['code' => 'sale_return.manage', 'module' => 'sale_return', 'description' => 'Toàn quyền nghiệp vụ hàng bán trả lại'],
+
             // Phân hệ Đối tác & Kho bãi (Master)
             ['code' => 'master.view', 'module' => 'master', 'description' => 'Xem danh mục đối tác khách hàng & kho bãi (Route: /master)'],
             ['code' => 'master.manage', 'module' => 'master', 'description' => 'Thêm, sửa, xóa đối tác và kho bãi'],
@@ -131,7 +139,7 @@ class IdentitySeeder extends Seeder
             foreach ($allPerms as $permId) {
                 DB::table('role_permissions')->insert([
                     'role_id' => $superAdminRoleId,
-                    'permission_id' => $permId
+                    'permission_id' => $permId,
                 ]);
             }
         }
@@ -143,13 +151,13 @@ class IdentitySeeder extends Seeder
                 'quotation.view', 'quotation.create', 'quotation.update', 'quotation.cancel',
                 'order.view', 'order.create', 'order.update',
                 'delivery.view', 'delivery.create',
-                'invoice.view', 'catalog.view', 'master.view', 'inventory.view'
+                'invoice.view', 'sale_return.view', 'sale_return.create', 'catalog.view', 'master.view', 'inventory.view',
             ];
             foreach ($salePermCodes as $code) {
                 if (isset($allPerms[$code])) {
                     DB::table('role_permissions')->insert([
                         'role_id' => $saleRoleId,
-                        'permission_id' => $allPerms[$code]
+                        'permission_id' => $allPerms[$code],
                     ]);
                 }
             }
@@ -163,14 +171,32 @@ class IdentitySeeder extends Seeder
                 'order.view', 'order.create', 'order.update', 'order.cancel', 'order.approve', 'order.manage',
                 'delivery.view', 'delivery.create', 'delivery.manage',
                 'invoice.view', 'invoice.create', 'invoice.manage',
-                'catalog.view', 'master.view', 'inventory.view'
+                'sale_return.view', 'sale_return.create', 'sale_return.approve',
+                'catalog.view', 'master.view', 'inventory.view',
             ];
             foreach ($smPermCodes as $code) {
                 if (isset($allPerms[$code])) {
                     DB::table('role_permissions')->insert([
                         'role_id' => $saleManagerRoleId,
-                        'permission_id' => $allPerms[$code]
+                        'permission_id' => $allPerms[$code],
                     ]);
+                }
+            }
+        }
+
+        $rolePermissionMap = [
+            'TECHNICAL' => ['sale_return.view', 'sale_return.technical', 'inventory.view'],
+            'TECHNICAL_MANAGER' => ['sale_return.view', 'sale_return.technical', 'sale_return.approve', 'inventory.view'],
+            'LOGISTIC' => ['sale_return.view', 'sale_return.approve', 'inventory.view', 'inventory.transfer'],
+            'LOGISTIC_MANAGER' => ['sale_return.view', 'sale_return.approve', 'sale_return.post', 'inventory.view', 'inventory.manage'],
+            'FINANCE_ACCOUNTING' => ['sale_return.view', 'sale_return.post', 'inventory.view'],
+            'FINANCE_ACCOUNTING_MANAGER' => ['sale_return.view', 'sale_return.approve', 'sale_return.post', 'inventory.view'],
+        ];
+        foreach ($rolePermissionMap as $roleCode => $permissionCodes) {
+            $roleId = DB::table('roles')->where('code', $roleCode)->value('id');
+            foreach ($permissionCodes as $code) {
+                if ($roleId && isset($allPerms[$code])) {
+                    DB::table('role_permissions')->insert(['role_id' => $roleId, 'permission_id' => $allPerms[$code]]);
                 }
             }
         }
@@ -185,67 +211,67 @@ class IdentitySeeder extends Seeder
                 'email' => 'admin@erp.local',
                 'name' => 'Quản Trị Viên Tối Cao (Super Admin)',
                 'dept' => 'BOD',
-                'role' => 'SUPER_ADMIN'
+                'role' => 'SUPER_ADMIN',
             ],
             [
                 'email' => 'sale@erp.local',
                 'name' => 'Chuyên Viên Kinh Doanh (Sale)',
                 'dept' => 'SALES',
-                'role' => 'SALE'
+                'role' => 'SALE',
             ],
             [
                 'email' => 'sale.manager@erp.local',
                 'name' => 'Trưởng Phòng Kinh Doanh (Sale Manager)',
                 'dept' => 'SALES',
-                'role' => 'SALE_MANAGER'
+                'role' => 'SALE_MANAGER',
             ],
             [
                 'email' => 'purchase@erp.local',
                 'name' => 'Chuyên Viên Mua Hàng (Purchase)',
                 'dept' => 'PURCHASE',
-                'role' => 'PURCHASE'
+                'role' => 'PURCHASE',
             ],
             [
                 'email' => 'purchase.manager@erp.local',
                 'name' => 'Trưởng Phòng Mua Hàng (Purchase Manager)',
                 'dept' => 'PURCHASE',
-                'role' => 'PURCHASE_MANAGER'
+                'role' => 'PURCHASE_MANAGER',
             ],
             [
                 'email' => 'technical@erp.local',
                 'name' => 'Kỹ Thuật Viên Hệ Thống (Technical)',
                 'dept' => 'TECHNICAL',
-                'role' => 'TECHNICAL'
+                'role' => 'TECHNICAL',
             ],
             [
                 'email' => 'technical.manager@erp.local',
                 'name' => 'Trưởng Phòng Kỹ Thuật (Technical Manager)',
                 'dept' => 'TECHNICAL',
-                'role' => 'TECHNICAL_MANAGER'
+                'role' => 'TECHNICAL_MANAGER',
             ],
             [
                 'email' => 'finance@erp.local',
                 'name' => 'Chuyên Viên Tài Chính Kế Toán (Finance)',
                 'dept' => 'FINANCE',
-                'role' => 'FINANCE_ACCOUNTING'
+                'role' => 'FINANCE_ACCOUNTING',
             ],
             [
                 'email' => 'finance.manager@erp.local',
                 'name' => 'Kế Toán Trưởng (Finance Manager)',
                 'dept' => 'FINANCE',
-                'role' => 'FINANCE_ACCOUNTING_MANAGER'
+                'role' => 'FINANCE_ACCOUNTING_MANAGER',
             ],
             [
                 'email' => 'logistic@erp.local',
                 'name' => 'Chuyên Viên Kho Vận (Logistic)',
                 'dept' => 'LOGISTIC',
-                'role' => 'LOGISTIC'
+                'role' => 'LOGISTIC',
             ],
             [
                 'email' => 'logistic.manager@erp.local',
                 'name' => 'Trưởng Phòng Kho Vận (Logistic Manager)',
                 'dept' => 'LOGISTIC',
-                'role' => 'LOGISTIC_MANAGER'
+                'role' => 'LOGISTIC_MANAGER',
             ],
         ];
 
@@ -266,7 +292,7 @@ class IdentitySeeder extends Seeder
                     'department_id' => $deptId,
                     'is_active' => 1,
                     'created_at' => now(),
-                    'updated_at' => now()
+                    'updated_at' => now(),
                 ]
             );
 
@@ -275,7 +301,7 @@ class IdentitySeeder extends Seeder
             if ($userId && $roleId) {
                 DB::table('user_roles')->insert([
                     'user_id' => $userId,
-                    'role_id' => $roleId
+                    'role_id' => $roleId,
                 ]);
             }
         }

@@ -112,12 +112,18 @@ public static class DbInitializer
     {
         // 1. Ensure Database & Tables Created
         await context.Database.EnsureCreatedAsync();
+        await EnsureSqliteSchemaAsync(context);
         const string idempotencyIndex = "ux_inventory_stock_transaction_document";
+        const string reservationIdempotencyIndex = "ux_inventory_reservation_transaction_document";
         if (context.Database.IsSqlite())
         {
             await context.Database.ExecuteSqlRawAsync($"""
                 CREATE UNIQUE INDEX IF NOT EXISTS {idempotencyIndex}
                 ON inventory_stocks_transaction (document_type, document_id, warehouse_id, product_id)
+                """);
+            await context.Database.ExecuteSqlRawAsync($"""
+                CREATE UNIQUE INDEX IF NOT EXISTS {reservationIdempotencyIndex}
+                ON inventory_stocks_reservation_transaction (document_type, document_id, warehouse_id, product_id)
                 """);
         }
         else
@@ -127,6 +133,10 @@ public static class DbInitializer
                 await context.Database.ExecuteSqlRawAsync($"""
                     CREATE UNIQUE INDEX {idempotencyIndex}
                     ON inventory_stocks_transaction (document_type, document_id, warehouse_id, product_id)
+                    """);
+                await context.Database.ExecuteSqlRawAsync($"""
+                    CREATE UNIQUE INDEX {reservationIdempotencyIndex}
+                    ON inventory_stocks_reservation_transaction (document_type, document_id, warehouse_id, product_id)
                     """);
             }
             catch (Exception exception) when (exception.Message.Contains("Duplicate key name", StringComparison.OrdinalIgnoreCase)
@@ -174,6 +184,21 @@ public static class DbInitializer
             };
 
             await context.Warehouses.AddRangeAsync(warehouses);
+            await context.SaveChangesAsync();
+        }
+
+        if (!await context.Warehouses.AnyAsync(w => w.Code == "WH-TECH-01"))
+        {
+            context.Warehouses.Add(new Warehouse
+            {
+                Code = "WH-TECH-01",
+                Name = "Kho Kỹ thuật - Hàng chờ kiểm tra",
+                Location = "Khu vực kiểm tra chất lượng hàng bán trả lại",
+                IsActive = true,
+                CanSell = false,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
             await context.SaveChangesAsync();
         }
 
@@ -290,6 +315,32 @@ public static class DbInitializer
                 await context.InventoryStockReservationTransactions.AddRangeAsync(reservationTransactions);
                 await context.SaveChangesAsync();
             }
+        }
+    }
+
+    private static async Task EnsureSqliteSchemaAsync(InventoryDbContext context)
+    {
+        if (!context.Database.IsSqlite())
+        {
+            return;
+        }
+
+        var connection = context.Database.GetDbConnection();
+        await connection.OpenAsync();
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = "SELECT COUNT(*) FROM pragma_table_info('inventory_stocks') WHERE name = 'origin'";
+            var originColumnExists = Convert.ToInt32(await command.ExecuteScalarAsync()) > 0;
+            if (!originColumnExists)
+            {
+                await context.Database.ExecuteSqlRawAsync(
+                    "ALTER TABLE inventory_stocks ADD COLUMN origin TEXT NOT NULL DEFAULT 'Việt Nam'");
+            }
+        }
+        finally
+        {
+            await connection.CloseAsync();
         }
     }
 }

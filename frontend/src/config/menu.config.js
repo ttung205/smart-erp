@@ -130,6 +130,22 @@ export const menuCategories = [
             permission: 'inventory.view',
             label: 'Yêu cầu xuất kho',
             icon: 'pi pi-box'
+          },
+          {
+            id: 'sale-return-request',
+            path: '/sale-return-request',
+            resource: 'sale_return',
+            permission: 'sale_return.view',
+            label: 'Yêu cầu nhập trả',
+            icon: 'pi pi-replay'
+          },
+          {
+            id: 'sale-return',
+            path: '/sale-return',
+            resource: 'sale_return',
+            permission: 'sale_return.view',
+            label: 'Phiếu trả hàng bán',
+            icon: 'pi pi-file-check'
           }
         ]
       },

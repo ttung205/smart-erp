@@ -198,6 +198,38 @@ export const salesApi = {
     });
   },
 
+  // Sales returns
+  getSaleReturnRequests(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return apiClient(`/api/v1/sales/sale-return-requests${qs ? '?' + qs : ''}`);
+  },
+
+  getEligibleReturnInvoices(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return apiClient(`/api/v1/sales/sale-return-requests/eligible-invoices${qs ? '?' + qs : ''}`);
+  },
+
+  getSaleReturnRequest(id) {
+    return apiClient(`/api/v1/sales/sale-return-requests/${id}`);
+  },
+
+  createSaleReturnRequest(data) {
+    return apiClient('/api/v1/sales/sale-return-requests', { method: 'POST', body: JSON.stringify(data) });
+  },
+
+  saleReturnAction(id, action, data = {}, method = 'POST') {
+    return apiClient(`/api/v1/sales/sale-return-requests/${id}/${action}`, { method, body: JSON.stringify(data) });
+  },
+
+  getSaleReturns(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return apiClient(`/api/v1/sales/sale-returns${qs ? '?' + qs : ''}`);
+  },
+
+  getSaleReturn(id) {
+    return apiClient(`/api/v1/sales/sale-returns/${id}`);
+  },
+
   // 5. VAT Invoices (Hóa Đơn GTGT)
   getNextVatInvoiceNumber() {
     return apiClient('/api/v1/sales/vat-invoices/next-number');

@@ -5,6 +5,7 @@ vendor/
 # .NET Build artifacts
 [Bb]in/
 [Oo]bj/
+.tmp/
 .vs/
 .idea/
 *.user
