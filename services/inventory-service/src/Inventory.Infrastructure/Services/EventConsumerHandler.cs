@@ -190,4 +190,81 @@ public class EventConsumerHandler : IEventConsumerHandler
         _logger.LogInformation("[{CorrelationId}] Xử lý GoodsReceived THÀNH CÔNG cho phiếu {ReceiptId}. Đã cập nhật tồn OnHand và Thẻ kho.",
             envelope.CorrelationId, receipt.ReceiptId);
     }
+
+    /// <inheritdoc />
+    public async Task HandleProductCreatedAsync(CloudEventEnvelope<ProductCreatedPayload> envelope, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(envelope);
+        var product = envelope.Payload;
+
+        _logger.LogInformation("[{CorrelationId}] Bắt đầu xử lý ProductCreated cho sản phẩm {ProductId} (SKU: {Sku}, Origin: {Origin})",
+            envelope.CorrelationId, product.ProductId, product.Sku, product.Origin);
+
+        // 1. Idempotency Check
+        var alreadyProcessed = await _context.ProcessedEvents
+            .AnyAsync(p => p.EventId == envelope.EventId && p.ConsumerName == ConsumerName, ct);
+
+        if (alreadyProcessed)
+        {
+            _logger.LogWarning("[{CorrelationId}] Sự kiện ProductCreated {EventId} đã được xử lý trước đó. Bỏ qua.",
+                envelope.CorrelationId, envelope.EventId);
+            return;
+        }
+
+        // 2. Lấy danh sách kho đang hoạt động
+        var warehouses = await _context.Warehouses
+            .Where(w => w.IsActive)
+            .ToListAsync(ct);
+
+        if (warehouses.Count == 0)
+        {
+            _logger.LogWarning("[{CorrelationId}] Không tìm thấy kho nào đang hoạt động để khởi tạo tồn kho cho sản phẩm {ProductId}.",
+                envelope.CorrelationId, product.ProductId);
+        }
+
+        var origin = string.IsNullOrWhiteSpace(product.Origin) ? "Việt Nam" : product.Origin.Trim();
+
+        foreach (var warehouse in warehouses)
+        {
+            // Kiểm tra và tạo dòng tồn kho vật lý (OnHand = 0)
+            var stockExists = await _context.InventoryStocks
+                .AnyAsync(s => s.WarehouseId == warehouse.Id && s.ProductId == product.ProductId, ct);
+
+            if (!stockExists)
+            {
+                _context.InventoryStocks.Add(new InventoryStock(
+                    warehouseId: warehouse.Id,
+                    productId: product.ProductId,
+                    initialQuantity: 0,
+                    origin: origin
+                ));
+            }
+
+            // Kiểm tra và tạo dòng tồn kho khả dụng (Available = 0)
+            var reservationExists = await _context.InventoryStockReservations
+                .AnyAsync(r => r.WarehouseId == warehouse.Id && r.ProductId == product.ProductId, ct);
+
+            if (!reservationExists)
+            {
+                _context.InventoryStockReservations.Add(new InventoryStockReservation(
+                    warehouseId: warehouse.Id,
+                    productId: product.ProductId,
+                    initialQuantity: 0
+                ));
+            }
+        }
+
+        // 3. Đánh dấu Idempotency
+        _context.ProcessedEvents.Add(new ProcessedEvent
+        {
+            EventId = envelope.EventId,
+            ConsumerName = ConsumerName,
+            ProcessedAt = DateTime.UtcNow
+        });
+
+        await _context.SaveChangesAsync(ct);
+
+        _logger.LogInformation("[{CorrelationId}] Khởi tạo tồn kho THÀNH CÔNG cho sản phẩm {ProductId} (SKU: {Sku}) tại {WarehouseCount} kho.",
+            envelope.CorrelationId, product.ProductId, product.Sku, warehouses.Count);
+    }
 }

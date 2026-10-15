@@ -224,11 +224,14 @@ import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
 import Dialog from 'primevue/dialog'
 import CommonDataTable from '../../components/common/CommonDataTable.vue'
+import { useStockStore } from '../../stores/stockStore'
+import { storeToRefs } from 'pinia'
 import { inventoryApi } from '../../api/inventory.api'
-import { catalogApi } from '../../api/catalog.api'
 import { formatNumber, formatDateTime } from '../../utils/format'
 
 const router = useRouter()
+const stockStore = useStockStore()
+const { stocks, warehouses, loading } = storeToRefs(stockStore)
 
 const tableColumns = [
   { field: 'sku', header: 'Mã SKU', width: '130px', sortable: true },
@@ -248,10 +251,6 @@ const reserveColumns = [
   { field: 'created_at', header: 'Thời Gian Giữ', width: '150px', sortable: false }
 ]
 
-const stocks = ref([])
-const warehouses = ref([])
-const catalogProducts = ref([])
-const loading = ref(false)
 const search = ref('')
 const selectedWarehouseId = ref(null)
 const selectedOrigin = ref(null)
@@ -299,54 +298,8 @@ const resetFilters = () => {
   loadStocks()
 }
 
-const loadCatalogProducts = async () => {
-  if (catalogProducts.value.length > 0) return
-  try {
-    const res = await catalogApi.getProducts({ per_page: 500 })
-    catalogProducts.value = res.data || (Array.isArray(res) ? res : [])
-  } catch (err) {
-    console.error('Lỗi tải danh mục sản phẩm từ catalog:', err)
-  }
-}
-
-const loadWarehouses = async () => {
-  try {
-    const res = await inventoryApi.getWarehouses()
-    warehouses.value = res.data || []
-  } catch (err) {
-    console.error('Lỗi tải danh mục kho:', err)
-  }
-}
-
 const loadStocks = async () => {
-  loading.value = true
-  try {
-    await loadCatalogProducts()
-    const productMap = new Map()
-    catalogProducts.value.forEach(p => productMap.set(Number(p.id), p))
-
-    const params = { pageSize: 1000 }
-    if (selectedWarehouseId.value) params.warehouseId = selectedWarehouseId.value
-    const res = await inventoryApi.getStocks(params)
-    const rawStocks = res.data || []
-
-    stocks.value = rawStocks.map(s => {
-      const p = productMap.get(Number(s.product_id))
-      return {
-        ...s,
-        sku: p?.sku || `SKU-${s.product_id}`,
-        product_name: p?.item_description || p?.designation || p?.name || `Sản phẩm #${s.product_id}`,
-        unit: p?.unit || 'Chiếc',
-        brand: p?.brand || '',
-        category: p?.category || '',
-        origin: s.origin || p?.com || 'Việt Nam'
-      }
-    })
-  } catch (err) {
-    console.error('Lỗi tải bảng tồn kho:', err)
-  } finally {
-    loading.value = false
-  }
+  await stockStore.fetchStocks(selectedWarehouseId.value)
 }
 
 const showReservationDetails = async (item) => {
@@ -380,7 +333,6 @@ const createPurchaseRequisition = (item) => {
 };
 
 onMounted(async () => {
-  await loadWarehouses()
-  await loadStocks()
+  await stockStore.fetchStocks()
 })
 </script>

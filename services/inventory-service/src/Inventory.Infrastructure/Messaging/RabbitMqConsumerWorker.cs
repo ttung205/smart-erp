@@ -127,6 +127,14 @@ public class RabbitMqConsumerWorker : BackgroundService
                 }
                 break;
 
+            case "ProductCreated":
+                var productCreatedEvent = JsonSerializer.Deserialize<CloudEventEnvelope<ProductCreatedPayload>>(messageBody, JsonOptions);
+                if (productCreatedEvent is not null)
+                {
+                    await handler.HandleProductCreatedAsync(productCreatedEvent, ct);
+                }
+                break;
+
             default:
                 _logger.LogDebug("Bỏ qua sự kiện chưa hỗ trợ '{EventType}' từ '{RoutingKey}'.", eventType, routingKey);
                 break;
