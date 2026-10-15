@@ -18,8 +18,13 @@ class VoucherPostingService
         return DB::transaction(function () use ($voucher, $actor): FinanceVoucher {
             $lockedVoucher = FinanceVoucher::query()->lockForUpdate()->findOrFail($voucher->id);
             $allocatedTotal = 0.0;
+            $customerId = null;
             foreach ($lockedVoucher->allocations as $allocation) {
                 $receivable = CustomerReceivable::query()->lockForUpdate()->findOrFail($allocation->receivable_id);
+                $customerId ??= $receivable->customer_id;
+                if ($receivable->customer_id !== $customerId) {
+                    throw ValidationException::withMessages(['allocations' => 'Một phiếu thu chỉ được đối trừ hóa đơn của cùng một khách hàng.']);
+                }
                 if ($allocation->amount <= 0 || $allocation->amount > $receivable->outstanding_amount) {
                     throw ValidationException::withMessages(['allocations' => 'Số tiền đối trừ vượt quá công nợ còn lại.']);
                 }
