@@ -19,6 +19,7 @@ class RevenueReportItem extends Model
         'vat_invoice_number',
         'vat_invoice_series',
         'vat_invoice_item_id',
+        'vat_invoice_adjustment_item_id',
         'order_id',
         'order_number',
         'product_id',
@@ -115,8 +116,8 @@ class RevenueReportItem extends Model
 
     public function getAccountNameAttribute()
     {
-        return $this->account_code === '1311' 
-            ? 'TK 1311: Đã xuất kho & Đã xuất HĐ VAT' 
+        return $this->account_code === '1311'
+            ? 'TK 1311: Đã xuất kho & Đã xuất HĐ VAT'
             : 'TK 1312: Đã xuất kho & Chưa xuất HĐ VAT';
     }
 }

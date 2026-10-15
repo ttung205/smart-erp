@@ -243,6 +243,17 @@
               v-tooltip.top="'Tạo Phiếu Nhập Kho (GRN)'"
               @click="$router.push(`/purchase/receipts/create?poId=${data.id}`)"
             />
+            <!-- Nút Đóng Đơn PO Sớm -->
+            <Button
+              v-if="data.status === 'APPROVED' || data.status === 'PARTIALLY_RECEIVED'"
+              icon="pi pi-check-circle"
+              size="small"
+              outlined
+              severity="secondary"
+              class="!w-7 !h-7 !p-0 !rounded-[6px] hover:!bg-slate-100"
+              v-tooltip.top="'Đóng đơn PO sớm (Hoàn tất không chờ giao tiếp)'"
+              @click="openClosePoDialog(data)"
+            />
           </div>
         </template>
       </Column>
@@ -255,6 +266,60 @@
       :loading="cancelling"
       @confirm="confirmCancelPo"
     />
+
+    <!-- Modal Đóng Đơn PO Sớm -->
+    <Dialog
+      v-model:visible="showCloseDialog"
+      modal
+      header="Đóng Đơn Mua Hàng Sớm"
+      :style="{ width: '480px' }"
+      class="p-fluid rounded-[6px]"
+    >
+      <div class="flex flex-col gap-3 py-2">
+        <div class="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-[6px] p-3">
+          <i class="pi pi-exclamation-triangle text-amber-600 text-lg mt-0.5"></i>
+          <div class="flex flex-col text-xs text-amber-900 leading-relaxed">
+            <span class="font-bold">Xác nhận đóng hoàn tất đơn #{{ selectedOrder?.po_number }}</span>
+            <span class="mt-0.5">
+              Đơn hàng sẽ được chuyển sang trạng thái <strong>Hoàn tất (Completed)</strong> và kết thúc luồng nhập kho. Các số lượng còn thiếu sẽ không chờ giao bù nữa.
+            </span>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-700">Lý do đóng đơn sớm (tùy chọn):</label>
+          <Textarea
+            v-model="closeReason"
+            rows="3"
+            placeholder="VD: Nhà cung cấp hết hàng không thể giao bù, hủy phần thiếu..."
+            class="!text-xs !rounded-[6px]"
+          />
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end gap-2 pt-2">
+          <Button
+            label="Hủy bỏ"
+            icon="pi pi-times"
+            size="small"
+            text
+            severity="secondary"
+            class="!rounded-[6px] !text-xs"
+            @click="showCloseDialog = false"
+          />
+          <Button
+            label="Xác nhận đóng đơn"
+            icon="pi pi-check-circle"
+            size="small"
+            severity="warn"
+            class="!rounded-[6px] !text-xs font-semibold"
+            :loading="closingPo"
+            @click="confirmClosePo"
+          />
+        </div>
+      </template>
+    </Dialog>
   </div>
 </template>
 
@@ -265,6 +330,8 @@ import { useToast } from 'primevue/usetoast';
 import Button from 'primevue/button';
 import Badge from 'primevue/badge';
 import InputText from 'primevue/inputtext';
+import Textarea from 'primevue/textarea';
+import Dialog from 'primevue/dialog';
 import Select from 'primevue/select';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
@@ -524,6 +591,46 @@ const confirmCancelPo = async (reason) => {
     toast.add({ severity: 'error', summary: 'Lỗi', detail: 'Không thể hủy đơn PO', life: 3000 });
   } finally {
     cancelling.value = false;
+  }
+};
+
+const showCloseDialog = ref(false);
+const closeReason = ref('');
+const closingPo = ref(false);
+
+const openClosePoDialog = (order) => {
+  selectedOrder.value = order;
+  closeReason.value = '';
+  showCloseDialog.value = true;
+};
+
+const confirmClosePo = async () => {
+  if (!selectedOrder.value) return;
+  closingPo.value = true;
+  const order = selectedOrder.value;
+  try {
+    await purchaseApi.closeOrder(order.id, {
+      reason: closeReason.value || 'Đóng đơn hoàn tất nhập kho sớm'
+    });
+    order.status = 'COMPLETED';
+    toast.add({
+      severity: 'success',
+      summary: 'Thành công',
+      detail: `Đã đóng hoàn tất đơn PO #${order.po_number}. Đơn hàng đã kết thúc luồng nhập kho.`,
+      life: 4000
+    });
+    showCloseDialog.value = false;
+    await loadOrders();
+  } catch (err) {
+    console.error('Close PO error:', err);
+    toast.add({
+      severity: 'error',
+      summary: 'Lỗi',
+      detail: err.message || 'Không thể đóng đơn mua hàng',
+      life: 4000
+    });
+  } finally {
+    closingPo.value = false;
   }
 };
 

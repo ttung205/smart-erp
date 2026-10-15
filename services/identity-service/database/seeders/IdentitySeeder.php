@@ -93,7 +93,9 @@ class IdentitySeeder extends Seeder
             ['code' => 'purchase.create', 'module' => 'purchase', 'description' => 'Tạo mới đơn mua hàng PO'],
             ['code' => 'purchase.approve', 'module' => 'purchase', 'description' => 'Phê duyệt đơn mua hàng PO'],
             ['code' => 'finance.view', 'module' => 'finance', 'description' => 'Xem báo cáo tài chính và công nợ'],
+            ['code' => 'finance.create', 'module' => 'finance', 'description' => 'Lập chứng từ và yêu cầu điều chỉnh hóa đơn'],
             ['code' => 'finance.approve', 'module' => 'finance', 'description' => 'Duyệt thanh toán và xuất hóa đơn'],
+            ['code' => 'eoffice.manage', 'module' => 'eoffice', 'description' => 'Quản trị văn phòng số: loại nghỉ, ngày lễ, quỹ phép nhân viên'],
             ['code' => 'ai.use', 'module' => 'ai', 'description' => 'Sử dụng trợ lý AI Copilot phân tích dữ liệu'],
             ['code' => 'users.view', 'module' => 'admin', 'description' => 'Xem danh sách tài khoản'],
             ['code' => 'users.manage', 'module' => 'admin', 'description' => 'Quản trị tài khoản và phân quyền'],
@@ -189,8 +191,8 @@ class IdentitySeeder extends Seeder
             'TECHNICAL_MANAGER' => ['sale_return.view', 'sale_return.technical', 'sale_return.approve', 'inventory.view'],
             'LOGISTIC' => ['sale_return.view', 'sale_return.approve', 'inventory.view', 'inventory.transfer'],
             'LOGISTIC_MANAGER' => ['sale_return.view', 'sale_return.approve', 'sale_return.post', 'inventory.view', 'inventory.manage'],
-            'FINANCE_ACCOUNTING' => ['sale_return.view', 'sale_return.post', 'inventory.view'],
-            'FINANCE_ACCOUNTING_MANAGER' => ['sale_return.view', 'sale_return.approve', 'sale_return.post', 'inventory.view'],
+            'FINANCE_ACCOUNTING' => ['finance.view', 'finance.create', 'invoice.view', 'sale_return.view', 'sale_return.post', 'inventory.view', 'master.view'],
+            'FINANCE_ACCOUNTING_MANAGER' => ['finance.view', 'finance.create', 'finance.approve', 'invoice.view', 'invoice.manage', 'sale_return.view', 'sale_return.approve', 'sale_return.post', 'inventory.view', 'master.view'],
         ];
         foreach ($rolePermissionMap as $roleCode => $permissionCodes) {
             $roleId = DB::table('roles')->where('code', $roleCode)->value('id');
@@ -304,6 +306,31 @@ class IdentitySeeder extends Seeder
                     'role_id' => $roleId,
                 ]);
             }
+        }
+
+        // 6. Trưởng phòng (người duyệt đơn E-Office của phòng)
+        $departmentManagers = [
+            'BOD' => 'admin@erp.local',
+            'SALES' => 'sale.manager@erp.local',
+            'PURCHASE' => 'purchase.manager@erp.local',
+            'TECHNICAL' => 'technical.manager@erp.local',
+            'FINANCE' => 'finance.manager@erp.local',
+            'LOGISTIC' => 'logistic.manager@erp.local',
+        ];
+        foreach ($departmentManagers as $departmentCode => $email) {
+            DB::table('departments')->where('code', $departmentCode)->update([
+                'manager_id' => DB::table('users')->where('email', $email)->value('id'),
+            ]);
+        }
+
+        // 7. Quản lý trực tiếp (line manager): nhân viên → trưởng phòng của mình, trưởng phòng → Super Admin
+        $adminId = DB::table('users')->where('email', 'admin@erp.local')->value('id');
+        $managerIds = DB::table('departments')->whereNotNull('manager_id')->pluck('manager_id', 'id');
+        foreach (DB::table('users')->get(['id', 'department_id']) as $user) {
+            $lineManagerId = $managerIds->contains($user->id) ? $adminId : ($managerIds[$user->department_id] ?? null);
+            DB::table('users')->where('id', $user->id)->update([
+                'line_manager_id' => $lineManagerId !== $user->id ? $lineManagerId : null,
+            ]);
         }
     }
 }

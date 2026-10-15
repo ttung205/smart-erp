@@ -151,3 +151,45 @@ public class PurchaseReturnItemDto
     [JsonPropertyName("reason_detail")]
     public string? ReasonDetail { get; set; }
 }
+
+public class UpdatePurchaseReturnDto
+{
+    [JsonPropertyName("reason")]
+    public string? Reason { get; set; }
+
+    [JsonPropertyName("rma_number")]
+    public string? RmaNumber { get; set; }
+
+    [JsonPropertyName("notes")]
+    public string? Notes { get; set; }
+
+    [JsonPropertyName("items")]
+    public List<UpdatePurchaseReturnItemDto>? Items { get; set; }
+}
+
+public class UpdatePurchaseReturnItemDto
+{
+    [JsonPropertyName("id")]
+    public long? Id { get; set; }
+
+    [JsonPropertyName("purchase_order_item_id")]
+    public long PurchaseOrderItemId { get; set; }
+
+    [JsonPropertyName("quantity_returned")]
+    public int QuantityReturned { get; set; }
+
+    [JsonPropertyName("reason_detail")]
+    public string? ReasonDetail { get; set; }
+}
+
+public class SubmitPurchaseReturnDto
+{
+    [JsonPropertyName("reason")]
+    public string? Reason { get; set; }
+
+    [JsonPropertyName("rma_number")]
+    public string? RmaNumber { get; set; }
+
+    [JsonPropertyName("notes")]
+    public string? Notes { get; set; }
+}

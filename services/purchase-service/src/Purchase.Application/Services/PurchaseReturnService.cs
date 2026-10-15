@@ -126,6 +126,89 @@ public class PurchaseReturnService : IPurchaseReturnService
         return MapToDto(prtn);
     }
 
+    public async Task<PurchaseReturnDto> UpdateDraftAsync(long id, UpdatePurchaseReturnDto dto, CancellationToken ct = default)
+    {
+        var prtn = await _context.PurchaseReturns
+            .Include(x => x.Items)
+            .Include(x => x.PurchaseOrder)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+
+        if (prtn == null)
+            throw new PurchaseDomainException("RETURN_NOT_FOUND", $"Không tìm thấy phiếu trả hàng ID {id}.");
+
+        if (prtn.Status != PurchaseReturnStatus.Draft)
+            throw new PurchaseDomainException("INVALID_STATE", "Chỉ có thể chỉnh sửa phiếu trả hàng ở trạng thái Dự thảo (Draft).");
+
+        if (!string.IsNullOrWhiteSpace(dto.Reason) && Enum.TryParse<PurchaseReturnReason>(dto.Reason, true, out var reason))
+        {
+            prtn.Reason = reason;
+        }
+
+        if (dto.RmaNumber != null)
+        {
+            prtn.RmaNumber = dto.RmaNumber.Trim();
+        }
+
+        if (dto.Notes != null)
+        {
+            prtn.Notes = dto.Notes.Trim();
+        }
+
+        if (dto.Items != null && dto.Items.Any())
+        {
+            foreach (var itemDto in dto.Items)
+            {
+                var item = prtn.Items.FirstOrDefault(x => (itemDto.Id.HasValue && x.Id == itemDto.Id.Value) || x.PurchaseOrderItemId == itemDto.PurchaseOrderItemId);
+                if (item != null)
+                {
+                    item.QuantityReturned = itemDto.QuantityReturned;
+                    if (itemDto.ReasonDetail != null)
+                        item.ReasonDetail = itemDto.ReasonDetail;
+                }
+            }
+            prtn.RecalculateTotal();
+        }
+
+        prtn.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync(ct);
+
+        return MapToDto(prtn);
+    }
+
+    public async Task<PurchaseReturnDto> SubmitAsync(long id, SubmitPurchaseReturnDto? dto = null, CancellationToken ct = default)
+    {
+        var prtn = await _context.PurchaseReturns
+            .Include(x => x.Items)
+            .Include(x => x.PurchaseOrder)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+
+        if (prtn == null)
+            throw new PurchaseDomainException("RETURN_NOT_FOUND", $"Không tìm thấy phiếu trả hàng ID {id}.");
+
+        if (dto != null)
+        {
+            if (!string.IsNullOrWhiteSpace(dto.Reason) && Enum.TryParse<PurchaseReturnReason>(dto.Reason, true, out var reason))
+            {
+                prtn.Reason = reason;
+            }
+
+            if (dto.RmaNumber != null)
+            {
+                prtn.RmaNumber = dto.RmaNumber.Trim();
+            }
+
+            if (dto.Notes != null)
+            {
+                prtn.Notes = dto.Notes.Trim();
+            }
+        }
+
+        prtn.Submit();
+        await _context.SaveChangesAsync(ct);
+
+        return MapToDto(prtn);
+    }
+
     public async Task<PurchaseReturnDto> ApproveAsync(long id, long approvedBy, CancellationToken ct = default)
     {
         var prtn = await _context.PurchaseReturns

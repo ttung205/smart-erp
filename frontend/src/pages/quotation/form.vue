@@ -404,7 +404,7 @@ const isSaleUser = (u) => {
 const userOptions = computed(() => {
   const saleUsers = users.value.filter(isSaleUser);
   const list = saleUsers.length > 0 ? saleUsers : users.value.filter(u => String(u.name || u.email || '').toLowerCase().includes('sale'));
-  
+
   if (list.length === 0) {
     return [
       { id: 2, name: 'Chuyên Viên Kinh Doanh (Sale)', label: 'Chuyên Viên Kinh Doanh (sale@erp.local)' },
@@ -870,6 +870,12 @@ const handleSubmitForApproval = async () => {
     alert('Vui lòng chọn khách hàng trước khi gửi duyệt!');
     return;
   }
+  if (!form.value.items || form.value.items.length === 0) {
+    alert('Vui lòng thêm ít nhất 1 dòng mặt hàng vào báo giá trước khi gửi duyệt!');
+    return;
+  }
+
+  const previousStatus = form.value.status;
 
   try {
     let savedQ;
@@ -877,14 +883,22 @@ const handleSubmitForApproval = async () => {
       await salesApi.submitApproval(form.value.id);
       form.value.status = 'PENDING_APPROVAL';
     } else {
-      form.value.status = 'PENDING_APPROVAL';
-      const res = await salesApi.createQuotation(form.value);
+      // 1. Tạo mới báo giá trong CSDL trước (mặc định DRAFT)
+      const payload = {
+        ...form.value,
+        attachment_ids: (form.value.attachments || []).map((a) => a.id).filter(Boolean)
+      };
+      const res = await salesApi.createQuotation(payload);
       savedQ = res.data;
+
+      // 2. Chuyển trạng thái sang Chờ duyệt qua API submitApproval
       if (savedQ && savedQ.id) {
+        await salesApi.submitApproval(savedQ.id);
         form.value = { ...form.value, ...savedQ, status: 'PENDING_APPROVAL' };
-        router.replace(`/quotation/${savedQ.id}/edit`);
+        await router.replace(`/quotation/${savedQ.id}/edit`);
       }
     }
+
     toast.add({
       severity: 'info',
       summary: 'Đã gửi xét duyệt',
@@ -892,11 +906,13 @@ const handleSubmitForApproval = async () => {
       life: 3000
     });
   } catch (err) {
+    // Phục hồi lại trạng thái ban đầu nếu có lỗi xảy ra
+    form.value.status = previousStatus;
     toast.add({
       severity: 'error',
       summary: 'Lỗi gửi duyệt',
       detail: err.message || 'Thao tác không thành công.',
-      life: 3000
+      life: 4000
     });
   }
 };

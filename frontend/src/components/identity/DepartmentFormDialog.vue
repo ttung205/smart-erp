@@ -37,6 +37,28 @@
           class="!rounded-[6px]"
         />
       </div>
+
+      <div class="flex flex-col gap-1.5">
+        <label class="block text-xs font-semibold text-slate-700">Trưởng Phòng</label>
+        <Select
+          v-model="form.manager_id"
+          :options="users"
+          optionLabel="name"
+          optionValue="id"
+          placeholder="Chọn trưởng phòng..."
+          filter
+          showClear
+          size="small"
+          class="w-full !rounded-[6px]"
+        >
+          <template #option="{ option }">
+            <div class="flex flex-col">
+              <span class="text-xs text-slate-800">{{ option.name }}</span>
+              <span class="text-[11px] text-slate-500">{{ option.email }}</span>
+            </div>
+          </template>
+        </Select>
+      </div>
     </div>
 
     <template #footer>
@@ -65,6 +87,7 @@
 import Dialog from 'primevue/dialog';
 import InputText from 'primevue/inputtext';
 import Button from 'primevue/button';
+import Select from 'primevue/select';
 
 defineProps({
   visible: {
@@ -78,6 +101,10 @@ defineProps({
   form: {
     type: Object,
     default: () => ({})
+  },
+  users: {
+    type: Array,
+    default: () => []
   },
   loading: {
     type: Boolean,

@@ -2,12 +2,12 @@
   <div class="flex flex-col gap-4">
     <!-- 1. Page Header Chuẩn -->
     <PageHeader
-      title="Hóa Đơn & Đối Chiếu 3 Bên (3-Way Matching)"
-      subtitle="Đối soát tự động giá trị thanh toán giữa Hợp đồng (PO), Thực nhận kho (GRN) và Hóa đơn tài chính (Invoice)"
+      title="Chứng Từ Mua Hàng & Đối Chiếu 3 Bên"
+      subtitle="Quản lý chứng từ mua hàng từ nhà cung cấp, kiểm soát nhập kho và tự động đối soát 3 chiều (PO – Phiếu kho GRN – Hóa đơn tài chính)"
     >
       <template #actions>
         <Button
-          label="Nhập Hóa Đơn NCC"
+          label="Lập Chứng Từ Mua Hàng"
           icon="pi pi-plus"
           size="small"
           class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px] !text-xs !font-semibold !px-3 !py-1.5"
@@ -23,7 +23,7 @@
         @click="activeTab = 'pending_invoices'"
       >
         <div>
-          <span class="text-xs text-amber-600 font-medium block">Hàng đã nhận chờ hóa đơn</span>
+          <span class="text-xs text-amber-600 font-medium block">Hàng đã nhận chờ chứng từ</span>
           <span class="text-lg font-bold text-amber-700 font-mono tabular-nums">{{ pendingInvoicingList.length }}</span>
         </div>
         <div class="w-9 h-9 rounded-[6px] bg-amber-50 flex items-center justify-center text-amber-600">
@@ -62,7 +62,7 @@
         @click="activeTab = 'invoice_list'"
       >
         <div>
-          <span class="text-xs text-slate-500 font-medium block">Tổng hóa đơn đã lập</span>
+          <span class="text-xs text-slate-500 font-medium block">Tổng chứng từ mua hàng</span>
           <span class="text-lg font-bold text-slate-900 font-mono tabular-nums">{{ stats.total }}</span>
         </div>
         <div class="w-9 h-9 rounded-[6px] bg-slate-100 flex items-center justify-center text-slate-600">
@@ -75,7 +75,7 @@
     <div class="bg-white border border-slate-200 rounded-[6px] overflow-hidden flex flex-col">
       <div class="border-b border-slate-200 bg-slate-50/70 px-3 pt-2 flex items-center justify-between flex-wrap gap-2">
         <div class="flex items-center gap-1">
-          <!-- TAB 1: LÔ HÀNG ĐÃ NHẬP KHO CHỜ LẬP HÓA ĐƠN -->
+          <!-- TAB 1: LÔ HÀNG ĐÃ NHẬP KHO CHỜ LẬP CHỨNG TỪ -->
           <button
             type="button"
             class="px-4 py-2 text-xs font-bold rounded-t-[6px] border-t border-l border-r transition-all flex items-center gap-2"
@@ -85,7 +85,7 @@
             @click="activeTab = 'pending_invoices'"
           >
             <i class="pi pi-inbox text-xs"></i>
-            <span>Hàng Đã Nhập Chờ Lập Hóa Đơn</span>
+            <span>Hàng Đã Nhập Chờ Lập Chứng Từ</span>
             <span 
               class="px-1.5 py-0.2 rounded-full text-[10px] font-mono"
               :class="activeTab === 'pending_invoices' ? 'bg-amber-100 text-amber-800 font-bold' : 'bg-slate-200 text-slate-700'"
@@ -94,7 +94,7 @@
             </span>
           </button>
 
-          <!-- TAB 2: DANH SÁCH HÓA ĐƠN & ĐỐI CHIẾU 3 BÊN -->
+          <!-- TAB 2: DANH SÁCH CHỨNG TỪ MUA HÀNG & ĐỐI CHIẾU 3 BÊN -->
           <button
             type="button"
             class="px-4 py-2 text-xs font-bold rounded-t-[6px] border-t border-l border-r transition-all flex items-center gap-2"
@@ -104,7 +104,7 @@
             @click="activeTab = 'invoice_list'"
           >
             <i class="pi pi-list text-xs"></i>
-            <span>Hóa Đơn Đã Nhập & Đối Chiếu</span>
+            <span>Danh Sách Chứng Từ & Đối Chiếu</span>
             <span 
               class="px-1.5 py-0.2 rounded-full text-[10px] font-mono"
               :class="activeTab === 'invoice_list' ? 'bg-sky-100 text-sky-800 font-bold' : 'bg-slate-200 text-slate-700'"
@@ -127,16 +127,16 @@
         </div>
       </div>
 
-      <!-- 4. NỘI DUNG TAB 1: LÔ HÀNG ĐÃ NHẬP KHO CHỜ LẬP HÓA ĐƠN -->
+      <!-- 4. NỘI DUNG TAB 1: LÔ HÀNG ĐÃ NHẬP KHO CHỜ LẬP CHỨNG TỪ -->
       <div v-if="activeTab === 'pending_invoices'" class="p-3 flex flex-col gap-3">
-        <!-- Toolbar Lọc cho Tab Chờ Lập Hóa Đơn -->
+        <!-- Toolbar Lọc cho Tab Chờ Lập Chứng Từ -->
         <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50/50 p-2 rounded-[6px] border border-slate-100">
           <div class="flex items-center gap-2">
             <IconField>
               <InputIcon class="pi pi-search text-xs" />
               <InputText
                 v-model="pendingSearchQuery"
-                placeholder="Tìm mã PO, nhà cung cấp, mã phiếu GRN..."
+                placeholder="Tìm mã đơn PO, nhà cung cấp, mã phiếu GRN..."
                 class="w-80 !rounded-[6px] !text-xs !py-1.5"
                 size="small"
               />
@@ -153,7 +153,7 @@
             />
           </div>
           <span class="text-xs text-slate-500">
-            Có <strong class="text-slate-800">{{ filteredPendingInvoices.length }}</strong> đơn hàng đã nhập kho chờ lập hóa đơn tài chính
+            Có <strong class="text-slate-800">{{ filteredPendingInvoices.length }}</strong> đơn hàng đã nhập kho chờ lập chứng từ mua hàng
           </span>
         </div>
 
@@ -163,8 +163,8 @@
           :loading="loading"
           :rows="10"
           emptyIcon="pi pi-check-circle"
-          emptyTitle="Không có lô hàng nào chờ lập hóa đơn"
-          emptySubtitle="Tất cả các lô hàng đã nhập kho đều đã được lập hóa đơn đối chiếu hoặc chưa có hàng nhập kho."
+          emptyTitle="Không có lô hàng nào chờ lập chứng từ mua hàng"
+          emptySubtitle="Tất cả các lô hàng đã nhập kho đều đã được lập chứng từ đối chiếu hoặc chưa có hàng nhập kho."
         >
           <!-- Cột Mã PO -->
           <template #col-po_code="{ data }">
@@ -201,7 +201,7 @@
             </div>
           </template>
 
-          <!-- Cột Số Lượng Thực Nhận / Chờ Xuất HĐ -->
+          <!-- Cột Số Lượng Thực Nhận / Chờ Lập Chứng Từ -->
           <template #col-quantity_summary="{ data }">
             <div class="flex flex-col text-xs">
               <div class="flex items-center gap-1.5">
@@ -209,13 +209,13 @@
                 <span class="font-mono font-bold text-slate-800">{{ data.total_received_qty }} sản phẩm</span>
               </div>
               <div class="flex items-center gap-1.5">
-                <span class="text-amber-600 font-medium">Chưa lập HĐ:</span>
+                <span class="text-amber-600 font-medium">Chưa lập CT:</span>
                 <span class="font-mono font-bold text-amber-700">{{ data.uninvoiced_qty }} sản phẩm</span>
               </div>
             </div>
           </template>
 
-          <!-- Cột Giá Trị Tạm Tính Chờ HĐ -->
+          <!-- Cột Giá Trị Tạm Tính Chờ CT -->
           <template #col-estimated_amount="{ data }">
             <div class="text-right">
               <span class="font-mono text-xs font-bold text-slate-900 tabular-nums whitespace-nowrap">
@@ -224,15 +224,15 @@
             </div>
           </template>
 
-          <!-- Cột Thao Tác: Lập Hóa Đơn NCC -->
+          <!-- Cột Thao Tác: Lập Chứng Từ Mua Hàng -->
           <Column header="Thao Tác" style="width: 140px" class="text-center">
             <template #body="{ data }">
               <Button
-                label="Lập hóa đơn"
+                label="Lập chứng từ"
                 icon="pi pi-receipt"
                 size="small"
                 class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px] !text-xs !font-semibold !px-2.5 !py-1"
-                v-tooltip.top="'Lập hóa đơn tài chính và đối chiếu 3 bên'"
+                v-tooltip.top="'Lập chứng từ mua hàng và đối chiếu 3 bên'"
                 @click="createInvoiceForOrder(data)"
               />
             </template>
@@ -240,16 +240,16 @@
         </CommonDataTable>
       </div>
 
-      <!-- 5. NỘI DUNG TAB 2: DANH SÁCH HÓA ĐƠN & ĐỐI CHIẾU -->
+      <!-- 5. NỘI DUNG TAB 2: DANH SÁCH CHỨNG TỪ & ĐỐI CHIẾU -->
       <div v-else class="p-3 flex flex-col gap-3">
-        <!-- Toolbar Lọc & Tìm Kiếm Hóa Đơn -->
+        <!-- Toolbar Lọc & Tìm Kiếm Chứng Từ -->
         <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50/50 p-2 rounded-[6px] border border-slate-100">
           <div class="flex flex-wrap items-center gap-2">
             <IconField>
               <InputIcon class="pi pi-search text-xs" />
               <InputText
                 v-model="searchQuery"
-                placeholder="Tìm theo số hóa đơn, mã PINV, mã PO..."
+                placeholder="Tìm theo số hóa đơn, mã PINV, mã đơn PO..."
                 class="w-80 !rounded-[6px] !text-xs !py-1.5"
                 size="small"
               />
@@ -284,16 +284,16 @@
           :loading="loading"
           :rows="10"
           emptyIcon="pi pi-receipt"
-          emptyTitle="Không tìm thấy hóa đơn mua hàng nào"
-          emptySubtitle="Chưa có hóa đơn nào phù hợp với bộ lọc tìm kiếm."
+          emptyTitle="Không tìm thấy chứng từ mua hàng nào"
+          emptySubtitle="Chưa có chứng từ nào phù hợp với bộ lọc tìm kiếm."
         >
-          <!-- Cột Số Hóa Đơn VAT -->
+          <!-- Cột Số Hóa Đơn VAT / Mã Chứng Từ -->
           <template #col-supplier_invoice_number="{ data }">
             <div class="flex flex-col">
               <span
                 class="font-mono text-xs font-bold text-sky-700 cursor-pointer hover:underline inline-block whitespace-nowrap"
                 @click="$router.push(`/purchase/invoices/${data.id}`)"
-                title="Nhấp để xem biên bản đối chiếu 3 bên"
+                title="Nhấp để xem chứng từ & biên bản đối chiếu 3 bên"
               >
                 {{ data.supplier_invoice_number || data.invoice_number || '—' }}
               </span>
@@ -405,6 +405,7 @@ import Column from 'primevue/column';
 import PageHeader from '../../../components/common/PageHeader.vue';
 import CommonDataTable from '../../../components/common/CommonDataTable.vue';
 import { purchaseApi } from '../../../api/purchase.api';
+import { catalogApi } from '../../../api/catalog.api';
 import { MATCHING_STATUS, DEFAULT_SUPPLIERS } from '../../../constants/purchase.constant';
 import { formatCurrency } from '../../../utils/format';
 
@@ -415,6 +416,7 @@ const activeTab = ref('pending_invoices');
 const invoices = ref([]);
 const orders = ref([]);
 const receipts = ref([]);
+const suppliers = ref([]);
 const loading = ref(false);
 
 const pendingSearchQuery = ref('');
@@ -428,49 +430,61 @@ const statusOptions = [
   { label: 'Lệch số liệu', value: 'Discrepancy' }
 ];
 
-// Cột cho danh sách chờ lập hóa đơn
+// Cột cho danh sách chờ lập chứng từ
 const pendingColumns = [
   { field: 'po_code', header: 'Mã Đơn PO', width: '160px' },
   { field: 'supplier_name', header: 'Nhà Cung Cấp', width: '220px' },
   { field: 'grn_summary', header: 'Phiếu Nhập Kho (GRN)', width: '200px' },
   { field: 'quantity_summary', header: 'Hàng Đã Nhập Kho', width: '200px' },
-  { field: 'estimated_amount', header: 'Tiền Hàng Chờ HĐ', width: '170px', align: 'right' }
+  { field: 'estimated_amount', header: 'Tiền Hàng Chờ CT', width: '170px', align: 'right' }
 ];
 
-// Cột cho bảng danh sách hóa đơn
+// Cột cho bảng danh sách chứng từ mua hàng
 const tableColumns = [
-  { field: 'supplier_invoice_number', header: 'Số Hóa Đơn VAT', width: '180px' },
+  { field: 'supplier_invoice_number', header: 'Số Hóa Đơn / Mã CT', width: '180px' },
   { field: 'po_code', header: 'Mã Đơn PO', width: '160px' },
   { field: 'goods_receipt_code', header: 'Phiếu Nhập Kho', width: '150px' },
-  { field: 'invoice_date', header: 'Ngày Hóa Đơn', width: '130px' },
+  { field: 'invoice_date', header: 'Ngày Chứng Từ', width: '130px' },
   { field: 'grand_total', header: 'Tổng Tiền (VNĐ)', width: '160px', align: 'right' },
   { field: 'matching_status', header: 'Đối Chiếu 3 Bên', width: '160px', align: 'center' },
-  { field: 'status', header: 'Ghi Sổ', width: '120px', align: 'center' }
+  { field: 'status', header: 'Ghi Sổ Kế Toán', width: '130px', align: 'center' }
 ];
 
 const loadAllData = async () => {
   loading.value = true;
   try {
-    const [invRes, ordRes, recRes] = await Promise.all([
+    const [invRes, ordRes, recRes, supRes] = await Promise.allSettled([
       purchaseApi.getInvoices(),
       purchaseApi.getOrders(),
-      purchaseApi.getReceipts()
+      purchaseApi.getReceipts(),
+      catalogApi.getSuppliers()
     ]);
 
-    const iData = invRes?.data || invRes?.items || invRes;
-    invoices.value = Array.isArray(iData) ? iData : [];
+    if (invRes.status === 'fulfilled') {
+      const iData = invRes.value?.data || invRes.value?.items || invRes.value;
+      invoices.value = Array.isArray(iData) ? iData : [];
+    }
 
-    const oData = ordRes?.data || ordRes?.items || ordRes;
-    orders.value = Array.isArray(oData) ? oData : [];
+    if (ordRes.status === 'fulfilled') {
+      const oData = ordRes.value?.data || ordRes.value?.items || ordRes.value;
+      orders.value = Array.isArray(oData) ? oData : [];
+    }
 
-    const rData = recRes?.data || recRes?.items || recRes;
-    receipts.value = Array.isArray(rData) ? rData : [];
+    if (recRes.status === 'fulfilled') {
+      const rData = recRes.value?.data || recRes.value?.items || recRes.value;
+      receipts.value = Array.isArray(rData) ? rData : [];
+    }
+
+    if (supRes.status === 'fulfilled') {
+      const sData = supRes.value?.data || supRes.value?.items || supRes.value;
+      suppliers.value = Array.isArray(sData) ? sData : [];
+    }
   } catch (err) {
-    console.error('Lỗi khi tải dữ liệu hóa đơn:', err);
+    console.error('Lỗi khi tải dữ liệu chứng từ mua hàng:', err);
     toast.add({
       severity: 'error',
       summary: 'Lỗi',
-      detail: err.message || 'Không thể tải dữ liệu hóa đơn từ máy chủ',
+      detail: err.message || 'Không thể tải dữ liệu chứng từ mua hàng từ máy chủ',
       life: 4000
     });
   } finally {
@@ -569,8 +583,13 @@ const filteredInvoices = computed(() => {
 });
 
 const getSupplierName = (supplierId) => {
-  const found = DEFAULT_SUPPLIERS.find(s => s.id === Number(supplierId));
-  return found ? found.name : `Nhà cung cấp #${supplierId}`;
+  if (!supplierId) return '—';
+  const foundApi = suppliers.value.find(s => s.id === Number(supplierId));
+  if (foundApi) {
+    return foundApi.code ? `[${foundApi.code}] ${foundApi.name}` : foundApi.name;
+  }
+  const foundDefault = DEFAULT_SUPPLIERS.find(s => s.id === Number(supplierId));
+  return foundDefault ? (foundDefault.code ? `[${foundDefault.code}] ${foundDefault.name}` : foundDefault.name) : `Nhà cung cấp #${supplierId}`;
 };
 
 const createInvoiceForOrder = (item) => {

@@ -14,6 +14,18 @@ export const menuCategories = [
     category: 'Phân Hệ Nghiệp Vụ',
     items: [
       {
+        id: 'eoffice-hub',
+        label: 'Văn phòng số',
+        icon: 'pi pi-briefcase',
+        isFolder: true,
+        children: [
+          { id: 'eoffice-leave',
+            path: '/eoffice/leave',
+            label: 'Nghỉ phép',
+            icon: 'pi pi-calendar-minus' }
+        ]
+      },
+      {
         id: 'partner-hub',
         label: 'Đối tác',
         icon: 'pi pi-users',
@@ -108,22 +120,6 @@ export const menuCategories = [
             icon: 'pi pi-send'
           },
           {
-            id: 'invoice',
-            path: '/invoice',
-            resource: 'invoice',
-            permission: 'invoice.view',
-            label: 'Chứng từ bán hàng',
-            icon: 'pi pi-file'
-          },
-          {
-            id: 'vat-invoice',
-            path: '/vat-invoice',
-            resource: 'invoice',
-            permission: 'invoice.view',
-            label: 'Hóa đơn GTGT (VAT)',
-            icon: 'pi pi-receipt'
-          },
-          {
             id: 'sales-warehouse-dispatch',
             path: '/warehouse-request-sale',
             resource: 'inventory',
@@ -138,6 +134,79 @@ export const menuCategories = [
             permission: 'sale_return.view',
             label: 'Yêu cầu nhập trả',
             icon: 'pi pi-replay'
+          }
+        ]
+      },
+      {
+        id: 'accounting-hub',
+        label: 'Kế toán',
+        icon: 'pi pi-calculator',
+        isFolder: true,
+        children: [
+          {
+            id: 'invoice',
+            path: '/invoice',
+            resource: 'invoice',
+            permission: 'invoice.view',
+            label: 'Chứng từ bán hàng',
+            icon: 'pi pi-file'
+          },
+          {
+            id: 'accounting-purchase-invoice',
+            path: '/purchase/invoices',
+            resource: 'purchase',
+            permission: 'purchase.view',
+            label: 'Chứng từ mua hàng',
+            icon: 'pi pi-file-import'
+          },
+          {
+            id: 'accounting-delivery-request',
+            path: '/delivery-request',
+            resource: 'delivery',
+            permission: 'delivery.view',
+            label: 'Yêu cầu giao hàng',
+            icon: 'pi pi-send'
+          },
+          {
+            id: 'vat-invoice',
+            path: '/vat-invoice',
+            resource: 'invoice',
+            permission: 'invoice.view',
+            label: 'Hóa đơn GTGT (VAT)',
+            icon: 'pi pi-receipt'
+          },
+          {
+            id: 'vat-invoice-adjustments', path: '/vat-invoice/adjustments',
+            resource: 'finance', permission: 'finance.view',
+            label: 'Hóa đơn điều chỉnh', icon: 'pi pi-file-edit'
+          },
+          {
+            id: 'customer-receivables',
+            path: '/customer-receivables',
+            resource: 'finance',
+            permission: 'finance.view',
+            label: 'Công nợ khách hàng',
+            icon: 'pi pi-wallet'
+          },
+          {
+            id: 'finance-general-ledger', path: '/finance/general-ledger',
+            resource: 'finance', permission: 'finance.view', label: 'Sổ cái', icon: 'pi pi-book'
+          },
+          {
+            id: 'receivable-allocation',
+            path: '/finance/receivable-allocation',
+            resource: 'finance',
+            permission: 'finance.approve',
+            label: 'Đối trừ công nợ',
+            icon: 'pi pi-arrows-h'
+          },
+          {
+            id: 'accounting-sale-return-request',
+            path: '/sale-return-request',
+            resource: 'sale_return',
+            permission: 'sale_return.view',
+            label: 'Yêu cầu nhập trả',
+            icon: 'pi pi-replay'
           },
           {
             id: 'sale-return',
@@ -147,6 +216,32 @@ export const menuCategories = [
             label: 'Phiếu trả hàng bán',
             icon: 'pi pi-file-check'
           }
+        ]
+      },
+      {
+        id: 'cash-hub',
+        label: 'Quỹ',
+        icon: 'pi pi-wallet',
+        isFolder: true,
+        children: [
+          { id: 'cash-book', path: '/finance/cash-book', resource: 'finance', permission: 'finance.view', label: 'Sổ quỹ', icon: 'pi pi-book' },
+          { id: 'cash-customer-receipt', path: '/finance/cash-receipts', resource: 'finance', permission: 'finance.view', label: 'Thu tiền khách hàng', icon: 'pi pi-users' },
+          { id: 'cash-receipt', path: '/finance/cash-receipts', resource: 'finance', permission: 'finance.view', label: 'Phiếu thu', icon: 'pi pi-arrow-down-left' },
+          { id: 'cash-payment', path: '/finance/cash-payments', resource: 'finance', permission: 'finance.view', label: 'Phiếu chi', icon: 'pi pi-arrow-up-right' }
+        ]
+      },
+      {
+        id: 'bank-hub',
+        label: 'Ngân hàng',
+        icon: 'pi pi-building-columns',
+        isFolder: true,
+        children: [
+          { id: 'bank-book', path: '/finance/bank-book', resource: 'finance', permission: 'finance.view', label: 'Sổ tiền gửi', icon: 'pi pi-book' },
+          { id: 'bank-customer-receipt', path: '/finance/bank-receipts', resource: 'finance', permission: 'finance.view', label: 'Thu tiền khách hàng', icon: 'pi pi-users' },
+          { id: 'bank-receipt', path: '/finance/bank-receipts', resource: 'finance', permission: 'finance.view', label: 'Chứng từ thu', icon: 'pi pi-arrow-down-left' },
+          { id: 'bank-payment', path: '/finance/bank-payments', resource: 'finance', permission: 'finance.view', label: 'Chứng từ chi', icon: 'pi pi-arrow-up-right' },
+          { id: 'bank-transfer', path: '/finance/internal-transfers', resource: 'finance', permission: 'finance.view', label: 'Chuyển tiền nội bộ', icon: 'pi pi-arrow-right-arrow-left' },
+          { id: 'finance-accounts', path: '/finance/accounts', resource: 'finance', permission: 'finance.view', label: 'Hệ thống tài khoản', icon: 'pi pi-sitemap' }
         ]
       },
       {
@@ -184,8 +279,8 @@ export const menuCategories = [
             path: '/purchase/invoices',
             resource: 'purchase',
             permission: 'purchase.view',
-            label: 'Hóa đơn & Đối chiếu',
-            icon: 'pi pi-receipt'
+            label: 'Chứng từ mua hàng',
+            icon: 'pi pi-file-import'
           },
           {
             id: 'purchase-return',
@@ -226,7 +321,7 @@ export const menuCategories = [
             permission: 'inventory.view',
             label: 'Lịch sử tồn kho',
             icon: 'pi pi-history'
-          },
+          }
         ]
       },
       {

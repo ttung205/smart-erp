@@ -9,24 +9,24 @@
         </p>
       </div>
       <div class="flex items-center gap-2">
-        <Button 
-          label="Làm mới" 
-          icon="pi pi-refresh" 
-          size="small" 
-          text 
+        <Button
+          label="Làm mới"
+          icon="pi pi-refresh"
+          size="small"
+          text
           class="!rounded-[6px]"
-          :loading="loading" 
-          @click="loadCurrentTab" 
+          :loading="loading"
+          @click="loadCurrentTab"
         />
       </div>
     </div>
 
     <!-- Thanh chuyển 2 Tab con -->
     <div class="flex items-center gap-2 border-b border-slate-200">
-      <button 
+      <button
         class="px-4 py-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2"
-        :class="activeSubTab === 'physical' 
-          ? 'border-sky-600 text-sky-700 bg-sky-50/50' 
+        :class="activeSubTab === 'physical'
+          ? 'border-sky-600 text-sky-700 bg-sky-50/50'
           : 'border-transparent text-slate-600 hover:text-slate-900'"
         @click="switchSubTab('physical')"
       >
@@ -34,10 +34,10 @@
         Lịch Sử Tồn Kho Thực Tế
       </button>
 
-      <button 
+      <button
         class="px-4 py-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2"
-        :class="activeSubTab === 'reservation' 
-          ? 'border-amber-600 text-amber-700 bg-amber-50/50' 
+        :class="activeSubTab === 'reservation'
+          ? 'border-amber-600 text-amber-700 bg-amber-50/50'
           : 'border-transparent text-slate-600 hover:text-slate-900'"
         @click="switchSubTab('reservation')"
       >
@@ -49,32 +49,32 @@
     <!-- Toolbar tìm kiếm & lọc kho -->
     <div class="flex items-center justify-between flex-wrap gap-3 bg-slate-50 p-2.5 rounded-[6px] border border-slate-200">
       <div class="flex items-center flex-wrap gap-2.5">
-        <InputText 
-          v-model="search" 
-          placeholder="Tìm theo mã chứng từ, SKU, ghi chú..." 
+        <InputText
+          v-model="search"
+          placeholder="Tìm theo mã chứng từ, SKU, ghi chú..."
           size="small"
-          class="w-72 bg-white !rounded-[6px]" 
+          class="w-72 bg-white !rounded-[6px]"
         />
 
-        <Select 
-          v-model="selectedWarehouseId" 
-          :options="warehouseOptions" 
-          optionLabel="label" 
-          optionValue="value" 
-          placeholder="Tất cả kho" 
+        <Select
+          v-model="selectedWarehouseId"
+          :options="warehouseOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Tất cả kho"
           size="small"
-          class="min-w-[180px] !rounded-[6px]" 
-          @change="loadCurrentTab" 
+          class="min-w-[180px] !rounded-[6px]"
+          @change="loadCurrentTab"
         />
 
-        <Button 
+        <Button
           v-if="search || selectedWarehouseId"
-          label="Xóa lọc" 
-          size="small" 
-          text 
-          severity="secondary" 
+          label="Xóa lọc"
+          size="small"
+          text
+          severity="secondary"
           class="!rounded-[6px]"
-          @click="resetFilters" 
+          @click="resetFilters"
         />
       </div>
     </div>
@@ -102,10 +102,10 @@
 
       <!-- Loại Giao Dịch -->
       <template #col-document_type="{ data }">
-        <Tag 
-          :value="getPhysicalTypeLabel(data.document_type || data.movement_type)" 
+        <Tag
+          :value="getPhysicalTypeLabel(data.document_type || data.movement_type)"
           :severity="getPhysicalTypeSeverity(data.document_type || data.movement_type)"
-          class="!text-[11px] !rounded-[4px]" 
+          class="!text-[11px] !rounded-[4px]"
         />
       </template>
 
@@ -126,7 +126,7 @@
       <!-- Biến Động -->
       <template #col-quantity_delta="{ data }">
         <div class="text-right">
-          <span 
+          <span
             class="font-mono text-sm font-bold"
             :class="data.quantity_delta > 0 ? 'text-emerald-600' : 'text-rose-600'"
           >
@@ -180,10 +180,10 @@
 
       <!-- Loại Giao Dịch -->
       <template #col-document_type="{ data }">
-        <Tag 
-          :value="getReservationTypeLabel(data.document_type)" 
+        <Tag
+          :value="getReservationTypeLabel(data.document_type)"
           :severity="getReservationTypeSeverity(data.document_type)"
-          class="!text-[11px] !rounded-[4px]" 
+          class="!text-[11px] !rounded-[4px]"
         />
       </template>
 
@@ -204,7 +204,7 @@
       <!-- Biến Động -->
       <template #col-quantity_delta="{ data }">
         <div class="text-right">
-          <span 
+          <span
             class="font-mono text-sm font-bold"
             :class="data.quantity_delta < 0 ? 'text-amber-600' : 'text-emerald-600'"
           >

@@ -9,7 +9,7 @@ class DepartmentController extends Controller
 {
     public function index()
     {
-        $departments = DB::table('departments')->orderBy('id')->get();
+        $departments = $this->departmentQuery()->orderBy('departments.id')->get();
         $userCounts = DB::table('users')
             ->select('department_id', DB::raw('count(id) as total_users'))
             ->groupBy('department_id')
@@ -21,18 +21,30 @@ class DepartmentController extends Controller
         return response()->json(['success' => true, 'data' => $departments]);
     }
 
+    public function show($id)
+    {
+        $dept = $this->departmentQuery()->where('departments.id', $id)->first();
+        if (!$dept) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy phòng ban'], 404);
+        }
+
+        return response()->json(['success' => true, 'data' => $dept]);
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
             'code' => 'required|string|max:50|unique:departments,code',
             'name' => 'required|string|max:150',
             'description' => 'nullable|string|max:255',
+            'manager_id' => 'nullable|exists:users,id',
         ]);
 
         $id = DB::table('departments')->insertGetId([
             'code' => strtoupper(trim($validated['code'])),
             'name' => $validated['name'],
             'description' => $validated['description'] ?? null,
+            'manager_id' => $validated['manager_id'] ?? null,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -51,12 +63,14 @@ class DepartmentController extends Controller
             'code' => 'sometimes|required|string|max:50|unique:departments,code,' . $id,
             'name' => 'sometimes|required|string|max:150',
             'description' => 'nullable|string|max:255',
+            'manager_id' => 'nullable|exists:users,id',
         ]);
 
         $updateData = [];
         if (isset($validated['code'])) $updateData['code'] = strtoupper(trim($validated['code']));
         if (isset($validated['name'])) $updateData['name'] = $validated['name'];
         if (array_key_exists('description', $validated)) $updateData['description'] = $validated['description'];
+        if (array_key_exists('manager_id', $validated)) $updateData['manager_id'] = $validated['manager_id'];
         $updateData['updated_at'] = now();
 
         DB::table('departments')->where('id', $id)->update($updateData);
@@ -78,5 +92,12 @@ class DepartmentController extends Controller
 
         DB::table('departments')->where('id', $id)->delete();
         return response()->json(['success' => true, 'message' => 'Đã xóa phòng ban thành công']);
+    }
+
+    private function departmentQuery()
+    {
+        return DB::table('departments')
+            ->leftJoin('users as managers', 'departments.manager_id', '=', 'managers.id')
+            ->select('departments.*', 'managers.name as manager_name', 'managers.email as manager_email');
     }
 }

@@ -16,6 +16,8 @@
       :tableStyle="tableStyle"
       :resizableColumns="resizableColumns"
       :columnResizeMode="columnResizeMode"
+      :rowHover="rowHover"
+      @row-click="emit('row-click', $event)"
     >
       <!-- Optional slot for custom columns or prepend -->
       <slot name="prepend-columns"></slot>
@@ -106,6 +108,10 @@ const props = defineProps({
     type: String,
     default: 'fit'
   },
+  rowHover: {
+    type: Boolean,
+    default: false
+  },
   searchQuery: {
     type: String,
     default: ''
@@ -135,6 +141,8 @@ const props = defineProps({
     default: 'Không tìm thấy dữ liệu phù hợp.'
   }
 });
+
+const emit = defineEmits(['row-click']);
 
 const filteredData = computed(() => {
   if (!props.searchQuery || props.searchQuery.trim() === '') {

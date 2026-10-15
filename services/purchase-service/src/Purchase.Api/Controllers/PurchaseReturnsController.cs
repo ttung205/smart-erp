@@ -65,6 +65,26 @@ public class PurchaseReturnsController : ControllerBase
     }
 
     /// <summary>
+    /// Cập nhật phiếu trả hàng mua ở trạng thái Draft (lý do, RMA, ghi chú, mặt hàng)
+    /// </summary>
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(long id, [FromBody] UpdatePurchaseReturnDto dto, CancellationToken ct = default)
+    {
+        var updated = await _returnService.UpdateDraftAsync(id, dto, ct);
+        return Ok(ApiEnvelope<PurchaseReturnDto>.Ok(updated, new ApiMeta { CorrelationId = GetCorrelationId() }));
+    }
+
+    /// <summary>
+    /// Gửi phê duyệt phiếu trả hàng mua (Submit)
+    /// </summary>
+    [HttpPost("{id}/submit")]
+    public async Task<IActionResult> Submit(long id, [FromBody] SubmitPurchaseReturnDto? dto, CancellationToken ct = default)
+    {
+        var submitted = await _returnService.SubmitAsync(id, dto, ct);
+        return Ok(ApiEnvelope<PurchaseReturnDto>.Ok(submitted, new ApiMeta { CorrelationId = GetCorrelationId() }));
+    }
+
+    /// <summary>
     /// Phê duyệt phiếu trả hàng mua
     /// </summary>
     [HttpPost("{id}/approve")]

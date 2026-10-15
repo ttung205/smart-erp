@@ -31,7 +31,7 @@ class SaleReturnController extends Controller
 
     public function show(SaleReturn $saleReturn): JsonResponse
     {
-        return response()->json(['success' => true, 'data' => $saleReturn->load(['request.documents', 'request.attachments', 'items'])]);
+        return response()->json(['success' => true, 'data' => $saleReturn->load(['request.documents', 'request.attachments', 'items', 'vatInvoiceAdjustments'])]);
     }
 
     public function post(Request $request, SaleReturnRequest $saleReturnRequest): JsonResponse

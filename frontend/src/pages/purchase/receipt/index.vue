@@ -211,17 +211,28 @@
             </span>
           </template>
 
-          <!-- Cột Thao Tác: Tiến hành nhập kho -->
-          <Column header="Thao Tác" style="width: 140px" class="text-center">
+          <!-- Cột Thao Tác: Tiến hành nhập kho & Đóng đơn PO sớm -->
+          <Column header="Thao Tác" style="width: 175px" class="text-center">
             <template #body="{ data }">
-              <Button
-                label="Nhập kho"
-                icon="pi pi-box"
-                size="small"
-                class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px] !text-xs !font-semibold !px-2.5 !py-1"
-                v-tooltip.top="'Tiến hành kiểm đếm và lập phiếu nhập kho'"
-                @click="$router.push(`/purchase/receipts/create?poId=${data.id}`)"
-              />
+              <div class="flex items-center justify-center gap-1.5">
+                <Button
+                  label="Nhập kho"
+                  icon="pi pi-box"
+                  size="small"
+                  class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px] !text-xs !font-semibold !px-2.5 !py-1"
+                  v-tooltip.top="'Tiến hành kiểm đếm và lập phiếu nhập kho'"
+                  @click="$router.push(`/purchase/receipts/create?poId=${data.id}`)"
+                />
+                <Button
+                  icon="pi pi-check-circle"
+                  size="small"
+                  outlined
+                  severity="secondary"
+                  class="!w-7 !h-7 !p-0 !rounded-[6px] hover:!bg-slate-100"
+                  v-tooltip.top="'Đóng đơn PO (Không chờ giao bù nữa)'"
+                  @click="openCloseDialog(data)"
+                />
+              </div>
             </template>
           </Column>
         </CommonDataTable>
@@ -343,6 +354,61 @@
         </CommonDataTable>
       </div>
     </div>
+
+    <!-- Dialog Xác nhận Đóng Đơn PO Sớm -->
+    <Dialog
+      v-model:visible="showCloseDialog"
+      modal
+      header="Đóng Đơn Mua Hàng Sớm"
+      :style="{ width: '480px' }"
+      class="p-fluid rounded-[6px]"
+    >
+      <div class="flex flex-col gap-3 py-2">
+        <div class="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-[6px] p-3">
+          <i class="pi pi-exclamation-triangle text-amber-600 text-lg mt-0.5"></i>
+          <div class="flex flex-col text-xs text-amber-900 leading-relaxed">
+            <span class="font-bold">Xác nhận kết thúc nhập kho đơn #{{ selectedPoToClose?.code }}</span>
+            <span class="mt-0.5">
+              Đơn hàng này hiện đã nhận <strong>{{ getOrderReceivedTotal(selectedPoToClose) }}/{{ getOrderTotalQuantity(selectedPoToClose) }}</strong> sản phẩm.
+              Khi đóng đơn, hệ thống sẽ đánh dấu đơn là <strong>Hoàn tất</strong>, giải phóng phần chưa nhập và <strong>không chờ NCC giao bù</strong> số lượng còn lại nữa.
+            </span>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-700">Lý do đóng đơn sớm (tùy chọn):</label>
+          <Textarea
+            v-model="closeReason"
+            rows="3"
+            placeholder="VD: Nhà cung cấp hết hàng không thể giao bù, Thỏa thuận hủy phần thiếu và khấu trừ công nợ..."
+            class="!text-xs !rounded-[6px]"
+          />
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end gap-2 pt-2">
+          <Button
+            label="Hủy bỏ"
+            icon="pi pi-times"
+            size="small"
+            text
+            severity="secondary"
+            class="!rounded-[6px] !text-xs"
+            @click="showCloseDialog = false"
+          />
+          <Button
+            label="Xác nhận đóng đơn"
+            icon="pi pi-check-circle"
+            size="small"
+            severity="warn"
+            class="!rounded-[6px] !text-xs font-semibold"
+            :loading="closingPo"
+            @click="confirmClosePo"
+          />
+        </div>
+      </template>
+    </Dialog>
   </div>
 </template>
 
@@ -353,6 +419,8 @@ import { useToast } from 'primevue/usetoast';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
 import InputText from 'primevue/inputtext';
+import Textarea from 'primevue/textarea';
+import Dialog from 'primevue/dialog';
 import Select from 'primevue/select';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
@@ -539,6 +607,45 @@ const formatDate = (dateStr) => {
     return d.toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' });
   } catch {
     return dateStr;
+  }
+};
+
+const showCloseDialog = ref(false);
+const selectedPoToClose = ref(null);
+const closeReason = ref('');
+const closingPo = ref(false);
+
+const openCloseDialog = (order) => {
+  selectedPoToClose.value = order;
+  closeReason.value = '';
+  showCloseDialog.value = true;
+};
+
+const confirmClosePo = async () => {
+  if (!selectedPoToClose.value) return;
+  closingPo.value = true;
+  try {
+    await purchaseApi.closeOrder(selectedPoToClose.value.id, {
+      reason: closeReason.value || 'Đóng đơn hoàn tất nhập kho sớm'
+    });
+    toast.add({
+      severity: 'success',
+      summary: 'Thành công',
+      detail: `Đã đóng đơn PO #${selectedPoToClose.value.code}. Đơn hàng đã hoàn tất và kết thúc luồng nhập kho.`,
+      life: 4000
+    });
+    showCloseDialog.value = false;
+    await loadAllData();
+  } catch (err) {
+    console.error('Lỗi đóng đơn PO:', err);
+    toast.add({
+      severity: 'error',
+      summary: 'Lỗi',
+      detail: err.message || 'Không thể đóng đơn mua hàng',
+      life: 4000
+    });
+  } finally {
+    closingPo.value = false;
   }
 };
 

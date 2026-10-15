@@ -49,10 +49,10 @@ export const PURCHASE_RETURN_REASONS = [
 ];
 
 export const DEFAULT_SUPPLIERS = [
-  { id: 1, code: 'SUP-LG', name: 'Công ty TNHH LG Electronics Việt Nam', taxCode: '0100109106', contact: 'Trần Văn Long (0903.111.222)' },
-  { id: 2, code: 'SUP-ELX', name: 'Công ty TNHH Electrolux Việt Nam', taxCode: '0301444890', contact: 'Nguyễn Thị Mai (0918.333.444)' },
-  { id: 3, code: 'SUP-TSB', name: 'Công ty TNHH Sản Phẩm Tiêu Dùng Toshiba VN', taxCode: '3700234567', contact: 'Phạm Hữu Tài (0982.555.666)' },
-  { id: 4, code: 'SUP-DKN', name: 'Công ty CP Daikin Air Conditioning Vietnam', taxCode: '0305882341', contact: 'Lê Minh Quân (0938.777.888)' }
+  { id: 1, code: 'MS-1021', name: 'Công ty TNHH LG Electronics Việt Nam', taxCode: '0100109106', contact: 'Trần Văn Long (0903.111.222)' },
+  { id: 2, code: 'MS-2045', name: 'Công ty TNHH Electrolux Việt Nam', taxCode: '0301444890', contact: 'Nguyễn Thị Mai (0918.333.444)' },
+  { id: 3, code: 'TS-3091', name: 'Công ty TNHH Sản Phẩm Tiêu Dùng Toshiba VN', taxCode: '3700234567', contact: 'Phạm Hữu Tài (0982.555.666)' },
+  { id: 4, code: 'MS-4158', name: 'Công ty CP Daikin Air Conditioning Vietnam', taxCode: '0305882341', contact: 'Lê Minh Quân (0938.777.888)' }
 ];
 
 export const DEFAULT_WAREHOUSES = [

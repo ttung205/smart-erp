@@ -11,6 +11,7 @@ class DeliveryRequest extends Model
     protected $fillable = [
         'order_id',
         'request_number',
+        'warehouse_id',
         'warehouse_name',
         'shipping_address',
         'contact_phone',

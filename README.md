@@ -112,8 +112,10 @@ smart-erp/
 │   ├── purchase-service/    # Port 8003 | erp_purchase_db (Purchase Orders)
 │   ├── inventory-service/   # Port 8004 | erp_inventory_db (Stock, Atomic Concurrency)
 │   ├── sales-service/       # Port 8005 | erp_sales_db (Sales Orders, Saga)
-│   ├── eoffice-service/     # Port 8006 | erp_eoffice_db (Approval Workflow)
-│   └── ai-service/          # Port 8007 | Python FastAPI (Permission-aware Copilot)
+│   ├── notification-service/# Port 8006 | Node.js (Email / Realtime)
+│   ├── eoffice-service/     # Port 8007 | erp_eoffice_db (Nghỉ phép, Mua sắm, Tạm ứng, Công tác)
+│   ├── finance-service/     # Port 8008 | erp_finance_db (Thu chi, Công nợ, Sổ cái)
+│   └── ai-service/          # Port 8009 | Python FastAPI (Permission-aware Copilot)
 ├── frontend/                # Vue 3 + PrimeVue 4 (Clean Canvas Design System)
 ├── docs/                    # Tài liệu đặc tả Contracts, CloudEvents, SRS
 ├── setup.bat / setup.ps1    # Script khởi tạo dự án tự động

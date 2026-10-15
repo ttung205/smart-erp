@@ -19,8 +19,10 @@ http://localhost:8000/api/v1/{service-prefix}/{resources}
 | `/api/v1/purchase/` | `purchase-service` (PHP/C#) | :8003 | `POST /api/v1/purchase/orders` |
 | `/api/v1/inventory/` | `inventory-service` (C#) | :8004 | `POST /api/v1/inventory/stocks/reserve` |
 | `/api/v1/sales/` | `sales-service` (C#) | :8005 | `POST /api/v1/sales/orders` |
-| `/api/v1/eoffice/` | `eoffice-service` (PHP) | :8006 | `POST /api/v1/eoffice/requests` |
-| `/api/v1/ai/` | `ai-service` (Python) | :8007 | `POST /api/v1/ai/copilot/query` |
+| `/api/v1/notifications/` | `notification-service` (Node.js) | :8006 | `POST /api/v1/notifications/email/send` |
+| `/api/v1/eoffice/` | `eoffice-service` (PHP) | :8007 | `POST /api/v1/eoffice/leave-requests` |
+| `/api/v1/finance/` | `finance-service` (PHP) | :8008 | `GET /api/v1/finance/vouchers` |
+| `/api/v1/ai/` | `ai-service` (Python) | :8009 | `POST /api/v1/ai/copilot/query` |
 
 ### 1.2. Quy Tắc Đặt Tên Endpoint (RESTful Naming)
 * Sử dụng **danh từ số nhiều** cho tài nguyên: `/products`, `/orders`, `/stocks`.

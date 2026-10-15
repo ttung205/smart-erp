@@ -42,11 +42,11 @@
       </slot>
 
       <!-- Right: Action Buttons -->
-      <div class="flex items-center gap-1.5 flex-wrap">
+      <div class="flex min-w-0 items-center justify-end gap-1.5 flex-wrap">
         <!-- Nút Thêm sản phẩm nhanh 1 dòng -->
         <Button
           v-if="showAddRow && !readonly"
-          label="Thêm sản phẩm"
+          :label="addRowLabel"
           icon="pi pi-plus"
           size="small"
           class="!bg-emerald-600 hover:!bg-emerald-700 !text-white !border-emerald-600 !text-xs !py-1 !px-2.5 rounded-[6px]"
@@ -464,6 +464,14 @@ const props = defineProps({
   tableStyle: {
     type: Object,
     default: () => ({ minWidth: '100%', width: '100%' })
+  },
+  addRowLabel: {
+    type: String,
+    default: 'Thêm sản phẩm'
+  },
+  createEmptyRow: {
+    type: Function,
+    default: null
   }
 });
 
@@ -623,7 +631,7 @@ const notifyChange = () => {
 
 // Thêm dòng mới
 const addNewEmptyRow = () => {
-  const newRow = {
+  const newRow = props.createEmptyRow ? props.createEmptyRow() : {
     id: Date.now() + Math.random(),
     sku: '',
     designation: '',
@@ -652,7 +660,7 @@ const removeItemRow = (idx) => {
     items.value.splice(idx, 1);
     notifyChange();
   } else {
-    items.value[0] = {
+    items.value[0] = props.createEmptyRow ? props.createEmptyRow() : {
       id: Date.now(),
       sku: '',
       designation: '',

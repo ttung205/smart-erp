@@ -25,6 +25,7 @@ class StoreDeliveryRequest extends FormRequest
         return [
             'order_id' => ['required', 'integer', 'exists:sales_orders,id'],
             'request_number' => ['nullable', 'string', 'max:50', 'unique:delivery_requests,request_number'],
+            'warehouse_id' => ['required', 'integer', 'min:1'],
             'warehouse_name' => ['required', 'string', 'max:150'],
             'shipping_address' => ['required', 'string', 'max:2000'],
             'contact_phone' => ['nullable', 'string', 'max:50'],

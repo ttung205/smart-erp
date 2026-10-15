@@ -354,6 +354,7 @@ const loadOrder = async (id) => {
       : (rawStatus === 'COMPLETED' || rawStatus === 'RECEIVED') ? 'RECEIVED'
       : rawStatus;
 
+
     form.id = matchedData.id;
     form.po_number = matchedData.po_number || matchedData.code || `PO-202610-${String(id).padStart(4, '0')}`;
     form.supplier_id = Number(matchedData.supplier_id || 1);

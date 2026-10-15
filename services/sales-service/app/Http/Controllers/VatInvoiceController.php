@@ -7,22 +7,45 @@ use App\Models\Invoice;
 use App\Models\RevenueReportItem;
 use App\Models\VatInvoice;
 use App\Models\VatInvoiceItem;
+use App\Services\CustomerReceivableService;
 use App\Services\RevenueReportService;
-use App\Support\DocumentNumberGenerator;
+use App\Support\VatInvoiceNumberGenerator;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class VatInvoiceController extends Controller
 {
+    public function syncFinance(Request $request, CustomerReceivableService $service): JsonResponse
+    {
+        $synced = 0;
+        $failed = [];
+        VatInvoice::query()->where('status', 'ISSUED')->whereNull('adjustment_id')->whereNull('finance_synced_at')->with('salesInvoice')->orderBy('id')
+            ->chunkById(100, function ($invoices) use ($request, $service, &$synced, &$failed): void {
+                foreach ($invoices as $invoice) {
+                    try {
+                        $service->createForVatInvoice($invoice, $invoice->salesInvoice, $request->bearerToken());
+                        $invoice->update(['finance_synced_at' => now()]);
+                        $synced++;
+                    } catch (\Throwable $exception) {
+                        report($exception);
+                        $failed[] = $invoice->invoice_number;
+                    }
+                }
+            });
+
+        return response()->json(['success' => count($failed) === 0, 'synced' => $synced, 'failed' => $failed],
+            count($failed) === 0 ? 200 : 207);
+    }
+
     /**
      * Tự động sinh số hóa đơn tiếp theo: 8 số tăng dần (VD: 00000001, 00000002, 00000123)
      */
     public function getNextInvoiceNumber(Request $request)
     {
         $series = $request->input('series', '1C'.now()->format('y').'TBB');
-        $nextNum = (int) (DB::table('document_sequences')->where('name', "vat-invoice-{$series}")->value('next_value') ?? 1);
-        $formatted = str_pad((string) $nextNum, 8, '0', STR_PAD_LEFT);
+        $formatted = VatInvoiceNumberGenerator::preview($series);
 
         return response()->json([
             'success' => true,
@@ -36,7 +59,7 @@ class VatInvoiceController extends Controller
      */
     public function index(Request $request)
     {
-        $query = VatInvoice::with(['items', 'customer', 'salesInvoice'])->orderBy('id', 'desc');
+        $query = VatInvoice::with(['items', 'customer', 'salesInvoice', 'adjustment.originalInvoice'])->where('status', 'ISSUED')->orderBy('id', 'desc');
 
         if ($request->filled('search')) {
             $s = trim($request->input('search'));
@@ -113,7 +136,7 @@ class VatInvoiceController extends Controller
     /**
      * Lập hóa đơn VAT mới (cho phép xuất toàn bộ hoặc 1 phần các mặt hàng đã xuất kho)
      */
-    public function store(StoreVatInvoiceRequest $request)
+    public function store(StoreVatInvoiceRequest $request, CustomerReceivableService $receivableService): JsonResponse
     {
         try {
             DB::beginTransaction();
@@ -131,7 +154,7 @@ class VatInvoiceController extends Controller
             $orderNumber = $salesInvoice?->deliveryRequest?->customer_order_number ?: ($salesInvoice?->deliveryRequest?->order_number ?: '');
 
             $series = trim($request->input('invoice_series', '1C'.now()->format('y').'TBB'));
-            $invoiceNumber = DocumentNumberGenerator::next("vat-invoice-{$series}", '', 8);
+            $invoiceNumber = VatInvoiceNumberGenerator::next($series);
             $vatInvoice = VatInvoice::create([
                 'invoice_number' => $invoiceNumber,
                 'invoice_series' => $series,
@@ -205,13 +228,24 @@ class VatInvoiceController extends Controller
 
             // Cập nhật chuyển trạng thái doanh thu từ TK 1312 sang TK 1311
             RevenueReportService::processVatInvoiceIssued($vatInvoice, $createdItems);
-
             DB::commit();
+
+            $financeSynced = true;
+            try {
+                $receivableService->createForVatInvoice($vatInvoice->fresh(), $salesInvoice, $request->bearerToken());
+                $vatInvoice->update(['finance_synced_at' => now()]);
+            } catch (\Throwable $syncError) {
+                report($syncError);
+                $financeSynced = false;
+            }
 
             return response()->json([
                 'success' => true,
+                'finance_synced' => $financeSynced,
                 'data' => $vatInvoice->load('items', 'customer'),
-                'message' => "Lập hóa đơn VAT {$vatInvoice->invoice_number} thành công và đã ghi nhận doanh thu TK 1311.",
+                'message' => $financeSynced
+                    ? "Lập hóa đơn VAT {$vatInvoice->invoice_number} thành công và đã ghi nhận công nợ."
+                    : "Đã lập hóa đơn VAT {$vatInvoice->invoice_number}, nhưng chưa đồng bộ công nợ. Hãy dùng nút đồng bộ trên Sổ cái.",
             ], 201);
         } catch (HttpExceptionInterface $e) {
             DB::rollBack();
@@ -232,7 +266,7 @@ class VatInvoiceController extends Controller
      */
     public function show($id)
     {
-        $inv = VatInvoice::with(['items', 'customer', 'salesInvoice'])->find($id);
+        $inv = VatInvoice::with(['items', 'customer', 'salesInvoice', 'adjustment.originalInvoice'])->find($id);
         if (! $inv) {
             return response()->json(['success' => false, 'message' => 'Không tìm thấy hóa đơn VAT'], 404);
         }

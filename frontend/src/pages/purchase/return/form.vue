@@ -19,7 +19,7 @@
 
           <!-- Action buttons for existing return -->
           <template v-if="isEditMode">
-            <!-- DRAFT: Gửi duyệt & Hủy -->
+            <!-- DRAFT: Lưu, Gửi duyệt & Hủy -->
             <Button
               v-if="statusUpper === 'DRAFT'"
               label="Hủy Phiếu"
@@ -30,6 +30,16 @@
               class="!rounded-[6px] !text-xs !py-1.5"
               :loading="actionLoading"
               @click="openCancelDialog"
+            />
+            <Button
+              v-if="statusUpper === 'DRAFT'"
+              label="Lưu Thay Đổi"
+              icon="pi pi-save"
+              size="small"
+              outlined
+              class="!border-slate-300 !text-slate-700 hover:!bg-slate-100 !rounded-[6px] !text-xs !py-1.5"
+              :loading="saving"
+              @click="updateDraftReturn"
             />
             <Button
               v-if="statusUpper === 'DRAFT'"
@@ -794,17 +804,61 @@ async function saveNewReturn() {
   }
 }
 
-async function submitReturn() {
-  actionLoading.value = true;
+async function updateDraftReturn() {
+  saving.value = true;
   try {
-    const res = await purchaseApi.submitReturn(returnId.value);
+    const payload = {
+      reason: form.value.reason,
+      rma_number: form.value.rma_number || null,
+      notes: form.value.notes || null,
+      items: form.value.items.map(it => ({
+        id: it.id,
+        purchase_order_item_id: it.purchase_order_item_id,
+        quantity_returned: Number(it.quantity_returned || 0),
+        reason_detail: it.reason_detail || null
+      }))
+    };
+    const res = await purchaseApi.updateReturn(returnId.value, payload);
     const updated = res?.data || res;
-    form.value.status = updated.status || 'Submitted';
+    if (updated.reason) form.value.reason = updated.reason;
+    if (updated.rma_number) form.value.rma_number = updated.rma_number;
     toast.add({
       severity: 'success',
       summary: 'Thành công',
-      detail: 'Đã gửi phiếu trả hàng phê duyệt',
+      detail: 'Đã lưu các thay đổi cho phiếu trả hàng nháp',
       life: 3000
+    });
+  } catch (err) {
+    console.error('Lỗi lưu phiếu nháp:', err);
+    toast.add({
+      severity: 'error',
+      summary: 'Lỗi',
+      detail: err.message || 'Không thể lưu thay đổi',
+      life: 3000
+    });
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function submitReturn() {
+  actionLoading.value = true;
+  try {
+    const payload = {
+      reason: form.value.reason,
+      rma_number: form.value.rma_number || null,
+      notes: form.value.notes || null
+    };
+    const res = await purchaseApi.submitReturn(returnId.value, payload);
+    const updated = res?.data || res;
+    form.value.status = updated.status || 'Submitted';
+    if (updated.reason) form.value.reason = updated.reason;
+    if (updated.rma_number) form.value.rma_number = updated.rma_number;
+    toast.add({
+      severity: 'success',
+      summary: 'Thành công',
+      detail: 'Đã cập nhật thông tin và gửi phiếu trả hàng phê duyệt thành công!',
+      life: 3500
     });
   } catch (err) {
     console.error('Lỗi gửi duyệt:', err);

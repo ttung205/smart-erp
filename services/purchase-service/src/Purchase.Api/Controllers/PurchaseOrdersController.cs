@@ -102,4 +102,15 @@ public class PurchaseOrdersController : ControllerBase
         var cancelled = await _orderService.CancelAsync(id, dto, ct);
         return Ok(ApiEnvelope<PurchaseOrderDto>.Ok(cancelled, new ApiMeta { CorrelationId = GetCorrelationId() }));
     }
+
+    /// <summary>
+    /// Đóng đơn mua hàng sớm (Completed) khi không cần nhà cung cấp giao bù số lượng còn lại
+    /// </summary>
+    [HttpPost("{id}/close")]
+    public async Task<IActionResult> Close(long id, [FromBody] ClosePurchaseOrderDto? dto, CancellationToken ct = default)
+    {
+        var req = dto ?? new ClosePurchaseOrderDto();
+        var closed = await _orderService.CloseAsync(id, req, ct);
+        return Ok(ApiEnvelope<PurchaseOrderDto>.Ok(closed, new ApiMeta { CorrelationId = GetCorrelationId() }));
+    }
 }

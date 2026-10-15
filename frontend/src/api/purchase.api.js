@@ -92,6 +92,13 @@ export const purchaseApi = {
     });
   },
 
+  closeOrder(id, data = {}) {
+    return apiClient(`/api/v1/purchase/orders/${id}/close`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
   // 3. Goods Receipts (Phiếu kiểm nhận nhập kho - GRN)
   getReceipts(params = {}) {
     const cleanParams = Object.fromEntries(
@@ -170,9 +177,17 @@ export const purchaseApi = {
     });
   },
 
-  submitReturn(id) {
+  updateReturn(id, data) {
+    return apiClient(`/api/v1/purchase/returns/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  submitReturn(id, data = null) {
     return apiClient(`/api/v1/purchase/returns/${id}/submit`, {
-      method: 'POST'
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined
     });
   },
 

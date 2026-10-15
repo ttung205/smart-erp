@@ -64,8 +64,8 @@ public class GoodsReceiptService : IGoodsReceiptService
 
         foreach (var itemDto in dto.Items)
         {
-            if (itemDto.QuantityReceived <= 0)
-                throw new PurchaseDomainException("INVALID_QUANTITY", $"Số lượng nhận của mặt hàng {itemDto.Sku} phải lớn hơn 0.");
+            if (itemDto.QuantityReceived < 0 || itemDto.QuantityRejected < 0 || (itemDto.QuantityReceived == 0 && itemDto.QuantityRejected == 0))
+                throw new PurchaseDomainException("INVALID_QUANTITY", $"Mặt hàng {itemDto.Sku}: Số lượng thực nhận hoặc số lượng trả lại phải lớn hơn 0.");
 
             var poItem = po.Items.FirstOrDefault(x => x.Id == itemDto.PurchaseOrderItemId);
             if (poItem == null)
@@ -75,10 +75,10 @@ public class GoodsReceiptService : IGoodsReceiptService
             }
 
             var remainingReceivable = poItem.QuantityOrdered - poItem.QuantityReceived;
-            if (itemDto.QuantityReceived > remainingReceivable)
+            if ((itemDto.QuantityReceived + itemDto.QuantityRejected) > remainingReceivable)
             {
                 throw new PurchaseDomainException("OVER_RECEIPT_NOT_ALLOWED",
-                    $"Mặt hàng {poItem.Sku} vượt quá số lượng còn lại có thể nhận. Đã đặt: {poItem.QuantityOrdered}, Đã nhận trước đó: {poItem.QuantityReceived}, Số lượng muốn nhận: {itemDto.QuantityReceived}, Còn lại tối đa: {remainingReceivable}.");
+                    $"Mặt hàng {poItem.Sku}: Tổng số lượng thực nhận ({itemDto.QuantityReceived}) và trả lại ({itemDto.QuantityRejected}) vượt quá số lượng còn lại ({remainingReceivable}). Đã đặt: {poItem.QuantityOrdered}, Đã nhận trước đó: {poItem.QuantityReceived}.");
             }
 
             var grnItem = new GoodsReceiptItem
@@ -162,9 +162,61 @@ public class GoodsReceiptService : IGoodsReceiptService
 
             po.UpdatedAt = DateTime.UtcNow;
 
+            // Tự động tạo Phiếu trả hàng (PurchaseReturn) ở trạng thái Draft nếu có mặt hàng bị trả lại tại cửa kho
+            PurchaseReturn? autoReturn = null;
+            var rejectedItems = grn.Items.Where(x => x.QuantityRejected > 0).ToList();
+            if (rejectedItems.Any())
+            {
+                var existingReturn = await _context.PurchaseReturns.FirstOrDefaultAsync(x => x.GoodsReceiptId == grn.Id, ct);
+                if (existingReturn == null)
+                {
+                    var returnCount = await _context.PurchaseReturns.CountAsync(ct);
+                    var datePrefix = DateTime.UtcNow.ToString("yyyyMM");
+                    var returnCode = $"PRTN-{datePrefix}-{(returnCount + 1):D4}";
+
+                    autoReturn = new PurchaseReturn
+                    {
+                        Code = returnCode,
+                        PurchaseOrderId = po.Id,
+                        GoodsReceiptId = grn.Id,
+                        SupplierId = po.SupplierId,
+                        WarehouseId = grn.WarehouseId,
+                        RmaNumber = null,
+                        Status = PurchaseReturnStatus.Draft,
+                        Reason = PurchaseReturnReason.Defective,
+                        Notes = $"Tự động tạo từ phiếu nhập kho {grn.Code} cho hàng bị trả lại tại cửa kho.",
+                        CreatedBy = grn.ReceivedBy,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+
+                    foreach (var rej in rejectedItems)
+                    {
+                        autoReturn.Items.Add(new PurchaseReturnItem
+                        {
+                            PurchaseOrderItemId = rej.PurchaseOrderItemId,
+                            ProductId = rej.ProductId,
+                            Sku = rej.Sku,
+                            ProductName = rej.ProductName,
+                            Unit = rej.Unit,
+                            QuantityReturned = rej.QuantityRejected,
+                            UnitCost = rej.UnitCost,
+                            ReasonDetail = "Trả lại ngay khi kiểm đếm tại cửa kho"
+                        });
+                    }
+
+                    autoReturn.RecalculateTotal();
+                    _context.PurchaseReturns.Add(autoReturn);
+                }
+                else
+                {
+                    autoReturn = existingReturn;
+                }
+            }
+
             await _context.SaveChangesAsync(ct);
 
-            // Ghi sự kiện GoodsReceived vào Transactional Outbox (đồng bộ tồn OnHand sang inventory-service)
+            // Ghi sự kiện GoodsReceived vào Transactional Outbox (chỉ tăng tồn OnHand cho SL thực nhận)
             if (_outboxService != null)
             {
                 var payload = new GoodsReceivedPayload
@@ -193,7 +245,15 @@ public class GoodsReceiptService : IGoodsReceiptService
 
             await transaction.CommitAsync(ct);
 
-            return MapToDto(grn);
+            var resultDto = MapToDto(grn);
+            if (autoReturn != null)
+            {
+                resultDto.AutoPurchaseReturnId = autoReturn.Id;
+                resultDto.AutoPurchaseReturnCode = autoReturn.Code;
+                resultDto.AutoPurchaseReturnQty = rejectedItems.Sum(x => x.QuantityRejected);
+            }
+
+            return resultDto;
         }
         catch
         {

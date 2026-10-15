@@ -32,12 +32,26 @@ import DeliveryRequestPage from '../pages/delivery-request/index.vue';
 import InvoicePage from '../pages/invoice/index.vue';
 import InvoiceFormPage from '../pages/invoice/form.vue';
 import VatInvoicePage from '../pages/vat-invoice/index.vue';
+import VatInvoiceAdjustmentsPage from '../pages/vat-invoice/adjustments/index.vue';
+import VatInvoiceAdjustmentFormPage from '../pages/vat-invoice/adjustments/form.vue';
 import WarehouseRequestSalePage from '../pages/warehouse-request-sale/index.vue';
-import AccountingPage from '../pages/accounting/index.vue';
+import CustomerReceivablesPage from '../pages/customer-receivables/index.vue';
+import FinanceAccountsPage from '../pages/finance/accounts/index.vue';
+import GeneralLedgerPage from '../pages/finance/general-ledger/index.vue';
+import CashBookPage from '../pages/finance/cash-book/index.vue';
+import FinanceVouchersPage from '../pages/finance/vouchers/index.vue';
+import FinanceVoucherFormPage from '../pages/finance/vouchers/form.vue';
+import ReceivableAllocationPage from '../pages/finance/receivable-allocation/index.vue';
 import SaleReturnRequestPage from '../pages/sale-return-request/index.vue';
 import SaleReturnRequestFormPage from '../pages/sale-return-request/form.vue';
 import SaleReturnPage from '../pages/sale-return/index.vue';
 import SaleReturnFormPage from '../pages/sale-return/form.vue';
+
+// E-Office (văn phòng số nội bộ)
+import LeaveRequestPage from '../pages/eoffice/leave/index.vue';
+import LeaveRequestFormPage from '../pages/eoffice/leave/form.vue';
+import LeaveCalendarPage from '../pages/eoffice/leave-calendar/index.vue';
+import LeaveBalancesPage from '../pages/eoffice/leave-balances/index.vue';
 
 // Purchase sub-pages
 import PurchaseRequisitionPage from '../pages/purchase/requisition/index.vue';
@@ -363,9 +377,9 @@ export const routes = [
     component: PurchaseInvoicePage,
     meta: {
       requiresAuth: true,
-      resource: 'purchase',
+      resource: ['purchase', 'finance'],
       permission: 'purchase.view',
-      title: 'Hóa Đơn & Đối Chiếu 3 Bên'
+      title: 'Chứng Từ Mua Hàng & Đối Chiếu 3 Bên'
     }
   },
   {
@@ -374,9 +388,9 @@ export const routes = [
     component: PurchaseInvoiceFormPage,
     meta: {
       requiresAuth: true,
-      resource: 'purchase',
+      resource: ['purchase', 'finance'],
       permission: 'purchase.create',
-      title: 'Nhập Hóa Đơn Mua Hàng Mới'
+      title: 'Lập Chứng Từ Mua Hàng Mới'
     }
   },
   {
@@ -385,9 +399,9 @@ export const routes = [
     component: PurchaseInvoiceFormPage,
     meta: {
       requiresAuth: true,
-      resource: 'purchase',
+      resource: ['purchase', 'finance'],
       permission: 'purchase.view',
-      title: 'Chi Tiết Hóa Đơn & Đối Chiếu'
+      title: 'Chi Tiết Chứng Từ Mua Hàng & Đối Chiếu 3 Bên'
     }
   },
   {
@@ -571,6 +585,12 @@ export const routes = [
       title: 'Quản Lý Xuất Hóa Đơn GTGT'
     }
   },
+  { path: '/vat-invoice/adjustments', name: 'vat-invoice-adjustments', component: VatInvoiceAdjustmentsPage,
+    meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Hóa đơn điều chỉnh' } },
+  { path: '/vat-invoice/adjustments/new', name: 'vat-invoice-adjustment-new', component: VatInvoiceAdjustmentFormPage,
+    meta: { requiresAuth: true, resource: 'finance', permission: 'finance.create', title: 'Lập yêu cầu điều chỉnh hóa đơn' } },
+  { path: '/vat-invoice/adjustments/:id', name: 'vat-invoice-adjustment-detail', component: VatInvoiceAdjustmentFormPage,
+    meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Chi tiết hóa đơn điều chỉnh' } },
   {
     path: '/sale-return-request', name: 'sale-return-request', component: SaleReturnRequestPage,
     meta: { requiresAuth: true, resource: 'sale_return', permission: 'sale_return.view', title: 'Yêu cầu nhập hàng trả lại' }
@@ -603,22 +623,45 @@ export const routes = [
     }
   },
   {
-    path: '/accounting',
-    name: 'accounting',
-    component: AccountingPage,
+    path: '/customer-receivables',
+    name: 'customer-receivables',
+    component: CustomerReceivablesPage,
     meta: {
       requiresAuth: true,
       resource: 'finance',
       permission: 'finance.view',
-      title: 'Ghi Sổ Kế Toán'
+      title: 'Công Nợ Khách Hàng'
     }
   },
+  { path: '/finance/accounts', name: 'finance-accounts', component: FinanceAccountsPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Hệ thống tài khoản' } },
+  { path: '/finance/general-ledger', name: 'finance-general-ledger', component: GeneralLedgerPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Sổ cái' } },
+  { path: '/finance/cash-book', name: 'finance-cash-book', component: CashBookPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Sổ quỹ' } },
+  { path: '/finance/bank-book', name: 'finance-bank-book', component: CashBookPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Sổ tiền gửi ngân hàng', bookChannel: 'BANK' } },
+  { path: '/finance/cash-receipts', name: 'finance-cash-receipts', component: FinanceVouchersPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Phiếu thu', voucherType: 'CASH_RECEIPT' } },
+  { path: '/finance/cash-payments', name: 'finance-cash-payments', component: FinanceVouchersPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Phiếu chi', voucherType: 'CASH_PAYMENT' } },
+  { path: '/finance/bank-receipts', name: 'finance-bank-receipts', component: FinanceVouchersPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Thu tiền ngân hàng', voucherType: 'BANK_RECEIPT' } },
+  { path: '/finance/bank-payments', name: 'finance-bank-payments', component: FinanceVouchersPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Chi tiền ngân hàng', voucherType: 'BANK_PAYMENT' } },
+  { path: '/finance/internal-transfers', name: 'finance-internal-transfers', component: FinanceVouchersPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Chuyển tiền nội bộ', voucherType: 'INTERNAL_TRANSFER' } },
+  { path: '/finance/vouchers/new', name: 'finance-voucher-new', component: FinanceVoucherFormPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.approve', title: 'Lập chứng từ thu chi' } },
+  { path: '/finance/receivable-allocation', name: 'finance-receivable-allocation', component: ReceivableAllocationPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.approve', title: 'Đối trừ công nợ' } },
+  { path: '/accounting', redirect: '/customer-receivables' },
+  // E-Office: mọi nhân viên đăng nhập đều dùng được (quyền chi tiết kiểm tra ở eoffice-service)
+  { path: '/eoffice', redirect: '/eoffice/leave' },
+  { path: '/eoffice/leave', name: 'eoffice-leave', component: LeaveRequestPage, meta: { requiresAuth: true, title: 'Nghỉ phép' } },
+  { path: '/eoffice/leave/new', name: 'eoffice-leave-new', component: LeaveRequestFormPage, meta: { requiresAuth: true, title: 'Tạo đơn xin nghỉ phép' } },
+  { path: '/eoffice/leave/:id', name: 'eoffice-leave-detail', component: LeaveRequestFormPage, meta: { requiresAuth: true, title: 'Chi tiết đơn nghỉ phép' } },
+  // Trang con của Nghỉ phép (đường dẫn tĩnh được ưu tiên hơn /eoffice/leave/:id)
+  { path: '/eoffice/leave/calendar', name: 'eoffice-leave-calendar', component: LeaveCalendarPage, meta: { requiresAuth: true, title: 'Lịch nghỉ' } },
+  { path: '/eoffice/leave/balances', name: 'eoffice-leave-balances', component: LeaveBalancesPage, meta: { requiresAuth: true, resource: 'eoffice', permission: 'eoffice.manage', title: 'Quản lý phép năm' } },
+  { path: '/eoffice/leave-calendar', redirect: '/eoffice/leave/calendar' },
+  { path: '/eoffice/leave-balances', redirect: '/eoffice/leave/balances' },
+  { path: '/eoffice/approvals', redirect: { path: '/eoffice/leave', query: { scope: 'to_approve' } } },
   // Backward compatibility alias redirects
   { path: '/sales/quotation', redirect: '/quotation' },
   { path: '/sales/order', redirect: '/order' },
   { path: '/sales/delivery', redirect: '/delivery' },
   { path: '/sales/invoice', redirect: '/invoice' },
-  { path: '/sales/accounting', redirect: '/accounting' },
+  { path: '/sales/accounting', redirect: '/customer-receivables' },
   {
     path: '/master',
     name: 'master',

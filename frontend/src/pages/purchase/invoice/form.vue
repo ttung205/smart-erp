@@ -2,8 +2,8 @@
   <div class="flex flex-col gap-4">
     <!-- 1. Page Header Chuẩn -->
     <PageHeader
-      :title="isEditMode ? `Hóa Đơn & Đối Chiếu #${form.supplier_invoice_number || form.code || invoiceId}` : 'Nhập Hóa Đơn Tài Chính NCC'"
-      :subtitle="isEditMode ? 'Kiểm tra chênh lệch đơn giá, số lượng giữa PO, GRN và Hóa đơn để ghi sổ tài chính' : 'Lưu hóa đơn tài chính VAT từ nhà cung cấp và kích hoạt đối chiếu 3 bên tự động'"
+      :title="isEditMode ? `Chứng Từ Mua Hàng #${form.supplier_invoice_number || form.code || invoiceId}` : 'Lập Chứng Từ Mua Hàng Mới'"
+      :subtitle="isEditMode ? 'Kiểm tra chênh lệch đơn giá, số lượng giữa PO, GRN và Hóa đơn để ghi sổ kế toán công nợ' : 'Lập chứng từ mua hàng từ đơn PO/phiếu kho GRN và kích hoạt kiểm tra đối chiếu 3 bên tự động'"
     >
       <template #actions>
         <div class="flex items-center gap-2">
@@ -17,10 +17,10 @@
             @click="$router.push('/purchase/invoices')"
           />
 
-          <!-- Nút Lưu Hóa Đơn khi tạo mới -->
+          <!-- Nút Lưu Chứng Từ khi tạo mới -->
           <Button
             v-if="!isEditMode"
-            label="Lưu & Chạy Đối Chiếu"
+            label="Lưu Chứng Từ & Đối Chiếu"
             icon="pi pi-save"
             size="small"
             class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px] !text-xs !font-semibold !py-1.5"
@@ -94,12 +94,12 @@
       </span>
     </div>
 
-    <!-- 3. Thông Tin Hóa Đơn (Single Surface, Clean Flat Layout) -->
+    <!-- 3. Thông Tin Chứng Từ & Hóa Đơn NCC (Single Surface, Clean Flat Layout) -->
     <div class="bg-white border border-slate-200 rounded-[6px] p-4 flex flex-col gap-4">
       <div class="flex items-center justify-between pb-3 border-b border-slate-200">
         <div class="flex items-center gap-2">
           <i class="pi pi-receipt text-sky-600 text-sm"></i>
-          <span class="text-xs font-bold text-slate-800 uppercase tracking-wide">Chi Tiết Hóa Đơn Tài Chính</span>
+          <span class="text-xs font-bold text-slate-800 uppercase tracking-wide">Chi Tiết Chứng Từ Mua Hàng & Hóa Đơn NCC</span>
         </div>
         <div v-if="isEditMode" class="flex items-center gap-2">
           <span class="text-xs text-slate-500">Đối chiếu 3 bên:</span>
@@ -114,7 +114,7 @@
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <!-- Số Hóa Đơn VAT Của NCC -->
         <div class="flex flex-col gap-1">
-          <label class="text-xs font-medium text-slate-700">Số hóa đơn VAT <span class="text-rose-500">*</span></label>
+          <label class="text-xs font-medium text-slate-700">Số hóa đơn VAT / Mã CT NCC <span class="text-rose-500">*</span></label>
           <InputText
             v-model="form.supplier_invoice_number"
             placeholder="Ví dụ: VAT-LG-2026/0891"
@@ -174,7 +174,7 @@
 
         <!-- Ngày Hóa Đơn -->
         <div class="flex flex-col gap-1">
-          <label class="text-xs font-medium text-slate-700">Ngày hóa đơn</label>
+          <label class="text-xs font-medium text-slate-700">Ngày hóa đơn / chứng từ</label>
           <InputText
             v-model="form.invoice_date"
             type="date"
@@ -248,10 +248,10 @@
       <div class="flex items-center justify-between pb-2 border-b border-slate-200">
         <span class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
           <i class="pi pi-table text-sky-600 text-xs"></i>
-          Ma Trận Đối Chiếu Chi Tiết 3 Chiều (PO vs GRN vs Hóa Đơn)
+          Ma Trận Đối Chiếu Chi Tiết 3 Chiều (PO vs GRN vs Chứng Từ Mua Hàng)
         </span>
         <span class="text-xs text-slate-500">
-          Có thể điều chỉnh SL/đơn giá hóa đơn thực tế để kiểm tra tính năng phát hiện sai lệch
+          Có thể điều chỉnh SL/đơn giá chứng từ thực tế để kiểm tra phát hiện sai lệch
         </span>
       </div>
 
@@ -287,7 +287,7 @@
               <th colspan="2" class="p-2 text-center font-semibold text-slate-700 border-r border-slate-200 bg-emerald-50/80">
                 <div class="flex items-center justify-center gap-1.5">
                   <i class="pi pi-receipt text-[11px] text-emerald-600"></i>
-                  <span class="text-emerald-800">3. Hóa Đơn VAT (Invoice)</span>
+                  <span class="text-emerald-800">3. Chứng Từ / Hóa Đơn (Invoice)</span>
                 </div>
               </th>
               <th rowspan="2" class="p-2.5 text-center font-semibold text-slate-700">
@@ -298,8 +298,8 @@
             <tr class="bg-slate-50 border-b border-slate-200 text-slate-600">
               <th class="p-2 text-right font-medium border-r border-slate-200">SL Đặt</th>
               <th class="p-2 text-right font-medium border-r border-slate-200">Đơn Giá PO</th>
-              <th class="p-2 text-right font-medium text-emerald-800 border-r border-slate-200 bg-emerald-50/40 pr-2.5">SL Hóa Đơn</th>
-              <th class="p-2 text-right font-medium text-emerald-800 border-r border-slate-200 bg-emerald-50/40 pr-2.5">Đơn Giá HĐ</th>
+              <th class="p-2 text-right font-medium text-emerald-800 border-r border-slate-200 bg-emerald-50/40 pr-2.5">SL Chứng Từ</th>
+              <th class="p-2 text-right font-medium text-emerald-800 border-r border-slate-200 bg-emerald-50/40 pr-2.5">Đơn Giá CT</th>
             </tr>
           </thead>
           <tbody>
@@ -686,18 +686,18 @@ const saveInvoice = async () => {
     
     toast.add({
       severity: String(created.matching_status).toUpperCase() === 'MATCHED' ? 'success' : 'warn',
-      summary: 'Đã lưu hóa đơn thành công',
-      detail: `Mã hóa đơn: ${created.code}. Kết quả đối chiếu 3 bên: ${getMatchingStatusLabel(created.matching_status)}`,
+      summary: 'Đã lưu chứng từ mua hàng thành công',
+      detail: `Mã chứng từ: ${created.code}. Kết quả đối chiếu 3 bên: ${getMatchingStatusLabel(created.matching_status)}`,
       life: 4000
     });
 
     router.push('/purchase/invoices');
   } catch (err) {
-    console.error('Lỗi khi lưu hóa đơn:', err);
+    console.error('Lỗi khi lưu chứng từ mua hàng:', err);
     toast.add({
       severity: 'error',
       summary: 'Thất bại',
-      detail: err.message || 'Không thể tạo hóa đơn tài chính',
+      detail: err.message || 'Không thể tạo chứng từ mua hàng',
       life: 4500
     });
   } finally {

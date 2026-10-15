@@ -58,6 +58,29 @@
         />
       </div>
 
+      <!-- Quản lý trực tiếp -->
+      <div class="flex flex-col gap-1.5">
+        <label class="block text-xs font-semibold text-slate-700">Quản Lý Trực Tiếp (Line Manager)</label>
+        <Select
+          v-model="form.line_manager_id"
+          :options="managerOptions"
+          optionLabel="name"
+          optionValue="id"
+          placeholder="Để trống: đơn E-Office do trưởng phòng duyệt"
+          filter
+          showClear
+          size="small"
+          class="w-full !rounded-[6px]"
+        >
+          <template #option="{ option }">
+            <div class="flex flex-col">
+              <span class="text-xs text-slate-800">{{ option.name }}</span>
+              <span class="text-[11px] text-slate-500">{{ option.department_name || option.email }}</span>
+            </div>
+          </template>
+        </Select>
+      </div>
+
       <!-- Phân vai trò -->
       <div class="flex flex-col gap-1.5">
         <label class="block text-xs font-semibold text-slate-700">Vai Trò Đảm Nhiệm</label>
@@ -134,6 +157,10 @@ defineProps({
     default: () => []
   },
   roles: {
+    type: Array,
+    default: () => []
+  },
+  managerOptions: {
     type: Array,
     default: () => []
   },

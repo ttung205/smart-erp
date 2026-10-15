@@ -144,7 +144,7 @@
                   {{ formatNumber(it.remaining_invoice_quantity || it.quantity) }}
                 </span>
               </td>
-              
+
               <!-- Input số lượng xuất lần này (cho phép xuất ít một) -->
               <td class="p-2 text-center font-sans">
                 <input

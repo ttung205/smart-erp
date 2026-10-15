@@ -97,6 +97,14 @@
           </template>
         </Column>
 
+        <!-- Cột: Trưởng phòng (người duyệt đơn E-Office) -->
+        <Column field="manager_name" header="Trưởng Phòng" style="min-width: 200px">
+          <template #body="{ data }">
+            <span v-if="data.manager_name" class="text-xs text-slate-800">{{ data.manager_name }}</span>
+            <span v-else class="text-xs text-amber-600">Chưa chỉ định</span>
+          </template>
+        </Column>
+
         <!-- Cột 4: Số lượng nhân viên trực thuộc -->
         <Column header="Quy Mô Nhân Sự" style="width: 170px; text-align: center">
           <template #body="{ data }">
@@ -143,6 +151,7 @@
       v-model:visible="dialogVisible"
       :is-editing="isEditing"
       :form="form"
+      :users="users"
       :loading="loading.save"
       @save="saveDepartment"
     />
@@ -174,6 +183,7 @@ const canManageDepartments = computed(() => canManage('department', props.curren
 const toast = useToast();
 
 const departments = ref([]);
+const users = ref([]);
 const searchQuery = ref('');
 
 const loading = reactive({
@@ -188,7 +198,8 @@ const editingId = ref(null);
 const form = reactive({
   code: '',
   name: '',
-  description: ''
+  description: '',
+  manager_id: null
 });
 
 const filteredDepartments = computed(() => {
@@ -227,6 +238,7 @@ const openCreateDialog = () => {
   form.code = '';
   form.name = '';
   form.description = '';
+  form.manager_id = null;
   dialogVisible.value = true;
 };
 
@@ -236,6 +248,7 @@ const openEditDialog = (dept) => {
   form.code = dept.code;
   form.name = dept.name;
   form.description = dept.description || '';
+  form.manager_id = dept.manager_id || null;
   dialogVisible.value = true;
 };
 
@@ -254,7 +267,8 @@ const saveDepartment = async () => {
     const payload = {
       code: form.code.trim().toUpperCase(),
       name: form.name.trim(),
-      description: form.description.trim()
+      description: form.description.trim(),
+      manager_id: form.manager_id || null
     };
 
     if (isEditing.value) {
@@ -297,7 +311,17 @@ const confirmDelete = async (dept) => {
   }
 };
 
+const loadUsers = async () => {
+  try {
+    const res = await identityApi.getUsers();
+    users.value = res?.data || [];
+  } catch {
+    users.value = [];
+  }
+};
+
 onMounted(() => {
   loadDepartments();
+  if (canManageDepartments.value) loadUsers();
 });
 </script>

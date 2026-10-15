@@ -122,6 +122,14 @@
           </template>
         </Column>
 
+        <!-- Cột: Quản lý trực tiếp (người duyệt đơn E-Office) -->
+        <Column field="line_manager_name" header="Quản Lý Trực Tiếp" style="min-width: 190px">
+          <template #body="{ data }">
+            <span v-if="data.line_manager_name" class="text-xs text-slate-700">{{ data.line_manager_name }}</span>
+            <span v-else class="text-xs text-slate-400 italic">Theo trưởng phòng</span>
+          </template>
+        </Column>
+
         <!-- Cột 3: Vai trò đảm nhiệm -->
         <Column header="Vai Trò" style="min-width: 220px">
           <template #body="{ data }">
@@ -180,6 +188,7 @@
       :form="form"
       :departments="departments"
       :roles="roles"
+      :manager-options="lineManagerOptions"
       :loading="loading.save"
       @save="saveUser"
     />
@@ -235,9 +244,13 @@ const form = reactive({
   email: '',
   password: '',
   department_id: null,
+  line_manager_id: null,
   role_ids: [],
   is_active: true
 });
+
+// Ứng viên quản lý trực tiếp: tài khoản đang hoạt động, trừ chính nhân viên đang sửa
+const lineManagerOptions = computed(() => users.value.filter(u => u.is_active && u.id !== editingId.value));
 
 const departmentOptions = computed(() => [
   { label: 'Tất cả phòng ban', value: null },
@@ -303,6 +316,7 @@ const openCreateDialog = () => {
   form.email = '';
   form.password = '';
   form.department_id = null;
+  form.line_manager_id = null;
   form.role_ids = [];
   form.is_active = true;
   dialogVisible.value = true;
@@ -315,6 +329,7 @@ const openEditDialog = (user) => {
   form.email = user.email;
   form.password = '';
   form.department_id = user.department_id;
+  form.line_manager_id = user.line_manager_id || null;
   form.role_ids = user.role_ids ? [...user.role_ids] : [];
   form.is_active = Boolean(user.is_active);
   dialogVisible.value = true;
@@ -336,6 +351,7 @@ const saveUser = async () => {
       name: form.name.trim(),
       email: form.email.trim(),
       department_id: form.department_id,
+      line_manager_id: form.line_manager_id || null,
       role_ids: form.role_ids,
       is_active: form.is_active
     };

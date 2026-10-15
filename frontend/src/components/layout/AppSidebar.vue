@@ -67,14 +67,15 @@
                 <i :class="['text-xs text-slate-400 transition-transform duration-150', openFolders[item.id] ? 'pi pi-chevron-down' : 'pi pi-chevron-right']"></i>
               </button>
 
-              <!-- Collapsed State Folder Button -->
+              <!-- Collapsed State Folder Button: hover để hiện menu con (flyout) -->
               <button
                 v-else
                 type="button"
                 class="flex items-center justify-center w-11 h-10 mx-auto rounded-[6px] border text-sm font-medium transition-colors cursor-pointer"
-                :class="isFolderActive(item) ? 'bg-sky-50 border-sky-200 text-sky-700 font-semibold' : 'border-transparent text-slate-600 hover:bg-slate-100'"
+                :class="isFolderActive(item) || flyout.item?.id === item.id ? 'bg-sky-50 border-sky-200 text-sky-700 font-semibold' : 'border-transparent text-slate-600 hover:bg-slate-100'"
                 @click="handleNavigate(item.children[0])"
-                v-tooltip.right="item.label"
+                @mouseenter="openFlyout(item, $event)"
+                @mouseleave="scheduleCloseFlyout"
               >
                 <i :class="[item.icon, 'text-base', isFolderActive(item) ? 'text-sky-700' : 'text-slate-400']"></i>
               </button>
@@ -144,11 +145,41 @@
         <i class="pi pi-server text-base"></i>
       </div>
     </div>
+
+    <!-- Flyout menu con khi sidebar thu gọn (teleport ra body để không bị overflow của nav cắt) -->
+    <Teleport to="body">
+      <div
+        v-if="isCollapsed && flyout.item"
+        class="fixed z-[60] pl-2"
+        :style="{ top: `${flyout.top}px`, left: '68px' }"
+        @mouseenter="cancelCloseFlyout"
+        @mouseleave="scheduleCloseFlyout"
+      >
+        <div class="min-w-52 bg-white border border-slate-200 rounded-[6px] shadow-sm py-1.5">
+          <div class="px-3 pt-1 pb-1.5 text-[11px] font-bold uppercase text-slate-400 tracking-wider whitespace-nowrap">
+            {{ flyout.item.label }}
+          </div>
+          <div class="flex flex-col gap-0.5 px-1.5">
+            <button
+              v-for="child in flyout.item.children"
+              :key="child.id"
+              type="button"
+              class="flex items-center rounded-[6px] border text-xs font-medium transition-colors cursor-pointer w-full gap-2 px-2.5 py-1.5 text-left"
+              :class="isItemActive(child) ? 'bg-sky-50 border-sky-200 text-sky-700 font-semibold' : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'"
+              @click="handleNavigate(child); closeFlyout()"
+            >
+              <i :class="[child.icon, 'text-sm shrink-0', isItemActive(child) ? 'text-sky-700' : 'text-slate-400']"></i>
+              <span class="flex-1 whitespace-nowrap">{{ child.label }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </aside>
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue';
+import { ref, reactive, watch, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import Button from 'primevue/button';
 import { appConfig } from '../../config/app.config';
@@ -181,6 +212,9 @@ const openFolders = ref({
   'inventory-hub': true
 });
 
+const ACTIVE_MENU_STORAGE_KEY = 'smart_erp_active_menu_id';
+const activeMenuId = ref(sessionStorage.getItem(ACTIVE_MENU_STORAGE_KEY) || '');
+
 const toggleFolder = (folderId) => {
   openFolders.value[folderId] = !openFolders.value[folderId];
 };
@@ -188,7 +222,7 @@ const toggleFolder = (folderId) => {
 // Lọc menu theo quyền người dùng (chỉ hiển thị những trang có quyền .view)
 const menuCategories = computed(() => {
   if (!props.currentUser) return rawMenuCategories;
-  
+
   // Super Admin thấy tất cả
   if (props.currentUser.roles && props.currentUser.roles.includes('SUPER_ADMIN')) {
     return rawMenuCategories;
@@ -212,7 +246,7 @@ const menuCategories = computed(() => {
   }).filter(cat => cat.items.length > 0);
 });
 
-const isItemActive = (item) => {
+const routeMatchesItem = (item) => {
   if (!item.path) return false;
   // 1. Khớp chính xác đường dẫn
   if (route.path === item.path) return true;
@@ -231,12 +265,61 @@ const isItemActive = (item) => {
   return false;
 };
 
+const matchingRouteItems = computed(() => menuCategories.value.flatMap(category =>
+  category.items.flatMap(item => item.children || [item])
+).filter(routeMatchesItem));
+
+const resolvedActiveMenuId = computed(() => {
+  const matches = matchingRouteItems.value;
+  if (matches.some(item => item.id === activeMenuId.value)) {
+    return activeMenuId.value;
+  }
+  return matches[0]?.id || '';
+});
+
+const isItemActive = (item) => routeMatchesItem(item) && item.id === resolvedActiveMenuId.value;
+
 const isFolderActive = (item) => {
   if (!item.children || item.children.length === 0) return isItemActive(item);
   return item.children.some(child => isItemActive(child));
 };
 
+// Flyout menu con khi sidebar thu gọn
+const FLYOUT_CLOSE_DELAY = 150;
+const flyout = reactive({ item: null, top: 0 });
+let flyoutCloseTimer = null;
+
+const cancelCloseFlyout = () => {
+  clearTimeout(flyoutCloseTimer);
+  flyoutCloseTimer = null;
+};
+
+const closeFlyout = () => {
+  cancelCloseFlyout();
+  flyout.item = null;
+};
+
+const scheduleCloseFlyout = () => {
+  cancelCloseFlyout();
+  flyoutCloseTimer = setTimeout(closeFlyout, FLYOUT_CLOSE_DELAY);
+};
+
+const openFlyout = (item, event) => {
+  cancelCloseFlyout();
+  // Không để flyout tràn khỏi mép dưới màn hình
+  const rect = event.currentTarget.getBoundingClientRect();
+  const estimatedHeight = 44 + item.children.length * 34;
+  flyout.top = Math.max(8, Math.min(rect.top, window.innerHeight - estimatedHeight - 8));
+  flyout.item = item;
+};
+
+watch(() => props.isCollapsed, collapsed => {
+  if (!collapsed) closeFlyout();
+});
+
 const handleNavigate = (item) => {
+  activeMenuId.value = item.id;
+  sessionStorage.setItem(ACTIVE_MENU_STORAGE_KEY, item.id);
   emit('select-tab', item.id);
   if (item.path) {
     router.push(item.path);
@@ -244,9 +327,13 @@ const handleNavigate = (item) => {
 };
 
 // Tự động mở folder nếu một tab con đang được chọn
-watch(() => route.path, (newPath) => {
+watch([() => route.path, matchingRouteItems], ([newPath]) => {
   if (!newPath) return;
-  for (const cat of rawMenuCategories) {
+  if (resolvedActiveMenuId.value) {
+    activeMenuId.value = resolvedActiveMenuId.value;
+    sessionStorage.setItem(ACTIVE_MENU_STORAGE_KEY, resolvedActiveMenuId.value);
+  }
+  for (const cat of menuCategories.value) {
     for (const item of cat.items) {
       if (item.children && item.children.some(c => isItemActive(c))) {
         openFolders.value[item.id] = true;

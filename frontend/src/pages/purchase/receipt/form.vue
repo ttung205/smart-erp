@@ -62,7 +62,7 @@
     >
       <i class="pi pi-exclamation-triangle text-base text-rose-600"></i>
       <span>
-        <strong>Cảnh báo Over-Receipt:</strong> Có ít nhất một mặt hàng nhập vượt quá số lượng còn lại của đơn PO. Vui lòng điều chỉnh số lượng thực nhận nhỏ hơn hoặc bằng số lượng còn lại.
+        <strong>Cảnh báo kiểm đếm:</strong> Tổng số lượng thực nhận và số lượng trả lại của mặt hàng vượt quá số lượng còn lại của đơn PO. Vui lòng điều chỉnh sao cho: <strong>SL Thực nhận + SL Trả lại &le; Số lượng còn lại</strong>.
       </span>
     </div>
 
@@ -166,10 +166,10 @@
       <div class="flex items-center justify-between pb-2 border-b border-slate-200">
         <span class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
           <i class="pi pi-list-check text-sky-600 text-xs"></i>
-          Danh Sách Mặt Hàng Kiểm Đếm ({{ form.items.length }})
+          Danh Sách Mặt Hàng Kiểm Đếm Tại Cửa Kho ({{ form.items.length }})
         </span>
         <span class="text-xs text-slate-500">
-          Chỉ chấp nhận số lượng thực nhận &le; số lượng còn lại của PO
+          Quy tắc: <strong>SL Thực nhận + SL Trả lại &le; Số lượng còn lại</strong>
         </span>
       </div>
 
@@ -177,13 +177,15 @@
         <table class="w-full text-xs">
           <thead class="bg-slate-50 border-b border-slate-200">
             <tr>
-              <th class="p-2.5 text-center font-semibold text-slate-700 w-12">#</th>
+              <th class="p-2.5 text-center font-semibold text-slate-700 w-10">#</th>
               <th class="p-2.5 text-left font-semibold text-slate-700">Mã SKU & Tên Sản Phẩm</th>
-              <th class="p-2.5 text-center font-semibold text-slate-700 w-24">ĐVT</th>
-              <th class="p-2.5 text-right font-semibold text-slate-700 w-28">SL Theo Đơn PO</th>
-              <th class="p-2.5 text-right font-semibold text-slate-700 w-28">Đã Nhập Trước</th>
-              <th class="p-2.5 text-right font-semibold text-sky-700 w-28">Còn Lại Cần Giao</th>
-              <th class="p-2.5 text-right font-semibold text-emerald-700 w-44 pr-4">SL Thực Nhận Kỳ Này</th>
+              <th class="p-2.5 text-center font-semibold text-slate-700 w-20">ĐVT</th>
+              <th class="p-2.5 text-right font-semibold text-slate-700 w-24">SL Đặt PO</th>
+              <th class="p-2.5 text-right font-semibold text-slate-700 w-24">Đã Nhập Trước</th>
+              <th class="p-2.5 text-right font-semibold text-sky-700 w-24">Còn Lại</th>
+              <th class="p-2.5 text-right font-semibold text-emerald-700 w-32 pr-2">SL Thực Nhận</th>
+              <th class="p-2.5 text-right font-semibold text-amber-700 w-32 pr-2">SL Trả Lại</th>
+              <th class="p-2.5 text-right font-semibold text-slate-700 w-28 pr-3">Tổng Kiểm Đếm</th>
             </tr>
           </thead>
           <tbody>
@@ -191,6 +193,7 @@
               v-for="(item, idx) in form.items"
               :key="idx"
               class="border-b border-slate-100 last:border-none hover:bg-slate-50"
+              :class="{ 'bg-rose-50/40': (Number(item.quantity_received || 0) + Number(item.quantity_rejected || 0)) > item.quantity_remaining }"
             >
               <td class="p-2.5 text-center text-slate-400 font-mono">{{ idx + 1 }}</td>
               <td class="p-2.5">
@@ -207,30 +210,86 @@
               <td class="p-2.5 text-right font-mono font-bold text-sky-700">
                 {{ item.quantity_remaining }}
               </td>
-              <td class="p-2.5 text-right pr-4">
+              <!-- Cột SL Thực Nhận -->
+              <td class="p-2 text-right pr-2">
                 <div class="flex items-center justify-end">
                   <InputNumber
                     v-if="!isReadOnly"
                     v-model="item.quantity_received"
                     :min="0"
                     size="small"
-                    class="w-28 !rounded-[6px]"
-                    :class="{ '!border-rose-400': item.quantity_received > item.quantity_remaining }"
-                    inputClass="!text-right !font-mono font-bold !py-1 !px-2.5 text-xs bg-white !border !border-slate-300 focus:!border-sky-500 !rounded-[6px] w-full"
+                    class="w-24 !rounded-[6px]"
+                    inputClass="!text-right !font-mono font-bold !py-1 !px-2 text-xs bg-white !border !border-slate-300 focus:!border-emerald-500 !rounded-[6px] w-full text-emerald-800"
                   />
                   <span v-else class="font-mono font-bold text-emerald-700 text-sm">
                     {{ item.quantity_received }}
                   </span>
                 </div>
               </td>
+              <!-- Cột SL Trả Lại (Hàng lỗi, hỏng, vỡ, giao thừa) -->
+              <td class="p-2 text-right pr-2">
+                <div class="flex items-center justify-end">
+                  <InputNumber
+                    v-if="!isReadOnly"
+                    v-model="item.quantity_rejected"
+                    :min="0"
+                    size="small"
+                    class="w-24 !rounded-[6px]"
+                    inputClass="!text-right !font-mono font-bold !py-1 !px-2 text-xs bg-white !border !border-slate-300 focus:!border-amber-500 !rounded-[6px] w-full text-amber-800"
+                  />
+                  <span v-else class="font-mono font-bold text-amber-700 text-sm">
+                    {{ item.quantity_rejected || 0 }}
+                  </span>
+                </div>
+              </td>
+              <!-- Cột Tổng Kiểm Đếm -->
+              <td class="p-2.5 text-right font-mono pr-3 font-semibold"
+                  :class="(Number(item.quantity_received || 0) + Number(item.quantity_rejected || 0)) > item.quantity_remaining ? 'text-rose-600' : 'text-slate-800'">
+                {{ (Number(item.quantity_received || 0) + Number(item.quantity_rejected || 0)) }}
+                <span class="text-[10px] text-slate-400 font-normal">/ {{ item.quantity_remaining }}</span>
+              </td>
             </tr>
             <tr v-if="form.items.length === 0">
-              <td colspan="7" class="p-8 text-center text-slate-400">
+              <td colspan="9" class="p-8 text-center text-slate-400">
                 Chưa chọn đơn mua hàng (PO) hoặc đơn hàng chưa có mặt hàng cần nhận.
               </td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Thanh Thống Kê Tổng Kết Kiểm Đếm -->
+      <div v-if="form.items.length > 0" class="flex flex-wrap items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-[6px] text-xs gap-3">
+        <div class="flex flex-wrap items-center gap-4">
+          <div>
+            <span class="text-slate-500">Tổng SL thực nhận:</span>
+            <strong class="font-mono text-emerald-700 ml-1 text-sm font-bold">{{ totalReceivedQty }}</strong>
+            <span class="text-[11px] text-slate-400 ml-1">(Tăng tồn On-Hand kho)</span>
+          </div>
+
+          <div v-if="totalRejectedQty > 0" class="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 rounded-[6px] text-amber-800">
+            <i class="pi pi-replay text-xs text-amber-600"></i>
+            <span>Tổng SL trả lại:</span>
+            <strong class="font-mono text-amber-700 font-bold">{{ totalRejectedQty }}</strong>
+            <span class="text-[11px] font-medium text-amber-600">(Tự động tạo Phiếu trả hàng RTV nháp)</span>
+          </div>
+
+          <div v-if="!isReadOnly && form.purchase_order_id && (totalReceivedQty + totalRejectedQty) < totalRemainingQty" class="flex items-center gap-2 px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-[6px]">
+            <input
+              id="closePoAfterReceipt"
+              type="checkbox"
+              v-model="closePoAfterReceipt"
+              class="rounded border-slate-300 text-sky-600 focus:ring-sky-500 cursor-pointer w-3.5 h-3.5"
+            />
+            <label for="closePoAfterReceipt" class="text-xs text-slate-700 cursor-pointer select-none">
+              Đóng đơn PO sau lần nhập này <span class="text-slate-400">(NCC không giao bù số lượng thiếu nữa)</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="text-slate-500 font-mono text-[11px]">
+          Tổng kiểm đếm: <strong class="text-slate-900">{{ totalReceivedQty + totalRejectedQty }}</strong> sản phẩm
+        </div>
       </div>
     </div>
   </div>
@@ -286,11 +345,25 @@ const isReadOnly = computed(() => {
 });
 
 const hasOverReceiptError = computed(() => {
-  return form.items.some(it => Number(it.quantity_received) > Number(it.quantity_remaining));
+  return form.items.some(it => (Number(it.quantity_received || 0) + Number(it.quantity_rejected || 0)) > Number(it.quantity_remaining));
 });
 
+const totalReceivedQty = computed(() => {
+  return form.items.reduce((sum, it) => sum + (Number(it.quantity_received) || 0), 0);
+});
+
+const totalRejectedQty = computed(() => {
+  return form.items.reduce((sum, it) => sum + (Number(it.quantity_rejected) || 0), 0);
+});
+
+const totalRemainingQty = computed(() => {
+  return form.items.reduce((sum, it) => sum + (Number(it.quantity_remaining) || 0), 0);
+});
+
+const closePoAfterReceipt = ref(false);
+
 const canSubmit = computed(() => {
-  return form.purchase_order_id && form.warehouse_id && form.items.some(it => it.quantity_received > 0);
+  return form.purchase_order_id && form.warehouse_id && (totalReceivedQty.value > 0 || totalRejectedQty.value > 0) && !hasOverReceiptError.value;
 });
 
 // Load danh sách đơn PO để chọn
@@ -342,6 +415,7 @@ const onPoSelected = async () => {
           quantity_received_before: received,
           quantity_remaining: remaining,
           quantity_received: remaining,
+          quantity_rejected: 0,
           unit_cost: it.unit_cost || 0
         };
       });
@@ -385,6 +459,7 @@ const loadReceipt = async (id) => {
           quantity_received_before: 0,
           quantity_remaining: i.quantity_ordered,
           quantity_received: i.quantity_received,
+          quantity_rejected: i.quantity_rejected || 0,
           unit_cost: i.unit_cost
         }))
       });
@@ -402,16 +477,16 @@ const loadReceipt = async (id) => {
 
 const saveReceipt = async (andConfirm = false) => {
   if (hasOverReceiptError.value) {
-    toast.add({ severity: 'error', summary: 'Không hợp lệ', detail: 'Số lượng thực nhận không được vượt quá số lượng còn lại của PO', life: 3500 });
+    toast.add({ severity: 'error', summary: 'Không hợp lệ', detail: 'Tổng số lượng thực nhận và trả lại không được vượt quá số lượng còn lại của PO', life: 3500 });
     return;
   }
   if (!form.purchase_order_id || !form.warehouse_id) {
     toast.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Vui lòng chọn đơn PO và kho lưu trữ', life: 3000 });
     return;
   }
-  const validItems = form.items.filter(it => Number(it.quantity_received) > 0);
+  const validItems = form.items.filter(it => (Number(it.quantity_received || 0) + Number(it.quantity_rejected || 0)) > 0);
   if (validItems.length === 0) {
-    toast.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Vui lòng nhập số lượng thực nhận lớn hơn 0 cho ít nhất 1 mặt hàng', life: 3000 });
+    toast.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Vui lòng nhập số lượng thực nhận hoặc trả lại lớn hơn 0 cho ít nhất 1 mặt hàng', life: 3000 });
     return;
   }
 
@@ -429,8 +504,8 @@ const saveReceipt = async (andConfirm = false) => {
         sku: it.sku,
         product_name: it.product_name,
         unit: it.unit || 'Cái',
-        quantity_received: Number(it.quantity_received),
-        quantity_rejected: 0,
+        quantity_received: Number(it.quantity_received || 0),
+        quantity_rejected: Number(it.quantity_rejected || 0),
         unit_cost: it.unit_cost || 0
       }))
     };
@@ -441,13 +516,34 @@ const saveReceipt = async (andConfirm = false) => {
 
     if (andConfirm && newId) {
       try {
-        await purchaseApi.confirmReceipt(newId);
-        toast.add({
-          severity: 'success',
-          summary: 'Đã nhập kho thành công',
-          detail: `Phiếu nhập ${created.code || newId} đã xác nhận và gửi sự kiện Outbox tăng tồn kho tự động!`,
-          life: 4000
-        });
+        const confirmRes = await purchaseApi.confirmReceipt(newId);
+        const confirmedData = confirmRes?.data || confirmRes;
+
+        if (confirmedData?.auto_purchase_return_code) {
+          toast.add({
+            severity: 'success',
+            summary: 'Nhập kho & Tạo phiếu trả hàng',
+            detail: `Nhập kho thành công ${totalReceivedQty.value} sản phẩm. Đã tự động tạo Phiếu trả hàng nháp #${confirmedData.auto_purchase_return_code} cho ${confirmedData.auto_purchase_return_qty || totalRejectedQty.value} sản phẩm trả lại.`,
+            life: 6000
+          });
+        } else {
+          toast.add({
+            severity: 'success',
+            summary: 'Đã nhập kho thành công',
+            detail: `Nhập kho thành công ${totalReceivedQty.value} sản phẩm. Đã cập nhật tồn kho On-Hand qua Outbox!`,
+            life: 4000
+          });
+        }
+
+        if (closePoAfterReceipt.value && form.purchase_order_id) {
+          try {
+            await purchaseApi.closeOrder(form.purchase_order_id, {
+              reason: 'Đóng đơn hoàn tất nhập kho theo yêu cầu thủ kho (không giao bù)'
+            });
+          } catch (closeErr) {
+            console.warn('Không thể tự động đóng đơn PO:', closeErr);
+          }
+        }
       } catch (confirmErr) {
         toast.add({
           severity: 'warn',
@@ -478,14 +574,25 @@ const confirmExistingReceipt = async () => {
   if (!form.id) return;
   confirming.value = true;
   try {
-    await purchaseApi.confirmReceipt(form.id);
+    const res = await purchaseApi.confirmReceipt(form.id);
+    const confirmedData = res?.data || res;
     form.status = 'Confirmed';
-    toast.add({
-      severity: 'success',
-      summary: 'Thành công',
-      detail: 'Đã xác nhận nhập kho và kích hoạt cập nhật tồn On-Hand qua Outbox',
-      life: 3500
-    });
+
+    if (confirmedData?.auto_purchase_return_code) {
+      toast.add({
+        severity: 'success',
+        summary: 'Nhập kho & Tạo phiếu trả hàng',
+        detail: `Nhập kho thành công ${totalReceivedQty.value} sản phẩm. Đã tự động tạo Phiếu trả hàng nháp #${confirmedData.auto_purchase_return_code} cho ${confirmedData.auto_purchase_return_qty || totalRejectedQty.value} sản phẩm trả lại.`,
+        life: 6000
+      });
+    } else {
+      toast.add({
+        severity: 'success',
+        summary: 'Thành công',
+        detail: `Đã xác nhận nhập kho thành công ${totalReceivedQty.value} sản phẩm và cập nhật tồn kho tự động.`,
+        life: 4000
+      });
+    }
     router.push('/purchase/receipts');
   } catch (err) {
     toast.add({

@@ -13,6 +13,7 @@ class Supplier extends Model
         'name',
         'tax_code',
         'supplier_group',
+        'supplier_type',
         'phone',
         'email',
         'address',

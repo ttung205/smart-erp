@@ -25,6 +25,7 @@ class VatInvoiceItem extends Model
         'vat_percent',
         'vat_amount',
         'total_amount',
+        'adjustment_item_id',
     ];
 
     protected $casts = [

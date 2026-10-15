@@ -100,6 +100,15 @@ public class GoodsReceiptDto
     [JsonPropertyName("created_at")]
     public DateTime CreatedAt { get; set; }
 
+    [JsonPropertyName("auto_purchase_return_id")]
+    public long? AutoPurchaseReturnId { get; set; }
+
+    [JsonPropertyName("auto_purchase_return_code")]
+    public string? AutoPurchaseReturnCode { get; set; }
+
+    [JsonPropertyName("auto_purchase_return_qty")]
+    public int AutoPurchaseReturnQty { get; set; }
+
     [JsonPropertyName("items")]
     public List<GoodsReceiptItemDto> Items { get; set; } = new();
 }

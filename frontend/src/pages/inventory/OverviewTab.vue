@@ -9,21 +9,21 @@
         </p>
       </div>
       <div class="flex items-center gap-2">
-        <Button 
-          label="Làm mới" 
-          icon="pi pi-refresh" 
-          size="small" 
-          text 
+        <Button
+          label="Làm mới"
+          icon="pi pi-refresh"
+          size="small"
+          text
           class="!rounded-[6px]"
-          :loading="loading" 
-          @click="loadWarehouses" 
+          :loading="loading"
+          @click="loadWarehouses"
         />
-        <Button 
-          label="Thêm kho mới" 
-          icon="pi pi-plus" 
-          size="small" 
-          class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px]" 
-          @click="openCreateDialog" 
+        <Button
+          label="Thêm kho mới"
+          icon="pi pi-plus"
+          size="small"
+          class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px]"
+          @click="openCreateDialog"
         />
       </div>
     </div>
@@ -77,12 +77,12 @@
       <!-- Bán Hàng -->
       <template #col-can_sell="{ data }">
         <div class="flex items-center justify-center gap-2">
-          <Checkbox 
-            :modelValue="Boolean(data.can_sell)" 
+          <Checkbox
+            :modelValue="Boolean(data.can_sell)"
             :binary="true"
             @update:modelValue="toggleCanSell(data)"
           />
-          <span 
+          <span
             class="text-xs font-semibold cursor-pointer select-none"
             :class="data.can_sell ? 'text-emerald-700' : 'text-slate-400'"
             @click="toggleCanSell(data)"
@@ -95,10 +95,10 @@
       <!-- Trạng Thái -->
       <template #col-is_active="{ data }">
         <div class="text-center">
-          <Tag 
-            :value="data.is_active ? 'Hoạt động' : 'Tạm khóa'" 
+          <Tag
+            :value="data.is_active ? 'Hoạt động' : 'Tạm khóa'"
             :severity="data.is_active ? 'success' : 'secondary'"
-            class="!text-xs !rounded-[4px]" 
+            class="!text-xs !rounded-[4px]"
           />
         </div>
       </template>
@@ -107,23 +107,23 @@
       <Column header="Thao Tác" class="text-center" style="width: 120px">
         <template #body="{ data }">
           <div class="flex items-center justify-center gap-1.5">
-            <Button 
-              icon="pi pi-pencil" 
-              size="small" 
-              outlined 
-              severity="secondary" 
-              class="!w-7 !h-7 !p-0 !rounded-[6px]" 
-              v-tooltip.top="'Chỉnh sửa kho'" 
-              @click="openEditDialog(data)" 
+            <Button
+              icon="pi pi-pencil"
+              size="small"
+              outlined
+              severity="secondary"
+              class="!w-7 !h-7 !p-0 !rounded-[6px]"
+              v-tooltip.top="'Chỉnh sửa kho'"
+              @click="openEditDialog(data)"
             />
-            <Button 
-              icon="pi pi-trash" 
-              size="small" 
-              outlined 
-              severity="danger" 
-              class="!w-7 !h-7 !p-0 !rounded-[6px]" 
-              v-tooltip.top="'Xóa kho'" 
-              @click="confirmDelete(data)" 
+            <Button
+              icon="pi pi-trash"
+              size="small"
+              outlined
+              severity="danger"
+              class="!w-7 !h-7 !p-0 !rounded-[6px]"
+              v-tooltip.top="'Xóa kho'"
+              @click="confirmDelete(data)"
             />
           </div>
         </template>
@@ -131,37 +131,37 @@
     </CommonDataTable>
 
     <!-- Dialog Thêm Mới / Sửa Kho -->
-    <Dialog 
-      v-model:visible="showDialog" 
-      :header="editingWarehouse ? 'Chỉnh Sửa Kho Hàng' : 'Thêm Mới Kho Hàng'" 
-      modal 
+    <Dialog
+      v-model:visible="showDialog"
+      :header="editingWarehouse ? 'Chỉnh Sửa Kho Hàng' : 'Thêm Mới Kho Hàng'"
+      modal
       class="w-full max-w-lg"
     >
       <div class="flex flex-col gap-4 py-2">
         <div class="flex flex-col gap-1.5">
           <label class="text-xs font-bold text-slate-700">Mã kho <span class="text-rose-500">*</span></label>
-          <InputText 
-            v-model="form.code" 
-            placeholder="VD: WH-MAIN, WH-HCM..." 
-            class="!text-xs font-mono !rounded-[6px]" 
+          <InputText
+            v-model="form.code"
+            placeholder="VD: WH-MAIN, WH-HCM..."
+            class="!text-xs font-mono !rounded-[6px]"
           />
         </div>
 
         <div class="flex flex-col gap-1.5">
           <label class="text-xs font-bold text-slate-700">Tên kho hàng <span class="text-rose-500">*</span></label>
-          <InputText 
-            v-model="form.name" 
-            placeholder="VD: Kho Chính, Kho Kĩ Thuật..." 
-            class="!text-xs !rounded-[6px]" 
+          <InputText
+            v-model="form.name"
+            placeholder="VD: Kho Chính, Kho Kĩ Thuật..."
+            class="!text-xs !rounded-[6px]"
           />
         </div>
 
         <div class="flex flex-col gap-1.5">
           <label class="text-xs font-bold text-slate-700">Vị trí / Địa chỉ</label>
-          <InputText 
-            v-model="form.location" 
-            placeholder="Địa chỉ hoặc ghi chú vị trí kho..." 
-            class="!text-xs !rounded-[6px]" 
+          <InputText
+            v-model="form.location"
+            placeholder="Địa chỉ hoặc ghi chú vị trí kho..."
+            class="!text-xs !rounded-[6px]"
           />
         </div>
 
@@ -185,12 +185,12 @@
       <template #footer>
         <div class="flex justify-end gap-2">
           <Button label="Hủy" text severity="secondary" size="small" @click="showDialog = false" />
-          <Button 
-            :label="editingWarehouse ? 'Lưu cập nhật' : 'Tạo mới'" 
-            size="small" 
-            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600" 
-            :loading="submitting" 
-            @click="saveWarehouse" 
+          <Button
+            :label="editingWarehouse ? 'Lưu cập nhật' : 'Tạo mới'"
+            size="small"
+            class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600"
+            :loading="submitting"
+            @click="saveWarehouse"
           />
         </div>
       </template>

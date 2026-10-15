@@ -154,4 +154,98 @@ public class GoodsReceiptTests
         Assert.Equal(50, poAfterGrn2.Items[0].QuantityReceived);
         Assert.Equal("Received", poAfterGrn2.Status);
     }
+
+    [Fact]
+    public async Task ConfirmGoodsReceipt_WithQuantityRejected_ShouldAutoCreateDraftPurchaseReturn()
+    {
+        var (context, connection) = TestDbContextFactory.CreateInMemoryDbContext();
+        using var _ = connection;
+
+        var (_, grService, poId, poItemId) = await SetupApprovedPoAsync(context, 100);
+
+        // Nhận 90, trả lại 10
+        var grnDto = new CreateGoodsReceiptDto
+        {
+            PurchaseOrderId = poId,
+            WarehouseId = 1,
+            ReceivedBy = 101,
+            DeliveryNoteNumber = "DN-2026-RETURN",
+            Items = new List<CreateGoodsReceiptItemDto>
+            {
+                new()
+                {
+                    PurchaseOrderItemId = poItemId,
+                    ProductId = 1,
+                    Sku = "XQ530-LG",
+                    ProductName = "Tủ lạnh LG Inverter 519 lít",
+                    QuantityReceived = 90,
+                    QuantityRejected = 10,
+                    UnitCost = 14500000m
+                }
+            }
+        };
+
+        var grn = await grService.CreateAsync(grnDto);
+        var confirmed = await grService.ConfirmAsync(grn.Id);
+
+        Assert.Equal("Confirmed", confirmed.Status);
+        Assert.NotNull(confirmed.AutoPurchaseReturnCode);
+        Assert.StartsWith("PRTN-", confirmed.AutoPurchaseReturnCode);
+        Assert.Equal(10, confirmed.AutoPurchaseReturnQty);
+
+        // Kiểm tra PurchaseReturn đã được tạo trong DB
+        var prtn = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+            context.PurchaseReturns, x => x.GoodsReceiptId == grn.Id);
+        Assert.NotNull(prtn);
+        Assert.Equal(Purchase.Domain.Enums.PurchaseReturnStatus.Draft, prtn.Status);
+        Assert.Equal(10, prtn.Items.First().QuantityReturned);
+    }
+
+    [Fact]
+    public async Task ClosePurchaseOrder_WhenPartiallyReceived_ShouldSetStatusToCompleted()
+    {
+        var (context, connection) = TestDbContextFactory.CreateInMemoryDbContext();
+        using var _ = connection;
+
+        var (poService, grService, poId, poItemId) = await SetupApprovedPoAsync(context, 100);
+
+        // Nhận 90 cái, trả 10 cái
+        var grn = await grService.CreateAsync(new CreateGoodsReceiptDto
+        {
+            PurchaseOrderId = poId,
+            WarehouseId = 1,
+            ReceivedBy = 101,
+            DeliveryNoteNumber = "DN-2026-CLOSE",
+            Items = new List<CreateGoodsReceiptItemDto>
+            {
+                new()
+                {
+                    PurchaseOrderItemId = poItemId,
+                    ProductId = 1,
+                    Sku = "XQ530-LG",
+                    ProductName = "Tủ lạnh LG Inverter 519 lít",
+                    QuantityReceived = 90,
+                    QuantityRejected = 10,
+                    UnitCost = 14500000m
+                }
+            }
+        });
+
+        await grService.ConfirmAsync(grn.Id);
+
+        // Lúc này PO ở trạng thái PartiallyReceived
+        var partialPo = await poService.GetByIdAsync(poId);
+        Assert.NotNull(partialPo);
+        Assert.Equal("PartiallyReceived", partialPo.Status);
+
+        // Đóng đơn PO sớm (NCC không giao bù 10 cái còn lại)
+        var closedPo = await poService.CloseAsync(poId, new ClosePurchaseOrderDto
+        {
+            ClosedBy = 99,
+            Reason = "NCC thông báo hết hàng giao bù"
+        });
+
+        Assert.Equal("Completed", closedPo.Status);
+        Assert.Contains("NCC thông báo hết hàng giao bù", closedPo.Notes);
+    }
 }

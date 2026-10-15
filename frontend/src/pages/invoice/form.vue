@@ -252,6 +252,7 @@ const form = ref({
   notes: '',
   delivery_request_id: null,
   delivery_request_number: '',
+  warehouse_id: null,
   order_id: null,
   order_number: '',
   customer_order_number: '',
@@ -300,7 +301,10 @@ import { catalogApi } from '../../api/catalog.api';
 // Lấy thông tin tồn kho thời gian thực từ inventory-service
 const refreshStockInfo = async () => {
   try {
-    const warehouseId = form.value.warehouse_name.includes('TP.HCM') || form.value.warehouse_name.includes('Nam') ? 2 : (form.value.warehouse_name.includes('Đà Nẵng') || form.value.warehouse_name.includes('Trung') ? 3 : 1);
+    // Kho của yêu cầu giao / kho đã giữ chỗ; chỉ đoán theo tên với dữ liệu cũ chưa lưu warehouse_id
+    const warehouseName = form.value.warehouse_name || '';
+    const warehouseId = form.value.warehouse_id
+      || (warehouseName.includes('TP.HCM') || warehouseName.includes('Nam') ? 2 : (warehouseName.includes('Đà Nẵng') || warehouseName.includes('Trung') ? 3 : 1));
 
     // Tạo map PID <-> SKU từ Catalog
     const pidToSkuMap = new Map();
@@ -421,6 +425,7 @@ const applyDeliveryRequest = async (dr, creator = 'admin', pendingItems = null) 
     order_number: dr.order_number || order.order_number || '',
     customer_order_number: dr.customer_order_number || order.customer_order_number || order.order_number || '',
     customer_name: dr.customer_name || order.customer_name || '',
+    warehouse_id: dr.warehouse_id || null,
     warehouse_name: dr.warehouse_name || 'Kho Tổng Miền Bắc (Hà Nội)',
     warehouse_status: 'PENDING_WAREHOUSE',
     accounting_status: 'UNPOSTED',
@@ -500,6 +505,7 @@ const initFormData = async () => {
           order_number: inv.order_number || inv.deliveryRequest?.order_number,
           customer_order_number: inv.customer_order_number || inv.deliveryRequest?.customer_order_number,
           customer_name: inv.customer_name || inv.deliveryRequest?.customer_name,
+          warehouse_id: inv.inventory_warehouse_id || inv.delivery_request?.warehouse_id || inv.deliveryRequest?.warehouse_id || null,
           warehouse_name: inv.warehouse_name || inv.deliveryRequest?.warehouse_name || 'Kho Tổng Miền Bắc (Hà Nội)',
           warehouse_status: inv.warehouse_status || 'PENDING_WAREHOUSE',
           accounting_status: inv.accounting_status || 'UNPOSTED',

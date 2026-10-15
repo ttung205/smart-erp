@@ -28,9 +28,9 @@
           <label class="font-bold text-slate-700 uppercase tracking-wide text-[11px]">
             Kho xuất hàng <span class="text-red-500">*</span>
           </label>
-          <Select v-model="form.warehouse_id" :options="warehouseOptions" optionLabel="label" optionValue="id"
+          <Select v-model="form.warehouse_id" :options="sellableWarehouseOptions" optionLabel="label" optionValue="id"
             placeholder="Chọn kho xuất..." class="w-full text-xs rounded-[6px] h-9 flex items-center"
-            @change="onWarehouseChange" />
+            emptyMessage="Chưa có kho nào được phép bán" @change="onWarehouseChange" />
         </div>
 
         <div class="flex flex-col gap-1.5">
@@ -224,12 +224,16 @@ const rawStocks = ref([]);
 const pidToSkuMap = ref(new Map());
 const skuToPidMap = ref(new Map());
 
-const { warehouseOptions, fetchWarehouses } = useWarehouses();
-fetchWarehouses();
+const { warehouses, fetchWarehouses } = useWarehouses();
+
+// Chỉ kho đang hoạt động và được phép bán mới dùng để xuất giao hàng
+const sellableWarehouseOptions = computed(() => warehouses.value
+  .filter(w => w.is_active && w.can_sell)
+  .map(w => ({ id: w.id, name: w.name, label: `${w.name} (${w.code})` })));
 
 const form = ref({
-  warehouse_id: 1,
-  warehouse_name: 'Kho Tổng Miền Bắc (Hà Nội)',
+  warehouse_id: null,
+  warehouse_name: '',
   expected_delivery_date: '',
   contact_phone: '',
   shipping_address: ''
@@ -320,22 +324,7 @@ const getItemAvailableStock = (item, targetWarehouseId) => {
     return (targetPid && pid === targetPid) || (targetSku && sku === targetSku);
   });
 
-  if (matchedStocks.length === 0) {
-    // Nếu không lọc theo kho hoặc chưa tìm thấy, lấy tổng tồn của SKU đó
-    const allWhStocks = rawStocks.value.filter(s => {
-      const pid = Number(s.product_id ?? s.productId ?? 0);
-      const sku = (s.sku || pidToSkuMap.value.get(pid) || '').trim().toUpperCase();
-      return (targetPid && pid === targetPid) || (targetSku && sku === targetSku);
-    });
-    if (allWhStocks.length > 0) {
-      return allWhStocks.reduce((sum, s) => {
-        const avail = Number(s.available ?? (Number(s.quantity_on_hand || 0) - Number(s.quantity_reserved || 0)));
-        return sum + avail;
-      }, 0);
-    }
-    return 100; // Fallback an toàn nếu chưa có bản ghi kho
-  }
-
+  // Chỉ tính tồn khả dụng của đúng kho đang chọn; kho chưa có bản ghi tồn của SKU thì là 0
   return matchedStocks.reduce((sum, s) => {
     const avail = Number(s.available ?? (Number(s.quantity_on_hand || 0) - Number(s.quantity_reserved || 0)));
     return sum + avail;
@@ -354,7 +343,7 @@ watch(
   () => props.visible,
   async (newVal) => {
     if (newVal && props.order) {
-      await loadStockMap();
+      await Promise.all([loadStockMap(), fetchWarehouses()]);
       initItems();
     }
   }
@@ -371,9 +360,10 @@ const initItems = () => {
   const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
   const dd = String(targetDate.getDate()).padStart(2, '0');
 
+  const defaultWarehouse = sellableWarehouseOptions.value[0];
   form.value = {
-    warehouse_id: 1,
-    warehouse_name: 'Kho Tổng Miền Bắc (Hà Nội)',
+    warehouse_id: defaultWarehouse?.id ?? null,
+    warehouse_name: defaultWarehouse?.name ?? '',
     expected_delivery_date: `${yyyy}-${mm}-${dd}`,
     contact_phone: o.contact?.phone || o.contact_phone || '',
     shipping_address: o.shipping_address || o.customer?.address || ''
@@ -423,8 +413,8 @@ const initItems = () => {
 };
 
 const onWarehouseChange = () => {
-  const w = warehouseOptions.find((item) => item.id === form.value.warehouse_id);
-  if (w) form.value.warehouse_name = w.name;
+  const w = sellableWarehouseOptions.value.find((item) => item.id === form.value.warehouse_id);
+  form.value.warehouse_name = w?.name ?? '';
   updateOrderItemsStock();
 };
 
@@ -448,6 +438,11 @@ const submitDeliveryRequest = async () => {
     return;
   }
 
+  if (!form.value.warehouse_id) {
+    toast.add({ severity: 'warn', summary: 'Thiếu kho xuất', detail: 'Vui lòng chọn kho xuất hàng được phép bán.', life: 3000 });
+    return;
+  }
+
   if (!form.value.shipping_address) {
     toast.add({
       severity: 'warn',
@@ -466,6 +461,7 @@ const submitDeliveryRequest = async () => {
       customer_order_number: props.order.customer_order_number || props.order.order_number,
       customer_name: props.order.customer_name,
       salesperson: props.order.salesperson || props.order.created_by_name || 'Nhân viên KD',
+      warehouse_id: form.value.warehouse_id,
       warehouse_name: form.value.warehouse_name,
       shipping_address: form.value.shipping_address,
       contact_phone: form.value.contact_phone,

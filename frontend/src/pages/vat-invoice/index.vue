@@ -90,8 +90,8 @@
           <button
             type="button"
             class="px-4 py-2 text-xs font-bold rounded-t-[6px] border-t border-l border-r transition-all flex items-center gap-2"
-            :class="activeTab === 'all' 
-              ? 'bg-white text-indigo-700 border-slate-200 shadow-sm border-b-transparent -mb-px' 
+            :class="activeTab === 'all'
+              ? 'bg-white text-indigo-700 border-slate-200 shadow-sm border-b-transparent -mb-px'
               : 'text-slate-600 hover:text-slate-900 border-transparent'"
             @click="activeTab = 'all'"
           >
@@ -107,8 +107,8 @@
           <button
             type="button"
             class="px-4 py-2 text-xs font-bold rounded-t-[6px] border-t border-l border-r transition-all flex items-center gap-2"
-            :class="activeTab === 'unbilled' 
-              ? 'bg-white text-indigo-700 border-slate-200 shadow-sm border-b-transparent -mb-px' 
+            :class="activeTab === 'unbilled'
+              ? 'bg-white text-indigo-700 border-slate-200 shadow-sm border-b-transparent -mb-px'
               : 'text-slate-600 hover:text-slate-900 border-transparent'"
             @click="activeTab = 'unbilled'"
           >
@@ -124,8 +124,8 @@
           <button
             type="button"
             class="px-4 py-2 text-xs font-bold rounded-t-[6px] border-t border-l border-r transition-all flex items-center gap-2"
-            :class="activeTab === 'invoiced' 
-              ? 'bg-white text-indigo-700 border-slate-200 shadow-sm border-b-transparent -mb-px' 
+            :class="activeTab === 'invoiced'
+              ? 'bg-white text-indigo-700 border-slate-200 shadow-sm border-b-transparent -mb-px'
               : 'text-slate-600 hover:text-slate-900 border-transparent'"
             @click="activeTab = 'invoiced'"
           >
@@ -490,6 +490,7 @@
 
           <!-- Ký hiệu -->
           <template #col-invoice_series="{ data }">
+            <span v-if="data.adjustment_id" class="mr-1 text-[10px] text-amber-700">Điều chỉnh</span>
             <span class="font-mono text-xs font-semibold text-slate-700">
               {{ data.invoice_series || '1C26TBB' }}
             </span>
@@ -506,7 +507,7 @@
           <template #col-sales_invoice_number="{ data }">
             <div class="flex flex-col text-xs leading-tight">
               <span class="font-mono font-semibold text-indigo-700">
-                {{ data.sales_invoice_number || `INV-#${data.sales_invoice_id}` }}
+                {{ data.adjustment_id ? `Điều chỉnh HĐ ${data.adjustment?.original_invoice?.invoice_number || ''}` : (data.sales_invoice_number || `INV-#${data.sales_invoice_id}`) }}
               </span>
             </div>
           </template>
@@ -567,8 +568,18 @@
           </template>
 
           <!-- Thao tác -->
-          <Column header="Thao Tác" class="text-center" style="width: 80px">
+          <Column header="Thao Tác" class="text-center" style="width: 180px">
             <template #body="{ data }">
+              <Button
+                v-if="canCreateAdjustment && !data.adjustment_id"
+                icon="pi pi-file-edit"
+                outlined
+                size="small"
+                severity="secondary"
+                class="!w-7 !h-7 !p-0 rounded-[6px] mr-2"
+                v-tooltip.bottom="'Lập hóa đơn điều chỉnh'"
+                @click="router.push(`/vat-invoice/adjustments/new?invoice=${data.id}`)"
+              />
               <Button
                 icon="pi pi-eye"
                 outlined
@@ -619,6 +630,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import Column from 'primevue/column';
 import Toolbar from 'primevue/toolbar';
@@ -638,8 +650,13 @@ import VatInvoiceDetailDialog from '../../components/invoice/VatInvoiceDetailDia
 import { salesApi } from '../../api/sales.api';
 import { catalogApi } from '../../api/catalog.api';
 import { formatCurrency, formatDate } from '../../utils/format';
+import { storage } from '../../utils/storage';
+import { parseJwt } from '../../utils/jwt';
+import { hasPermission } from '../../utils/rbac';
 
 const toast = useToast();
+const router = useRouter();
+const canCreateAdjustment = hasPermission('finance.create', parseJwt(storage.getToken()));
 
 const activeTab = ref('all');
 const loading = ref(false);
@@ -816,6 +833,7 @@ const allInvoices = computed(() => {
 
   // Khớp thông tin đã xuất hóa đơn từ danh sách VAT Invoices đã phát hành
   vatInvoices.value.forEach((vInv) => {
+    if (vInv.adjustment_id) return;
     const invId = vInv.sales_invoice_id;
     if (invId && map.has(invId)) {
       const group = map.get(invId);
@@ -824,7 +842,7 @@ const allInvoices = computed(() => {
       }
 
       (vInv.items || []).forEach((vItem) => {
-        const matchItem = group.items.find((it) => 
+        const matchItem = group.items.find((it) =>
           (vItem.sales_invoice_item_id && it.id === vItem.sales_invoice_item_id) ||
           (it.sku && vItem.sku && it.sku.toLowerCase() === vItem.sku.toLowerCase())
         );
@@ -843,7 +861,7 @@ const allInvoices = computed(() => {
     const invId = uIt.invoice_id;
     if (invId && map.has(invId)) {
       const group = map.get(invId);
-      const matchItem = group.items.find((it) => 
+      const matchItem = group.items.find((it) =>
         (uIt.invoice_item_id && it.id === uIt.invoice_item_id) ||
         (it.sku && uIt.sku && it.sku.toLowerCase() === uIt.sku.toLowerCase())
       );
@@ -865,7 +883,7 @@ const allInvoices = computed(() => {
         group.linked_vat_invoices.push(rIt.vat_invoice_number);
       }
 
-      const matchItem = group.items.find((it) => 
+      const matchItem = group.items.find((it) =>
         (rIt.invoice_item_id && it.id === rIt.invoice_item_id) ||
         (it.sku && rIt.sku && it.sku.toLowerCase() === rIt.sku.toLowerCase())
       );
@@ -895,7 +913,7 @@ const allInvoices = computed(() => {
       const qty = Number(it.issued_quantity || it.quantity || 0);
       const remQty = Number(it.remaining_invoice_quantity !== undefined ? it.remaining_invoice_quantity : qty);
       const invQty = Number(it.invoiced_quantity !== undefined && it.invoiced_quantity > 0 ? it.invoiced_quantity : Math.max(0, qty - remQty));
-      
+
       it.issued_quantity = qty;
       it.remaining_invoice_quantity = remQty;
       it.invoiced_quantity = invQty;
@@ -988,8 +1006,8 @@ const filteredAllInvoices = computed(() => {
     const matchInvNo = (inv.invoice_number || '').toLowerCase().includes(q);
     const matchCustName = (inv.customer_name || '').toLowerCase().includes(q);
     const matchTaxCode = (inv.customer_tax_code || '').toLowerCase().includes(q);
-    const matchItem = inv.items.some((it) => 
-      (it.sku && it.sku.toLowerCase().includes(q)) || 
+    const matchItem = inv.items.some((it) =>
+      (it.sku && it.sku.toLowerCase().includes(q)) ||
       (it.product_name && it.product_name.toLowerCase().includes(q))
     );
     return matchInvNo || matchCustName || matchTaxCode || matchItem;
@@ -1003,8 +1021,8 @@ const filteredUnbilledInvoices = computed(() => {
     const matchInvNo = (inv.invoice_number || '').toLowerCase().includes(q);
     const matchCustName = (inv.customer_name || '').toLowerCase().includes(q);
     const matchTaxCode = (inv.customer_tax_code || '').toLowerCase().includes(q);
-    const matchItem = inv.items.some((it) => 
-      (it.sku && it.sku.toLowerCase().includes(q)) || 
+    const matchItem = inv.items.some((it) =>
+      (it.sku && it.sku.toLowerCase().includes(q)) ||
       (it.product_name && it.product_name.toLowerCase().includes(q))
     );
     return matchInvNo || matchCustName || matchTaxCode || matchItem;
@@ -1186,12 +1204,12 @@ const submitPartialVatInvoice = async () => {
       }))
     };
 
-    await salesApi.createVatInvoice(payload);
+    const issued = await salesApi.createVatInvoice(payload);
 
     toast.add({
-      severity: 'success',
-      summary: 'Xuất Hóa Đơn GTGT Thành Công!',
-      detail: `Đã phát hành HĐ ${partialForm.value.invoice_number}.`,
+      severity: issued.finance_synced ? 'success' : 'warn',
+      summary: issued.finance_synced ? 'Xuất Hóa Đơn GTGT Thành Công!' : 'Hóa đơn đã lập, chờ đồng bộ kế toán',
+      detail: issued.message,
       life: 4000
     });
 
@@ -1256,12 +1274,12 @@ const executeFullVatInvoice = async () => {
         }))
     };
 
-    await salesApi.createVatInvoice(payload);
+    const issued = await salesApi.createVatInvoice(payload);
 
     toast.add({
-      severity: 'success',
-      summary: 'Xuất Toàn Bộ HĐ VAT Thành Công!',
-      detail: `Đã cấp Hóa Đơn GTGT ${nextNo} cho chứng từ ${selectedInvoiceForFullVat.value.invoice_number}.`,
+      severity: issued.finance_synced ? 'success' : 'warn',
+      summary: issued.finance_synced ? 'Xuất Toàn Bộ HĐ VAT Thành Công!' : 'Hóa đơn đã lập, chờ đồng bộ kế toán',
+      detail: issued.message,
       life: 4000
     });
 

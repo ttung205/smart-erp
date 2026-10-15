@@ -9,6 +9,7 @@ use App\Models\QuotationItem;
 use App\Models\SalesAttachment;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
+use App\Support\DocumentDate;
 use App\Support\DocumentNumberGenerator;
 use App\Support\SalesWorkflow;
 use Illuminate\Http\Request;
@@ -92,7 +93,8 @@ class QuotationController extends Controller
     {
         $request->validate([
             'customer_id' => ['required', 'integer', 'exists:catalog.customers,id'],
-            'quotation_date' => ['required', 'date'],
+            // Form báo giá không có ô ngày: bỏ trống thì lấy ngày tạo (hôm nay)
+            'quotation_date' => DocumentDate::rules(),
             'exchange_rate' => ['nullable', 'numeric', 'gt:0'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'exists:catalog.products,id'],
@@ -101,11 +103,13 @@ class QuotationController extends Controller
             'items.*.selling_price' => ['required', 'numeric', 'gte:0'],
             'items.*.vat_percent' => ['nullable', 'numeric', 'between:0,100'],
         ]);
-        $customerName = Customer::findOrFail($request->integer('customer_id'))->name;
+        $customer = Customer::findOrFail($request->integer('customer_id'));
+        $customerName = $customer->name;
 
         DB::beginTransaction();
         try {
-            $qNumber = DocumentNumberGenerator::next('quotation-'.now()->format('Y'), 'QT-'.now()->format('Y').'-', 6);
+            // Quy định số báo giá: QT-mã khách hàng-ddmmyy (trùng trong ngày thêm -A, -B...)
+            $qNumber = DocumentNumberGenerator::forCustomer(Quotation::class, 'quotation_number', 'QT', $customer->code);
 
             // Nếu người dùng chủ động truyền số báo giá tùy chỉnh hợp lệ (khác auto placeholder)
             $customNumber = trim($request->input('quotation_number', ''));
@@ -123,7 +127,7 @@ class QuotationController extends Controller
                 'customer_id' => $request->input('customer_id'),
                 'customer_name' => $customerName,
                 'contact_id' => $request->input('contact_id'),
-                'quotation_date' => $request->input('quotation_date', now()->format('d/m/Y')),
+                'quotation_date' => DocumentDate::normalize($request->input('quotation_date'), now()->toDateString()),
                 'currency' => $request->input('currency', 'VND'),
                 'exchange_rate' => (float) $request->input('exchange_rate', 1.0),
                 'created_by' => $actor->name,
@@ -430,7 +434,8 @@ class QuotationController extends Controller
                 return round($lineSubtotal * ((float) $item->vat_percent / 100), 2);
             });
 
-            $soNumber = DocumentNumberGenerator::next('sales-order-'.now()->format('Y'), 'SO-'.now()->format('Y').'-', 6);
+            // Đơn sinh từ báo giá theo cùng quy định với đơn lập tay: OD-mã khách hàng-ddmmyy
+            $soNumber = DocumentNumberGenerator::forCustomer(SalesOrder::class, 'order_number', 'OD', Customer::find($q->customer_id)?->code);
             $actor = $request->attributes->get('actor');
 
             $so = SalesOrder::create([
@@ -439,7 +444,7 @@ class QuotationController extends Controller
                 'quotation_id' => $q->id,
                 'customer_id' => $q->customer_id,
                 'contact_id' => $q->contact_id,
-                'order_date' => now()->format('d/m/Y'),
+                'order_date' => now()->toDateString(),
                 'currency' => $q->currency ?? 'VND',
                 'exchange_rate' => (float) ($q->exchange_rate ?? 1.0),
                 'created_by' => $actor->id,

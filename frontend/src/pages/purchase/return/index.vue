@@ -32,6 +32,19 @@
       </div>
 
       <div 
+        class="bg-white border border-slate-200 rounded-[6px] p-3 flex items-center justify-between cursor-pointer hover:border-slate-300 transition-colors"
+        @click="statusFilter = 'Draft'"
+      >
+        <div>
+          <span class="text-xs text-slate-600 font-medium block">Bản nháp (Từ nhập kho GRN)</span>
+          <span class="text-lg font-bold text-slate-700 font-mono tabular-nums">{{ stats.draft }}</span>
+        </div>
+        <div class="w-9 h-9 rounded-[6px] bg-slate-50 flex items-center justify-center text-slate-500">
+          <i class="pi pi-file-edit text-base"></i>
+        </div>
+      </div>
+
+      <div 
         class="bg-white border border-slate-200 rounded-[6px] p-3 flex items-center justify-between cursor-pointer hover:border-amber-300 transition-colors"
         @click="statusFilter = 'Submitted'"
       >
@@ -41,19 +54,6 @@
         </div>
         <div class="w-9 h-9 rounded-[6px] bg-amber-50 flex items-center justify-center text-amber-600">
           <i class="pi pi-clock text-base"></i>
-        </div>
-      </div>
-
-      <div 
-        class="bg-white border border-slate-200 rounded-[6px] p-3 flex items-center justify-between cursor-pointer hover:border-sky-300 transition-colors"
-        @click="statusFilter = 'Approved'"
-      >
-        <div>
-          <span class="text-xs text-sky-600 font-medium block">Đã duyệt chờ xuất kho</span>
-          <span class="text-lg font-bold text-sky-700 font-mono tabular-nums">{{ stats.approved }}</span>
-        </div>
-        <div class="w-9 h-9 rounded-[6px] bg-sky-50 flex items-center justify-center text-sky-600">
-          <i class="pi pi-truck text-base"></i>
         </div>
       </div>
 
@@ -139,6 +139,14 @@
           <span class="font-mono text-xs font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-[6px] border border-slate-200 inline-block whitespace-nowrap">
             {{ data.po_code || (data.purchase_order_id ? `PO #${data.purchase_order_id}` : '—') }}
           </span>
+        </template>
+
+        <!-- Phiếu Nhập Kho Liên Quan -->
+        <template #col-goods_receipt_code="{ data }">
+          <span v-if="data.goods_receipt_code" class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[6px] border border-sky-200 inline-block whitespace-nowrap">
+            {{ data.goods_receipt_code }}
+          </span>
+          <span v-else class="text-xs text-slate-400 italic">Trực tiếp từ PO</span>
         </template>
 
         <!-- Nhà Cung Cấp -->
@@ -239,12 +247,15 @@ import Column from 'primevue/column';
 import PageHeader from '../../../components/common/PageHeader.vue';
 import CommonDataTable from '../../../components/common/CommonDataTable.vue';
 import { purchaseApi } from '../../../api/purchase.api';
+import { catalogApi } from '../../../api/catalog.api';
 import { PURCHASE_RETURN_STATUS, PURCHASE_RETURN_REASONS, DEFAULT_SUPPLIERS } from '../../../constants/purchase.constant';
 import { useWarehouses } from '../../../composables/useWarehouses';
 import { formatCurrency } from '../../../utils/format';
 
 const router = useRouter();
 const toast = useToast();
+
+const suppliers = ref([]);
 
 const returns = ref([]);
 const loading = ref(false);
@@ -256,6 +267,7 @@ const { warehouses, fetchWarehouses } = useWarehouses();
 const tableColumns = [
   { field: 'code', header: 'Mã Phiếu Trả', width: '130px' },
   { field: 'po_code', header: 'Đơn Mua (PO)', width: '120px' },
+  { field: 'goods_receipt_code', header: 'Phiếu Kho (GRN)', width: '130px' },
   { field: 'supplier_id', header: 'Nhà Cung Cấp', minWidth: '180px' },
   { field: 'warehouse_id', header: 'Kho Xuất Trả', minWidth: '150px' },
   { field: 'rma_number', header: 'Số RMA', width: '120px' },
@@ -304,8 +316,13 @@ const filteredReturns = computed(() => {
 });
 
 function getSupplierName(supplierId) {
+  if (!supplierId) return '—';
+  const foundApi = suppliers.value.find((s) => s.id === Number(supplierId));
+  if (foundApi) {
+    return foundApi.code ? `[${foundApi.code}] ${foundApi.name}` : foundApi.name;
+  }
   const found = DEFAULT_SUPPLIERS.find((s) => s.id === Number(supplierId));
-  return found ? found.name : `Nhà cung cấp #${supplierId}`;
+  return found ? (found.code ? `[${found.code}] ${found.name}` : found.name) : `Nhà cung cấp #${supplierId}`;
 }
 
 function getWarehouseName(warehouseId) {
@@ -350,13 +367,27 @@ function resetFilters() {
 async function loadReturns() {
   loading.value = true;
   try {
-    const res = await purchaseApi.getReturns();
-    if (res && res.data) {
-      returns.value = res.data;
-    } else if (Array.isArray(res)) {
-      returns.value = res;
+    const [retRes, supRes] = await Promise.allSettled([
+      purchaseApi.getReturns(),
+      catalogApi.getSuppliers()
+    ]);
+
+    if (retRes.status === 'fulfilled') {
+      const res = retRes.value;
+      if (res && res.data) {
+        returns.value = res.data;
+      } else if (Array.isArray(res)) {
+        returns.value = res;
+      } else {
+        returns.value = [];
+      }
     } else {
       returns.value = [];
+    }
+
+    if (supRes.status === 'fulfilled') {
+      const sData = supRes.value?.data || supRes.value?.items || supRes.value;
+      suppliers.value = Array.isArray(sData) ? sData : [];
     }
   } catch (err) {
     console.error('Lỗi tải danh sách phiếu trả hàng:', err);

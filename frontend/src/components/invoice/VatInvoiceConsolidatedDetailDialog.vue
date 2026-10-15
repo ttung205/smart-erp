@@ -102,7 +102,7 @@
               <td class="p-2 font-bold text-indigo-700">{{ it.sku }}</td>
               <td class="p-2 font-sans font-medium text-slate-800">{{ it.product_name }}</td>
               <td class="p-2 text-right text-slate-700">{{ formatCurrency(it.unit_price) }}</td>
-              
+
               <!-- Số lượng -->
               <td class="p-2 text-right font-semibold text-slate-800">{{ formatNumber(it.issued_quantity || it.quantity) }}</td>
               <td class="p-2 text-right font-semibold text-emerald-700">{{ formatNumber(it.invoiced_quantity || 0) }}</td>

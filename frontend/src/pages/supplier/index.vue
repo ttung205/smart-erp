@@ -33,6 +33,16 @@
           </IconField>
 
           <Select
+            v-model="typeFilter"
+            :options="typeFilterOptions"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Lọc loại NCC..."
+            class="w-48 rounded-[6px] text-xs h-9 flex items-center"
+            @change="fetchSuppliers"
+          />
+
+          <Select
             v-model="groupFilter"
             :options="groupFilterOptions"
             optionLabel="label"
@@ -53,7 +63,7 @@
           />
 
           <Button
-            v-if="searchQuery || groupFilter || statusFilter"
+            v-if="searchQuery || typeFilter || groupFilter || statusFilter"
             label="Đặt lại"
             icon="pi pi-filter-slash"
             size="small"
@@ -218,25 +228,51 @@
           </div>
 
           <div class="grid grid-cols-12 gap-3">
-            <div class="col-span-4">
+            <div class="col-span-5">
               <label class="block text-xs font-semibold text-slate-700 mb-1">
-                Mã Nhà Cung Cấp
+                Phân Loại Nhà Cung Cấp <span class="text-rose-500">*</span>
               </label>
-              <InputText
-                v-model="form.code"
-                placeholder="Tự sinh nếu trống (vd: NCC-0001)"
-                class="w-full text-xs font-mono h-9"
+              <Select
+                v-model="form.supplier_type"
+                :options="supplierTypeOptions"
+                optionLabel="label"
+                optionValue="value"
+                class="w-full text-xs h-9 flex items-center rounded-[6px]"
+                @change="onSupplierTypeChange"
               />
             </div>
 
-            <div class="col-span-8">
+            <div class="col-span-7">
+              <div class="flex items-center justify-between mb-1">
+                <label class="block text-xs font-semibold text-slate-700">
+                  Mã Nhà Cung Cấp
+                </label>
+                <Button
+                  v-if="!isEditing"
+                  type="button"
+                  label="Sinh mã ngẫu nhiên"
+                  icon="pi pi-refresh"
+                  size="small"
+                  text
+                  class="!text-[11px] !p-0 !text-sky-600 hover:!underline h-auto font-medium"
+                  @click="generateRandomCode"
+                />
+              </div>
+              <InputText
+                v-model="form.code"
+                :placeholder="form.supplier_type === 'MANUFACTURER' ? 'Tự sinh nếu trống (vd: MS-1234)' : 'Tự sinh nếu trống (vd: TS-1234)'"
+                class="w-full text-xs font-mono h-9 rounded-[6px]"
+              />
+            </div>
+
+            <div class="col-span-12">
               <label class="block text-xs font-semibold text-slate-700 mb-1">
                 Tên Nhà Cung Cấp / Doanh Nghiệp <span class="text-rose-500">*</span>
               </label>
               <InputText
                 v-model="form.name"
                 placeholder="Nhập tên đầy đủ của đơn vị cung ứng..."
-                class="w-full text-xs h-9"
+                class="w-full text-xs h-9 rounded-[6px]"
                 required
               />
             </div>
@@ -477,6 +513,7 @@ const loading = ref(false);
 const saving = ref(false);
 const suppliers = ref([]);
 const searchQuery = ref('');
+const typeFilter = ref('');
 const groupFilter = ref('');
 const statusFilter = ref('');
 
@@ -489,6 +526,7 @@ const form = reactive({
   name: '',
   tax_code: '',
   supplier_group: 'Vật tư & Thiết bị',
+  supplier_type: 'TRADING',
   phone: '',
   email: '',
   address: '',
@@ -504,6 +542,17 @@ const form = reactive({
   status: 'ACTIVE',
   notes: ''
 });
+
+const supplierTypeOptions = [
+  { label: 'Trading Supplier (Thương mại - TS)', value: 'TRADING' },
+  { label: 'Manufacturer Supplier (Sản xuất - MS)', value: 'MANUFACTURER' }
+];
+
+const typeFilterOptions = [
+  { label: 'Tất cả phân loại', value: '' },
+  { label: 'Trading Supplier (TS)', value: 'TRADING' },
+  { label: 'Manufacturer Supplier (MS)', value: 'MANUFACTURER' }
+];
 
 const groupOptions = [
   'Vật tư & Thiết bị',
@@ -536,7 +585,7 @@ const statusFilterOptions = [
 const tableColumns = [
   { field: 'code', header: 'Mã NCC', sortable: true, width: '130px' },
   { field: 'name', header: 'Tên Nhà Cung Cấp', sortable: true, width: '260px' },
-  { field: 'tax_code', header: 'MST', sortable: true, width: '130px' },
+  { field: 'tax_code', header: 'MST', sortable: true, width: '120px' },
   { field: 'supplier_group', header: 'Nhóm Cung Ứng', sortable: true, width: '160px' },
   { field: 'contact_person', header: 'Đầu Mối Liên Hệ', sortable: true, width: '180px' },
   { field: 'bank_info', header: 'Tài Khoản Ngân Hàng', width: '180px' },
@@ -546,11 +595,33 @@ const tableColumns = [
   { field: 'actions', header: 'Thao Tác', width: '100px' }
 ];
 
+const generateRandomCode = async () => {
+  try {
+    const res = await catalogApi.generateSupplierCode(form.supplier_type);
+    if (res && res.data && res.data.code) {
+      form.code = res.data.code;
+      return;
+    }
+  } catch (err) {
+    console.warn('Lỗi khi sinh mã từ máy chủ, fallback sinh mã tại client:', err);
+  }
+  const prefix = form.supplier_type === 'MANUFACTURER' ? 'MS-' : 'TS-';
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  form.code = `${prefix}${rand}`;
+};
+
+const onSupplierTypeChange = () => {
+  if (!isEditing.value) {
+    generateRandomCode();
+  }
+};
+
 const fetchSuppliers = async () => {
   loading.value = true;
   try {
     const params = {};
     if (searchQuery.value) params.search = searchQuery.value;
+    if (typeFilter.value) params.supplier_type = typeFilter.value;
     if (groupFilter.value) params.supplier_group = groupFilter.value;
     if (statusFilter.value) params.status = statusFilter.value;
 
@@ -573,6 +644,7 @@ const fetchSuppliers = async () => {
 
 const resetFilters = () => {
   searchQuery.value = '';
+  typeFilter.value = '';
   groupFilter.value = '';
   statusFilter.value = '';
   fetchSuppliers();
@@ -586,6 +658,7 @@ const openCreateDialog = () => {
     name: '',
     tax_code: '',
     supplier_group: 'Vật tư & Thiết bị',
+    supplier_type: 'TRADING',
     phone: '',
     email: '',
     address: '',
@@ -601,17 +674,20 @@ const openCreateDialog = () => {
     status: 'ACTIVE',
     notes: ''
   });
+  generateRandomCode();
   dialogVisible.value = true;
 };
 
 const openEditDialog = (data) => {
   isEditing.value = true;
   editingId.value = data.id;
+  const deducedType = data.supplier_type || (data.code && data.code.startsWith('MS-') ? 'MANUFACTURER' : 'TRADING');
   Object.assign(form, {
     code: data.code || '',
     name: data.name || '',
     tax_code: data.tax_code || '',
     supplier_group: data.supplier_group || 'Vật tư & Thiết bị',
+    supplier_type: deducedType,
     phone: data.phone || '',
     email: data.email || '',
     address: data.address || '',
