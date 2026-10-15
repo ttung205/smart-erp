@@ -189,8 +189,8 @@ class IdentitySeeder extends Seeder
             'TECHNICAL_MANAGER' => ['sale_return.view', 'sale_return.technical', 'sale_return.approve', 'inventory.view'],
             'LOGISTIC' => ['sale_return.view', 'sale_return.approve', 'inventory.view', 'inventory.transfer'],
             'LOGISTIC_MANAGER' => ['sale_return.view', 'sale_return.approve', 'sale_return.post', 'inventory.view', 'inventory.manage'],
-            'FINANCE_ACCOUNTING' => ['sale_return.view', 'sale_return.post', 'inventory.view'],
-            'FINANCE_ACCOUNTING_MANAGER' => ['sale_return.view', 'sale_return.approve', 'sale_return.post', 'inventory.view'],
+            'FINANCE_ACCOUNTING' => ['finance.view', 'sale_return.view', 'sale_return.post', 'inventory.view', 'master.view'],
+            'FINANCE_ACCOUNTING_MANAGER' => ['finance.view', 'finance.approve', 'invoice.view', 'invoice.manage', 'sale_return.view', 'sale_return.approve', 'sale_return.post', 'inventory.view', 'master.view'],
         ];
         foreach ($rolePermissionMap as $roleCode => $permissionCodes) {
             $roleId = DB::table('roles')->where('code', $roleCode)->value('id');

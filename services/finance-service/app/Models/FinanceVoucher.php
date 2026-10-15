@@ -15,7 +15,9 @@ class FinanceVoucher extends Model
 
     protected $guarded = [];
 
-    protected $casts = ['voucher_date' => 'date:Y-m-d', 'total_amount' => 'float', 'posted_at' => 'datetime', 'cancelled_at' => 'datetime'];
+    protected $casts = ['voucher_date' => 'date:Y-m-d', 'accounting_date' => 'date:Y-m-d', 'total_amount' => 'float', 'exchange_rate' => 'float', 'posted_at' => 'datetime', 'cancelled_at' => 'datetime'];
+
+    protected $appends = ['allocated_amount', 'unallocated_amount'];
 
     public function lines(): HasMany
     {
@@ -40,5 +42,15 @@ class FinanceVoucher extends Model
     public function destinationBankAccount(): BelongsTo
     {
         return $this->belongsTo(BankAccount::class, 'destination_bank_account_id');
+    }
+
+    public function getAllocatedAmountAttribute(): float
+    {
+        return (float) $this->allocations->sum('amount');
+    }
+
+    public function getUnallocatedAmountAttribute(): float
+    {
+        return max((float) $this->total_amount - $this->allocated_amount, 0);
     }
 }

@@ -38,6 +38,7 @@ import FinanceAccountsPage from '../pages/finance/accounts/index.vue';
 import CashBookPage from '../pages/finance/cash-book/index.vue';
 import FinanceVouchersPage from '../pages/finance/vouchers/index.vue';
 import FinanceVoucherFormPage from '../pages/finance/vouchers/form.vue';
+import ReceivableAllocationPage from '../pages/finance/receivable-allocation/index.vue';
 import SaleReturnRequestPage from '../pages/sale-return-request/index.vue';
 import SaleReturnRequestFormPage from '../pages/sale-return-request/form.vue';
 import SaleReturnPage from '../pages/sale-return/index.vue';
@@ -591,6 +592,7 @@ export const routes = [
   { path: '/finance/bank-payments', name: 'finance-bank-payments', component: FinanceVouchersPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Chi tiền ngân hàng', voucherType: 'BANK_PAYMENT' } },
   { path: '/finance/internal-transfers', name: 'finance-internal-transfers', component: FinanceVouchersPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Chuyển tiền nội bộ', voucherType: 'INTERNAL_TRANSFER' } },
   { path: '/finance/vouchers/new', name: 'finance-voucher-new', component: FinanceVoucherFormPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.approve', title: 'Lập chứng từ thu chi' } },
+  { path: '/finance/receivable-allocation', name: 'finance-receivable-allocation', component: ReceivableAllocationPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.approve', title: 'Đối trừ công nợ' } },
   { path: '/accounting', redirect: '/customer-receivables' },
   // Backward compatibility alias redirects
   { path: '/sales/quotation', redirect: '/quotation' },

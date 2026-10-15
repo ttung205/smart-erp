@@ -164,6 +164,14 @@ export const menuCategories = [
             icon: 'pi pi-wallet'
           },
           {
+            id: 'receivable-allocation',
+            path: '/finance/receivable-allocation',
+            resource: 'finance',
+            permission: 'finance.approve',
+            label: 'Đối trừ công nợ',
+            icon: 'pi pi-arrows-h'
+          },
+          {
             id: 'accounting-sale-return-request',
             path: '/sale-return-request',
             resource: 'sale_return',

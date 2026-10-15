@@ -33,5 +33,11 @@ export const financeApi = {
   },
   postVoucher(id) {
     return apiClient(`/api/v1/finance/vouchers/${id}/post`, { method: 'POST' });
+  },
+  allocateVoucher(id, allocations) {
+    return apiClient(`/api/v1/finance/vouchers/${id}/allocations`, {
+      method: 'POST',
+      body: JSON.stringify({ allocations })
+    });
   }
 };

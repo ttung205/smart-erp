@@ -18,4 +18,5 @@ Route::middleware('jwt')->group(function (): void {
     Route::get('/vouchers', [FinanceVoucherController::class, 'index'])->middleware('permission:finance.view');
     Route::post('/vouchers', [FinanceVoucherController::class, 'store'])->middleware('permission:finance.create,finance.approve');
     Route::post('/vouchers/{voucher}/post', [FinanceVoucherController::class, 'post'])->middleware('permission:finance.post,finance.approve');
+    Route::post('/vouchers/{voucher}/allocations', [FinanceVoucherController::class, 'allocate'])->middleware('permission:finance.post,finance.approve');
 });
