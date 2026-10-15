@@ -9,9 +9,12 @@ use App\Models\DeliveryRequestItem;
 use App\Models\SalesOrder;
 use App\Support\DocumentNumberGenerator;
 use App\Support\SalesWorkflow;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\ValidationException;
 
 class DeliveryController extends Controller
 {
@@ -43,7 +46,10 @@ class DeliveryController extends Controller
             ], 409);
         }
 
-        $delivery = DB::transaction(function () use ($request, $order): DeliveryRequest {
+        // Kho xuất phải là kho đang hoạt động và được phép bán (lấy tên chuẩn từ inventory-service)
+        $warehouse = $this->sellableWarehouse($request->integer('warehouse_id'), (string) $request->bearerToken());
+
+        $delivery = DB::transaction(function () use ($request, $order, $warehouse): DeliveryRequest {
             $requestNumber = $request->input('request_number') ?: DocumentNumberGenerator::next(
                 'delivery-'.now()->format('Y'),
                 'DR-'.now()->format('Y').'-',
@@ -53,7 +59,8 @@ class DeliveryController extends Controller
             $delivery = DeliveryRequest::create([
                 'order_id' => $order->id,
                 'request_number' => $requestNumber,
-                'warehouse_name' => $request->string('warehouse_name')->toString(),
+                'warehouse_id' => (int) $warehouse['id'],
+                'warehouse_name' => (string) ($warehouse['name'] ?? $request->string('warehouse_name')->toString()),
                 'shipping_address' => $request->string('shipping_address')->toString(),
                 'contact_phone' => $request->input('contact_phone') ?: $order->contact?->phone,
                 'request_date' => now()->toDateString(),
@@ -113,5 +120,27 @@ class DeliveryController extends Controller
         $dr->update(['status' => $nextStatus]);
 
         return response()->json(['success' => true, 'data' => $dr]);
+    }
+
+    /** @return array<string, mixed> */
+    private function sellableWarehouse(int $warehouseId, string $token): array
+    {
+        try {
+            $response = Http::withToken($token)->acceptJson()
+                ->timeout(config('services.inventory.timeout', 3))
+                ->get(config('services.inventory.url').'/api/v1/inventory/warehouses');
+        } catch (ConnectionException) {
+            throw ValidationException::withMessages(['warehouse_id' => 'Không kết nối được Inventory Service để kiểm tra kho xuất.']);
+        }
+        if (! $response->successful()) {
+            throw ValidationException::withMessages(['warehouse_id' => 'Không đọc được danh mục kho từ Inventory Service.']);
+        }
+
+        $warehouse = collect($response->json('data', []))->firstWhere('id', $warehouseId);
+        if (! $warehouse || ! ($warehouse['is_active'] ?? false) || ! ($warehouse['can_sell'] ?? false)) {
+            throw ValidationException::withMessages(['warehouse_id' => 'Kho xuất phải là kho đang hoạt động và được phép bán.']);
+        }
+
+        return $warehouse;
     }
 }

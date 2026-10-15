@@ -12,6 +12,7 @@ use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
 use App\Models\User;
 use App\Services\SaleReportService;
+use App\Support\DocumentDate;
 use App\Support\DocumentNumberGenerator;
 use App\Support\SalesWorkflow;
 use Illuminate\Http\Request;
@@ -56,7 +57,7 @@ class SalesOrderController extends Controller
         $request->validate([
             'customer_id' => ['required', 'integer', 'exists:catalog.customers,id'],
             'quotation_id' => ['nullable', 'integer', 'exists:quotations,id'],
-            'order_date' => ['required', 'date'],
+            'order_date' => DocumentDate::rules(),
             'exchange_rate' => ['nullable', 'numeric', 'gt:0'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'exists:catalog.products,id'],
@@ -70,7 +71,8 @@ class SalesOrderController extends Controller
             DB::beginTransaction();
 
             $customer = Customer::findOrFail($request->input('customer_id'));
-            $odNumber = DocumentNumberGenerator::next('sales-order-'.now()->format('Y'), 'OD-'.now()->format('Y').'-', 6);
+            // Quy định số đơn bán: OD-mã khách hàng-ddmmyy (trùng trong ngày thêm -A, -B...)
+            $odNumber = DocumentNumberGenerator::forCustomer(SalesOrder::class, 'order_number', 'OD', $customer->code);
 
             // Số đơn hàng của khách: nếu người dùng điền số khác thì dùng số đó, còn không thì tự động dùng số hệ thống
             $custOrderNo = trim($request->input('customer_order_number', ''));
@@ -127,7 +129,7 @@ class SalesOrderController extends Controller
                 'quotation_id' => $quotationId,
                 'customer_id' => $request->input('customer_id'),
                 'contact_id' => $request->input('contact_id'),
-                'order_date' => $request->input('order_date', now()->format('d/m/Y')),
+                'order_date' => DocumentDate::normalize($request->input('order_date'), now()->toDateString()),
                 'currency' => $request->input('currency', 'VND'),
                 'exchange_rate' => (float) $request->input('exchange_rate', 1.0),
                 'created_by' => $createdBy,
@@ -237,7 +239,7 @@ class SalesOrderController extends Controller
         $request->validate([
             'customer_id' => ['sometimes', 'required', 'integer', 'exists:catalog.customers,id'],
             'quotation_id' => ['sometimes', 'nullable', 'integer', 'exists:quotations,id'],
-            'order_date' => ['sometimes', 'required', 'date'],
+            'order_date' => ['sometimes', ...DocumentDate::rules(required: true)],
             'exchange_rate' => ['sometimes', 'numeric', 'gt:0'],
             'items' => ['sometimes', 'array', 'min:1'],
             'items.*.product_id' => ['required_with:items', 'integer', 'exists:catalog.products,id'],
@@ -297,7 +299,7 @@ class SalesOrderController extends Controller
                 'quotation_id' => $quotationId,
                 'customer_id' => $request->input('customer_id', $so->customer_id),
                 'contact_id' => $request->input('contact_id', $so->contact_id),
-                'order_date' => $request->input('order_date', $so->order_date),
+                'order_date' => DocumentDate::normalize($request->input('order_date'), $so->order_date),
                 'currency' => $request->input('currency', $so->currency),
                 'exchange_rate' => (float) $request->input('exchange_rate', $so->exchange_rate),
                 'assigned_to' => $assignedTo,

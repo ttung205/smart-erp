@@ -31,6 +31,7 @@ class Invoice extends Model
         'posted_at',
         'posted_by',
         'inventory_reservation_status',
+        'inventory_warehouse_id',
         'inventory_reservation_error',
         'inventory_reserved_at',
         'inventory_issue_status',

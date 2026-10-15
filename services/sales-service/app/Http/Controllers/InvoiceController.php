@@ -76,7 +76,7 @@ class InvoiceController extends Controller
         $createdBy = $actor->name;
         $sendImmediately = $request->boolean('send_to_warehouse', false);
         $warehouseName = $request->input('warehouse_name') ?: ($dr?->warehouse_name ?: 'Kho Tổng Miền Bắc (Hà Nội)');
-        $warehouseId = $this->resolveWarehouseId($warehouseName);
+        $warehouseId = $dr?->warehouse_id ?: $this->resolveWarehouseId($warehouseName);
 
         $inv = DB::transaction(function () use ($request, $drId, $drNumber, $dr, $order, $currency, $exchangeRate, $createdBy, $sendImmediately) {
             $invNumber = $request->input('invoice_number') ?: DocumentNumberGenerator::next(
@@ -218,11 +218,12 @@ class InvoiceController extends Controller
         });
 
         // Tự động giữ chỗ tồn kho (Reserve Stock) cho chứng từ bán hàng
-        $reservationResult = $this->reserveStockForInvoice($inv, $warehouseId);
+        $reservationResult = $this->reserveStockForInvoice($inv, $warehouseId, $request->bearerToken());
         $reservationSucceeded = count($reservationResult) === $inv->items()->count()
             && collect($reservationResult)->every(fn (array $result): bool => $result['success'] === true);
         $hasReservedItems = collect($reservationResult)->contains(fn (array $result): bool => $result['success'] === true);
         $inv->update([
+            'inventory_warehouse_id' => $warehouseId,
             'inventory_reservation_status' => $reservationSucceeded ? 'RESERVED' : ($hasReservedItems ? 'PARTIAL' : 'FAILED'),
             'inventory_reservation_error' => $reservationSucceeded ? null : json_encode($reservationResult, JSON_UNESCAPED_UNICODE),
             'inventory_reserved_at' => $reservationSucceeded ? now() : null,
@@ -284,13 +285,14 @@ class InvoiceController extends Controller
         }
 
         $warehouseName = $request->input('warehouse_name') ?: ($inv->deliveryRequest?->warehouse_name ?: 'Kho Tổng Miền Bắc (Hà Nội)');
-        $warehouseId = $this->resolveWarehouseId($warehouseName);
+        $warehouseId = $inv->inventory_warehouse_id ?: ($inv->deliveryRequest?->warehouse_id ?: $this->resolveWarehouseId($warehouseName));
 
-        $result = $this->reserveStockForInvoice($inv, $warehouseId);
+        $result = $this->reserveStockForInvoice($inv, $warehouseId, $request->bearerToken());
         $succeeded = count($result) === $inv->items()->count()
             && collect($result)->every(fn (array $item): bool => $item['success'] === true);
         $hasReservedItems = collect($result)->contains(fn (array $item): bool => $item['success'] === true);
         $inv->update([
+            'inventory_warehouse_id' => $warehouseId,
             'inventory_reservation_status' => $succeeded ? 'RESERVED' : ($hasReservedItems ? 'PARTIAL' : 'FAILED'),
             'inventory_reservation_error' => $succeeded ? null : json_encode($result, JSON_UNESCAPED_UNICODE),
             'inventory_reserved_at' => $succeeded ? now() : null,
@@ -464,10 +466,26 @@ class InvoiceController extends Controller
         $posterName = $actor->name;
         $postedById = $actor->id;
         $nowStr = now()->format('Y-m-d H:i:s');
-        $warehouseName = $request->input('warehouse_name') ?: ($inv->warehouse_name ?: ($inv->deliveryRequest?->warehouse_name ?: 'Kho Chính'));
-        $warehouseId = $request->input('warehouse_id') ?: ($inv->warehouse_id ?: $this->resolveWarehouseId($warehouseName));
+        if ($inv->inventory_reservation_status !== 'RESERVED') {
+            // Chưa giữ chỗ mà xuất kho thì tồn thực tế bị trừ nhưng tồn khả dụng không trừ → lệch số liệu kho
+            return response()->json([
+                'success' => false,
+                'error' => ['code' => 'STOCK_NOT_RESERVED', 'message' => 'Chứng từ chưa giữ chỗ tồn kho thành công nên chưa thể xuất kho.'],
+            ], 409);
+        }
 
-        $issueResult = $this->issueStockForInvoice($inv, $warehouseId);
+        // Xuất kho bắt buộc ở đúng kho đã giữ chỗ, nếu không tồn thực tế bị trừ ở kho này
+        // trong khi tồn khả dụng đã trừ ở kho khác
+        $warehouseName = $inv->warehouse_name ?: 'Kho Chính';
+        $warehouseId = (int) ($inv->inventory_warehouse_id ?: ($inv->deliveryRequest?->warehouse_id ?: $this->resolveWarehouseId($warehouseName)));
+        if ($request->filled('warehouse_id') && (int) $request->input('warehouse_id') !== $warehouseId) {
+            return response()->json([
+                'success' => false,
+                'error' => ['code' => 'WAREHOUSE_MISMATCH', 'message' => 'Chỉ được xuất kho tại đúng kho đã giữ chỗ cho chứng từ này.'],
+            ], 422);
+        }
+
+        $issueResult = $this->issueStockForInvoice($inv, $warehouseId, $request->bearerToken());
         $issueSucceeded = count($issueResult) === $inv->items->count()
             && collect($issueResult)->every(fn (array $result): bool => $result['success'] === true);
 
@@ -660,7 +678,7 @@ class InvoiceController extends Controller
     /**
      * Gửi yêu cầu giữ chỗ (Reserve) tới Inventory Service
      */
-    protected function reserveStockForInvoice(Invoice $inv, int $warehouseId): array
+    protected function reserveStockForInvoice(Invoice $inv, int $warehouseId, ?string $token = null): array
     {
         $results = [];
         $items = $inv->items ?: [];
@@ -681,7 +699,8 @@ class InvoiceController extends Controller
 
             if ($productId && (float) $item->quantity > 0) {
                 try {
-                    $response = Http::timeout($timeout)->post("{$inventoryUrl}/api/v1/inventory/stocks/reserve", [
+                    // Inventory Service yêu cầu JWT: chuyển tiếp token của người dùng đang thao tác
+                    $response = Http::withToken((string) $token)->acceptJson()->timeout($timeout)->post("{$inventoryUrl}/api/v1/inventory/stocks/reserve", [
                         'order_id' => $inv->invoice_number,
                         'warehouse_id' => $warehouseId,
                         'product_id' => (int) $productId,
@@ -722,7 +741,7 @@ class InvoiceController extends Controller
     /**
      * Gửi yêu cầu xuất kho thực tế (Issue) tới Inventory Service
      */
-    protected function issueStockForInvoice(Invoice $inv, int $warehouseId): array
+    protected function issueStockForInvoice(Invoice $inv, int $warehouseId, ?string $token = null): array
     {
         $results = [];
         $items = $inv->items ?: [];
@@ -743,7 +762,7 @@ class InvoiceController extends Controller
 
             if ($productId && (float) $item->quantity > 0) {
                 try {
-                    $response = Http::timeout($timeout)->post("{$inventoryUrl}/api/v1/inventory/stocks/issue", [
+                    $response = Http::withToken((string) $token)->acceptJson()->timeout($timeout)->post("{$inventoryUrl}/api/v1/inventory/stocks/issue", [
                         'reference_doc' => "{$inv->invoice_number}:{$item->id}",
                         'order_id' => $orderNumber,
                         'warehouse_id' => $warehouseId,
