@@ -4,35 +4,41 @@ namespace App\Services;
 
 use App\Models\ChartOfAccount;
 use App\Models\CustomerReceivable;
+use Illuminate\Support\Facades\DB;
 
 class ReceivableService
 {
     /** @param array<string, mixed> $data */
-    public function syncVatInvoice(array $data): CustomerReceivable
+    public function syncVatInvoice(array $data, GeneralLedgerService $ledger): CustomerReceivable
     {
-        $accountId = ChartOfAccount::where('code', '1311')->value('id');
+        return DB::transaction(function () use ($data, $ledger): CustomerReceivable {
+            $accountId = ChartOfAccount::where('code', '1311')->value('id');
 
-        $receivable = CustomerReceivable::firstOrNew(['source_key' => 'VAT:'.$data['vat_invoice_id']]);
-        $receivable->fill([
-            'source_vat_invoice_id' => $data['vat_invoice_id'],
-            'source_sales_invoice_id' => $data['sales_invoice_id'] ?? null,
-            'source_type' => 'VAT_INVOICE',
-            'customer_id' => $data['customer_id'] ?? null,
-            'customer_name' => $data['customer_name'],
-            'customer_tax_code' => $data['customer_tax_code'] ?? null,
-            'invoice_number' => $data['invoice_number'],
-            'invoice_series' => $data['invoice_series'] ?? null,
-            'invoice_date' => $data['invoice_date'],
-            'due_date' => $data['due_date'] ?? $data['invoice_date'],
-            'currency' => $data['currency'] ?? 'VND',
-            'account_id' => $accountId,
-            'original_amount' => $data['total_amount'],
-        ]);
-        $receivable->paid_amount ??= 0;
-        $receivable->outstanding_amount = max((float) $data['total_amount'] - (float) $receivable->paid_amount, 0);
-        $receivable->status = $receivable->outstanding_amount <= 0 ? 'PAID' : ($receivable->paid_amount > 0 ? 'PARTIALLY_PAID' : 'OPEN');
-        $receivable->save();
+            $receivable = CustomerReceivable::firstOrNew(['source_key' => 'VAT:'.$data['vat_invoice_id']]);
+            $receivable->fill([
+                'source_vat_invoice_id' => $data['vat_invoice_id'],
+                'source_sales_invoice_id' => $data['sales_invoice_id'] ?? null,
+                'source_type' => 'VAT_INVOICE',
+                'customer_id' => $data['customer_id'] ?? null,
+                'customer_name' => $data['customer_name'],
+                'customer_tax_code' => $data['customer_tax_code'] ?? null,
+                'invoice_number' => $data['invoice_number'],
+                'invoice_series' => $data['invoice_series'] ?? null,
+                'invoice_date' => $data['invoice_date'],
+                'due_date' => $data['due_date'] ?? $data['invoice_date'],
+                'currency' => $data['currency'] ?? 'VND',
+                'account_id' => $accountId,
+                'original_amount' => (float) $data['total_amount'] + (float) DB::table('receivable_adjustments')
+                    ->where('receivable_id', $receivable->id)->sum('total_delta'),
+            ]);
+            $receivable->paid_amount ??= 0;
+            $receivable->outstanding_amount = round((float) $receivable->original_amount - (float) $receivable->paid_amount, 2);
+            $receivable->status = $receivable->outstanding_amount < 0 ? 'CREDIT'
+                : ($receivable->outstanding_amount == 0 ? 'PAID' : ($receivable->paid_amount > 0 ? 'PARTIALLY_PAID' : 'OPEN'));
+            $receivable->save();
+            $ledger->recordVatInvoice($data);
 
-        return $receivable;
+            return $receivable;
+        });
     }
 }

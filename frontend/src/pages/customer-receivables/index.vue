@@ -9,7 +9,7 @@
       </template>
     </PageHeader>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
       <div v-for="card in summaryCards" :key="card.label" class="bg-white border border-slate-200 rounded-[6px] p-4">
         <div class="flex items-center justify-between gap-3">
           <div class="min-w-0">
@@ -71,7 +71,7 @@
       </template>
       <template #col-original_amount="{ data }"><div class="text-right font-mono">{{ formatCurrency(data.original_amount) }}</div></template>
       <template #col-paid_amount="{ data }"><div class="text-right font-mono text-emerald-700">{{ formatCurrency(data.paid_amount) }}</div></template>
-      <template #col-outstanding_amount="{ data }"><div class="text-right font-mono font-bold text-amber-700">{{ formatCurrency(data.outstanding_amount) }}</div></template>
+      <template #col-outstanding_amount="{ data }"><div class="text-right font-mono font-bold" :class="data.outstanding_amount < 0 ? 'text-cyan-700' : 'text-amber-700'">{{ formatCurrency(data.outstanding_amount) }}</div></template>
       <template #col-effective_status="{ data }">
         <Tag :value="statusMeta(data.effective_status).label" :severity="statusMeta(data.effective_status).severity" />
       </template>
@@ -99,7 +99,7 @@ const receivables = ref([]);
 const loading = ref(false);
 const searchQuery = ref('');
 const statusFilter = ref(null);
-const summary = ref({ total_receivable: 0, total_paid: 0, total_outstanding: 0, overdue_outstanding: 0 });
+const summary = ref({ total_receivable: 0, total_paid: 0, total_outstanding: 0, total_credit: 0, overdue_outstanding: 0 });
 let searchTimer;
 
 const tableColumns = [
@@ -118,21 +118,24 @@ const statusOptions = [
   { label: 'Chưa thanh toán', value: 'OPEN' },
   { label: 'Đã thu một phần', value: 'PARTIALLY_PAID' },
   { label: 'Quá hạn', value: 'OVERDUE' },
-  { label: 'Đã thanh toán', value: 'PAID' }
+  { label: 'Đã thanh toán', value: 'PAID' },
+  { label: 'Khách hàng trả dư', value: 'CREDIT' }
 ];
 
 const summaryCards = computed(() => [
   { label: 'Tổng phải thu', value: summary.value.total_receivable, icon: 'pi pi-file', valueClass: 'text-slate-900', iconClass: 'bg-slate-100 text-slate-600' },
   { label: 'Đã thu', value: summary.value.total_paid, icon: 'pi pi-check-circle', valueClass: 'text-emerald-700', iconClass: 'bg-emerald-50 text-emerald-600' },
   { label: 'Còn phải thu', value: summary.value.total_outstanding, icon: 'pi pi-wallet', valueClass: 'text-amber-700', iconClass: 'bg-amber-50 text-amber-600' },
-  { label: 'Nợ quá hạn', value: summary.value.overdue_outstanding, icon: 'pi pi-exclamation-triangle', valueClass: 'text-red-700', iconClass: 'bg-red-50 text-red-600' }
+  { label: 'Nợ quá hạn', value: summary.value.overdue_outstanding, icon: 'pi pi-exclamation-triangle', valueClass: 'text-red-700', iconClass: 'bg-red-50 text-red-600' },
+  { label: 'Khách hàng trả dư', value: summary.value.total_credit, icon: 'pi pi-undo', valueClass: 'text-cyan-700', iconClass: 'bg-cyan-50 text-cyan-600' }
 ]);
 
 const statusMeta = status => ({
   OPEN: { label: 'Chưa thanh toán', severity: 'warn' },
   PARTIALLY_PAID: { label: 'Đã thu một phần', severity: 'info' },
   OVERDUE: { label: 'Quá hạn', severity: 'danger' },
-  PAID: { label: 'Đã thanh toán', severity: 'success' }
+  PAID: { label: 'Đã thanh toán', severity: 'success' },
+  CREDIT: { label: 'Khách hàng trả dư', severity: 'info' }
 }[status] || { label: status || 'Chưa xác định', severity: 'secondary' });
 
 const loadReceivables = async () => {

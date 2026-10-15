@@ -57,8 +57,10 @@ Dù viết bằng **C# (.NET 8)** hay **PHP (Laravel)**, mọi microservice đ�
 | **`purchase-service`** | PHP / C# | **8003** | Quản lý Đơn mua hàng (PO), Phê duyệt PO, Xác nhận Nhập kho (Goods Receipt flow). |
 | **`inventory-service`** | **C# (.NET 8 Web API)** | **8004** | High-performance Stock Engine, Quản lý On-Hand/Reserved/Available, Atomic Concurrency Lock, Thẻ kho. |
 | **`sales-service`** | **C# (.NET 8 Web API)** | **8005** | Quản lý Đơn bán hàng (SO), Lập Delivery Request, Điều phối Saga Orchestrator. |
-| **`eoffice-service`** | PHP Laravel | **8006** | Quy trình phê duyệt văn bản số (Workflows). |
-| **`ai-service`** | Python (FastAPI) | **8007** | Permission-Aware Copilot, Dự báo Min-Stock, Phân tích luân chuyển kho. |
+| **`notification-service`** | Node.js | **8006** | Gửi Email / thông báo realtime cho người dùng. |
+| **`eoffice-service`** | PHP Laravel | **8007** | Văn phòng số nội bộ: Xin nghỉ phép, Đề nghị mua sắm, Tạm ứng, Lịch công tác và luồng duyệt dùng chung. |
+| **`finance-service`** | PHP Laravel | **8008** | Thu chi, sổ quỹ, công nợ phải thu, sổ cái. |
+| **`ai-service`** | Python (FastAPI) | **8009** | Permission-Aware Copilot, Dự báo Min-Stock, Phân tích luân chuyển kho. |
 
 ---
 

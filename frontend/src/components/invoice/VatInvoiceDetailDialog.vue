@@ -11,15 +11,21 @@
       <!-- Banner Hóa Đơn Điện Tử -->
       <div class="bg-gradient-to-r from-indigo-900 via-blue-900 to-indigo-800 text-white p-4 rounded-[6px] flex items-center justify-between">
         <div>
-          <div class="text-[10px] uppercase tracking-wider text-indigo-200 font-semibold">HÓA ĐƠN GIÁ TRỊ GIA TĂNG (VAT INVOICE)</div>
+          <div class="text-[10px] uppercase tracking-wider text-indigo-200 font-semibold">{{ invoice.adjustment_id ? 'HÓA ĐƠN ĐIỀU CHỈNH GIÁ TRỊ GIA TĂNG' : 'HÓA ĐƠN GIÁ TRỊ GIA TĂNG (VAT INVOICE)' }}</div>
           <div class="text-lg font-bold font-mono mt-0.5">SỐ: {{ invoice.invoice_number }}</div>
           <div class="text-xs text-indigo-200 mt-0.5">Ký hiệu: {{ invoice.invoice_series }} | Ngày lập: {{ formatDate(invoice.invoice_date) }}</div>
         </div>
         <div class="text-right">
           <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[11px] font-semibold px-2.5 py-1 rounded-[4px]">
-            ✓ Đã Ký Điện Tử & Phát Hành
+            {{ invoice.status === 'ISSUED' ? 'Đã phát hành' : 'Chờ hoàn tất phát hành' }}
           </span>
         </div>
+      </div>
+
+      <div v-if="invoice.adjustment" class="rounded-[6px] border border-amber-200 bg-amber-50 p-3 text-amber-900">
+        Điều chỉnh {{ invoice.adjustment.direction === 'DECREASE' ? 'giảm' : 'tăng' }} hóa đơn gốc
+        <strong>{{ invoice.adjustment.original_invoice?.invoice_series }} / {{ invoice.adjustment.original_invoice?.invoice_number }}</strong>.
+        Lý do: {{ invoice.adjustment.reason }}
       </div>
 
       <!-- Khách hàng info (Read-only) -->
@@ -52,6 +58,7 @@
               <th class="p-2 text-right w-28">Đơn giá</th>
               <th class="p-2 text-right w-28">Thành tiền</th>
               <th class="p-2 text-center w-16">Thuế GTGT</th>
+              <th v-if="invoice.adjustment_id" class="p-2 text-right w-28">Tiền thuế điều chỉnh</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100 font-mono">
@@ -63,6 +70,7 @@
               <td class="p-2 text-right">{{ formatCurrency(it.unit_price) }}</td>
               <td class="p-2 text-right font-bold">{{ formatCurrency(it.subtotal) }}</td>
               <td class="p-2 text-center text-indigo-700 font-semibold">{{ it.vat_percent }}%</td>
+              <td v-if="invoice.adjustment_id" class="p-2 text-right">{{ formatCurrency(it.vat_amount) }}</td>
             </tr>
           </tbody>
         </table>

@@ -30,6 +30,8 @@ class CustomerReceivableService
                 'due_date' => $invoiceDate->copy()->addDays($paymentTermDays)->toDateString(),
                 'currency' => $vatInvoice->currency ?: 'VND',
                 'total_amount' => $vatInvoice->total_amount,
+                'subtotal' => $vatInvoice->subtotal,
+                'vat_amount' => $vatInvoice->vat_total,
             ])->throw();
     }
 }

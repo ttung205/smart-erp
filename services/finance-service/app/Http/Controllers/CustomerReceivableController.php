@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CustomerReceivable;
+use App\Services\GeneralLedgerService;
 use App\Services\ReceivableService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -32,14 +33,15 @@ class CustomerReceivableController extends Controller
             'summary' => [
                 'total_receivable' => (float) (clone $base)->sum('original_amount'),
                 'total_paid' => (float) (clone $base)->sum('paid_amount'),
-                'total_outstanding' => (float) (clone $base)->sum('outstanding_amount'),
-                'overdue_outstanding' => (float) (clone $base)->whereDate('due_date', '<', today())->sum('outstanding_amount'),
+                'total_outstanding' => (float) (clone $base)->where('outstanding_amount', '>', 0)->sum('outstanding_amount'),
+                'total_credit' => -(float) (clone $base)->where('outstanding_amount', '<', 0)->sum('outstanding_amount'),
+                'overdue_outstanding' => (float) (clone $base)->where('outstanding_amount', '>', 0)->whereDate('due_date', '<', today())->sum('outstanding_amount'),
             ],
             'meta' => ['current_page' => $receivables->currentPage(), 'last_page' => $receivables->lastPage(), 'per_page' => $receivables->perPage()],
         ]);
     }
 
-    public function sync(Request $request, ReceivableService $service): JsonResponse
+    public function sync(Request $request, ReceivableService $service, GeneralLedgerService $ledger): JsonResponse
     {
         $data = $request->validate([
             'vat_invoice_id' => ['required', 'integer'], 'sales_invoice_id' => ['nullable', 'integer'],
@@ -48,8 +50,15 @@ class CustomerReceivableController extends Controller
             'invoice_series' => ['nullable', 'string'], 'invoice_date' => ['required', 'date'],
             'due_date' => ['nullable', 'date'], 'currency' => ['nullable', 'string'],
             'total_amount' => ['required', 'numeric', 'gt:0'],
+            'subtotal' => ['nullable', 'numeric', 'gte:0'], 'vat_amount' => ['nullable', 'numeric', 'gte:0'],
         ]);
 
-        return response()->json(['success' => true, 'data' => $service->syncVatInvoice($data)], 201);
+        $data['subtotal'] ??= $data['total_amount'];
+        $data['vat_amount'] ??= 0;
+        if (abs((float) $data['subtotal'] + (float) $data['vat_amount'] - (float) $data['total_amount']) > 0.01) {
+            return response()->json(['success' => false, 'message' => 'Tiền hàng và thuế không khớp tổng hóa đơn.'], 422);
+        }
+
+        return response()->json(['success' => true, 'data' => $service->syncVatInvoice($data, $ledger)], 201);
     }
 }

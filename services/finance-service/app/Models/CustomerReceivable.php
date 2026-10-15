@@ -31,7 +31,10 @@ class CustomerReceivable extends Model
 
     public function getEffectiveStatusAttribute(): string
     {
-        if ($this->outstanding_amount <= 0) {
+        if ($this->outstanding_amount < 0) {
+            return 'CREDIT';
+        }
+        if ($this->outstanding_amount == 0) {
             return 'PAID';
         }
         if ($this->paid_amount > 0) {

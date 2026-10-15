@@ -5,7 +5,10 @@
         <Button icon="pi pi-arrow-left" label="Quay lại" size="small" severity="secondary" outlined @click="router.push('/sale-return')" />
         <div><div class="flex items-center gap-2"><h1 class="m-0 text-base font-bold">{{ form.return_number || 'Phiếu trả hàng bán' }}</h1><Tag value="Đã lập phiếu" severity="success" /></div><p class="m-0 mt-1 text-xs text-slate-500">Phiếu chỉ đọc, được tạo từ yêu cầu {{ form.request_number }}</p></div>
       </div>
-      <Button v-if="form.sale_return_request_id" label="Xem yêu cầu nguồn" icon="pi pi-external-link" size="small" outlined @click="router.push(`/sale-return-request/${form.sale_return_request_id}`)" />
+      <div class="flex gap-2">
+        <Button v-if="form.sale_return_request_id" label="Xem yêu cầu nguồn" icon="pi pi-external-link" size="small" outlined @click="router.push(`/sale-return-request/${form.sale_return_request_id}`)" />
+        <Button v-if="canCreateAdjustment" label="Tạo hóa đơn điều chỉnh" icon="pi pi-file-edit" size="small" :loading="creatingAdjustment" @click="createAdjustment" />
+      </div>
     </div>
 
     <div class="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
@@ -58,8 +61,11 @@ import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import Button from 'primevue/button'; import Tag from 'primevue/tag';
 import FormAttachmentUpload from '../../components/common/FormAttachmentUpload.vue'; import ItemDataTable from '../../components/common/ItemDataTable.vue'; import { salesApi } from '../../api/sales.api';
+import { storage } from '../../utils/storage'; import { parseJwt } from '../../utils/jwt'; import { hasPermission } from '../../utils/rbac';
 const Info = defineComponent({ props: { label: String, value: [String, Number], mono: Boolean }, setup: props => () => h('div', { class: 'flex flex-col gap-1' }, [h('span', { class: 'text-xs font-bold text-slate-500 uppercase' }, props.label), h('div', { class: ['min-h-9 px-3 py-2 rounded border border-slate-200 bg-slate-50 text-sm text-slate-800', props.mono && 'font-mono font-semibold'] }, props.value || '—')]) });
 const route = useRoute(); const router = useRouter(); const toast = useToast(); const form = ref({});
+const canCreateAdjustment = hasPermission('finance.create', parseJwt(storage.getToken()));
+const creatingAdjustment = ref(false);
 const returnItemColumns = [
   { field: 'invoice_number', header: 'Chứng từ bán', width: '150px' },
   { field: 'sku', header: 'Mã hàng', width: '150px' },
@@ -71,5 +77,16 @@ const returnItemColumns = [
   { field: 'line_total', header: 'Thành tiền', width: '140px', align: 'right' }
 ];
 const money = value => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
+const createAdjustment = async () => {
+  creatingAdjustment.value = true;
+  try {
+    const result = await salesApi.createReturnVatInvoiceAdjustments(form.value.id);
+    if (!result.data?.length) throw new Error('Không có dòng hàng đã xuất hóa đơn VAT để điều chỉnh.');
+    toast.add({ severity: 'success', summary: `Đã tạo ${result.data.length} yêu cầu điều chỉnh giảm số lượng`, life: 4000 });
+    router.push(`/vat-invoice/adjustments/${result.data[0].id}`);
+  } catch (error) {
+    toast.add({ severity: 'error', summary: 'Không tạo được hóa đơn điều chỉnh', detail: error.message, life: 6000 });
+  } finally { creatingAdjustment.value = false; }
+};
 onMounted(async () => { try { form.value = (await salesApi.getSaleReturn(route.params.id)).data; } catch (error) { toast.add({ severity: 'error', summary: 'Không tải được phiếu', detail: error?.data?.error?.message || error.message, life: 5000 }); } });
 </script>

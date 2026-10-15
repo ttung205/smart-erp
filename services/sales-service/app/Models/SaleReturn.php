@@ -24,6 +24,11 @@ class SaleReturn extends Model
         return $this->hasMany(SaleReturnItem::class);
     }
 
+    public function vatInvoiceAdjustments()
+    {
+        return $this->hasMany(VatInvoiceAdjustment::class);
+    }
+
     public function getCreatedByNameAttribute(?string $value): string
     {
         return IdentityUserResolver::name($this->created_by_id, $value);

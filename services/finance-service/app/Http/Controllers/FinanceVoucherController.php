@@ -6,6 +6,7 @@ use App\Models\BankAccount;
 use App\Models\CashFund;
 use App\Models\ChartOfAccount;
 use App\Models\FinanceVoucher;
+use App\Services\GeneralLedgerService;
 use App\Services\VoucherPostingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -105,12 +106,12 @@ class FinanceVoucherController extends Controller
         return response()->json(['success' => true, 'data' => $voucher], 201);
     }
 
-    public function post(Request $request, FinanceVoucher $voucher, VoucherPostingService $service): JsonResponse
+    public function post(Request $request, FinanceVoucher $voucher, VoucherPostingService $service, GeneralLedgerService $ledger): JsonResponse
     {
-        return response()->json(['success' => true, 'data' => $service->post($voucher, $request->attributes->get('actor'))]);
+        return response()->json(['success' => true, 'data' => $service->post($voucher, $request->attributes->get('actor'), $ledger)]);
     }
 
-    public function allocate(Request $request, FinanceVoucher $voucher, VoucherPostingService $service): JsonResponse
+    public function allocate(Request $request, FinanceVoucher $voucher, VoucherPostingService $service, GeneralLedgerService $ledger): JsonResponse
     {
         $data = $request->validate([
             'allocations' => ['required', 'array', 'min:1'],
@@ -120,7 +121,7 @@ class FinanceVoucherController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $service->allocate($voucher, $data['allocations'], $request->attributes->get('actor')),
+            'data' => $service->allocate($voucher, $data['allocations'], $request->attributes->get('actor'), $ledger),
         ]);
     }
 }

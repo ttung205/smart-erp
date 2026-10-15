@@ -31,6 +31,8 @@ class VatInvoice extends Model
         'created_by',
         'status',
         'notes',
+        'finance_synced_at',
+        'adjustment_id',
     ];
 
     protected $casts = [
@@ -38,11 +40,22 @@ class VatInvoice extends Model
         'subtotal' => 'float',
         'vat_total' => 'float',
         'total_amount' => 'float',
+        'finance_synced_at' => 'datetime',
     ];
 
     public function items()
     {
         return $this->hasMany(VatInvoiceItem::class, 'vat_invoice_id');
+    }
+
+    public function adjustments()
+    {
+        return $this->hasMany(VatInvoiceAdjustment::class, 'original_vat_invoice_id');
+    }
+
+    public function adjustment()
+    {
+        return $this->belongsTo(VatInvoiceAdjustment::class, 'adjustment_id');
     }
 
     public function salesInvoice()

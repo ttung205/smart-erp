@@ -10,7 +10,7 @@ use Illuminate\Validation\ValidationException;
 
 class VoucherPostingService
 {
-    public function post(FinanceVoucher $voucher, object $actor): FinanceVoucher
+    public function post(FinanceVoucher $voucher, object $actor, GeneralLedgerService $ledger): FinanceVoucher
     {
         if ($voucher->status === 'POSTED') {
             return $voucher->load('lines', 'allocations');
@@ -19,8 +19,11 @@ class VoucherPostingService
             throw ValidationException::withMessages(['voucher' => 'Chỉ chứng từ bản nháp mới được ghi sổ.']);
         }
 
-        return DB::transaction(function () use ($voucher, $actor): FinanceVoucher {
+        return DB::transaction(function () use ($voucher, $actor, $ledger): FinanceVoucher {
             $lockedVoucher = FinanceVoucher::query()->lockForUpdate()->findOrFail($voucher->id);
+            if ($lockedVoucher->status === 'POSTED') {
+                return $lockedVoucher->load('lines', 'allocations');
+            }
             $allocatedTotal = 0.0;
             $customerId = null;
             foreach ($lockedVoucher->allocations as $allocation) {
@@ -45,15 +48,16 @@ class VoucherPostingService
                 'status' => 'POSTED', 'posted_by_id' => $actor->id,
                 'posted_by_name' => $actor->name, 'posted_at' => now(),
             ]);
+            $ledger->recordVoucher($lockedVoucher->load('lines'));
 
             return $lockedVoucher->fresh(['lines', 'allocations']);
         });
     }
 
     /** @param array<int, array{receivable_id: int, amount: float|int}> $allocations */
-    public function allocate(FinanceVoucher $voucher, array $allocations, object $actor): FinanceVoucher
+    public function allocate(FinanceVoucher $voucher, array $allocations, object $actor, GeneralLedgerService $ledger): FinanceVoucher
     {
-        return DB::transaction(function () use ($voucher, $allocations, $actor): FinanceVoucher {
+        return DB::transaction(function () use ($voucher, $allocations, $actor, $ledger): FinanceVoucher {
             $lockedVoucher = FinanceVoucher::query()->with(['allocations', 'lines'])->lockForUpdate()->findOrFail($voucher->id);
             if ($lockedVoucher->status !== 'POSTED' || ! in_array($lockedVoucher->voucher_type, ['CASH_RECEIPT', 'BANK_RECEIPT'], true)) {
                 throw ValidationException::withMessages(['voucher' => 'Chỉ phiếu thu đã ghi sổ mới được đối trừ công nợ.']);
@@ -95,12 +99,13 @@ class VoucherPostingService
             $suspenseAccountId = ChartOfAccount::where('code', '138')->value('id');
             $receivableAccountId = ChartOfAccount::where('code', '1311')->value('id');
             if ($lockedVoucher->lines->contains('credit_account_id', $suspenseAccountId)) {
-                $lockedVoucher->lines()->create([
+                $line = $lockedVoucher->lines()->create([
                     'debit_account_id' => $suspenseAccountId,
                     'credit_account_id' => $receivableAccountId,
                     'amount' => $allocationTotal,
                     'description' => 'Đối trừ công nợ khách hàng từ tiền chờ phân bổ',
                 ]);
+                $ledger->recordVoucherLine($lockedVoucher, $line);
             }
 
             $lockedVoucher->update([

@@ -10,6 +10,7 @@ use App\Http\Controllers\SaleReportController;
 use App\Http\Controllers\SaleReturnController;
 use App\Http\Controllers\SaleReturnRequestController;
 use App\Http\Controllers\SalesOrderController;
+use App\Http\Controllers\VatInvoiceAdjustmentController;
 use App\Http\Controllers\VatInvoiceController;
 use Illuminate\Support\Facades\Route;
 
@@ -77,10 +78,17 @@ Route::middleware('jwt')->group(function () {
 
     // 6. VAT Invoices (Hóa Đơn GTGT)
     Route::get('/vat-invoices/next-number', [VatInvoiceController::class, 'getNextInvoiceNumber'])->middleware('permission:invoice.create');
+    Route::post('/vat-invoices/sync-finance', [VatInvoiceController::class, 'syncFinance'])->middleware('permission:finance.approve');
     Route::get('/vat-invoices/unbilled-items', [VatInvoiceController::class, 'getUnbilledItems'])->middleware('permission:invoice.view');
     Route::get('/vat-invoices', [VatInvoiceController::class, 'index'])->middleware('permission:invoice.view');
     Route::get('/vat-invoices/{vat_invoice}', [VatInvoiceController::class, 'show'])->middleware('permission:invoice.view');
     Route::post('/vat-invoices', [VatInvoiceController::class, 'store'])->middleware('permission:finance.approve,invoice.manage');
+    Route::get('/vat-invoice-adjustments', [VatInvoiceAdjustmentController::class, 'index'])->middleware('permission:invoice.view,finance.view');
+    Route::get('/vat-invoice-adjustments/{adjustment}', [VatInvoiceAdjustmentController::class, 'show'])->middleware('permission:invoice.view,finance.view');
+    Route::post('/vat-invoice-adjustments', [VatInvoiceAdjustmentController::class, 'store'])->middleware('permission:finance.create');
+    Route::post('/vat-invoice-adjustments/{adjustment}/approve', [VatInvoiceAdjustmentController::class, 'approve'])->middleware('permission:finance.approve');
+    Route::post('/vat-invoice-adjustments/{adjustment}/issue', [VatInvoiceAdjustmentController::class, 'issue'])->middleware('permission:finance.approve');
+    Route::post('/sale-returns/{saleReturn}/vat-invoice-adjustments', [VatInvoiceAdjustmentController::class, 'fromSaleReturn'])->middleware('permission:finance.create');
 
     // 7. Reports: Sale Items (Báo Cáo Đơn Bán Hàng)
     Route::get('/reports/sale-items', [SaleReportController::class, 'index'])->middleware('permission:order.view');

@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => {
   const inventoryTarget = env.VITE_INVENTORY_SERVICE_URL || 'http://127.0.0.1:8004'
   const salesTarget = env.VITE_SALES_SERVICE_URL || 'http://127.0.0.1:8005'
   const notificationTarget = env.VITE_NOTIFICATION_SERVICE_URL || 'http://127.0.0.1:8006'
+  const eofficeTarget = env.VITE_EOFFICE_SERVICE_URL || 'http://127.0.0.1:8007'
   const financeTarget = env.VITE_FINANCE_SERVICE_URL || 'http://127.0.0.1:8008'
 
   return {
@@ -48,6 +49,11 @@ export default defineConfig(({ mode }) => {
         '/api/v1/notifications': {
           target: notificationTarget,
           changeOrigin: true
+        },
+        '/api/v1/eoffice': {
+          target: eofficeTarget,
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/v1\/eoffice/, '/api')
         },
         '/api/v1/finance': {
           target: financeTarget,

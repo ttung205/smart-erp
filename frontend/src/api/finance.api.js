@@ -13,6 +13,10 @@ export const financeApi = {
     const qs = queryString(params);
     return apiClient(`/api/v1/finance/accounts${qs ? `?${qs}` : ''}`);
   },
+  getGeneralLedger(params = {}) {
+    const qs = queryString(params);
+    return apiClient(`/api/v1/finance/general-ledger${qs ? `?${qs}` : ''}`);
+  },
   getMasterData() {
     return apiClient('/api/v1/finance/master-data');
   },

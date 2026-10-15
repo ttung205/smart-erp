@@ -255,6 +255,28 @@ export const salesApi = {
       body: JSON.stringify(data)
     });
   },
+  syncVatInvoicesToFinance() {
+    return apiClient('/api/v1/sales/vat-invoices/sync-finance', { method: 'POST' });
+  },
+  getVatInvoiceAdjustments(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return apiClient(`/api/v1/sales/vat-invoice-adjustments${qs ? '?' + qs : ''}`);
+  },
+  getVatInvoiceAdjustment(id) {
+    return apiClient(`/api/v1/sales/vat-invoice-adjustments/${id}`);
+  },
+  createVatInvoiceAdjustment(data) {
+    return apiClient('/api/v1/sales/vat-invoice-adjustments', { method: 'POST', body: JSON.stringify(data) });
+  },
+  approveVatInvoiceAdjustment(id) {
+    return apiClient(`/api/v1/sales/vat-invoice-adjustments/${id}/approve`, { method: 'POST' });
+  },
+  issueVatInvoiceAdjustment(id) {
+    return apiClient(`/api/v1/sales/vat-invoice-adjustments/${id}/issue`, { method: 'POST' });
+  },
+  createReturnVatInvoiceAdjustments(id) {
+    return apiClient(`/api/v1/sales/sale-returns/${id}/vat-invoice-adjustments`, { method: 'POST' });
+  },
 
   // Customer receivables
   getCustomerReceivables(params = {}) {
