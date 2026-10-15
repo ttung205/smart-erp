@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\LeaveType;
+use App\Models\OutboxEvent;
 use Database\Seeders\LeaveMasterDataSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -86,6 +87,19 @@ class LeaveRequestWorkflowTest extends TestCase
             ->assertJsonPath('data.used_days', 2)->assertJsonPath('data.pending_days', 0)->assertJsonPath('data.remaining_days', 10);
         $this->withHeaders($employee)->getJson("/api/leave-requests/{$request['id']}")->assertOk()
             ->assertJsonCount(3, 'data.approval_histories');
+
+        // Outbox: gửi duyệt báo người duyệt, quyết định báo người làm đơn
+        $events = OutboxEvent::orderBy('id')->get();
+        $this->assertSame(['eoffice.leave.submitted', 'eoffice.leave.approved'], $events->pluck('routing_key')->all());
+        $submitted = json_decode($events[0]->payload, true)['payload'];
+        $this->assertSame(self::MANAGER, $submitted['approver']['id']);
+        $this->assertSame($stepId, $submitted['step_id']);
+        $this->assertSame('NP-2026-0001', $submitted['code']);
+        $approved = json_decode($events[1]->payload, true);
+        $this->assertSame('LeaveRequestApproved', $approved['event_type']);
+        $this->assertSame(self::EMPLOYEE, $approved['payload']['requester_id']);
+        $this->assertSame('Đồng ý', $approved['payload']['comment']);
+        $this->assertSame(self::MANAGER, $approved['payload']['actor']['id']);
     }
 
     public function test_reject_requires_comment_and_releases_balance(): void

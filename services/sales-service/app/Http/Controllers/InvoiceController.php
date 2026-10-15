@@ -16,6 +16,7 @@ use App\Models\WarehouseDispatch;
 use App\Services\RevenueReportService;
 use App\Services\SaleReportService;
 use App\Support\DocumentNumberGenerator;
+use App\Support\Outbox;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -330,23 +331,37 @@ class InvoiceController extends Controller
             ], 409);
         }
 
-        $inv->update([
-            'warehouse_status' => 'SENT_TO_WAREHOUSE',
-        ]);
+        DB::transaction(function () use ($inv, $request): void {
+            $inv->update([
+                'warehouse_status' => 'SENT_TO_WAREHOUSE',
+            ]);
 
-        WarehouseDispatch::updateOrCreate(
-            ['invoice_id' => $inv->id],
-            [
+            $dispatch = WarehouseDispatch::updateOrCreate(
+                ['invoice_id' => $inv->id],
+                [
+                    'invoice_number' => $inv->invoice_number,
+                    'delivery_request_id' => $inv->delivery_request_id,
+                    'delivery_request_number' => $inv->delivery_request_number,
+                    'order_id' => $inv->order_id,
+                    'order_number' => $inv->order_number,
+                    'customer_name' => $inv->customer_name,
+                    'warehouse_name' => $inv->warehouse_name,
+                    'status' => 'SENT_TO_WAREHOUSE',
+                ]
+            );
+
+            Outbox::record('WarehouseDispatchRequested', 'sales.dispatch.requested', 'WarehouseDispatch', $dispatch->id, [
+                'dispatch_id' => $dispatch->id,
+                'invoice_id' => $inv->id,
                 'invoice_number' => $inv->invoice_number,
-                'delivery_request_id' => $inv->delivery_request_id,
-                'delivery_request_number' => $inv->delivery_request_number,
-                'order_id' => $inv->order_id,
                 'order_number' => $inv->order_number,
+                'delivery_request_number' => $inv->delivery_request_number,
                 'customer_name' => $inv->customer_name,
+                'warehouse_id' => $inv->inventory_warehouse_id ? (int) $inv->inventory_warehouse_id : null,
                 'warehouse_name' => $inv->warehouse_name,
-                'status' => 'SENT_TO_WAREHOUSE',
-            ]
-        );
+                'actor' => Outbox::actor($request->attributes->get('actor')),
+            ]);
+        });
 
         return response()->json([
             'success' => true,

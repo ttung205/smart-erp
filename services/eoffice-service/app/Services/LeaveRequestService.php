@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Contracts\ApprovalHandler;
 use App\Models\LeaveRequest;
+use App\Models\ApprovalStep;
 use App\Models\LeaveType;
+use App\Support\Outbox;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -79,7 +81,12 @@ class LeaveRequestService implements ApprovalHandler
                 $request->update(['status' => LeaveRequest::APPROVED, 'decided_at' => now()]);
                 $this->approvals->record($request, $actor, 'AUTO_APPROVED');
             } else {
-                $this->approvals->openStep($request, $approver);
+                $step = $this->approvals->openStep($request, $approver);
+                $this->recordEvent('LeaveRequestSubmitted', 'submitted', $request, [
+                    'step_id' => $step->id,
+                    'approver' => ['id' => (int) $approver['id'], 'name' => (string) $approver['name']],
+                    'actor' => Outbox::actor($actor),
+                ]);
             }
 
             return $request->fresh(['leaveType', 'approvalSteps', 'approvalHistories']);
@@ -101,6 +108,7 @@ class LeaveRequestService implements ApprovalHandler
             $this->approvals->cancelPendingSteps($request);
             $request->update(['status' => LeaveRequest::CANCELLED, 'cancelled_at' => now(), 'cancel_reason' => $reason]);
             $this->approvals->record($request, $actor, 'CANCELLED', $reason);
+            $this->recordEvent('LeaveRequestCancelled', 'cancelled', $request, ['reason' => $reason, 'actor' => Outbox::actor($actor)]);
 
             return $request->fresh(['leaveType', 'approvalSteps', 'approvalHistories']);
         });
@@ -110,6 +118,25 @@ class LeaveRequestService implements ApprovalHandler
     {
         // Quỹ phép tính trực tiếp từ trạng thái đơn nên chỉ cần cập nhật trạng thái
         $approvable->update(['status' => $decision, 'decided_at' => now()]);
+
+        $step = $approvable->approvalSteps()->where('status', $decision)->reorder('step_order', 'desc')->first();
+        $this->recordEvent('LeaveRequest'.ucfirst(strtolower($decision)), strtolower($decision), $approvable, [
+            'step_id' => $step?->id,
+            'comment' => $step?->comment,
+            'actor' => $step ? ['id' => (int) $step->approver_id, 'name' => (string) $step->approver_name] : null,
+        ]);
+    }
+
+    /** @param  array<string, mixed>  $extra */
+    private function recordEvent(string $eventType, string $action, LeaveRequest $request, array $extra): void
+    {
+        Outbox::record($eventType, "eoffice.leave.{$action}", 'LeaveRequest', $request->id, [
+            ...$request->approvalSummary(),
+            'start_date' => $request->start_date->toDateString(),
+            'end_date' => $request->end_date->toDateString(),
+            'total_days' => (float) $request->total_days,
+            ...$extra,
+        ]);
     }
 
     private function fill(LeaveRequest $request, array $data): void

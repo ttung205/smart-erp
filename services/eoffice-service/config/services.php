@@ -7,6 +7,15 @@ return [
         'url' => env('IDENTITY_SERVICE_URL', 'http://127.0.0.1:8001'),
     ],
 
+    'rabbitmq' => [
+        'host' => env('RABBITMQ_HOST', '127.0.0.1'),
+        'port' => (int) env('RABBITMQ_PORT', 5672),
+        'user' => env('RABBITMQ_USER', 'erp_rabbit'),
+        'password' => env('RABBITMQ_PASSWORD', 'rabbit_secret'),
+        'vhost' => env('RABBITMQ_VHOST', '/'),
+        'exchange' => env('RABBITMQ_EXCHANGE', 'erp.events'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Third Party Services
