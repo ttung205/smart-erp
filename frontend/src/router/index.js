@@ -33,7 +33,7 @@ import InvoicePage from '../pages/invoice/index.vue';
 import InvoiceFormPage from '../pages/invoice/form.vue';
 import VatInvoicePage from '../pages/vat-invoice/index.vue';
 import WarehouseRequestSalePage from '../pages/warehouse-request-sale/index.vue';
-import AccountingPage from '../pages/accounting/index.vue';
+import CustomerReceivablesPage from '../pages/customer-receivables/index.vue';
 import SaleReturnRequestPage from '../pages/sale-return-request/index.vue';
 import SaleReturnRequestFormPage from '../pages/sale-return-request/form.vue';
 import SaleReturnPage from '../pages/sale-return/index.vue';
@@ -568,22 +568,23 @@ export const routes = [
     }
   },
   {
-    path: '/accounting',
-    name: 'accounting',
-    component: AccountingPage,
+    path: '/customer-receivables',
+    name: 'customer-receivables',
+    component: CustomerReceivablesPage,
     meta: {
       requiresAuth: true,
       resource: 'finance',
       permission: 'finance.view',
-      title: 'Ghi Sổ Kế Toán'
+      title: 'Công Nợ Khách Hàng'
     }
   },
+  { path: '/accounting', redirect: '/customer-receivables' },
   // Backward compatibility alias redirects
   { path: '/sales/quotation', redirect: '/quotation' },
   { path: '/sales/order', redirect: '/order' },
   { path: '/sales/delivery', redirect: '/delivery' },
   { path: '/sales/invoice', redirect: '/invoice' },
-  { path: '/sales/accounting', redirect: '/accounting' },
+  { path: '/sales/accounting', redirect: '/customer-receivables' },
   {
     path: '/master',
     name: 'master',

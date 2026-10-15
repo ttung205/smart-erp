@@ -181,6 +181,9 @@ const openFolders = ref({
   'inventory-hub': true
 });
 
+const ACTIVE_MENU_STORAGE_KEY = 'smart_erp_active_menu_id';
+const activeMenuId = ref(sessionStorage.getItem(ACTIVE_MENU_STORAGE_KEY) || '');
+
 const toggleFolder = (folderId) => {
   openFolders.value[folderId] = !openFolders.value[folderId];
 };
@@ -212,7 +215,7 @@ const menuCategories = computed(() => {
   }).filter(cat => cat.items.length > 0);
 });
 
-const isItemActive = (item) => {
+const routeMatchesItem = (item) => {
   if (!item.path) return false;
   // 1. Khớp chính xác đường dẫn
   if (route.path === item.path) return true;
@@ -231,12 +234,28 @@ const isItemActive = (item) => {
   return false;
 };
 
+const matchingRouteItems = computed(() => menuCategories.value.flatMap(category =>
+  category.items.flatMap(item => item.children || [item])
+).filter(routeMatchesItem));
+
+const resolvedActiveMenuId = computed(() => {
+  const matches = matchingRouteItems.value;
+  if (matches.some(item => item.id === activeMenuId.value)) {
+    return activeMenuId.value;
+  }
+  return matches[0]?.id || '';
+});
+
+const isItemActive = (item) => routeMatchesItem(item) && item.id === resolvedActiveMenuId.value;
+
 const isFolderActive = (item) => {
   if (!item.children || item.children.length === 0) return isItemActive(item);
   return item.children.some(child => isItemActive(child));
 };
 
 const handleNavigate = (item) => {
+  activeMenuId.value = item.id;
+  sessionStorage.setItem(ACTIVE_MENU_STORAGE_KEY, item.id);
   emit('select-tab', item.id);
   if (item.path) {
     router.push(item.path);
@@ -244,9 +263,13 @@ const handleNavigate = (item) => {
 };
 
 // Tự động mở folder nếu một tab con đang được chọn
-watch(() => route.path, (newPath) => {
+watch([() => route.path, matchingRouteItems], ([newPath]) => {
   if (!newPath) return;
-  for (const cat of rawMenuCategories) {
+  if (resolvedActiveMenuId.value) {
+    activeMenuId.value = resolvedActiveMenuId.value;
+    sessionStorage.setItem(ACTIVE_MENU_STORAGE_KEY, resolvedActiveMenuId.value);
+  }
+  for (const cat of menuCategories.value) {
     for (const item of cat.items) {
       if (item.children && item.children.some(c => isItemActive(c))) {
         openFolders.value[item.id] = true;

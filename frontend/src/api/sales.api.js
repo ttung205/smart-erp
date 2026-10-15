@@ -256,6 +256,12 @@ export const salesApi = {
     });
   },
 
+  // Customer receivables
+  getCustomerReceivables(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return apiClient(`/api/v1/sales/customer-receivables${qs ? '?' + qs : ''}`);
+  },
+
   // 6. Reports
   getSaleReportItems(params = {}) {
     const qs = new URLSearchParams(params).toString();

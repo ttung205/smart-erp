@@ -7,8 +7,10 @@ use App\Models\Invoice;
 use App\Models\RevenueReportItem;
 use App\Models\VatInvoice;
 use App\Models\VatInvoiceItem;
+use App\Services\CustomerReceivableService;
 use App\Services\RevenueReportService;
 use App\Support\DocumentNumberGenerator;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
@@ -113,7 +115,7 @@ class VatInvoiceController extends Controller
     /**
      * Lập hóa đơn VAT mới (cho phép xuất toàn bộ hoặc 1 phần các mặt hàng đã xuất kho)
      */
-    public function store(StoreVatInvoiceRequest $request)
+    public function store(StoreVatInvoiceRequest $request, CustomerReceivableService $receivableService): JsonResponse
     {
         try {
             DB::beginTransaction();
@@ -205,12 +207,13 @@ class VatInvoiceController extends Controller
 
             // Cập nhật chuyển trạng thái doanh thu từ TK 1312 sang TK 1311
             RevenueReportService::processVatInvoiceIssued($vatInvoice, $createdItems);
+            $receivableService->createForVatInvoice($vatInvoice->fresh(), $salesInvoice);
 
             DB::commit();
 
             return response()->json([
                 'success' => true,
-                'data' => $vatInvoice->load('items', 'customer'),
+                'data' => $vatInvoice->load('items', 'customer', 'receivable'),
                 'message' => "Lập hóa đơn VAT {$vatInvoice->invoice_number} thành công và đã ghi nhận doanh thu TK 1311.",
             ], 201);
         } catch (HttpExceptionInterface $e) {

@@ -108,12 +108,44 @@ export const menuCategories = [
             icon: 'pi pi-send'
           },
           {
+            id: 'sales-warehouse-dispatch',
+            path: '/warehouse-request-sale',
+            resource: 'inventory',
+            permission: 'inventory.view',
+            label: 'Yêu cầu xuất kho',
+            icon: 'pi pi-box'
+          },
+          {
+            id: 'sale-return-request',
+            path: '/sale-return-request',
+            resource: 'sale_return',
+            permission: 'sale_return.view',
+            label: 'Yêu cầu nhập trả',
+            icon: 'pi pi-replay'
+          }
+        ]
+      },
+      {
+        id: 'accounting-hub',
+        label: 'Kế toán',
+        icon: 'pi pi-calculator',
+        isFolder: true,
+        children: [
+          {
             id: 'invoice',
             path: '/invoice',
             resource: 'invoice',
             permission: 'invoice.view',
             label: 'Chứng từ bán hàng',
             icon: 'pi pi-file'
+          },
+          {
+            id: 'accounting-delivery-request',
+            path: '/delivery-request',
+            resource: 'delivery',
+            permission: 'delivery.view',
+            label: 'Yêu cầu giao hàng',
+            icon: 'pi pi-send'
           },
           {
             id: 'vat-invoice',
@@ -124,15 +156,15 @@ export const menuCategories = [
             icon: 'pi pi-receipt'
           },
           {
-            id: 'sales-warehouse-dispatch',
-            path: '/warehouse-request-sale',
-            resource: 'inventory',
-            permission: 'inventory.view',
-            label: 'Yêu cầu xuất kho',
-            icon: 'pi pi-box'
+            id: 'customer-receivables',
+            path: '/customer-receivables',
+            resource: 'finance',
+            permission: 'finance.view',
+            label: 'Công nợ khách hàng',
+            icon: 'pi pi-wallet'
           },
           {
-            id: 'sale-return-request',
+            id: 'accounting-sale-return-request',
             path: '/sale-return-request',
             resource: 'sale_return',
             permission: 'sale_return.view',

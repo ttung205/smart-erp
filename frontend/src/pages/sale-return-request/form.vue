@@ -76,28 +76,39 @@
       </div>
     </div>
 
-    <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-      <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between"><h2 class="m-0 text-sm font-bold">Danh sách mã yêu cầu trả lại</h2><span class="text-xs text-slate-500">{{ items.length }} mặt hàng</span></div>
-      <DataTable :value="items" scrollable scroll-height="520px" size="small" striped-rows>
-        <Column field="invoice_number" header="Số chứng từ" frozen style="min-width: 145px"><template #body="{ data }"><span class="font-mono text-sky-700">{{ data.invoice_number }}</span></template></Column>
-        <Column field="sku" header="Mã hàng" style="min-width: 160px" />
-        <Column field="product_name" header="Tên sản phẩm" style="min-width: 260px" />
-        <Column field="brand" header="Thương hiệu" style="min-width: 120px" />
-        <Column field="unit" header="ĐVT" style="min-width: 70px" />
-        <Column field="delivered_quantity" header="Đã giao" style="min-width: 85px" />
-        <Column field="previously_returned_quantity" header="Đã/đang trả" style="min-width: 100px" />
-        <Column header="SL trả" style="min-width: 110px">
-          <template #body="{ data }"><InputNumber v-if="isCreate" v-model="data.requested_quantity" :min="1" :max="data.available_return_quantity" show-buttons button-layout="horizontal" :step="1" fluid /><span v-else>{{ data.requested_quantity }}</span></template>
-        </Column>
-        <Column v-if="!isCreate" header="Chất lượng" style="min-width: 145px">
-          <template #body="{ data }"><Select v-if="can('sale_return.technical') && form.status === 'INSPECTING'" v-model="data.quality_status" :options="qualityOptions" option-label="label" option-value="value" fluid /><Tag v-else :value="qualityLabel(data.quality_status)" :severity="data.quality_status === 'ELIGIBLE' ? 'success' : data.quality_status === 'INELIGIBLE' ? 'danger' : 'secondary'" /></template>
-        </Column>
-        <Column field="unit_price" header="Đơn giá" style="min-width: 120px"><template #body="{ data }">{{ money(data.unit_price) }}</template></Column>
-        <Column header="Thành tiền" style="min-width: 135px"><template #body="{ data }"><span class="font-semibold">{{ money((data.requested_quantity || 0) * data.unit_price) }}</span></template></Column>
-        <Column v-if="isCreate" header="" style="width: 55px"><template #body="{ data }"><Button icon="pi pi-times" text severity="danger" size="small" @click="removeItem(data)" /></template></Column>
+    <div class="space-y-2">
+      <div class="bg-white border border-slate-200 rounded-[6px] px-5 py-3 flex items-center justify-between"><h2 class="m-0 text-sm font-bold">Danh sách mã yêu cầu trả lại</h2><span class="text-xs text-slate-500">{{ items.length }} mặt hàng</span></div>
+      <ItemDataTable
+        v-model="form.items"
+        :columns="requestItemColumns"
+        :show-toolbar="false"
+        :show-add-row="false"
+        :show-catalog-search="false"
+        :show-column-setting="false"
+        :show-export="false"
+        :show-delete="false"
+        :readonly="true"
+        scroll-height="520px"
+        :table-style="{ minWidth: '1480px' }"
+      >
+        <template #col-invoice_number="{ data }"><span class="font-mono text-sky-700">{{ data.invoice_number }}</span></template>
+        <template #col-sku="{ data }"><span class="font-mono text-xs font-bold text-sky-800">{{ data.sku }}</span></template>
+        <template #col-product_name="{ data }"><span class="text-xs text-slate-800">{{ data.product_name }}</span></template>
+        <template #col-unit="{ data }"><span class="text-xs text-slate-800">{{ data.unit }}</span></template>
+        <template #col-requested_quantity="{ data, notifyChange }">
+          <InputNumber v-if="isCreate" v-model="data.requested_quantity" :min="1" :max="data.available_return_quantity" show-buttons button-layout="horizontal" :step="1" fluid @update:model-value="notifyChange" />
+          <span v-else>{{ data.requested_quantity }}</span>
+        </template>
+        <template #col-quality_status="{ data, notifyChange }">
+          <Select v-if="can('sale_return.technical') && form.status === 'INSPECTING'" v-model="data.quality_status" :options="qualityOptions" option-label="label" option-value="value" fluid @change="notifyChange" />
+          <Tag v-else :value="qualityLabel(data.quality_status)" :severity="data.quality_status === 'ELIGIBLE' ? 'success' : data.quality_status === 'INELIGIBLE' ? 'danger' : 'secondary'" />
+        </template>
+        <template #col-unit_price="{ data }">{{ money(data.unit_price) }}</template>
+        <template #col-line_total="{ data }"><span class="font-semibold">{{ money((data.requested_quantity || 0) * data.unit_price) }}</span></template>
+        <template #col-actions="{ data }"><Button v-if="isCreate" icon="pi pi-times" text severity="danger" size="small" @click="removeItem(data)" /></template>
         <template #empty><div class="py-8 text-center text-slate-500">Chọn chứng từ bán hàng để hiển thị các mã đã giao.</div></template>
-      </DataTable>
-      <div class="px-5 py-4 border-t border-slate-200 flex justify-end"><div class="text-right"><div class="text-xs uppercase font-bold text-slate-500">Tổng tiền yêu cầu</div><div class="text-xl font-bold text-emerald-600">{{ money(totalAmount) }}</div></div></div>
+      </ItemDataTable>
+      <div class="bg-white border border-slate-200 rounded-[6px] px-5 py-4 flex justify-end"><div class="text-right"><div class="text-xs uppercase font-bold text-slate-500">Tổng tiền yêu cầu</div><div class="text-xl font-bold text-emerald-600">{{ money(totalAmount) }}</div></div></div>
     </div>
 
     <FormAttachmentUpload v-model="form.attachments" :record-id="form.id" section-type="sale_return_request" title="Hình ảnh sản phẩm - Phiếu đánh giá chất lượng" :readonly="(!isCreate && !can('sale_return.technical')) || ['REJECTED','COMPLETED'].includes(form.status)" />
@@ -117,8 +128,9 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
-import Button from 'primevue/button'; import Column from 'primevue/column'; import DataTable from 'primevue/datatable'; import InputNumber from 'primevue/inputnumber'; import InputText from 'primevue/inputtext'; import Message from 'primevue/message'; import MultiSelect from 'primevue/multiselect'; import Select from 'primevue/select'; import Tag from 'primevue/tag'; import Textarea from 'primevue/textarea';
+import Button from 'primevue/button'; import InputNumber from 'primevue/inputnumber'; import InputText from 'primevue/inputtext'; import Message from 'primevue/message'; import MultiSelect from 'primevue/multiselect'; import Select from 'primevue/select'; import Tag from 'primevue/tag'; import Textarea from 'primevue/textarea';
 import FormAttachmentUpload from '../../components/common/FormAttachmentUpload.vue';
+import ItemDataTable from '../../components/common/ItemDataTable.vue';
 import { catalogApi } from '../../api/catalog.api'; import { inventoryApi } from '../../api/inventory.api'; import { salesApi } from '../../api/sales.api'; import { statusMeta } from './status';
 import { storage } from '../../utils/storage'; import { parseJwt } from '../../utils/jwt'; import { hasPermission } from '../../utils/rbac';
 
@@ -128,6 +140,20 @@ const isCreate = computed(() => !route.params.id); const saving = ref(false); co
 const form = ref({ reason: null, notes: '', items: [], attachments: [], status: null, documents: [] });
 const reasonOptions = ['Hàng lỗi kỹ thuật', 'Giao sai hàng', 'Hàng hư hỏng', 'Giao dư số lượng', 'Bảo hành/đổi hàng', 'Khác'];
 const qualityOptions = [{ label: 'Đủ điều kiện', value: 'ELIGIBLE' }, { label: 'Không đủ điều kiện', value: 'INELIGIBLE' }];
+const requestItemColumns = computed(() => [
+  { field: 'invoice_number', header: 'Số chứng từ', width: '145px', frozen: true },
+  { field: 'sku', header: 'Mã hàng', width: '160px' },
+  { field: 'product_name', header: 'Tên sản phẩm', width: '260px' },
+  { field: 'brand', header: 'Thương hiệu', width: '120px' },
+  { field: 'unit', header: 'ĐVT', width: '70px', align: 'center' },
+  { field: 'delivered_quantity', header: 'Đã giao', width: '85px', align: 'right' },
+  { field: 'previously_returned_quantity', header: 'Đã/đang trả', width: '100px', align: 'right' },
+  { field: 'requested_quantity', header: 'SL trả', width: '130px', align: 'right' },
+  ...(!isCreate.value ? [{ field: 'quality_status', header: 'Chất lượng', width: '145px', align: 'center' }] : []),
+  { field: 'unit_price', header: 'Đơn giá', width: '120px', align: 'right' },
+  { field: 'line_total', header: 'Thành tiền', width: '135px', align: 'right' },
+  ...(isCreate.value ? [{ field: 'actions', header: '', width: '55px', align: 'center' }] : [])
+]);
 const invoiceOptions = computed(() => invoices.value.map(invoice => ({ ...invoice, display: `${invoice.invoice_number} - ${invoice.customer_name}` })));
 const items = computed(() => form.value.items || []);
 const totalAmount = computed(() => items.value.reduce((sum, item) => sum + (Number(item.requested_quantity) || 0) * (Number(item.unit_price) || 0), 0));
