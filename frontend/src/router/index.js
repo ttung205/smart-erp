@@ -34,6 +34,10 @@ import InvoiceFormPage from '../pages/invoice/form.vue';
 import VatInvoicePage from '../pages/vat-invoice/index.vue';
 import WarehouseRequestSalePage from '../pages/warehouse-request-sale/index.vue';
 import CustomerReceivablesPage from '../pages/customer-receivables/index.vue';
+import FinanceAccountsPage from '../pages/finance/accounts/index.vue';
+import CashBookPage from '../pages/finance/cash-book/index.vue';
+import FinanceVouchersPage from '../pages/finance/vouchers/index.vue';
+import FinanceVoucherFormPage from '../pages/finance/vouchers/form.vue';
 import SaleReturnRequestPage from '../pages/sale-return-request/index.vue';
 import SaleReturnRequestFormPage from '../pages/sale-return-request/form.vue';
 import SaleReturnPage from '../pages/sale-return/index.vue';
@@ -578,6 +582,15 @@ export const routes = [
       title: 'Công Nợ Khách Hàng'
     }
   },
+  { path: '/finance/accounts', name: 'finance-accounts', component: FinanceAccountsPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Hệ thống tài khoản' } },
+  { path: '/finance/cash-book', name: 'finance-cash-book', component: CashBookPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Sổ quỹ' } },
+  { path: '/finance/bank-book', name: 'finance-bank-book', component: CashBookPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Sổ tiền gửi ngân hàng', bookChannel: 'BANK' } },
+  { path: '/finance/cash-receipts', name: 'finance-cash-receipts', component: FinanceVouchersPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Phiếu thu', voucherType: 'CASH_RECEIPT' } },
+  { path: '/finance/cash-payments', name: 'finance-cash-payments', component: FinanceVouchersPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Phiếu chi', voucherType: 'CASH_PAYMENT' } },
+  { path: '/finance/bank-receipts', name: 'finance-bank-receipts', component: FinanceVouchersPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Thu tiền ngân hàng', voucherType: 'BANK_RECEIPT' } },
+  { path: '/finance/bank-payments', name: 'finance-bank-payments', component: FinanceVouchersPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Chi tiền ngân hàng', voucherType: 'BANK_PAYMENT' } },
+  { path: '/finance/internal-transfers', name: 'finance-internal-transfers', component: FinanceVouchersPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Chuyển tiền nội bộ', voucherType: 'INTERNAL_TRANSFER' } },
+  { path: '/finance/vouchers/new', name: 'finance-voucher-new', component: FinanceVoucherFormPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.approve', title: 'Lập chứng từ thu chi' } },
   { path: '/accounting', redirect: '/customer-receivables' },
   // Backward compatibility alias redirects
   { path: '/sales/quotation', redirect: '/quotation' },

@@ -2,22 +2,25 @@
 
 namespace App\Services;
 
-use App\Models\CustomerReceivable;
 use App\Models\Invoice;
 use App\Models\VatInvoice;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
 
 class CustomerReceivableService
 {
-    public function createForVatInvoice(VatInvoice $vatInvoice, ?Invoice $salesInvoice = null): CustomerReceivable
+    public function createForVatInvoice(VatInvoice $vatInvoice, ?Invoice $salesInvoice = null, ?string $bearerToken = null): void
     {
         preg_match('/(\d+)/', (string) $salesInvoice?->payment_terms, $matches);
         $paymentTermDays = isset($matches[1]) ? max((int) $matches[1], 0) : 30;
         $invoiceDate = Carbon::parse($vatInvoice->invoice_date);
 
-        return CustomerReceivable::firstOrCreate(
-            ['vat_invoice_id' => $vatInvoice->id],
-            [
+        Http::withToken((string) $bearerToken)
+            ->acceptJson()
+            ->timeout(config('services.finance.timeout'))
+            ->post(config('services.finance.url').'/api/customer-receivables/sync', [
+                'vat_invoice_id' => $vatInvoice->id,
+                'sales_invoice_id' => $vatInvoice->sales_invoice_id,
                 'customer_id' => $vatInvoice->customer_id,
                 'customer_name' => $vatInvoice->customer_name ?: 'Khách hàng',
                 'customer_tax_code' => $vatInvoice->customer_tax_code,
@@ -26,11 +29,7 @@ class CustomerReceivableService
                 'invoice_date' => $invoiceDate->toDateString(),
                 'due_date' => $invoiceDate->copy()->addDays($paymentTermDays)->toDateString(),
                 'currency' => $vatInvoice->currency ?: 'VND',
-                'original_amount' => $vatInvoice->total_amount,
-                'paid_amount' => 0,
-                'outstanding_amount' => $vatInvoice->total_amount,
-                'status' => 'OPEN',
-            ],
-        );
+                'total_amount' => $vatInvoice->total_amount,
+            ])->throw();
     }
 }

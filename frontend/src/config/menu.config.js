@@ -182,6 +182,32 @@ export const menuCategories = [
         ]
       },
       {
+        id: 'cash-hub',
+        label: 'Quỹ',
+        icon: 'pi pi-wallet',
+        isFolder: true,
+        children: [
+          { id: 'cash-book', path: '/finance/cash-book', resource: 'finance', permission: 'finance.view', label: 'Sổ quỹ', icon: 'pi pi-book' },
+          { id: 'cash-customer-receipt', path: '/finance/cash-receipts', resource: 'finance', permission: 'finance.view', label: 'Thu tiền khách hàng', icon: 'pi pi-users' },
+          { id: 'cash-receipt', path: '/finance/cash-receipts', resource: 'finance', permission: 'finance.view', label: 'Phiếu thu', icon: 'pi pi-arrow-down-left' },
+          { id: 'cash-payment', path: '/finance/cash-payments', resource: 'finance', permission: 'finance.view', label: 'Phiếu chi', icon: 'pi pi-arrow-up-right' }
+        ]
+      },
+      {
+        id: 'bank-hub',
+        label: 'Ngân hàng',
+        icon: 'pi pi-building-columns',
+        isFolder: true,
+        children: [
+          { id: 'bank-book', path: '/finance/bank-book', resource: 'finance', permission: 'finance.view', label: 'Sổ tiền gửi', icon: 'pi pi-book' },
+          { id: 'bank-customer-receipt', path: '/finance/bank-receipts', resource: 'finance', permission: 'finance.view', label: 'Thu tiền khách hàng', icon: 'pi pi-users' },
+          { id: 'bank-receipt', path: '/finance/bank-receipts', resource: 'finance', permission: 'finance.view', label: 'Chứng từ thu', icon: 'pi pi-arrow-down-left' },
+          { id: 'bank-payment', path: '/finance/bank-payments', resource: 'finance', permission: 'finance.view', label: 'Chứng từ chi', icon: 'pi pi-arrow-up-right' },
+          { id: 'bank-transfer', path: '/finance/internal-transfers', resource: 'finance', permission: 'finance.view', label: 'Chuyển tiền nội bộ', icon: 'pi pi-arrow-right-arrow-left' },
+          { id: 'finance-accounts', path: '/finance/accounts', resource: 'finance', permission: 'finance.view', label: 'Hệ thống tài khoản', icon: 'pi pi-sitemap' }
+        ]
+      },
+      {
         id: 'purchase-hub',
         label: 'Thu mua',
         icon: 'pi pi-shopping-cart',

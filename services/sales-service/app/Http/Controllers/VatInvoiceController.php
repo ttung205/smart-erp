@@ -207,13 +207,13 @@ class VatInvoiceController extends Controller
 
             // Cập nhật chuyển trạng thái doanh thu từ TK 1312 sang TK 1311
             RevenueReportService::processVatInvoiceIssued($vatInvoice, $createdItems);
-            $receivableService->createForVatInvoice($vatInvoice->fresh(), $salesInvoice);
+            $receivableService->createForVatInvoice($vatInvoice->fresh(), $salesInvoice, $request->bearerToken());
 
             DB::commit();
 
             return response()->json([
                 'success' => true,
-                'data' => $vatInvoice->load('items', 'customer', 'receivable'),
+                'data' => $vatInvoice->load('items', 'customer'),
                 'message' => "Lập hóa đơn VAT {$vatInvoice->invoice_number} thành công và đã ghi nhận doanh thu TK 1311.",
             ], 201);
         } catch (HttpExceptionInterface $e) {

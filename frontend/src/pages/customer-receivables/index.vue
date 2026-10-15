@@ -91,7 +91,7 @@ import Tag from 'primevue/tag';
 import Toolbar from 'primevue/toolbar';
 import CommonDataTable from '../../components/common/CommonDataTable.vue';
 import PageHeader from '../../components/common/PageHeader.vue';
-import { salesApi } from '../../api/sales.api';
+import { financeApi } from '../../api/finance.api';
 import { formatCurrency, formatDate } from '../../utils/format';
 
 const toast = useToast();
@@ -142,7 +142,7 @@ const loadReceivables = async () => {
     if (searchQuery.value.trim()) params.search = searchQuery.value.trim();
     if (statusFilter.value) params.status = statusFilter.value;
 
-    const response = await salesApi.getCustomerReceivables(params);
+    const response = await financeApi.getCustomerReceivables(params);
     receivables.value = response.data || [];
     summary.value = response.summary || summary.value;
   } catch (error) {

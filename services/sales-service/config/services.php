@@ -51,4 +51,9 @@ return [
         'jwt_secret' => env('JWT_SECRET'),
     ],
 
+    'finance' => [
+        'url' => rtrim(env('FINANCE_SERVICE_URL', 'http://127.0.0.1:8008'), '/'),
+        'timeout' => (int) env('FINANCE_SERVICE_TIMEOUT', 5),
+    ],
+
 ];

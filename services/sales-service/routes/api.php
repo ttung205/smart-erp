@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\AttachmentController;
-use App\Http\Controllers\CustomerReceivableController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\InvoiceController;
@@ -82,7 +81,6 @@ Route::middleware('jwt')->group(function () {
     Route::get('/vat-invoices', [VatInvoiceController::class, 'index'])->middleware('permission:invoice.view');
     Route::get('/vat-invoices/{vat_invoice}', [VatInvoiceController::class, 'show'])->middleware('permission:invoice.view');
     Route::post('/vat-invoices', [VatInvoiceController::class, 'store'])->middleware('permission:finance.approve,invoice.manage');
-    Route::get('/customer-receivables', [CustomerReceivableController::class, 'index'])->middleware('permission:finance.view');
 
     // 7. Reports: Sale Items (Báo Cáo Đơn Bán Hàng)
     Route::get('/reports/sale-items', [SaleReportController::class, 'index'])->middleware('permission:order.view');

@@ -26,6 +26,7 @@ Start-DevService 'Purchase Service (.NET 10)' 8003 "$root\services\purchase-serv
 Start-DevService 'Inventory Service (.NET)' 8004 "$root\services\inventory-service\src\Inventory.Api" 'dotnet run --urls=http://127.0.0.1:8004'
 Start-DevService 'Sales Service' 8005 "$root\services\sales-service" 'php artisan serve --host=127.0.0.1 --port=8005'
 Start-DevService 'Notification Service (Node.js)' 8006 "$root\services\notification-service" 'npm run dev'
+Start-DevService 'Finance Service' 8008 "$root\services\finance-service" 'php artisan serve --host=127.0.0.1 --port=8008'
 Start-DevService 'Vue 3 PrimeVue Frontend' 5175 "$root\frontend" 'npm run dev -- --host 127.0.0.1'
 
 if (-not (Test-PortInUse 5672)) {
@@ -33,13 +34,14 @@ if (-not (Test-PortInUse 5672)) {
     Write-Host "        Neu can message broker, mo Docker Desktop va chay: docker compose up -d rabbitmq" -ForegroundColor Gray
 }
 
-Write-Host "`nDa khoi dong ca 7 services:" -ForegroundColor Green
+Write-Host "`nDa khoi dong ca 8 services:" -ForegroundColor Green
 Write-Host " - Identity Service     : http://127.0.0.1:8001" -ForegroundColor Gray
 Write-Host " - Catalog Service      : http://127.0.0.1:8002" -ForegroundColor Gray
 Write-Host " - Purchase Service     : http://127.0.0.1:8003 (Swagger: http://127.0.0.1:8003/swagger)" -ForegroundColor Gray
 Write-Host " - Inventory Service    : http://127.0.0.1:8004 (Swagger: http://127.0.0.1:8004/swagger)" -ForegroundColor Gray
 Write-Host " - Sales Service        : http://127.0.0.1:8005" -ForegroundColor Gray
 Write-Host " - Notification Service : http://127.0.0.1:8006" -ForegroundColor Gray
+Write-Host " - Finance Service      : http://127.0.0.1:8008" -ForegroundColor Gray
 Write-Host " - Frontend Web UI      : http://localhost:5175" -ForegroundColor Cyan
 Write-Host " - Mailpit Email UI     : http://localhost:8025" -ForegroundColor Cyan
 Write-Host "`nHay mo trinh duyet truy cap: http://localhost:5175" -ForegroundColor Yellow

@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class VatInvoice extends Model
 {
@@ -59,10 +58,5 @@ class VatInvoice extends Model
     public function customer()
     {
         return $this->belongsTo(Customer::class, 'customer_id');
-    }
-
-    public function receivable(): HasOne
-    {
-        return $this->hasOne(CustomerReceivable::class);
     }
 }
