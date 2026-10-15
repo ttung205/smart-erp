@@ -17,6 +17,7 @@ class Quotation extends Model
         'currency',
         'exchange_rate',
         'created_by',
+        'created_by_id',
         'assigned_to',
         'status',
         'approved_by',

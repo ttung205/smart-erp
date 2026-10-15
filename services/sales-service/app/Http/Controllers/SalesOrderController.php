@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Services\SaleReportService;
 use App\Support\DocumentDate;
 use App\Support\DocumentNumberGenerator;
+use App\Support\Outbox;
 use App\Support\SalesWorkflow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -396,7 +397,7 @@ class SalesOrderController extends Controller
         }
     }
 
-    public function submitApproval($id)
+    public function submitApproval(Request $request, $id)
     {
         $so = SalesOrder::where('id', $id)->orWhere('order_number', $id)->first();
         if (! $so) {
@@ -406,7 +407,10 @@ class SalesOrderController extends Controller
         if (! SalesWorkflow::canTransition('order', $so->status, 'PENDING_APPROVAL')) {
             return response()->json(['success' => false, 'error' => ['code' => 'INVALID_STATUS_TRANSITION']], 409);
         }
-        $so->update(['status' => 'PENDING_APPROVAL']);
+        DB::transaction(function () use ($request, $so): void {
+            $so->update(['status' => 'PENDING_APPROVAL']);
+            $this->recordEvent('SalesOrderSubmitted', 'sales.order.submitted', $so, $request);
+        });
 
         return response()->json([
             'success' => true,
@@ -427,11 +431,14 @@ class SalesOrderController extends Controller
         }
         $approverId = $request->attributes->get('actor')->id;
 
-        $so->update([
-            'status' => 'APPROVED',
-            'approved_by' => $approverId,
-            'approved_at' => now()->format('d/m/Y H:i'),
-        ]);
+        DB::transaction(function () use ($request, $so, $approverId): void {
+            $so->update([
+                'status' => 'APPROVED',
+                'approved_by' => $approverId,
+                'approved_at' => now()->format('d/m/Y H:i'),
+            ]);
+            $this->recordEvent('SalesOrderApproved', 'sales.order.approved', $so, $request);
+        });
 
         SaleReportService::syncOrderToReport($so);
 
@@ -456,10 +463,13 @@ class SalesOrderController extends Controller
         if ($reason === '') {
             return response()->json(['success' => false, 'error' => ['code' => 'REJECTION_REASON_REQUIRED']], 422);
         }
-        $so->update([
-            'status' => 'REJECTED',
-            'notes' => $reason ? ($so->notes ? $so->notes."\n[Lý do từ chối: {$reason}]" : "[Lý do từ chối: {$reason}]") : $so->notes,
-        ]);
+        DB::transaction(function () use ($request, $so, $reason): void {
+            $so->update([
+                'status' => 'REJECTED',
+                'notes' => $reason ? ($so->notes ? $so->notes."\n[Lý do từ chối: {$reason}]" : "[Lý do từ chối: {$reason}]") : $so->notes,
+            ]);
+            $this->recordEvent('SalesOrderRejected', 'sales.order.rejected', $so, $request, ['reason' => $reason]);
+        });
 
         SaleReportItem::where('order_id', $so->id)->update(['status' => 'CANCELLED']);
 
@@ -499,5 +509,20 @@ class SalesOrderController extends Controller
         }
 
         return $fallbackUserId;
+    }
+
+    /** @param  array<string, mixed>  $extra */
+    private function recordEvent(string $eventType, string $routingKey, SalesOrder $so, Request $request, array $extra = []): void
+    {
+        Outbox::record($eventType, $routingKey, 'SalesOrder', $so->id, [
+            'order_id' => $so->id,
+            'order_number' => $so->order_number,
+            'customer_name' => $so->customer_name,
+            'total_amount' => (float) $so->total_amount,
+            'currency' => $so->currency,
+            'created_by_id' => is_numeric($so->created_by) ? (int) $so->created_by : null,
+            'actor' => Outbox::actor($request->attributes->get('actor')),
+            ...$extra,
+        ]);
     }
 }

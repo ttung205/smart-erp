@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [switch]$Preview,
-    [int]$RunPort
+    [int]$RunPort,
+    [string]$RunWorker
 )
 
 Write-Host "========================================================" -ForegroundColor Cyan
@@ -28,6 +29,30 @@ $services = @(
     [pscustomobject]@{ Name = 'Vue 3 PrimeVue Frontend'; Port = 5175; Directory = "$projectRoot\frontend"; Command = { npm run dev -- --host 127.0.0.1 } }
 )
 
+# Worker nen khong mo cong: Outbox relay day domain event tu DB len RabbitMQ (thong bao, dong bo nghiep vu)
+# Chay artisan bang duong dan tuyet doi de nhan dien tien trinh dang chay theo tung service
+$workers = @(
+    [pscustomobject]@{ Name = 'Sales Outbox Relay'; Key = 'sales-outbox'; Directory = "$projectRoot\services\sales-service"; Command = { php "$PWD\artisan" outbox:relay } },
+    [pscustomobject]@{ Name = 'EOffice Outbox Relay'; Key = 'eoffice-outbox'; Directory = "$projectRoot\services\eoffice-service"; Command = { php "$PWD\artisan" outbox:relay } }
+)
+
+function Test-WorkerRunning($Worker) {
+    $artisan = "$($Worker.Directory)\artisan"
+    return $null -ne (Get-CimInstance Win32_Process -Filter "Name = 'php.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -and $_.CommandLine.Contains($artisan) -and $_.CommandLine.Contains('outbox:relay') } |
+        Select-Object -First 1)
+}
+
+if ($RunWorker) {
+    $worker = $workers | Where-Object Key -eq $RunWorker | Select-Object -First 1
+    if (-not $worker) { throw "Khong co worker $RunWorker." }
+
+    Set-Location -LiteralPath $worker.Directory
+    Write-Host "Starting $($worker.Name)" -ForegroundColor Green
+    & $worker.Command
+    return
+}
+
 if ($RunPort) {
     $service = $services | Where-Object Port -eq $RunPort | Select-Object -First 1
     if (-not $service) { throw "Khong co service nao dung cong $RunPort." }
@@ -45,7 +70,16 @@ foreach ($service in $services) {
         continue
     }
 
-    $pendingServices += $service
+    $pendingServices += [pscustomobject]@{ Name = $service.Name; Title = "$($service.Name) :$($service.Port)"; LaunchArgs = @('-RunPort', "$($service.Port)") }
+}
+
+foreach ($worker in $workers) {
+    if (Test-WorkerRunning $worker) {
+        Write-Host " [OK] $($worker.Name) dang chay - bo qua khoi dong trung." -ForegroundColor DarkYellow
+        continue
+    }
+
+    $pendingServices += [pscustomobject]@{ Name = $worker.Name; Title = $worker.Name; LaunchArgs = @('-RunWorker', $worker.Key) }
 }
 
 if ($pendingServices.Count -gt 0) {
@@ -59,11 +93,11 @@ if ($pendingServices.Count -gt 0) {
         $service = $pendingServices[$index]
         $terminalArguments += @(
             'new-tab',
-            '--title', "$($service.Name) :$($service.Port)",
+            '--title', $service.Title,
             '--suppressApplicationTitle',
             '--startingDirectory', $projectRoot,
-            'powershell.exe', '-NoLogo', '-NoProfile', '-NoExit', '-ExecutionPolicy', 'Bypass', '-File', 'start_dev.ps1', '-RunPort', "$($service.Port)"
-        )
+            'powershell.exe', '-NoLogo', '-NoProfile', '-NoExit', '-ExecutionPolicy', 'Bypass', '-File', 'start_dev.ps1'
+        ) + $service.LaunchArgs
 
         if ($index -lt $pendingServices.Count - 1) {
             $terminalArguments += ';'
@@ -73,7 +107,7 @@ if ($pendingServices.Count -gt 0) {
     if ($Preview) {
         Write-Host "`n[PREVIEW] Windows Terminal se mo $($pendingServices.Count) tab trong mot cua so SmartERP:" -ForegroundColor Magenta
         foreach ($service in $pendingServices) {
-            Write-Host " - $($service.Name) :$($service.Port)" -ForegroundColor Gray
+            Write-Host " - $($service.Title)" -ForegroundColor Gray
         }
     } else {
         & $windowsTerminal.Source @terminalArguments

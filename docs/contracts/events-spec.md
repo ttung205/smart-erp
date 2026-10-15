@@ -179,3 +179,46 @@ Mọi message được bắn lên Message Broker (RabbitMQ) **bắt buộc** ph�
   ]
 }
 ```
+
+---
+
+### 2.4. Nhóm Phê Duyệt & Thông Báo (Approval Workflow → notification-service)
+
+Các event dưới đây được ghi qua **Transactional Outbox** (`outbox_events`) cùng transaction với nghiệp vụ, lệnh `php artisan outbox:relay` publish lên `erp.events`. Consumer chính: `notification-service` (queue `erp.notification.events`). Thiết kế chi tiết: [`docs/notification-architecture.md`](../notification-architecture.md).
+
+Mọi payload đều có `actor: { id, name }` — người thực hiện hành động (bị loại khỏi danh sách nhận thông báo).
+
+| Event | Routing Key | Producer | Payload chính |
+| :--- | :--- | :--- | :--- |
+| `QuotationSubmitted` / `QuotationApproved` / `QuotationRejected` | `sales.quotation.submitted\|approved\|rejected` | sales-service | `quotation_id`, `quotation_number`, `customer_name`, `total_amount`, `currency`, `created_by_id`, `reason` (khi từ chối) |
+| `SalesOrderSubmitted` / `SalesOrderApproved` / `SalesOrderRejected` | `sales.order.submitted\|approved\|rejected` | sales-service | `order_id`, `order_number`, `customer_name`, `total_amount`, `currency`, `created_by_id`, `reason` |
+| `DeliveryRequested` / `DeliveryApproved` / `DeliveryRejected` | `sales.delivery.requested\|approved\|rejected` | sales-service | `delivery_request_id`, `request_number`, `order_id`, `order_number`, `customer_name`, `warehouse_id`, `warehouse_name`, `expected_delivery_date`, `created_by_id` (người tạo đơn hàng) |
+| `WarehouseDispatchRequested` | `sales.dispatch.requested` | sales-service | `dispatch_id`, `invoice_id`, `invoice_number`, `order_number`, `delivery_request_number`, `customer_name`, `warehouse_id`, `warehouse_name` |
+| `LeaveRequestSubmitted` | `eoffice.leave.submitted` | eoffice-service | `id`, `code`, `requester_id`, `requester_name`, `title`, `start_date`, `end_date`, `total_days`, `step_id`, `approver: { id, name }` |
+| `LeaveRequestApproved` / `LeaveRequestRejected` / `LeaveRequestReturned` | `eoffice.leave.approved\|rejected\|returned` | eoffice-service | như trên + `step_id`, `comment` |
+| `LeaveRequestCancelled` | `eoffice.leave.cancelled` | eoffice-service | như trên + `reason` |
+
+**Ví dụ `QuotationSubmitted`:**
+```json
+{
+  "event_id": "1ddb34f0-27d4-40c7-b8eb-fde89726289c",
+  "event_type": "QuotationSubmitted",
+  "aggregate_type": "Quotation",
+  "aggregate_id": "15",
+  "timestamp": "2026-10-15T12:27:34.120Z",
+  "version": "1.0",
+  "correlation_id": "corr_6e8f2874-d9af-43f8-9ed0-09a39136e265",
+  "producer": "sales-service",
+  "payload": {
+    "quotation_id": 15,
+    "quotation_number": "QT-KH001-151026",
+    "customer_name": "Công ty A",
+    "total_amount": 12345000.0,
+    "currency": "VND",
+    "created_by_id": 6,
+    "actor": { "id": 6, "name": "Nguyễn Văn A" }
+  }
+}
+```
+
+> ⚠️ Binding `sales.order.*` của `erp.inventory.events` cũng nhận `sales.order.submitted|approved|rejected`; inventory-service bỏ qua các `event_type` không xử lý.

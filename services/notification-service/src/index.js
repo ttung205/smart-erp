@@ -1,165 +1,59 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import nodemailer from 'nodemailer';
+import { createServer } from 'node:http';
+import { createApp } from './app.js';
+import { config } from './config.js';
+import { openDatabase } from './db.js';
+import { startConsumer } from './messaging/consumer.js';
+import { NotificationRepository } from './notifications/notification.repository.js';
+import { NotificationService } from './notifications/notification.service.js';
+import { RecipientResolver } from './notifications/recipient-resolver.js';
+import { rules } from './notifications/rules.js';
+import { createRealtime } from './realtime/socket.js';
 
-dotenv.config();
-
-const app = express();
-const PORT = process.env.PORT || 8006;
-
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-// In-memory email logs for audit and tracking
-const emailLogs = [];
-
-// Create reusable Nodemailer transporter
-function getTransporter() {
-  const host = process.env.SMTP_HOST || '127.0.0.1';
-  const port = Number(process.env.SMTP_PORT) || 1025; // 1025 is default Mailpit SMTP port
-  const user = (process.env.SMTP_USER || '').trim();
-  const pass = (process.env.SMTP_PASS || '').replace(/\s+/g, '');
-
-  const config = {
-    host,
-    port,
-    secure: port === 465,
-    ignoreTLS: port === 1025 || port === 1026, // ignore TLS for local Mailpit / Mailtrap
-  };
-
-  if (user && pass) {
-    config.auth = { user, pass };
-  }
-
-  return nodemailer.createTransport(config);
+if (!config.jwtSecret) {
+  console.warn('[Notification Service] Chưa cấu hình JWT_SECRET: API hộp thư và socket sẽ từ chối mọi kết nối.');
 }
 
-// 1. Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'UP',
-    service: 'notification-service',
-    timestamp: new Date().toISOString(),
-    smtp: {
-      host: process.env.SMTP_HOST || '127.0.0.1',
-      port: Number(process.env.SMTP_PORT) || 1025,
-      from: process.env.MAIL_FROM_ADDRESS || 'sales@thanhtung.vn'
-    }
-  });
+const db = openDatabase(config.dbPath);
+const repository = new NotificationRepository(db);
+
+// Realtime gắn vào http server sau khi tạo app; publisher dùng tham chiếu trễ để app và socket dùng chung
+let realtime = null;
+const publisher = { toUser: (...args) => realtime?.toUser(...args) };
+
+const app = createApp({
+  repository,
+  publisher,
+  jwtSecret: config.jwtSecret,
+  smtpInfo: {
+    host: process.env.SMTP_HOST || '127.0.0.1',
+    port: Number(process.env.SMTP_PORT) || 1025,
+    from: process.env.MAIL_FROM_ADDRESS || 'sales@thanhtung.vn',
+  },
 });
+const server = createServer(app);
+realtime = createRealtime(server, { jwtSecret: config.jwtSecret });
 
-// 2. Send Email Endpoint (Sync API)
-app.post('/api/v1/notifications/email/send', async (req, res) => {
-  try {
-    const {
-      to,
-      cc,
-      bcc,
-      subject,
-      text,
-      html,
-      body,
-      attachments = [],
-      senderName = 'Smart ERP - Công ty Thanh Tùng'
-    } = req.body;
-
-    if (!to) {
-      return res.status(400).json({
-        success: false,
-        error: { message: 'Địa chỉ người nhận (to) là bắt buộc.' }
-      });
-    }
-
-    if (!subject) {
-      return res.status(400).json({
-        success: false,
-        error: { message: 'Tiêu đề email (subject) là bắt buộc.' }
-      });
-    }
-
-    const fromAddress = process.env.MAIL_FROM_ADDRESS || 'sales@thanhtung.vn';
-    const from = `"${senderName}" <${fromAddress}>`;
-
-    // Process attachments (support base64 content, buffers, or direct paths)
-    const formattedAttachments = (attachments || []).map((att) => {
-      if (att.content && typeof att.content === 'string' && att.content.startsWith('data:')) {
-        // Data URL format
-        const base64Data = att.content.split(',')[1];
-        return {
-          filename: att.filename || 'attachment.pdf',
-          content: Buffer.from(base64Data, 'base64'),
-          contentType: att.contentType || 'application/pdf'
-        };
-      } else if (att.content && typeof att.content === 'string') {
-        // Base64 string or plain text
-        return {
-          filename: att.filename || 'attachment.pdf',
-          content: Buffer.from(att.content, att.encoding === 'base64' ? 'base64' : 'utf-8'),
-          contentType: att.contentType || 'application/pdf'
-        };
-      }
-      return att;
-    });
-
-    const mailOptions = {
-      from,
-      to: Array.isArray(to) ? to.join(', ') : to,
-      cc: Array.isArray(cc) ? cc.join(', ') : cc,
-      bcc: Array.isArray(bcc) ? bcc.join(', ') : bcc,
-      subject,
-      text: text || body || '',
-      html: html || (body ? body.replace(/\n/g, '<br>') : ''),
-      attachments: formattedAttachments
-    };
-
-    const transporter = getTransporter();
-    const info = await transporter.sendMail(mailOptions);
-
-    const logEntry = {
-      id: Date.now(),
-      messageId: info.messageId,
-      to,
-      subject,
-      attachmentsCount: formattedAttachments.length,
-      sentAt: new Date().toISOString(),
-      status: 'SENT'
-    };
-    emailLogs.unshift(logEntry);
-    if (emailLogs.length > 100) emailLogs.pop();
-
-    return res.json({
-      success: true,
-      data: {
-        messageId: info.messageId,
-        to,
-        subject,
-        sentAt: logEntry.sentAt,
-        response: info.response
-      }
-    });
-  } catch (error) {
-    console.error('[NotificationService] Lỗi gửi email:', error);
-    return res.status(500).json({
-      success: false,
-      error: {
-        message: error.message || 'Không thể gửi email.',
-        details: error.stack
-      }
-    });
-  }
+const notificationService = new NotificationService({
+  db,
+  repository,
+  resolver: new RecipientResolver({ identityUrl: config.identityUrl, cacheTtlMs: config.recipientCacheTtlMs }),
+  rules,
+  publisher,
 });
+const consumer = startConsumer({ rabbitmq: config.rabbitmq, handle: (envelope) => notificationService.handleEvent(envelope) });
 
-// 3. Email Logs Endpoint
-app.get('/api/v1/notifications/email/logs', (req, res) => {
-  res.json({
-    success: true,
-    data: emailLogs
-  });
-});
-
-app.listen(PORT, () => {
-  console.log(`[Notification Service] Running on port ${PORT}`);
+server.listen(config.port, () => {
+  console.log(`[Notification Service] Running on port ${config.port}`);
   console.log(`[Notification Service] SMTP: ${process.env.SMTP_HOST || '127.0.0.1'}:${process.env.SMTP_PORT || 1025}`);
 });
+
+async function shutdown() {
+  await consumer.stop();
+  realtime.io.close();
+  server.close(() => {
+    db.close();
+    process.exit(0);
+  });
+}
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);

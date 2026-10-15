@@ -2,6 +2,7 @@
   <header class="h-14 bg-white border-b border-slate-200 px-6 flex items-center justify-end sticky top-0 z-40">
     <!-- Right: Current User Widget -->
     <div class="flex items-center gap-3">
+      <NotificationBell v-if="currentUser" />
       <div v-if="currentUser" class="flex items-center gap-2 px-2 py-1 rounded-[6px] border border-slate-200 bg-white">
         <Avatar :label="currentUser.name ? currentUser.name.charAt(0) : 'U'" shape="circle"
           class="!bg-sky-600 !text-white !font-bold !text-xs !w-7 !h-7" />
@@ -22,6 +23,7 @@
 import Tag from 'primevue/tag';
 import Avatar from 'primevue/avatar';
 import Button from 'primevue/button';
+import NotificationBell from './NotificationBell.vue';
 
 defineProps({
   currentUser: {

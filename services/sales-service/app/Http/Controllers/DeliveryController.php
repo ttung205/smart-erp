@@ -8,6 +8,7 @@ use App\Models\DeliveryRequest;
 use App\Models\DeliveryRequestItem;
 use App\Models\SalesOrder;
 use App\Support\DocumentNumberGenerator;
+use App\Support\Outbox;
 use App\Support\SalesWorkflow;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
@@ -93,6 +94,8 @@ class DeliveryController extends Controller
                 ]);
             }
 
+            $this->recordEvent('DeliveryRequested', 'sales.delivery.requested', $delivery, $order, $request);
+
             return $delivery;
         });
 
@@ -117,7 +120,14 @@ class DeliveryController extends Controller
             ], 409);
         }
 
-        $dr->update(['status' => $nextStatus]);
+        DB::transaction(function () use ($dr, $nextStatus, $request): void {
+            $dr->update(['status' => $nextStatus]);
+            // Chỉ kết quả duyệt mới phát event thông báo; các bước giao hàng sau đó không cần
+            if (in_array($nextStatus, ['APPROVED', 'REJECTED'], true)) {
+                $eventType = $nextStatus === 'APPROVED' ? 'DeliveryApproved' : 'DeliveryRejected';
+                $this->recordEvent($eventType, 'sales.delivery.'.strtolower($nextStatus), $dr, $dr->order, $request);
+            }
+        });
 
         return response()->json(['success' => true, 'data' => $dr]);
     }
@@ -142,5 +152,21 @@ class DeliveryController extends Controller
         }
 
         return $warehouse;
+    }
+
+    private function recordEvent(string $eventType, string $routingKey, DeliveryRequest $delivery, ?SalesOrder $order, Request $request): void
+    {
+        Outbox::record($eventType, $routingKey, 'DeliveryRequest', $delivery->id, [
+            'delivery_request_id' => $delivery->id,
+            'request_number' => $delivery->request_number,
+            'order_id' => $order?->id,
+            'order_number' => $order?->order_number,
+            'customer_name' => $order?->customer_name,
+            'warehouse_id' => $delivery->warehouse_id ? (int) $delivery->warehouse_id : null,
+            'warehouse_name' => $delivery->warehouse_name,
+            'expected_delivery_date' => $delivery->expected_delivery_date,
+            'created_by_id' => is_numeric($order?->created_by) ? (int) $order->created_by : null,
+            'actor' => Outbox::actor($request->attributes->get('actor')),
+        ]);
     }
 }

@@ -16,6 +16,7 @@ Route::get('/me', [AuthController::class, 'me']);
 Route::apiResource('departments', DepartmentController::class);
 
 // 3. Users (Nhân viên)
+Route::get('/users/by-permission', [UserController::class, 'byPermission']);
 Route::apiResource('users', UserController::class);
 
 // 4. Roles (Vai trò)

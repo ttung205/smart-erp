@@ -48,7 +48,8 @@ export default defineConfig(({ mode }) => {
         },
         '/api/v1/notifications': {
           target: notificationTarget,
-          changeOrigin: true
+          changeOrigin: true,
+          ws: true // Socket.IO realtime (path /api/v1/notifications/socket.io)
         },
         '/api/v1/eoffice': {
           target: eofficeTarget,

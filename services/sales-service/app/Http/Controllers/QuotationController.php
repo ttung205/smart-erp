@@ -11,6 +11,7 @@ use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
 use App\Support\DocumentDate;
 use App\Support\DocumentNumberGenerator;
+use App\Support\Outbox;
 use App\Support\SalesWorkflow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -131,6 +132,7 @@ class QuotationController extends Controller
                 'currency' => $request->input('currency', 'VND'),
                 'exchange_rate' => (float) $request->input('exchange_rate', 1.0),
                 'created_by' => $actor->name,
+                'created_by_id' => $actor->id,
                 'assigned_to' => $request->input('assigned_to', $actor->name),
                 'status' => 'DRAFT',
                 'subtotal' => $subtotal,
@@ -309,7 +311,7 @@ class QuotationController extends Controller
         }
     }
 
-    public function submitApproval($id)
+    public function submitApproval(Request $request, $id)
     {
         $q = Quotation::where('id', $id)->orWhere('quotation_number', $id)->first();
         if (! $q) {
@@ -319,7 +321,10 @@ class QuotationController extends Controller
         if (! SalesWorkflow::canTransition('quotation', $q->status, 'PENDING_APPROVAL')) {
             return response()->json(['success' => false, 'error' => ['code' => 'INVALID_STATUS_TRANSITION']], 409);
         }
-        $q->update(['status' => 'PENDING_APPROVAL']);
+        DB::transaction(function () use ($request, $q): void {
+            $q->update(['status' => 'PENDING_APPROVAL']);
+            $this->recordEvent('QuotationSubmitted', 'sales.quotation.submitted', $q, $request);
+        });
 
         return response()->json([
             'success' => true,
@@ -339,11 +344,14 @@ class QuotationController extends Controller
             return response()->json(['success' => false, 'error' => ['code' => 'INVALID_STATUS_TRANSITION']], 409);
         }
         $approverName = $request->attributes->get('actor')->name;
-        $q->update([
-            'status' => 'APPROVED',
-            'approved_by' => $approverName,
-            'approved_at' => now()->format('d/m/Y H:i'),
-        ]);
+        DB::transaction(function () use ($request, $q, $approverName): void {
+            $q->update([
+                'status' => 'APPROVED',
+                'approved_by' => $approverName,
+                'approved_at' => now()->format('d/m/Y H:i'),
+            ]);
+            $this->recordEvent('QuotationApproved', 'sales.quotation.approved', $q, $request);
+        });
 
         return response()->json([
             'success' => true,
@@ -366,10 +374,13 @@ class QuotationController extends Controller
         if ($reason === '') {
             return response()->json(['success' => false, 'error' => ['code' => 'REJECTION_REASON_REQUIRED']], 422);
         }
-        $q->update([
-            'status' => 'REJECTED',
-            'notes' => $reason ? ($q->notes ? $q->notes."\n[Lý do từ chối: {$reason}]" : "[Lý do từ chối: {$reason}]") : $q->notes,
-        ]);
+        DB::transaction(function () use ($request, $q, $reason): void {
+            $q->update([
+                'status' => 'REJECTED',
+                'notes' => $reason ? ($q->notes ? $q->notes."\n[Lý do từ chối: {$reason}]" : "[Lý do từ chối: {$reason}]") : $q->notes,
+            ]);
+            $this->recordEvent('QuotationRejected', 'sales.quotation.rejected', $q, $request, ['reason' => $reason]);
+        });
 
         return response()->json([
             'success' => true,
@@ -529,5 +540,20 @@ class QuotationController extends Controller
         $q->delete();
 
         return response()->json(['success' => true, 'message' => 'Đã xóa báo giá thành công.']);
+    }
+
+    /** @param  array<string, mixed>  $extra */
+    private function recordEvent(string $eventType, string $routingKey, Quotation $q, Request $request, array $extra = []): void
+    {
+        Outbox::record($eventType, $routingKey, 'Quotation', $q->id, [
+            'quotation_id' => $q->id,
+            'quotation_number' => $q->quotation_number,
+            'customer_name' => $q->customer_name,
+            'total_amount' => (float) $q->total_amount,
+            'currency' => $q->currency,
+            'created_by_id' => $q->created_by_id ? (int) $q->created_by_id : null,
+            'actor' => Outbox::actor($request->attributes->get('actor')),
+            ...$extra,
+        ]);
     }
 }

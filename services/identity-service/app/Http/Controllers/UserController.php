@@ -26,6 +26,41 @@ class UserController extends Controller
         return response()->json(['success' => true, 'data' => $users]);
     }
 
+    /**
+     * Danh sách user đang hoạt động có ít nhất một trong các quyền (?permissions=a.approve,b.manage).
+     * Quyền "<module>.manage" bao hàm mọi quyền cùng module, giống RequirePermission ở các service.
+     * Dùng cho notification-service xác định người nhận thông báo.
+     */
+    public function byPermission(Request $request)
+    {
+        $requested = collect(explode(',', (string) $request->query('permissions', '')))
+            ->map(fn ($code) => trim($code))
+            ->filter()
+            ->values();
+        if ($requested->isEmpty()) {
+            return response()->json(['success' => false, 'error' => ['code' => 'PERMISSIONS_REQUIRED']], 422);
+        }
+
+        $codes = $requested
+            ->flatMap(fn ($code) => str_contains($code, '.') ? [$code, strstr($code, '.', true).'.manage'] : [$code])
+            ->unique()
+            ->values()
+            ->all();
+
+        $users = DB::table('users')
+            ->join('user_roles', 'users.id', '=', 'user_roles.user_id')
+            ->join('role_permissions', 'user_roles.role_id', '=', 'role_permissions.role_id')
+            ->join('permissions', 'role_permissions.permission_id', '=', 'permissions.id')
+            ->whereIn('permissions.code', $codes)
+            ->where('users.is_active', true)
+            ->select('users.id', 'users.name', 'users.email')
+            ->distinct()
+            ->orderBy('users.id')
+            ->get();
+
+        return response()->json(['success' => true, 'data' => $users]);
+    }
+
     public function show($id)
     {
         $user = $this->userQuery()->where('users.id', $id)->first();

@@ -141,6 +141,8 @@ flowchart TD
 ---
 
 ### GIAI ĐOẠN 3: Đẩy Dữ Liệu Thời Gian Thực Lên Frontend (Backend-to-Frontend)
+
+> **Lưu ý:** broadcast `io.emit` chỉ dùng cho đồng bộ dữ liệu chung (danh mục, tồn kho). Thông báo nghiệp vụ gửi theo người nhận (room `user:{id}`) và lưu inbox — xem [notification-architecture.md](notification-architecture.md).
 *Mục tiêu: Giao diện người dùng tự động cập nhật mà không cần bấm F5.*
 
 1. **Notification Service chuyển tiếp (Relay):**
