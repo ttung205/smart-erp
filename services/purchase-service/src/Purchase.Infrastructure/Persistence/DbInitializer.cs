@@ -10,6 +10,7 @@ public static class DbInitializer
     {
         // 1. Tự động khởi tạo Database & các Bảng (cho cả SQLite và MySQL)
         await context.Database.EnsureCreatedAsync();
+        await EnsurePurchaseReturnTablesAsync(context);
 
         // 2. Nạp dữ liệu mẫu cho Đề nghị mua hàng (PR) - Khớp 100% với danh mục thiết bị điện tử từ Catalog
         if (!await context.PurchaseRequisitions.AnyAsync())
@@ -153,6 +154,107 @@ public static class DbInitializer
 
             await context.PurchaseOrderPrAllocations.AddAsync(allocation);
             await context.SaveChangesAsync();
+        }
+    }
+
+    private static async Task EnsurePurchaseReturnTablesAsync(PurchaseDbContext context)
+    {
+        var isSqlite = context.Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true;
+
+        if (isSqlite)
+        {
+            await context.Database.ExecuteSqlRawAsync(@"
+                CREATE TABLE IF NOT EXISTS purchase_returns (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    code TEXT NOT NULL,
+                    purchase_order_id INTEGER NOT NULL,
+                    goods_receipt_id INTEGER NULL,
+                    supplier_id INTEGER NOT NULL,
+                    warehouse_id INTEGER NOT NULL,
+                    rma_number TEXT NULL,
+                    status TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    notes TEXT NULL,
+                    total_amount TEXT NOT NULL DEFAULT '0',
+                    created_by INTEGER NOT NULL DEFAULT 1,
+                    approved_by INTEGER NULL,
+                    approved_at TEXT NULL,
+                    dispatched_at TEXT NULL,
+                    version INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
+                CREATE UNIQUE INDEX IF NOT EXISTS IX_purchase_returns_code ON purchase_returns (code);
+                CREATE INDEX IF NOT EXISTS IX_purchase_returns_purchase_order_id ON purchase_returns (purchase_order_id);
+                CREATE INDEX IF NOT EXISTS IX_purchase_returns_supplier_id ON purchase_returns (supplier_id);
+                CREATE INDEX IF NOT EXISTS IX_purchase_returns_warehouse_id ON purchase_returns (warehouse_id);
+                CREATE INDEX IF NOT EXISTS IX_purchase_returns_status ON purchase_returns (status);
+
+                CREATE TABLE IF NOT EXISTS purchase_return_items (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    purchase_return_id INTEGER NOT NULL,
+                    purchase_order_item_id INTEGER NOT NULL,
+                    product_id INTEGER NOT NULL,
+                    sku TEXT NOT NULL,
+                    product_name TEXT NOT NULL,
+                    unit TEXT NULL,
+                    quantity_returned INTEGER NOT NULL,
+                    unit_cost TEXT NOT NULL DEFAULT '0',
+                    reason_detail TEXT NULL,
+                    FOREIGN KEY (purchase_return_id) REFERENCES purchase_returns (id) ON DELETE CASCADE
+                );
+
+                CREATE INDEX IF NOT EXISTS IX_purchase_return_items_purchase_return_id ON purchase_return_items (purchase_return_id);
+                CREATE INDEX IF NOT EXISTS IX_purchase_return_items_purchase_order_item_id ON purchase_return_items (purchase_order_item_id);
+                CREATE INDEX IF NOT EXISTS IX_purchase_return_items_product_id ON purchase_return_items (product_id);
+            ");
+        }
+        else
+        {
+            await context.Database.ExecuteSqlRawAsync(@"
+                CREATE TABLE IF NOT EXISTS purchase_returns (
+                    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                    code VARCHAR(50) NOT NULL UNIQUE,
+                    purchase_order_id BIGINT NOT NULL,
+                    goods_receipt_id BIGINT NULL,
+                    supplier_id BIGINT NOT NULL,
+                    warehouse_id BIGINT NOT NULL,
+                    rma_number VARCHAR(100) NULL,
+                    status VARCHAR(30) NOT NULL,
+                    reason VARCHAR(50) NOT NULL,
+                    notes TEXT NULL,
+                    total_amount DECIMAL(18, 2) NOT NULL DEFAULT 0,
+                    created_by BIGINT NOT NULL DEFAULT 1,
+                    approved_by BIGINT NULL,
+                    approved_at DATETIME NULL,
+                    dispatched_at DATETIME NULL,
+                    version INT NOT NULL DEFAULT 1,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
+                    INDEX IX_purchase_returns_purchase_order_id (purchase_order_id),
+                    INDEX IX_purchase_returns_supplier_id (supplier_id),
+                    INDEX IX_purchase_returns_warehouse_id (warehouse_id),
+                    INDEX IX_purchase_returns_status (status)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+                CREATE TABLE IF NOT EXISTS purchase_return_items (
+                    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                    purchase_return_id BIGINT NOT NULL,
+                    purchase_order_item_id BIGINT NOT NULL,
+                    product_id BIGINT NOT NULL,
+                    sku VARCHAR(100) NOT NULL,
+                    product_name VARCHAR(255) NOT NULL,
+                    unit VARCHAR(20) NULL,
+                    quantity_returned INT NOT NULL,
+                    unit_cost DECIMAL(18, 2) NOT NULL DEFAULT 0,
+                    reason_detail VARCHAR(500) NULL,
+                    INDEX IX_purchase_return_items_purchase_return_id (purchase_return_id),
+                    INDEX IX_purchase_return_items_purchase_order_item_id (purchase_order_item_id),
+                    INDEX IX_purchase_return_items_product_id (product_id),
+                    CONSTRAINT FK_purchase_return_items_returns FOREIGN KEY (purchase_return_id) REFERENCES purchase_returns(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            ");
         }
     }
 }

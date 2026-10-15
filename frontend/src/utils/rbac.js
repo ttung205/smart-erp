@@ -36,12 +36,15 @@ export function canView(resource, user) {
   if (!user) return false;
   if (isSuperAdmin(user)) return true;
   if (!user.permissions || !Array.isArray(user.permissions)) return false;
+  if (Array.isArray(resource)) {
+    return resource.some(r => user.permissions.includes(`${r}.view`) || user.permissions.includes(`${r}.manage`));
+  }
   return user.permissions.includes(`${resource}.view`) || user.permissions.includes(`${resource}.manage`);
 }
 
 /**
  * Kiểm tra xem người dùng có quyền quản trị (Write/Manage) tài nguyên hay không
- * @param {string} resource - Tên tài nguyên (ví dụ: 'employee', 'department', 'role', 'catalog', ...)
+ * @param {string|string[]} resource - Tên tài nguyên hoặc mảng tên tài nguyên
  * @param {Object} user - Object người dùng hiện tại (lấy từ JWT payload)
  * @returns {boolean}
  */
@@ -49,6 +52,9 @@ export function canManage(resource, user) {
   if (!user) return false;
   if (isSuperAdmin(user)) return true;
   if (!user.permissions || !Array.isArray(user.permissions)) return false;
+  if (Array.isArray(resource)) {
+    return resource.some(r => user.permissions.includes(`${r}.manage`));
+  }
   return user.permissions.includes(`${resource}.manage`);
 }
 

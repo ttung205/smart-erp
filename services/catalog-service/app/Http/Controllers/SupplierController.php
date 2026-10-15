@@ -36,9 +36,38 @@ class SupplierController extends Controller
             $query->where('supplier_group', $group);
         }
 
+        $type = $request->input('supplier_type');
+        if (!empty($type)) {
+            $query->where('supplier_type', strtoupper($type));
+        }
+
         return response()->json([
             'success' => true,
             'data' => $query->get(),
+        ]);
+    }
+
+    /**
+     * Sinh mã nhà cung cấp ngẫu nhiên:
+     * - Trading Supplier: TS-xxxx (4 chữ số ngẫu nhiên)
+     * - Manufacturer Supplier: MS-xxxx (4 chữ số ngẫu nhiên)
+     */
+    public function generateCode(Request $request)
+    {
+        $rawType = strtoupper(trim($request->input('supplier_type', $request->input('type', 'TRADING'))));
+        $supplierType = in_array($rawType, ['MANUFACTURER', 'MS']) ? 'MANUFACTURER' : 'TRADING';
+        $prefix = ($supplierType === 'MANUFACTURER') ? 'MS-' : 'TS-';
+
+        do {
+            $code = $prefix . str_pad((string)mt_rand(1000, 9999), 4, '0', STR_PAD_LEFT);
+        } while (Supplier::where('code', $code)->exists());
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'code' => $code,
+                'supplier_type' => $supplierType,
+            ],
         ]);
     }
 
@@ -81,11 +110,17 @@ class SupplierController extends Controller
             ], 422);
         }
 
-        $code = trim($request->input('code', ''));
+        $rawType = strtoupper(trim($request->input('supplier_type', 'TRADING')));
+        $supplierType = in_array($rawType, ['MANUFACTURER', 'MS']) ? 'MANUFACTURER' : 'TRADING';
+
+        $code = strtoupper(trim($request->input('code', '')));
         if (empty($code)) {
-            // Tự động sinh mã NCC chuẩn: NCC-XXXXX
+            // Tự động sinh mã NCC chuẩn:
+            // Trading Supplier -> TS-xxxx (4 số ngẫu nhiên)
+            // Manufacturer Supplier -> MS-xxxx (4 số ngẫu nhiên)
+            $prefix = ($supplierType === 'MANUFACTURER') ? 'MS-' : 'TS-';
             do {
-                $code = 'NCC-' . str_pad((string)mt_rand(1, 99999), 5, '0', STR_PAD_LEFT);
+                $code = $prefix . str_pad((string)mt_rand(1000, 9999), 4, '0', STR_PAD_LEFT);
             } while (Supplier::where('code', $code)->exists());
         } else {
             if (Supplier::where('code', $code)->exists()) {
@@ -104,6 +139,7 @@ class SupplierController extends Controller
             'name' => $name,
             'tax_code' => trim($request->input('tax_code', '')) ?: null,
             'supplier_group' => trim($request->input('supplier_group', 'Vật tư & Thiết bị')) ?: 'Vật tư & Thiết bị',
+            'supplier_type' => $supplierType,
             'phone' => trim($request->input('phone', '')) ?: null,
             'email' => trim($request->input('email', '')) ?: null,
             'address' => trim($request->input('address', '')) ?: null,
@@ -172,6 +208,10 @@ class SupplierController extends Controller
         $supplier->tax_code = trim($request->input('tax_code', '')) ?: null;
         if ($request->has('supplier_group')) {
             $supplier->supplier_group = trim($request->input('supplier_group', '')) ?: 'Vật tư & Thiết bị';
+        }
+        if ($request->has('supplier_type')) {
+            $rawType = strtoupper(trim($request->input('supplier_type', '')));
+            $supplier->supplier_type = in_array($rawType, ['MANUFACTURER', 'MS']) ? 'MANUFACTURER' : 'TRADING';
         }
         $supplier->phone = trim($request->input('phone', '')) ?: null;
         $supplier->email = trim($request->input('email', '')) ?: null;

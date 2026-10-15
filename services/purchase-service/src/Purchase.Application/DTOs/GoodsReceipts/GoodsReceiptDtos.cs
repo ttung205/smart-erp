@@ -73,6 +73,9 @@ public class GoodsReceiptDto
     [JsonPropertyName("purchase_order_id")]
     public long PurchaseOrderId { get; set; }
 
+    [JsonPropertyName("po_code")]
+    public string PoCode { get; set; } = string.Empty;
+
     [JsonPropertyName("warehouse_id")]
     public long WarehouseId { get; set; }
 
@@ -96,6 +99,15 @@ public class GoodsReceiptDto
 
     [JsonPropertyName("created_at")]
     public DateTime CreatedAt { get; set; }
+
+    [JsonPropertyName("auto_purchase_return_id")]
+    public long? AutoPurchaseReturnId { get; set; }
+
+    [JsonPropertyName("auto_purchase_return_code")]
+    public string? AutoPurchaseReturnCode { get; set; }
+
+    [JsonPropertyName("auto_purchase_return_qty")]
+    public int AutoPurchaseReturnQty { get; set; }
 
     [JsonPropertyName("items")]
     public List<GoodsReceiptItemDto> Items { get; set; } = new();

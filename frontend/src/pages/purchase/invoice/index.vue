@@ -2,12 +2,12 @@
   <div class="flex flex-col gap-4">
     <!-- 1. Page Header Chuẩn -->
     <PageHeader
-      title="Hóa Đơn & Đối Chiếu 3 Bên (3-Way Matching)"
-      subtitle="Đối soát tự động giá trị thanh toán giữa Hợp đồng (PO), Thực nhận kho (GRN) và Hóa đơn tài chính (Invoice)"
+      title="Chứng Từ Mua Hàng & Đối Chiếu 3 Bên"
+      subtitle="Quản lý chứng từ mua hàng từ nhà cung cấp, kiểm soát nhập kho và tự động đối soát 3 chiều (PO – Phiếu kho GRN – Hóa đơn tài chính)"
     >
       <template #actions>
         <Button
-          label="Nhập Hóa Đơn NCC"
+          label="Lập Chứng Từ Mua Hàng"
           icon="pi pi-plus"
           size="small"
           class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px] !text-xs !font-semibold !px-3 !py-1.5"
@@ -16,29 +16,25 @@
       </template>
     </PageHeader>
 
-    <!-- 2. Thẻ Thống Kê Đối Chiếu 3 Bên (Hairline Border, 6px Rounded) -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-      <div class="bg-white border border-slate-200 rounded-[6px] p-3 flex items-center justify-between">
+    <!-- 2. Thẻ Thống Kê Đối Chiếu 3 Bên (1 Hàng Ngang 4 Thẻ) -->
+    <div class="grid grid-cols-4 gap-3">
+      <div 
+        class="bg-white border border-slate-200 rounded-[6px] p-3 flex items-center justify-between cursor-pointer hover:border-amber-300 transition-colors"
+        @click="activeTab = 'pending_invoices'"
+      >
         <div>
-          <span class="text-xs text-slate-500 font-medium block">Tổng số hóa đơn</span>
-          <span class="text-lg font-bold text-slate-900 font-mono tabular-nums">{{ stats.total }}</span>
-        </div>
-        <div class="w-9 h-9 rounded-[6px] bg-slate-100 flex items-center justify-center text-slate-600">
-          <i class="pi pi-receipt text-base"></i>
-        </div>
-      </div>
-
-      <div class="bg-white border border-slate-200 rounded-[6px] p-3 flex items-center justify-between">
-        <div>
-          <span class="text-xs text-amber-600 font-medium block">Chờ đối chiếu</span>
-          <span class="text-lg font-bold text-amber-700 font-mono tabular-nums">{{ stats.pending }}</span>
+          <span class="text-xs text-amber-600 font-medium block">Hàng đã nhận chờ chứng từ</span>
+          <span class="text-lg font-bold text-amber-700 font-mono tabular-nums">{{ pendingInvoicingList.length }}</span>
         </div>
         <div class="w-9 h-9 rounded-[6px] bg-amber-50 flex items-center justify-center text-amber-600">
-          <i class="pi pi-clock text-base"></i>
+          <i class="pi pi-inbox text-base"></i>
         </div>
       </div>
 
-      <div class="bg-white border border-slate-200 rounded-[6px] p-3 flex items-center justify-between">
+      <div 
+        class="bg-white border border-slate-200 rounded-[6px] p-3 flex items-center justify-between cursor-pointer hover:border-emerald-300 transition-colors"
+        @click="activeTab = 'invoice_list'"
+      >
         <div>
           <span class="text-xs text-emerald-600 font-medium block">Khớp 3 bên (Hợp lệ)</span>
           <span class="text-lg font-bold text-emerald-700 font-mono tabular-nums">{{ stats.matched }}</span>
@@ -48,7 +44,10 @@
         </div>
       </div>
 
-      <div class="bg-white border border-slate-200 rounded-[6px] p-3 flex items-center justify-between">
+      <div 
+        class="bg-white border border-slate-200 rounded-[6px] p-3 flex items-center justify-between cursor-pointer hover:border-rose-300 transition-colors"
+        @click="activeTab = 'invoice_list'"
+      >
         <div>
           <span class="text-xs text-rose-600 font-medium block">Lệch số liệu (Cần xử lý)</span>
           <span class="text-lg font-bold text-rose-700 font-mono tabular-nums">{{ stats.discrepancy }}</span>
@@ -57,155 +56,337 @@
           <i class="pi pi-exclamation-triangle text-base"></i>
         </div>
       </div>
+
+      <div 
+        class="bg-white border border-slate-200 rounded-[6px] p-3 flex items-center justify-between cursor-pointer hover:border-slate-300 transition-colors"
+        @click="activeTab = 'invoice_list'"
+      >
+        <div>
+          <span class="text-xs text-slate-500 font-medium block">Tổng chứng từ mua hàng</span>
+          <span class="text-lg font-bold text-slate-900 font-mono tabular-nums">{{ stats.total }}</span>
+        </div>
+        <div class="w-9 h-9 rounded-[6px] bg-slate-100 flex items-center justify-center text-slate-600">
+          <i class="pi pi-receipt text-base"></i>
+        </div>
+      </div>
     </div>
 
-    <!-- 3. Thanh Toolbar Lọc & Tìm Kiếm -->
-    <div class="bg-white border border-slate-200 rounded-[6px] p-3 flex flex-wrap items-center justify-between gap-3">
-      <div class="flex flex-wrap items-center gap-2">
-        <IconField>
-          <InputIcon class="pi pi-search text-xs" />
-          <InputText
-            v-model="searchQuery"
-            placeholder="Tìm theo số hóa đơn, nhà cung cấp, mã PO..."
-            class="w-80 !rounded-[6px] !text-xs !py-1.5"
+    <!-- 3. Thanh Tab Điều Hướng (Hairline Tabs) -->
+    <div class="bg-white border border-slate-200 rounded-[6px] overflow-hidden flex flex-col">
+      <div class="border-b border-slate-200 bg-slate-50/70 px-3 pt-2 flex items-center justify-between flex-wrap gap-2">
+        <div class="flex items-center gap-1">
+          <!-- TAB 1: LÔ HÀNG ĐÃ NHẬP KHO CHỜ LẬP CHỨNG TỪ -->
+          <button
+            type="button"
+            class="px-4 py-2 text-xs font-bold rounded-t-[6px] border-t border-l border-r transition-all flex items-center gap-2"
+            :class="activeTab === 'pending_invoices' 
+              ? 'bg-white text-sky-700 border-slate-200 shadow-sm border-b-transparent -mb-px' 
+              : 'text-slate-600 hover:text-slate-900 border-transparent'"
+            @click="activeTab = 'pending_invoices'"
+          >
+            <i class="pi pi-inbox text-xs"></i>
+            <span>Hàng Đã Nhập Chờ Lập Chứng Từ</span>
+            <span 
+              class="px-1.5 py-0.2 rounded-full text-[10px] font-mono"
+              :class="activeTab === 'pending_invoices' ? 'bg-amber-100 text-amber-800 font-bold' : 'bg-slate-200 text-slate-700'"
+            >
+              {{ pendingInvoicingList.length }}
+            </span>
+          </button>
+
+          <!-- TAB 2: DANH SÁCH CHỨNG TỪ MUA HÀNG & ĐỐI CHIẾU 3 BÊN -->
+          <button
+            type="button"
+            class="px-4 py-2 text-xs font-bold rounded-t-[6px] border-t border-l border-r transition-all flex items-center gap-2"
+            :class="activeTab === 'invoice_list' 
+              ? 'bg-white text-sky-700 border-slate-200 shadow-sm border-b-transparent -mb-px' 
+              : 'text-slate-600 hover:text-slate-900 border-transparent'"
+            @click="activeTab = 'invoice_list'"
+          >
+            <i class="pi pi-list text-xs"></i>
+            <span>Danh Sách Chứng Từ & Đối Chiếu</span>
+            <span 
+              class="px-1.5 py-0.2 rounded-full text-[10px] font-mono"
+              :class="activeTab === 'invoice_list' ? 'bg-sky-100 text-sky-800 font-bold' : 'bg-slate-200 text-slate-700'"
+            >
+              {{ invoices.length }}
+            </span>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2 pb-1.5">
+          <Button
+            label="Làm mới"
+            icon="pi pi-refresh"
             size="small"
+            text
+            class="!rounded-[6px] !text-xs !text-slate-600 hover:!bg-slate-100"
+            :loading="loading"
+            @click="loadAllData"
           />
-        </IconField>
-
-        <Select
-          v-model="statusFilter"
-          :options="statusOptions"
-          optionLabel="label"
-          optionValue="value"
-          placeholder="Tất cả trạng thái đối chiếu"
-          class="w-56 !rounded-[6px] !text-xs"
-          size="small"
-        />
-
-        <Button
-          v-if="searchQuery || statusFilter"
-          label="Xóa lọc"
-          icon="pi pi-filter-slash"
-          size="small"
-          text
-          severity="secondary"
-          class="!rounded-[6px] !text-xs !py-1"
-          @click="resetFilters"
-        />
+        </div>
       </div>
 
-      <div class="flex items-center gap-2">
-        <Button
-          label="Làm mới"
-          icon="pi pi-refresh"
-          size="small"
-          text
-          class="!rounded-[6px] !text-xs !text-slate-600 hover:!bg-slate-100"
-          :loading="loading"
-          @click="loadInvoices"
-        />
-      </div>
-    </div>
-
-    <!-- 4. Danh Sách Bản Ghi Sử Dụng CommonDataTable Bắt Buộc Theo UI_RULES.md -->
-    <CommonDataTable
-      :value="filteredInvoices"
-      :columns="tableColumns"
-      :loading="loading"
-      :rows="10"
-      emptyIcon="pi pi-receipt"
-      emptyTitle="Không tìm thấy hóa đơn mua hàng nào"
-      emptySubtitle="Chưa có hóa đơn nào phù hợp với bộ lọc tìm kiếm."
-    >
-      <!-- Cột Số Hóa Đơn -->
-      <template #col-invoice_number="{ data }">
-        <span
-          class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[6px] border border-sky-200 cursor-pointer hover:underline inline-block whitespace-nowrap"
-          @click="$router.push(`/purchase/invoices/${data.id}`)"
-          title="Nhấp để xem biên bản đối chiếu 3 bên"
-        >
-          {{ data.invoice_number }}
-        </span>
-      </template>
-
-      <!-- Cột Nhà Cung Cấp -->
-      <template #col-supplier_name="{ data }">
-        <div class="flex flex-col">
-          <span class="text-xs font-semibold text-slate-800">{{ data.supplier_name }}</span>
-          <span v-if="data.supplier_tax_code" class="text-[11px] text-slate-500 font-mono">MST: {{ data.supplier_tax_code }}</span>
-        </div>
-      </template>
-
-      <!-- Cột Số PO -->
-      <template #col-po_number="{ data }">
-        <span class="font-mono text-xs font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-[6px] border border-slate-200 inline-block whitespace-nowrap">
-          {{ data.po_number || 'PO-202610-0001' }}
-        </span>
-      </template>
-
-      <!-- Cột Ngày Hóa Đơn -->
-      <template #col-invoice_date="{ data }">
-        <span class="text-xs text-slate-600 font-mono whitespace-nowrap">
-          {{ formatDate(data.invoice_date) }}
-        </span>
-      </template>
-
-      <!-- Cột Tổng Tiền Hóa Đơn -->
-      <template #col-total_amount="{ data }">
-        <div class="text-right">
-          <span class="font-mono text-xs font-bold text-slate-900 tabular-nums whitespace-nowrap">
-            {{ formatCurrency(data.total_amount) }}
-          </span>
-        </div>
-      </template>
-
-      <!-- Cột Trạng Thái Đối Chiếu 3 Bên -->
-      <template #col-matching_status="{ data }">
-        <div class="text-center">
-          <Badge
-            :severity="getMatchingStatusSeverity(data.matching_status)"
-            :value="getMatchingStatusLabel(data.matching_status)"
-          />
-        </div>
-      </template>
-
-      <!-- Cột Trạng Thái Ghi Sổ -->
-      <template #col-is_posted="{ data }">
-        <div class="text-center">
-          <Badge
-            :severity="data.is_posted ? 'success' : 'secondary'"
-            :value="data.is_posted ? 'Đã ghi sổ' : 'Chưa ghi sổ'"
-          />
-        </div>
-      </template>
-
-      <!-- Cột Thao Tác (Slot Mặc Định) -->
-      <Column header="Thao Tác" style="width: 110px" class="text-center">
-        <template #body="{ data }">
-          <div class="flex items-center justify-center gap-1.5">
+      <!-- 4. NỘI DUNG TAB 1: LÔ HÀNG ĐÃ NHẬP KHO CHỜ LẬP CHỨNG TỪ -->
+      <div v-if="activeTab === 'pending_invoices'" class="p-3 flex flex-col gap-3">
+        <!-- Toolbar Lọc cho Tab Chờ Lập Chứng Từ -->
+        <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50/50 p-2 rounded-[6px] border border-slate-100">
+          <div class="flex items-center gap-2">
+            <IconField>
+              <InputIcon class="pi pi-search text-xs" />
+              <InputText
+                v-model="pendingSearchQuery"
+                placeholder="Tìm mã đơn PO, nhà cung cấp, mã phiếu GRN..."
+                class="w-80 !rounded-[6px] !text-xs !py-1.5"
+                size="small"
+              />
+            </IconField>
             <Button
-              icon="pi pi-search-plus"
+              v-if="pendingSearchQuery"
+              label="Xóa lọc"
+              icon="pi pi-filter-slash"
               size="small"
-              outlined
+              text
               severity="secondary"
-              class="!w-7 !h-7 !p-0 !rounded-[6px]"
-              v-tooltip.top="'Xem đối chiếu 3 bên'"
-              @click="$router.push(`/purchase/invoices/${data.id}`)"
-            />
-            <Button
-              v-if="data.matching_status === 'MATCHED' && !data.is_posted"
-              icon="pi pi-book"
-              size="small"
-              outlined
-              severity="success"
-              class="!w-7 !h-7 !p-0 !rounded-[6px]"
-              v-tooltip.top="'Ghi sổ kế toán ngay'"
-              @click="postInvoice(data)"
+              class="!rounded-[6px] !text-xs !py-1"
+              @click="pendingSearchQuery = ''"
             />
           </div>
-        </template>
-      </Column>
-    </CommonDataTable>
+          <span class="text-xs text-slate-500">
+            Có <strong class="text-slate-800">{{ filteredPendingInvoices.length }}</strong> đơn hàng đã nhập kho chờ lập chứng từ mua hàng
+          </span>
+        </div>
+
+        <CommonDataTable
+          :value="filteredPendingInvoices"
+          :columns="pendingColumns"
+          :loading="loading"
+          :rows="10"
+          emptyIcon="pi pi-check-circle"
+          emptyTitle="Không có lô hàng nào chờ lập chứng từ mua hàng"
+          emptySubtitle="Tất cả các lô hàng đã nhập kho đều đã được lập chứng từ đối chiếu hoặc chưa có hàng nhập kho."
+        >
+          <!-- Cột Mã PO -->
+          <template #col-po_code="{ data }">
+            <span
+              class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[6px] border border-sky-200 cursor-pointer hover:underline inline-block whitespace-nowrap"
+              @click="$router.push(`/purchase/orders/${data.po_id}`)"
+              title="Nhấp để xem đơn mua hàng PO"
+            >
+              {{ data.po_code }}
+            </span>
+          </template>
+
+          <!-- Cột Nhà Cung Cấp -->
+          <template #col-supplier_name="{ data }">
+            <div class="flex flex-col">
+              <span class="text-xs font-semibold text-slate-800">{{ getSupplierName(data.supplier_id) }}</span>
+              <span v-if="data.po_notes" class="text-[11px] text-slate-500 truncate max-w-xs">{{ data.po_notes }}</span>
+            </div>
+          </template>
+
+          <!-- Cột Phiếu Nhập Kho Liên Quan -->
+          <template #col-grn_summary="{ data }">
+            <div class="flex flex-wrap gap-1 items-center">
+              <span 
+                v-for="grn in data.grn_list" 
+                :key="grn.id"
+                class="font-mono text-[11px] font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200"
+              >
+                {{ grn.code }}
+              </span>
+              <span v-if="!data.grn_list || data.grn_list.length === 0" class="text-xs text-slate-400 italic">
+                Nhập kho toàn bộ
+              </span>
+            </div>
+          </template>
+
+          <!-- Cột Số Lượng Thực Nhận / Chờ Lập Chứng Từ -->
+          <template #col-quantity_summary="{ data }">
+            <div class="flex flex-col text-xs">
+              <div class="flex items-center gap-1.5">
+                <span class="text-slate-500">Đã nhập kho:</span>
+                <span class="font-mono font-bold text-slate-800">{{ data.total_received_qty }} sản phẩm</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-amber-600 font-medium">Chưa lập CT:</span>
+                <span class="font-mono font-bold text-amber-700">{{ data.uninvoiced_qty }} sản phẩm</span>
+              </div>
+            </div>
+          </template>
+
+          <!-- Cột Giá Trị Tạm Tính Chờ CT -->
+          <template #col-estimated_amount="{ data }">
+            <div class="text-right">
+              <span class="font-mono text-xs font-bold text-slate-900 tabular-nums whitespace-nowrap">
+                {{ formatCurrency(data.estimated_amount) }}
+              </span>
+            </div>
+          </template>
+
+          <!-- Cột Thao Tác: Lập Chứng Từ Mua Hàng -->
+          <Column header="Thao Tác" style="width: 140px" class="text-center">
+            <template #body="{ data }">
+              <Button
+                label="Lập chứng từ"
+                icon="pi pi-receipt"
+                size="small"
+                class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !rounded-[6px] !text-xs !font-semibold !px-2.5 !py-1"
+                v-tooltip.top="'Lập chứng từ mua hàng và đối chiếu 3 bên'"
+                @click="createInvoiceForOrder(data)"
+              />
+            </template>
+          </Column>
+        </CommonDataTable>
+      </div>
+
+      <!-- 5. NỘI DUNG TAB 2: DANH SÁCH CHỨNG TỪ & ĐỐI CHIẾU -->
+      <div v-else class="p-3 flex flex-col gap-3">
+        <!-- Toolbar Lọc & Tìm Kiếm Chứng Từ -->
+        <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50/50 p-2 rounded-[6px] border border-slate-100">
+          <div class="flex flex-wrap items-center gap-2">
+            <IconField>
+              <InputIcon class="pi pi-search text-xs" />
+              <InputText
+                v-model="searchQuery"
+                placeholder="Tìm theo số hóa đơn, mã PINV, mã đơn PO..."
+                class="w-80 !rounded-[6px] !text-xs !py-1.5"
+                size="small"
+              />
+            </IconField>
+
+            <Select
+              v-model="statusFilter"
+              :options="statusOptions"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Tất cả trạng thái đối chiếu"
+              class="w-56 !rounded-[6px] !text-xs"
+              size="small"
+            />
+
+            <Button
+              v-if="searchQuery || statusFilter"
+              label="Xóa lọc"
+              icon="pi pi-filter-slash"
+              size="small"
+              text
+              severity="secondary"
+              class="!rounded-[6px] !text-xs !py-1"
+              @click="resetFilters"
+            />
+          </div>
+        </div>
+
+        <CommonDataTable
+          :value="filteredInvoices"
+          :columns="tableColumns"
+          :loading="loading"
+          :rows="10"
+          emptyIcon="pi pi-receipt"
+          emptyTitle="Không tìm thấy chứng từ mua hàng nào"
+          emptySubtitle="Chưa có chứng từ nào phù hợp với bộ lọc tìm kiếm."
+        >
+          <!-- Cột Số Hóa Đơn VAT / Mã Chứng Từ -->
+          <template #col-supplier_invoice_number="{ data }">
+            <div class="flex flex-col">
+              <span
+                class="font-mono text-xs font-bold text-sky-700 cursor-pointer hover:underline inline-block whitespace-nowrap"
+                @click="$router.push(`/purchase/invoices/${data.id}`)"
+                title="Nhấp để xem chứng từ & biên bản đối chiếu 3 bên"
+              >
+                {{ data.supplier_invoice_number || data.invoice_number || '—' }}
+              </span>
+              <span class="text-[11px] font-mono text-slate-400">
+                {{ data.code }}
+              </span>
+            </div>
+          </template>
+
+          <!-- Cột Số PO -->
+          <template #col-po_code="{ data }">
+            <span class="font-mono text-xs font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-[6px] border border-slate-200 inline-block whitespace-nowrap">
+              {{ data.po_code || data.po_number || (data.purchase_order_id ? `PO #${data.purchase_order_id}` : '—') }}
+            </span>
+          </template>
+
+          <!-- Cột Phiếu Nhập Kho (GRN) -->
+          <template #col-goods_receipt_code="{ data }">
+            <span v-if="data.goods_receipt_code" class="font-mono text-xs text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[6px] border border-sky-200 inline-block whitespace-nowrap">
+              {{ data.goods_receipt_code }}
+            </span>
+            <span v-else class="text-xs text-slate-400 italic">
+              Toàn bộ PO
+            </span>
+          </template>
+
+          <!-- Cột Ngày Hóa Đơn -->
+          <template #col-invoice_date="{ data }">
+            <span class="text-xs text-slate-600 font-mono whitespace-nowrap">
+              {{ formatDate(data.invoice_date) }}
+            </span>
+          </template>
+
+          <!-- Cột Tổng Tiền Hóa Đơn -->
+          <template #col-grand_total="{ data }">
+            <div class="text-right">
+              <span class="font-mono text-xs font-bold text-slate-900 tabular-nums whitespace-nowrap">
+                {{ formatCurrency(data.grand_total ?? data.total_amount) }}
+              </span>
+            </div>
+          </template>
+
+          <!-- Cột Trạng Thái Đối Chiếu 3 Bên -->
+          <template #col-matching_status="{ data }">
+            <div class="text-center">
+              <Tag
+                :severity="getMatchingStatusSeverity(data.matching_status)"
+                :value="getMatchingStatusLabel(data.matching_status)"
+                class="!rounded-[6px] !text-[11px] !font-semibold !px-2 !py-0.5"
+              />
+            </div>
+          </template>
+
+          <!-- Cột Trạng Thái Ghi Sổ -->
+          <template #col-status="{ data }">
+            <div class="text-center">
+              <Tag
+                :severity="String(data.status).toUpperCase() === 'POSTED' ? 'success' : 'secondary'"
+                :value="String(data.status).toUpperCase() === 'POSTED' ? 'Đã ghi sổ' : 'Dự thảo'"
+                class="!rounded-[6px] !text-[11px] !font-semibold !px-2 !py-0.5"
+              />
+            </div>
+          </template>
+
+          <!-- Cột Thao Tác -->
+          <Column header="Thao Tác" style="width: 110px" class="text-center">
+            <template #body="{ data }">
+              <div class="flex items-center justify-center gap-1.5">
+                <Button
+                  icon="pi pi-search-plus"
+                  size="small"
+                  outlined
+                  severity="secondary"
+                  class="!w-7 !h-7 !p-0 !rounded-[6px]"
+                  v-tooltip.top="'Xem đối chiếu 3 bên'"
+                  @click="$router.push(`/purchase/invoices/${data.id}`)"
+                />
+                <Button
+                  v-if="String(data.matching_status).toUpperCase() === 'MATCHED' && String(data.status).toUpperCase() !== 'POSTED'"
+                  icon="pi pi-book"
+                  size="small"
+                  outlined
+                  severity="success"
+                  class="!w-7 !h-7 !p-0 !rounded-[6px]"
+                  v-tooltip.top="'Ghi sổ kế toán ngay'"
+                  @click="postInvoice(data)"
+                />
+              </div>
+            </template>
+          </Column>
+        </CommonDataTable>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -214,7 +395,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import Button from 'primevue/button';
-import Badge from 'primevue/badge';
+import Tag from 'primevue/tag';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import IconField from 'primevue/iconfield';
@@ -224,89 +405,161 @@ import Column from 'primevue/column';
 import PageHeader from '../../../components/common/PageHeader.vue';
 import CommonDataTable from '../../../components/common/CommonDataTable.vue';
 import { purchaseApi } from '../../../api/purchase.api';
-import { MATCHING_STATUS } from '../../../constants/purchase.constant';
+import { catalogApi } from '../../../api/catalog.api';
+import { MATCHING_STATUS, DEFAULT_SUPPLIERS } from '../../../constants/purchase.constant';
 import { formatCurrency } from '../../../utils/format';
 
 const router = useRouter();
 const toast = useToast();
 
+const activeTab = ref('pending_invoices');
 const invoices = ref([]);
+const orders = ref([]);
+const receipts = ref([]);
+const suppliers = ref([]);
 const loading = ref(false);
+
+const pendingSearchQuery = ref('');
 const searchQuery = ref('');
 const statusFilter = ref(null);
 
 const statusOptions = [
   { label: 'Tất cả trạng thái', value: null },
-  { label: 'Chờ đối chiếu', value: 'PENDING' },
-  { label: 'Khớp', value: 'MATCHED' },
-  { label: 'Lệch', value: 'DISCREPANCY' },
-  { label: 'Đã ghi sổ', value: 'POSTED' }
+  { label: 'Chờ đối chiếu', value: 'Unmatched' },
+  { label: 'Khớp 100%', value: 'Matched' },
+  { label: 'Lệch số liệu', value: 'Discrepancy' }
 ];
 
+// Cột cho danh sách chờ lập chứng từ
+const pendingColumns = [
+  { field: 'po_code', header: 'Mã Đơn PO', width: '160px' },
+  { field: 'supplier_name', header: 'Nhà Cung Cấp', width: '220px' },
+  { field: 'grn_summary', header: 'Phiếu Nhập Kho (GRN)', width: '200px' },
+  { field: 'quantity_summary', header: 'Hàng Đã Nhập Kho', width: '200px' },
+  { field: 'estimated_amount', header: 'Tiền Hàng Chờ CT', width: '170px', align: 'right' }
+];
+
+// Cột cho bảng danh sách chứng từ mua hàng
 const tableColumns = [
-  { field: 'invoice_number', header: 'Số Hóa Đơn VAT', width: '160px' },
-  { field: 'supplier_name', header: 'Nhà Cung Cấp', width: '250px' },
-  { field: 'po_number', header: 'Mã Đơn PO', width: '150px' },
-  { field: 'invoice_date', header: 'Ngày Hóa Đơn', width: '130px' },
-  { field: 'total_amount', header: 'Tổng Tiền (VNĐ)', width: '150px', align: 'right' },
-  { field: 'matching_status', header: 'Đối Chiếu 3 Bên', width: '170px', align: 'center' },
-  { field: 'is_posted', header: 'Ghi Sổ', width: '120px', align: 'center' }
+  { field: 'supplier_invoice_number', header: 'Số Hóa Đơn / Mã CT', width: '180px' },
+  { field: 'po_code', header: 'Mã Đơn PO', width: '160px' },
+  { field: 'goods_receipt_code', header: 'Phiếu Nhập Kho', width: '150px' },
+  { field: 'invoice_date', header: 'Ngày Chứng Từ', width: '130px' },
+  { field: 'grand_total', header: 'Tổng Tiền (VNĐ)', width: '160px', align: 'right' },
+  { field: 'matching_status', header: 'Đối Chiếu 3 Bên', width: '160px', align: 'center' },
+  { field: 'status', header: 'Ghi Sổ Kế Toán', width: '130px', align: 'center' }
 ];
 
-const fallbackInvoices = [
-  {
-    id: 1,
-    invoice_number: 'VAT-LG-2026/0891',
-    supplier_id: 1,
-    supplier_name: 'Công ty TNHH LG Electronics Việt Nam',
-    supplier_tax_code: '0100109106',
-    purchase_order_id: 1,
-    po_number: 'PO-202610-0001',
-    invoice_date: '2026-10-02T08:00:00Z',
-    total_amount: 508750000,
-    matching_status: 'MATCHED',
-    is_posted: true
-  },
-  {
-    id: 2,
-    invoice_number: 'VAT-ELX-2026/0442',
-    supplier_id: 2,
-    supplier_name: 'Công ty TNHH Electrolux Việt Nam',
-    supplier_tax_code: '0301444890',
-    purchase_order_id: 2,
-    po_number: 'PO-202610-0002',
-    invoice_date: '2026-10-02T13:00:00Z',
-    total_amount: 402600000,
-    matching_status: 'DISCREPANCY',
-    is_posted: false
-  }
-];
-
-const loadInvoices = async () => {
+const loadAllData = async () => {
   loading.value = true;
   try {
-    const res = await purchaseApi.getInvoices();
-    const data = res?.data || res?.items || res;
-    if (Array.isArray(data) && data.length > 0) {
-      invoices.value = data;
-    } else {
-      invoices.value = fallbackInvoices;
+    const [invRes, ordRes, recRes, supRes] = await Promise.allSettled([
+      purchaseApi.getInvoices(),
+      purchaseApi.getOrders(),
+      purchaseApi.getReceipts(),
+      catalogApi.getSuppliers()
+    ]);
+
+    if (invRes.status === 'fulfilled') {
+      const iData = invRes.value?.data || invRes.value?.items || invRes.value;
+      invoices.value = Array.isArray(iData) ? iData : [];
+    }
+
+    if (ordRes.status === 'fulfilled') {
+      const oData = ordRes.value?.data || ordRes.value?.items || ordRes.value;
+      orders.value = Array.isArray(oData) ? oData : [];
+    }
+
+    if (recRes.status === 'fulfilled') {
+      const rData = recRes.value?.data || recRes.value?.items || recRes.value;
+      receipts.value = Array.isArray(rData) ? rData : [];
+    }
+
+    if (supRes.status === 'fulfilled') {
+      const sData = supRes.value?.data || supRes.value?.items || supRes.value;
+      suppliers.value = Array.isArray(sData) ? sData : [];
     }
   } catch (err) {
-    console.warn('API error, using fallback invoices:', err);
-    invoices.value = fallbackInvoices;
+    console.error('Lỗi khi tải dữ liệu chứng từ mua hàng:', err);
+    toast.add({
+      severity: 'error',
+      summary: 'Lỗi',
+      detail: err.message || 'Không thể tải dữ liệu chứng từ mua hàng từ máy chủ',
+      life: 4000
+    });
   } finally {
     loading.value = false;
   }
 };
 
+// Danh sách các lô hàng / đơn PO đã nhập kho (GRN) nhưng chưa xuất hết hóa đơn
+const pendingInvoicingList = computed(() => {
+  const result = [];
+
+  for (const po of orders.value) {
+    if (!po.items || po.items.length === 0) continue;
+
+    const totalReceived = po.items.reduce((s, it) => s + Number(it.quantity_received || 0), 0);
+    const totalInvoiced = po.items.reduce((s, it) => s + Number(it.quantity_invoiced || 0), 0);
+    const unInvoiced = totalReceived - totalInvoiced;
+
+    // Nếu đã có hàng thực nhận vào kho và còn phần chưa xuất hóa đơn
+    if (totalReceived > 0 && unInvoiced > 0) {
+      // Tìm các phiếu GRN của PO này
+      const relatedGrns = receipts.value.filter(r => 
+        (r.purchase_order_id && Number(r.purchase_order_id) === Number(po.id)) ||
+        (r.po_code && r.po_code === po.code)
+      );
+
+      // Tính tổng tiền ước tính cho số lượng chưa lập hóa đơn
+      let estimatedAmount = 0;
+      for (const it of po.items) {
+        const itemUnInvoiced = Math.max(0, Number(it.quantity_received || 0) - Number(it.quantity_invoiced || 0));
+        if (itemUnInvoiced > 0) {
+          const itemCost = Number(it.unit_cost || 0);
+          const taxRate = Number(it.tax_rate ?? 10) / 100;
+          estimatedAmount += itemUnInvoiced * itemCost * (1 + taxRate);
+        }
+      }
+
+      result.push({
+        po_id: po.id,
+        po_code: po.code || po.po_number || `PO #${po.id}`,
+        supplier_id: po.supplier_id,
+        po_notes: po.notes,
+        total_received_qty: totalReceived,
+        uninvoiced_qty: unInvoiced,
+        estimated_amount: estimatedAmount,
+        grn_list: relatedGrns,
+        latest_grn_id: relatedGrns.length > 0 ? relatedGrns[relatedGrns.length - 1].id : null
+      });
+    }
+  }
+
+  return result;
+});
+
+const filteredPendingInvoices = computed(() => {
+  let list = pendingInvoicingList.value || [];
+  if (pendingSearchQuery.value) {
+    const q = pendingSearchQuery.value.toLowerCase().trim();
+    list = list.filter(item => {
+      const code = item.po_code.toLowerCase();
+      const sup = getSupplierName(item.supplier_id).toLowerCase();
+      const grnMatch = (item.grn_list || []).some(g => (g.code || '').toLowerCase().includes(q));
+      return code.includes(q) || sup.includes(q) || grnMatch;
+    });
+  }
+  return list;
+});
+
 const stats = computed(() => {
   const list = invoices.value || [];
   return {
     total: list.length,
-    pending: list.filter(x => x.matching_status === 'PENDING').length,
-    matched: list.filter(x => x.matching_status === 'MATCHED' || x.matching_status === 'POSTED').length,
-    discrepancy: list.filter(x => x.matching_status === 'DISCREPANCY').length
+    pending: list.filter(x => String(x.matching_status).toUpperCase() === 'UNMATCHED' || String(x.matching_status).toUpperCase() === 'PENDING').length,
+    matched: list.filter(x => String(x.matching_status).toUpperCase() === 'MATCHED').length,
+    discrepancy: list.filter(x => String(x.matching_status).toUpperCase() === 'DISCREPANCY').length
   };
 });
 
@@ -316,16 +569,36 @@ const filteredInvoices = computed(() => {
     const q = searchQuery.value.toLowerCase().trim();
     list = list.filter(
       x =>
-        (x.invoice_number && x.invoice_number.toLowerCase().includes(q)) ||
-        (x.supplier_name && x.supplier_name.toLowerCase().includes(q)) ||
-        (x.po_number && x.po_number.toLowerCase().includes(q))
+        (x.supplier_invoice_number && x.supplier_invoice_number.toLowerCase().includes(q)) ||
+        (x.code && x.code.toLowerCase().includes(q)) ||
+        (x.po_code && x.po_code.toLowerCase().includes(q)) ||
+        (x.goods_receipt_code && x.goods_receipt_code.toLowerCase().includes(q))
     );
   }
   if (statusFilter.value) {
-    list = list.filter(x => x.matching_status === statusFilter.value);
+    const filterUpper = statusFilter.value.toUpperCase();
+    list = list.filter(x => String(x.matching_status).toUpperCase() === filterUpper);
   }
   return list;
 });
+
+const getSupplierName = (supplierId) => {
+  if (!supplierId) return '—';
+  const foundApi = suppliers.value.find(s => s.id === Number(supplierId));
+  if (foundApi) {
+    return foundApi.code ? `[${foundApi.code}] ${foundApi.name}` : foundApi.name;
+  }
+  const foundDefault = DEFAULT_SUPPLIERS.find(s => s.id === Number(supplierId));
+  return foundDefault ? (foundDefault.code ? `[${foundDefault.code}] ${foundDefault.name}` : foundDefault.name) : `Nhà cung cấp #${supplierId}`;
+};
+
+const createInvoiceForOrder = (item) => {
+  let url = `/purchase/invoices/create?poId=${item.po_id}`;
+  if (item.latest_grn_id) {
+    url += `&grnId=${item.latest_grn_id}`;
+  }
+  router.push(url);
+};
 
 const resetFilters = () => {
   searchQuery.value = '';
@@ -333,11 +606,15 @@ const resetFilters = () => {
 };
 
 const getMatchingStatusSeverity = (status) => {
-  return MATCHING_STATUS[status]?.severity || 'secondary';
+  const upper = String(status || '').toUpperCase();
+  if (upper === 'UNMATCHED') return 'secondary';
+  return MATCHING_STATUS[upper]?.severity || 'secondary';
 };
 
 const getMatchingStatusLabel = (status) => {
-  return MATCHING_STATUS[status]?.label || status;
+  const upper = String(status || '').toUpperCase();
+  if (upper === 'UNMATCHED') return 'Chưa đối chiếu';
+  return MATCHING_STATUS[upper]?.label || status;
 };
 
 const formatDate = (dateStr) => {
@@ -353,17 +630,25 @@ const formatDate = (dateStr) => {
 const postInvoice = async (item) => {
   try {
     await purchaseApi.postInvoice(item.id);
-    item.is_posted = true;
-    item.matching_status = 'POSTED';
-    toast.add({ severity: 'success', summary: 'Thành công', detail: `Đã ghi sổ kế toán hóa đơn ${item.invoice_number}`, life: 3000 });
+    item.status = 'Posted';
+    toast.add({
+      severity: 'success',
+      summary: 'Thành công',
+      detail: `Đã ghi sổ kế toán hóa đơn ${item.supplier_invoice_number || item.code}`,
+      life: 3500
+    });
+    loadAllData();
   } catch (err) {
-    item.is_posted = true;
-    item.matching_status = 'POSTED';
-    toast.add({ severity: 'success', summary: 'Thành công', detail: `Đã ghi sổ kế toán hóa đơn ${item.invoice_number}`, life: 3000 });
+    toast.add({
+      severity: 'error',
+      summary: 'Lỗi ghi sổ',
+      detail: err.message || 'Không thể ghi sổ hóa đơn',
+      life: 4500
+    });
   }
 };
 
 onMounted(() => {
-  loadInvoices();
+  loadAllData();
 });
 </script>

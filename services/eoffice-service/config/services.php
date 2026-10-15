@@ -3,7 +3,7 @@
 return [
 
     'identity' => [
-        'jwt_secret' => env('JWT_SECRET'),
+        'jwt_secret' => env('JWT_SECRET', 'smart_erp_super_secure_jwt_secret_key_2026'),
         'url' => env('IDENTITY_SERVICE_URL', 'http://127.0.0.1:8001'),
     ],
 

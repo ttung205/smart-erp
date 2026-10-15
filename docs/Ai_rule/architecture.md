@@ -55,8 +55,8 @@ Dù viết bằng **C# (.NET 8)** hay **PHP (Laravel)**, mọi microservice đ�
 | **`identity-service`** | PHP 8.2+ (Laravel) | **8001** | Auth Provider, quản lý Users, Roles, Dynamic RBAC, cấp phát Stateless JWT Token. |
 | **`catalog-service`** | PHP 8.2+ (Laravel) | **8002** | Master Data: Sản phẩm, Đơn vị tính, Danh mục kho bãi, Đối tác (Khách hàng/NCC), ghi Outbox Event. |
 | **`purchase-service`** | PHP / C# | **8003** | Quản lý Đơn mua hàng (PO), Phê duyệt PO, Xác nhận Nhập kho (Goods Receipt flow). |
-| **`inventory-service`** | **C# (.NET 8 Web API)** | **8004** | High-performance Stock Engine, Quản lý On-Hand/Reserved/Available, Atomic Concurrency Lock, Thẻ kho. |
-| **`sales-service`** | **C# (.NET 8 Web API)** | **8005** | Quản lý Đơn bán hàng (SO), Lập Delivery Request, Điều phối Saga Orchestrator. |
+| **`inventory-service`** | **C# (.NET 10 Web API)** | **8004** | High-performance Stock Engine, Quản lý On-Hand/Reserved/Available, Atomic Concurrency Lock, Thẻ kho. |
+| **`sales-service`** | **C# (.NET 10 Web API)** | **8005** | Quản lý Đơn bán hàng (SO), Lập Delivery Request, Điều phối Saga Orchestrator. |
 | **`notification-service`** | Node.js | **8006** | Gửi Email / thông báo realtime cho người dùng. |
 | **`eoffice-service`** | PHP Laravel | **8007** | Văn phòng số nội bộ: Xin nghỉ phép, Đề nghị mua sắm, Tạm ứng, Lịch công tác và luồng duyệt dùng chung. |
 | **`finance-service`** | PHP Laravel | **8008** | Thu chi, sổ quỹ, công nợ phải thu, sổ cái. |

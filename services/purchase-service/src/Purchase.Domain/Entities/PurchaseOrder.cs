@@ -81,6 +81,27 @@ public class PurchaseOrder
         UpdatedAt = DateTime.UtcNow;
     }
 
+    public void Close(string? reason = null)
+    {
+        if (Status == PurchaseOrderStatus.Completed)
+            throw new PurchaseDomainException("INVALID_STATE", "Đơn PO đã ở trạng thái Hoàn tất.");
+
+        if (Status == PurchaseOrderStatus.Cancelled)
+            throw new PurchaseDomainException("INVALID_STATE", "Không thể đóng đơn PO đã bị hủy.");
+
+        if (Status == PurchaseOrderStatus.Draft || Status == PurchaseOrderStatus.PendingApproval)
+            throw new PurchaseDomainException("INVALID_STATE", "Chỉ có thể đóng đơn PO đã được phê duyệt hoặc đang nhập kho dở dang.");
+
+        Status = PurchaseOrderStatus.Completed;
+        if (!string.IsNullOrWhiteSpace(reason))
+        {
+            Notes = string.IsNullOrWhiteSpace(Notes)
+                ? $"[Đóng đơn hoàn tất]: {reason}"
+                : $"{Notes}\n[Đóng đơn hoàn tất]: {reason}";
+        }
+        UpdatedAt = DateTime.UtcNow;
+    }
+
     public void RefreshFulfillmentStatus()
     {
         if (!Items.Any()) return;

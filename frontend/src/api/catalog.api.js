@@ -145,6 +145,10 @@ export const catalogApi = {
   },
 
   // 5. Suppliers (Nhà cung cấp)
+  generateSupplierCode(supplierType = 'TRADING') {
+    return apiClient(`/api/v1/catalog/suppliers/generate-code?supplier_type=${encodeURIComponent(supplierType)}`);
+  },
+
   getSuppliers(params = {}) {
     const qs = new URLSearchParams(params).toString();
     return apiClient(`/api/v1/catalog/suppliers${qs ? '?' + qs : ''}`);

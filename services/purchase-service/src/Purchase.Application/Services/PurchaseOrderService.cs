@@ -294,6 +294,73 @@ public class PurchaseOrderService : IPurchaseOrderService
         }
     }
 
+    public async Task<PurchaseOrderDto> CloseAsync(long id, ClosePurchaseOrderDto dto, CancellationToken ct = default)
+    {
+        var po = await _context.PurchaseOrders
+            .Include(x => x.Items)
+            .Include(x => x.Allocations)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+
+        if (po == null)
+            throw new KeyNotFoundException($"Không tìm thấy đơn mua hàng ID = {id}.");
+
+        po.Close(dto.Reason);
+
+        // Giải phóng phân bổ cho phần chênh lệch chưa nhận đủ để PR không bị kẹt
+        var affectedPrIds = new HashSet<long>();
+        foreach (var item in po.Items)
+        {
+            var unreceived = Math.Max(0, item.QuantityOrdered - item.QuantityReceived);
+            if (unreceived > 0)
+            {
+                var allocs = po.Allocations
+                    .Where(a => a.PurchaseOrderItemId == item.Id && a.Status == PrAllocationStatus.Active)
+                    .ToList();
+
+                var remainingToRelease = unreceived;
+                foreach (var alloc in allocs)
+                {
+                    if (remainingToRelease <= 0) break;
+                    var releaseQty = Math.Min(alloc.AllocatedQuantity, remainingToRelease);
+                    alloc.AllocatedQuantity -= releaseQty;
+                    if (alloc.AllocatedQuantity <= 0)
+                    {
+                        alloc.Release();
+                    }
+                    remainingToRelease -= releaseQty;
+                    affectedPrIds.Add(alloc.PurchaseRequisitionId);
+
+                    await _context.ExecuteSqlInterpolatedAsync(
+                        $"UPDATE purchase_requisition_items SET quantity_ordered = MAX(0, quantity_ordered - {releaseQty}) WHERE id = {alloc.PurchaseRequisitionItemId}",
+                        ct);
+
+                    var trackedItem = _context.PurchaseRequisitionItems.Local.FirstOrDefault(x => x.Id == alloc.PurchaseRequisitionItemId);
+                    if (trackedItem != null)
+                    {
+                        trackedItem.QuantityOrdered = Math.Max(0, trackedItem.QuantityOrdered - releaseQty);
+                    }
+                }
+            }
+        }
+
+        await _context.SaveChangesAsync(ct);
+
+        foreach (var prId in affectedPrIds)
+        {
+            var pr = await _context.PurchaseRequisitions
+                .Include(x => x.Items)
+                .FirstOrDefaultAsync(x => x.Id == prId, ct);
+
+            if (pr != null)
+            {
+                pr.RefreshOrderStatus();
+            }
+        }
+
+        await _context.SaveChangesAsync(ct);
+        return MapToDto(po);
+    }
+
     public async Task<PurchaseOrderDto?> GetByIdAsync(long id, CancellationToken ct = default)
     {
         var po = await _context.PurchaseOrders
