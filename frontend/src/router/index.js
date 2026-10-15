@@ -51,7 +51,6 @@ import SaleReturnFormPage from '../pages/sale-return/form.vue';
 import LeaveRequestPage from '../pages/eoffice/leave/index.vue';
 import LeaveRequestFormPage from '../pages/eoffice/leave/form.vue';
 import LeaveCalendarPage from '../pages/eoffice/leave-calendar/index.vue';
-import ApprovalInboxPage from '../pages/eoffice/approvals/index.vue';
 import LeaveBalancesPage from '../pages/eoffice/leave-balances/index.vue';
 
 // Purchase sub-pages
@@ -613,12 +612,15 @@ export const routes = [
   { path: '/accounting', redirect: '/customer-receivables' },
   // E-Office: mọi nhân viên đăng nhập đều dùng được (quyền chi tiết kiểm tra ở eoffice-service)
   { path: '/eoffice', redirect: '/eoffice/leave' },
-  { path: '/eoffice/leave', name: 'eoffice-leave', component: LeaveRequestPage, meta: { requiresAuth: true, title: 'Nghỉ phép của tôi' } },
+  { path: '/eoffice/leave', name: 'eoffice-leave', component: LeaveRequestPage, meta: { requiresAuth: true, title: 'Nghỉ phép' } },
   { path: '/eoffice/leave/new', name: 'eoffice-leave-new', component: LeaveRequestFormPage, meta: { requiresAuth: true, title: 'Tạo đơn xin nghỉ phép' } },
   { path: '/eoffice/leave/:id', name: 'eoffice-leave-detail', component: LeaveRequestFormPage, meta: { requiresAuth: true, title: 'Chi tiết đơn nghỉ phép' } },
-  { path: '/eoffice/leave-calendar', name: 'eoffice-leave-calendar', component: LeaveCalendarPage, meta: { requiresAuth: true, title: 'Lịch nghỉ của phòng' } },
-  { path: '/eoffice/approvals', name: 'eoffice-approvals', component: ApprovalInboxPage, meta: { requiresAuth: true, title: 'Chờ tôi duyệt' } },
-  { path: '/eoffice/leave-balances', name: 'eoffice-leave-balances', component: LeaveBalancesPage, meta: { requiresAuth: true, resource: 'eoffice', permission: 'eoffice.manage', title: 'Quản lý phép năm' } },
+  // Trang con của Nghỉ phép (đường dẫn tĩnh được ưu tiên hơn /eoffice/leave/:id)
+  { path: '/eoffice/leave/calendar', name: 'eoffice-leave-calendar', component: LeaveCalendarPage, meta: { requiresAuth: true, title: 'Lịch nghỉ' } },
+  { path: '/eoffice/leave/balances', name: 'eoffice-leave-balances', component: LeaveBalancesPage, meta: { requiresAuth: true, resource: 'eoffice', permission: 'eoffice.manage', title: 'Quản lý phép năm' } },
+  { path: '/eoffice/leave-calendar', redirect: '/eoffice/leave/calendar' },
+  { path: '/eoffice/leave-balances', redirect: '/eoffice/leave/balances' },
+  { path: '/eoffice/approvals', redirect: { path: '/eoffice/leave', query: { scope: 'to_approve' } } },
   // Backward compatibility alias redirects
   { path: '/sales/quotation', redirect: '/quotation' },
   { path: '/sales/order', redirect: '/order' },

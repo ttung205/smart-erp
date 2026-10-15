@@ -23,12 +23,12 @@ export function formatDate(dateString) {
   if (!dateString) return '-';
   const str = String(dateString).trim();
   if (str === '-' || str === 'null' || str === 'undefined' || str === '') return '-';
-  
+
   // Nếu đã ở dạng DD/MM/YYYY
   if (/^\d{2}\/\d{2}\/\d{4}/.test(str)) {
     return str.substring(0, 10);
   }
-  
+
   // Nếu ở dạng YYYY-MM-DD hoặc ISO string (tránh lệch timezone)
   const match = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (match) {
@@ -37,7 +37,7 @@ export function formatDate(dateString) {
     const d = match[3].padStart(2, '0');
     return `${d}/${m}/${y}`;
   }
-  
+
   const d = new Date(dateString);
   if (isNaN(d.getTime())) return dateString;
   const day = String(d.getDate()).padStart(2, '0');

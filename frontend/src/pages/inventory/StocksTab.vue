@@ -3,54 +3,54 @@
     <!-- Toolbar tìm kiếm và lọc kho -->
     <div class="flex items-center justify-between flex-wrap gap-3 bg-slate-50 p-3 rounded-[6px] border border-slate-200">
       <div class="flex items-center flex-wrap gap-2.5">
-        <InputText 
-          v-model="search" 
-          placeholder="Tìm theo SKU, tên sản phẩm, xuất xứ, kho..." 
+        <InputText
+          v-model="search"
+          placeholder="Tìm theo SKU, tên sản phẩm, xuất xứ, kho..."
           size="small"
-          class="w-72 bg-white !rounded-[6px]" 
+          class="w-72 bg-white !rounded-[6px]"
         />
 
-        <Select 
-          v-model="selectedWarehouseId" 
-          :options="warehouseOptions" 
-          optionLabel="label" 
-          optionValue="value" 
-          placeholder="Tất cả kho" 
+        <Select
+          v-model="selectedWarehouseId"
+          :options="warehouseOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Tất cả kho"
           size="small"
-          class="min-w-[180px] !rounded-[6px]" 
-          @change="loadStocks" 
+          class="min-w-[180px] !rounded-[6px]"
+          @change="loadStocks"
         />
 
-        <Select 
-          v-model="selectedOrigin" 
-          :options="originOptions" 
-          optionLabel="label" 
-          optionValue="value" 
-          placeholder="Tất cả xuất xứ" 
+        <Select
+          v-model="selectedOrigin"
+          :options="originOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Tất cả xuất xứ"
           size="small"
-          class="min-w-[150px] !rounded-[6px]" 
+          class="min-w-[150px] !rounded-[6px]"
         />
 
-        <Button 
+        <Button
           v-if="search || selectedWarehouseId || selectedOrigin"
-          label="Xóa lọc" 
-          size="small" 
-          text 
-          severity="secondary" 
+          label="Xóa lọc"
+          size="small"
+          text
+          severity="secondary"
           class="!rounded-[6px]"
-          @click="resetFilters" 
+          @click="resetFilters"
         />
       </div>
 
       <div class="flex items-center gap-2">
-        <Button 
-          label="Làm mới" 
+        <Button
+          label="Làm mới"
           icon="pi pi-refresh"
-          size="small" 
-          text 
+          size="small"
+          text
           class="!rounded-[6px]"
-          :loading="loading" 
-          @click="loadStocks" 
+          :loading="loading"
+          @click="loadStocks"
         />
       </div>
     </div>
@@ -92,8 +92,8 @@
           <span class="text-xs font-medium text-slate-700">
             {{ data.warehouse_name || ('Kho #' + data.warehouse_id) }}
           </span>
-          <span 
-            v-if="data.can_sell" 
+          <span
+            v-if="data.can_sell"
             class="text-[10px] px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded font-semibold"
             v-tooltip.top="'Kho này được bật để bán hàng'"
           >
@@ -113,7 +113,7 @@
       <!-- Đang Giữ Chỗ -->
       <template #col-quantity_reserved="{ data }">
         <div class="text-right">
-          <div 
+          <div
             v-if="data.quantity_reserved > 0"
             class="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded cursor-pointer hover:bg-amber-100 transition-colors"
             v-tooltip.top="'Nhấn vào để xem chi tiết các đơn đang giữ chỗ'"
@@ -129,8 +129,8 @@
       <!-- Khả Dụng Tại Kho -->
       <template #col-available="{ data }">
         <div class="text-right">
-          <span 
-            class="font-mono text-sm font-bold" 
+          <span
+            class="font-mono text-sm font-bold"
             :class="data.available > 0 ? 'text-sky-700' : 'text-slate-400'"
           >
             {{ formatNumber(data.available) }}
@@ -142,7 +142,7 @@
       <!-- Tồn Bán Hàng -->
       <template #col-sales_available="{ data }">
         <div class="text-right">
-          <span 
+          <span
             class="font-mono text-sm font-bold text-emerald-600"
             v-tooltip.top="'Tổng tồn khả dụng của sản phẩm này tại các kho được chọn để bán hàng'"
           >
@@ -155,24 +155,24 @@
       <!-- Thao Tác -->
       <Column header="Thao Tác" class="text-center" style="width: 140px">
         <template #body="{ data }">
-          <Button 
-            icon="pi pi-file-plus" 
-            size="small" 
-            outlined 
-            severity="info" 
-            class="!text-xs !py-1 !px-2.5 !rounded-[6px] !whitespace-nowrap hover:!bg-sky-50" 
-            v-tooltip.top="'Tạo Phiếu Đề Nghị Mua Sắm (PR) cho sản phẩm này'" 
-            @click="createPurchaseRequisition(data)" 
+          <Button
+            icon="pi pi-file-plus"
+            size="small"
+            outlined
+            severity="info"
+            class="!text-xs !py-1 !px-2.5 !rounded-[6px] !whitespace-nowrap hover:!bg-sky-50"
+            v-tooltip.top="'Tạo Phiếu Đề Nghị Mua Sắm (PR) cho sản phẩm này'"
+            @click="createPurchaseRequisition(data)"
           />
         </template>
       </Column>
     </CommonDataTable>
 
     <!-- Dialog Hiển Thị Danh Sách Đơn Hàng Đang Giữ Chỗ -->
-    <Dialog 
-      v-model:visible="showReserveDialog" 
-      :header="`Chi Tiết Đơn Hàng Giữ Chỗ: ${activeItem?.product_name || ''}`" 
-      modal 
+    <Dialog
+      v-model:visible="showReserveDialog"
+      :header="`Chi Tiết Đơn Hàng Giữ Chỗ: ${activeItem?.product_name || ''}`"
+      modal
       class="w-full max-w-2xl"
     >
       <div class="py-2">

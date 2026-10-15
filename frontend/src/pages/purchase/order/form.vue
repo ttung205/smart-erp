@@ -351,7 +351,7 @@ const loadOrder = async (id) => {
     const rawStatus = String(matchedData.status || 'DRAFT').toUpperCase();
     const normalizedStatus = rawStatus === 'PENDINGAPPROVAL' ? 'SUBMITTED'
       : rawStatus === 'PARTIALLYRECEIVED' ? 'PARTIALLY_RECEIVED'
-      : rawStatus;
+        : rawStatus;
 
     form.id = matchedData.id;
     form.po_number = matchedData.po_number || matchedData.code || `PO-202610-${String(id).padStart(4, '0')}`;

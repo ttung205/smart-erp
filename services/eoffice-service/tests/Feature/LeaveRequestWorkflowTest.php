@@ -43,8 +43,8 @@ class LeaveRequestWorkflowTest extends TestCase
             '*/api/departments/2' => Http::response(['success' => true, 'data' => ['id' => 2, 'code' => 'SALES', 'manager_id' => self::MANAGER, 'manager_name' => 'Trưởng Phòng Kinh Doanh']]),
             '*/api/departments/1' => Http::response(['success' => true, 'data' => ['id' => 1, 'code' => 'BOD', 'manager_id' => self::DIRECTOR, 'manager_name' => 'Giám Đốc']]),
             '*/api/users' => Http::response(['success' => true, 'data' => [
-                ['id' => self::EMPLOYEE, 'name' => 'Lê Văn Nhân Viên', 'email' => 'nv@erp.local', 'is_active' => 1, 'department_name' => 'Phòng Kinh Doanh'],
-                ['id' => self::MANAGER, 'name' => 'Trưởng Phòng Kinh Doanh', 'email' => 'tp@erp.local', 'is_active' => 1, 'department_name' => 'Phòng Kinh Doanh'],
+                ['id' => self::EMPLOYEE, 'name' => 'Lê Văn Nhân Viên', 'email' => 'nv@erp.local', 'is_active' => 1, 'department_name' => 'Phòng Kinh Doanh', 'line_manager_id' => self::MANAGER],
+                ['id' => self::MANAGER, 'name' => 'Trưởng Phòng Kinh Doanh', 'email' => 'tp@erp.local', 'is_active' => 1, 'department_name' => 'Phòng Kinh Doanh', 'line_manager_id' => self::DIRECTOR],
                 ['id' => 99, 'name' => 'Nhân Viên Đã Nghỉ Việc', 'email' => 'old@erp.local', 'is_active' => 0, 'department_name' => null],
             ]]),
             '*/api/departments' => Http::response(['success' => true, 'data' => [
@@ -214,6 +214,35 @@ class LeaveRequestWorkflowTest extends TestCase
         $this->withHeaders($this->jwtHeaders(self::EMPLOYEE))->postJson('/api/leave-requests', $this->payload() + ['submit' => true])->assertCreated();
 
         $this->withHeaders($this->jwtHeaders(self::MANAGER))->getJson('/api/approvals/inbox')->assertJsonPath('pending_count', 1);
+    }
+
+    public function test_leave_list_shows_own_team_and_pending_approvals(): void
+    {
+        $employee = $this->jwtHeaders(self::EMPLOYEE);
+        $manager = $this->jwtHeaders(self::MANAGER);
+        $draftId = $this->withHeaders($employee)->postJson('/api/leave-requests', $this->payload())->json('data.id');
+        $submittedId = $this->withHeaders($employee)->postJson('/api/leave-requests', $this->payload([
+            'start_date' => '2026-10-22', 'end_date' => '2026-10-22',
+        ]) + ['submit' => true])->json('data.id');
+        // Người ngoài nhóm (không phải cấp dưới, không gán duyệt cho trưởng phòng)
+        $this->identityUsers[77] = ['id' => 77, 'department_id' => 1, 'line_manager_id' => self::DIRECTOR];
+        $outsiderId = $this->withHeaders($this->jwtHeaders(77, 1))->postJson('/api/leave-requests', $this->payload() + ['submit' => true])->json('data.id');
+
+        // Trưởng phòng: thấy đơn đã gửi của cấp dưới, không thấy nháp, không thấy đơn của người ngoài
+        $this->withHeaders($manager)->getJson('/api/leave-requests')->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $submittedId)->assertJsonPath('pending_count', 1);
+        $this->withHeaders($manager)->getJson('/api/leave-requests?scope=to_approve')->assertJsonCount(1, 'data');
+        $this->withHeaders($manager)->getJson('/api/leave-requests?scope=team')->assertJsonCount(1, 'data');
+        $this->withHeaders($manager)->getJson('/api/leave-requests?scope=mine')->assertJsonCount(0, 'data');
+        $this->withHeaders($manager)->getJson("/api/leave-requests/{$submittedId}")->assertOk();
+        $this->withHeaders($manager)->getJson("/api/leave-requests/{$draftId}")->assertForbidden();
+        $this->withHeaders($manager)->getJson("/api/leave-requests/{$outsiderId}")->assertForbidden();
+
+        // Nhân viên: thấy cả nháp của mình
+        $this->withHeaders($employee)->getJson('/api/leave-requests')->assertJsonCount(2, 'data')->assertJsonPath('pending_count', 0);
+
+        // Super Admin: thấy mọi đơn đã gửi của toàn công ty
+        $this->withHeaders($this->jwtHeaders(1, 1, roles: ['SUPER_ADMIN']))->getJson('/api/leave-requests')->assertJsonCount(2, 'data');
     }
 
     public function test_super_admin_sees_leave_calendar_of_all_departments(): void

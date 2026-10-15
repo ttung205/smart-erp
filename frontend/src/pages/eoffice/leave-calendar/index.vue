@@ -2,6 +2,7 @@
   <div class="space-y-4 pb-8">
     <PageHeader :title="canViewAll ? 'Lịch Nghỉ Toàn Công Ty' : 'Lịch Nghỉ Của Phòng'" subtitle="Ai vắng mặt trong tháng: đơn đã duyệt và đơn đang chờ duyệt">
       <template #actions>
+        <Button label="Quay lại" icon="pi pi-arrow-left" size="small" severity="secondary" outlined @click="router.push('/eoffice/leave')" />
         <Select
           v-if="canViewAll"
           v-model="departmentId"
@@ -68,6 +69,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import Button from 'primevue/button';
 import DatePicker from 'primevue/datepicker';
@@ -80,6 +82,7 @@ import { hasPermission } from '../../../utils/rbac';
 import { storage } from '../../../utils/storage';
 import { formatDays, toIsoDate } from '../constants';
 
+const router = useRouter();
 const toast = useToast();
 const WEEKDAYS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 // Super Admin (và quyền eoffice.manage) xem được lịch nghỉ toàn công ty; quyền thật kiểm tra ở eoffice-service

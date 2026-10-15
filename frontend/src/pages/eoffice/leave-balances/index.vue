@@ -2,6 +2,7 @@
   <div class="space-y-4 pb-8">
     <PageHeader title="Quản Lý Phép Năm" subtitle="Đặt ngày đầu kỳ, số phép đầu kỳ và theo dõi số phép còn lại của từng nhân viên">
       <template #actions>
+        <Button label="Quay lại" icon="pi pi-arrow-left" size="small" severity="secondary" outlined @click="router.push('/eoffice/leave')" />
         <Button label="Làm mới" icon="pi pi-refresh" size="small" severity="secondary" outlined :loading="loading" @click="load" />
       </template>
     </PageHeader>
@@ -107,6 +108,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import Button from 'primevue/button';
 import Column from 'primevue/column';
@@ -122,6 +124,7 @@ import { eofficeApi } from '../../../api/eoffice.api';
 import { formatDate } from '../../../utils/format';
 import { LEAVE_STATUS, SESSION_LABELS, formatDays, fromIsoDate, toIsoDate } from '../constants';
 
+const router = useRouter();
 const toast = useToast();
 const currentYear = new Date().getFullYear();
 

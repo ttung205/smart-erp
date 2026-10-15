@@ -404,7 +404,7 @@ const isSaleUser = (u) => {
 const userOptions = computed(() => {
   const saleUsers = users.value.filter(isSaleUser);
   const list = saleUsers.length > 0 ? saleUsers : users.value.filter(u => String(u.name || u.email || '').toLowerCase().includes('sale'));
-  
+
   if (list.length === 0) {
     return [
       { id: 2, name: 'Chuyên Viên Kinh Doanh (Sale)', label: 'Chuyên Viên Kinh Doanh (sale@erp.local)' },

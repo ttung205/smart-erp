@@ -191,7 +191,7 @@ const toggleFolder = (folderId) => {
 // Lọc menu theo quyền người dùng (chỉ hiển thị những trang có quyền .view)
 const menuCategories = computed(() => {
   if (!props.currentUser) return rawMenuCategories;
-  
+
   // Super Admin thấy tất cả
   if (props.currentUser.roles && props.currentUser.roles.includes('SUPER_ADMIN')) {
     return rawMenuCategories;

@@ -8,10 +8,10 @@
 
     <!-- Navigation Tabs Phân Hệ Kho -->
     <div class="flex items-center gap-2 border-b border-slate-200 bg-white px-4 pt-2 rounded-t-[6px]">
-      <button 
+      <button
         class="px-4 py-2 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2"
-        :class="currentSubTab === 'overview' 
-          ? 'border-sky-600 text-sky-700 bg-sky-50/50 rounded-t-[4px]' 
+        :class="currentSubTab === 'overview'
+          ? 'border-sky-600 text-sky-700 bg-sky-50/50 rounded-t-[4px]'
           : 'border-transparent text-slate-600 hover:text-slate-900'"
         @click="switchTab('overview')"
       >
@@ -19,10 +19,10 @@
         Tổng Quan & Quản Lý Kho
       </button>
 
-      <button 
+      <button
         class="px-4 py-2 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2"
-        :class="currentSubTab === 'stocks' 
-          ? 'border-sky-600 text-sky-700 bg-sky-50/50 rounded-t-[4px]' 
+        :class="currentSubTab === 'stocks'
+          ? 'border-sky-600 text-sky-700 bg-sky-50/50 rounded-t-[4px]'
           : 'border-transparent text-slate-600 hover:text-slate-900'"
         @click="switchTab('stocks')"
       >
@@ -30,10 +30,10 @@
         Bảng Tồn Kho
       </button>
 
-      <button 
+      <button
         class="px-4 py-2 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2"
-        :class="currentSubTab === 'movements' 
-          ? 'border-sky-600 text-sky-700 bg-sky-50/50 rounded-t-[4px]' 
+        :class="currentSubTab === 'movements'
+          ? 'border-sky-600 text-sky-700 bg-sky-50/50 rounded-t-[4px]'
           : 'border-transparent text-slate-600 hover:text-slate-900'"
         @click="switchTab('movements')"
       >

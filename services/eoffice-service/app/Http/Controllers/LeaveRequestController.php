@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ApprovalStep;
 use App\Models\LeaveRequest;
+use App\Services\IdentityClient;
 use App\Services\LeaveDayCalculator;
 use App\Services\LeaveRequestService;
 use Illuminate\Http\JsonResponse;
@@ -14,37 +16,73 @@ class LeaveRequestController extends Controller
 {
     public function __construct(private readonly LeaveRequestService $service) {}
 
-    /** Đơn nghỉ của chính người đăng nhập. */
-    public function index(Request $request): JsonResponse
+    /**
+     * Mọi đơn nghỉ người đăng nhập được xem:
+     * - mine: đơn của chính mình (kể cả nháp)
+     * - team: đơn của nhân viên nhận mình làm line manager (trừ nháp)
+     * - to_approve: đơn đang chờ mình duyệt
+     * - all (mặc định): gộp cả 3 nhóm trên + đơn mình từng được gán duyệt; Super Admin / eoffice.manage thấy toàn công ty
+     */
+    public function index(Request $request, IdentityClient $identity): JsonResponse
     {
         $actor = $request->attributes->get('actor');
-        $query = LeaveRequest::with(['leaveType', 'approvalSteps'])->where('user_id', $actor->id)
-            ->orderByDesc('start_date')->orderByDesc('id');
+        $request->validate(['scope' => ['nullable', Rule::in(['all', 'mine', 'team', 'to_approve'])]]);
+        $scope = (string) $request->input('scope', 'all');
+        $teamIds = in_array($scope, ['all', 'team'], true) ? $identity->directReportIds($actor->id) : [];
+        $myPendingStep = fn ($steps) => $steps->where('approver_id', $actor->id)->where('status', ApprovalStep::PENDING);
+
+        $query = LeaveRequest::with(['leaveType', 'approvalSteps'])->orderByDesc('start_date')->orderByDesc('id');
+        match ($scope) {
+            'mine' => $query->where('user_id', $actor->id),
+            'team' => $query->whereIn('user_id', $teamIds)->where('status', '!=', LeaveRequest::DRAFT),
+            'to_approve' => $query->whereHas('approvalSteps', $myPendingStep),
+            default => $query->where(function ($visible) use ($actor, $teamIds) {
+                $visible->where('user_id', $actor->id)->orWhere(function ($others) use ($actor, $teamIds) {
+                    $others->where('status', '!=', LeaveRequest::DRAFT);
+                    if (! $this->canManage($actor)) {
+                        $others->where(fn ($related) => $related->whereIn('user_id', $teamIds)
+                            ->orWhereHas('approvalSteps', fn ($steps) => $steps->where('approver_id', $actor->id)));
+                    }
+                });
+            }),
+        };
         if ($request->filled('status')) {
             $query->where('status', (string) $request->input('status'));
         }
         if ($request->filled('year')) {
             $query->whereYear('start_date', $request->integer('year'));
         }
-        $requests = $query->paginate(min(max($request->integer('per_page', 20), 1), 100));
+        if ($request->filled('search')) {
+            $search = trim((string) $request->input('search'));
+            $query->where(fn ($match) => $match->where('code', 'like', "%{$search}%")->orWhere('user_name', 'like', "%{$search}%"));
+        }
+        $requests = $query->paginate(min(max($request->integer('per_page', 20), 1), 200));
 
         return response()->json([
             'success' => true, 'data' => $requests->items(), 'total' => $requests->total(),
+            'pending_count' => LeaveRequest::whereHas('approvalSteps', $myPendingStep)->count(),
             'meta' => ['current_page' => $requests->currentPage(), 'last_page' => $requests->lastPage(), 'per_page' => $requests->perPage()],
         ]);
     }
 
-    public function show(Request $request, LeaveRequest $leaveRequest): JsonResponse
+    public function show(Request $request, LeaveRequest $leaveRequest, IdentityClient $identity): JsonResponse
     {
         $actor = $request->attributes->get('actor');
         $leaveRequest->load(['leaveType', 'approvalSteps', 'approvalHistories']);
+        $isOwner = (int) $leaveRequest->user_id === $actor->id;
         $isApprover = $leaveRequest->approvalSteps->contains('approver_id', $actor->id);
-        $canManage = in_array('eoffice.manage', $actor->permissions, true) || in_array('SUPER_ADMIN', $actor->roles, true);
-        if ((int) $leaveRequest->user_id !== $actor->id && ! $isApprover && ! $canManage) {
+        $visibleToOthers = $leaveRequest->status !== LeaveRequest::DRAFT
+            && ($isApprover || $this->canManage($actor) || in_array((int) $leaveRequest->user_id, $identity->directReportIds($actor->id), true));
+        if (! $isOwner && ! $visibleToOthers) {
             throw new AccessDeniedHttpException('Bạn không có quyền xem đơn này.');
         }
 
         return response()->json(['success' => true, 'data' => $leaveRequest]);
+    }
+
+    private function canManage(object $actor): bool
+    {
+        return in_array('eoffice.manage', $actor->permissions, true) || in_array('SUPER_ADMIN', $actor->roles, true);
     }
 
     public function store(Request $request): JsonResponse

@@ -29,6 +29,23 @@ class IdentityClient
         return $this->get('/api/users');
     }
 
+    /**
+     * Nhân viên nhận $managerId làm line manager. Trả về rỗng nếu identity-service không phản hồi
+     * (danh sách đơn vẫn hiển thị đơn của chính mình và đơn chờ mình duyệt).
+     *
+     * @return list<int>
+     */
+    public function directReportIds(int $managerId): array
+    {
+        try {
+            $users = $this->users();
+        } catch (ValidationException) {
+            return [];
+        }
+
+        return collect($users)->where('line_manager_id', $managerId)->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+    }
+
     private function get(string $path, string $notFound = 'Không đọc được dữ liệu từ identity-service.'): array
     {
         try {

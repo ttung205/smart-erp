@@ -90,8 +90,8 @@
           <button
             type="button"
             class="px-4 py-2 text-xs font-bold rounded-t-[6px] border-t border-l border-r transition-all flex items-center gap-2"
-            :class="activeTab === 'all' 
-              ? 'bg-white text-indigo-700 border-slate-200 shadow-sm border-b-transparent -mb-px' 
+            :class="activeTab === 'all'
+              ? 'bg-white text-indigo-700 border-slate-200 shadow-sm border-b-transparent -mb-px'
               : 'text-slate-600 hover:text-slate-900 border-transparent'"
             @click="activeTab = 'all'"
           >
@@ -107,8 +107,8 @@
           <button
             type="button"
             class="px-4 py-2 text-xs font-bold rounded-t-[6px] border-t border-l border-r transition-all flex items-center gap-2"
-            :class="activeTab === 'unbilled' 
-              ? 'bg-white text-indigo-700 border-slate-200 shadow-sm border-b-transparent -mb-px' 
+            :class="activeTab === 'unbilled'
+              ? 'bg-white text-indigo-700 border-slate-200 shadow-sm border-b-transparent -mb-px'
               : 'text-slate-600 hover:text-slate-900 border-transparent'"
             @click="activeTab = 'unbilled'"
           >
@@ -124,8 +124,8 @@
           <button
             type="button"
             class="px-4 py-2 text-xs font-bold rounded-t-[6px] border-t border-l border-r transition-all flex items-center gap-2"
-            :class="activeTab === 'invoiced' 
-              ? 'bg-white text-indigo-700 border-slate-200 shadow-sm border-b-transparent -mb-px' 
+            :class="activeTab === 'invoiced'
+              ? 'bg-white text-indigo-700 border-slate-200 shadow-sm border-b-transparent -mb-px'
               : 'text-slate-600 hover:text-slate-900 border-transparent'"
             @click="activeTab = 'invoiced'"
           >
@@ -842,7 +842,7 @@ const allInvoices = computed(() => {
       }
 
       (vInv.items || []).forEach((vItem) => {
-        const matchItem = group.items.find((it) => 
+        const matchItem = group.items.find((it) =>
           (vItem.sales_invoice_item_id && it.id === vItem.sales_invoice_item_id) ||
           (it.sku && vItem.sku && it.sku.toLowerCase() === vItem.sku.toLowerCase())
         );
@@ -861,7 +861,7 @@ const allInvoices = computed(() => {
     const invId = uIt.invoice_id;
     if (invId && map.has(invId)) {
       const group = map.get(invId);
-      const matchItem = group.items.find((it) => 
+      const matchItem = group.items.find((it) =>
         (uIt.invoice_item_id && it.id === uIt.invoice_item_id) ||
         (it.sku && uIt.sku && it.sku.toLowerCase() === uIt.sku.toLowerCase())
       );
@@ -883,7 +883,7 @@ const allInvoices = computed(() => {
         group.linked_vat_invoices.push(rIt.vat_invoice_number);
       }
 
-      const matchItem = group.items.find((it) => 
+      const matchItem = group.items.find((it) =>
         (rIt.invoice_item_id && it.id === rIt.invoice_item_id) ||
         (it.sku && rIt.sku && it.sku.toLowerCase() === rIt.sku.toLowerCase())
       );
@@ -913,7 +913,7 @@ const allInvoices = computed(() => {
       const qty = Number(it.issued_quantity || it.quantity || 0);
       const remQty = Number(it.remaining_invoice_quantity !== undefined ? it.remaining_invoice_quantity : qty);
       const invQty = Number(it.invoiced_quantity !== undefined && it.invoiced_quantity > 0 ? it.invoiced_quantity : Math.max(0, qty - remQty));
-      
+
       it.issued_quantity = qty;
       it.remaining_invoice_quantity = remQty;
       it.invoiced_quantity = invQty;
@@ -1006,8 +1006,8 @@ const filteredAllInvoices = computed(() => {
     const matchInvNo = (inv.invoice_number || '').toLowerCase().includes(q);
     const matchCustName = (inv.customer_name || '').toLowerCase().includes(q);
     const matchTaxCode = (inv.customer_tax_code || '').toLowerCase().includes(q);
-    const matchItem = inv.items.some((it) => 
-      (it.sku && it.sku.toLowerCase().includes(q)) || 
+    const matchItem = inv.items.some((it) =>
+      (it.sku && it.sku.toLowerCase().includes(q)) ||
       (it.product_name && it.product_name.toLowerCase().includes(q))
     );
     return matchInvNo || matchCustName || matchTaxCode || matchItem;
@@ -1021,8 +1021,8 @@ const filteredUnbilledInvoices = computed(() => {
     const matchInvNo = (inv.invoice_number || '').toLowerCase().includes(q);
     const matchCustName = (inv.customer_name || '').toLowerCase().includes(q);
     const matchTaxCode = (inv.customer_tax_code || '').toLowerCase().includes(q);
-    const matchItem = inv.items.some((it) => 
-      (it.sku && it.sku.toLowerCase().includes(q)) || 
+    const matchItem = inv.items.some((it) =>
+      (it.sku && it.sku.toLowerCase().includes(q)) ||
       (it.product_name && it.product_name.toLowerCase().includes(q))
     );
     return matchInvNo || matchCustName || matchTaxCode || matchItem;

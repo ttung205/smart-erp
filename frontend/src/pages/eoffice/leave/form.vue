@@ -12,8 +12,20 @@
           <Button label="Gửi duyệt" icon="pi pi-send" size="small" :loading="saving === 'submit'" :disabled="!!saving" @click="save(true)" />
         </template>
         <Button v-if="isOwner && canCancel" label="Hủy đơn" icon="pi pi-times-circle" size="small" severity="danger" outlined :loading="saving === 'cancel'" @click="cancel" />
+        <template v-if="myPendingStep">
+          <Button label="Từ chối" icon="pi pi-times" size="small" severity="danger" outlined @click="openDecision('REJECTED')" />
+          <Button label="Trả lại" icon="pi pi-reply" size="small" severity="secondary" outlined @click="openDecision('RETURNED')" />
+          <Button label="Duyệt" icon="pi pi-check" size="small" severity="success" @click="openDecision('APPROVED')" />
+        </template>
       </template>
     </PageHeader>
+
+    <div v-if="request && !isOwner" class="bg-white border border-slate-200 rounded-[6px] px-4 py-3 text-xs text-slate-700 flex flex-wrap gap-x-6 gap-y-1">
+      <span>Người đề nghị: <strong class="text-slate-900">{{ request.user_name }}</strong></span>
+      <span>Gửi lúc: <strong class="text-slate-900">{{ formatDateTime(request.submitted_at) }}</strong></span>
+    </div>
+
+    <LeaveDecisionDialog v-model:visible="decision.visible" :request="request" :decision="decision.type" @done="load" />
 
     <div v-if="returnedComment" class="bg-sky-50 border border-sky-200 rounded-[6px] px-4 py-3 text-xs text-sky-800 flex gap-2">
       <i class="pi pi-reply mt-0.5"></i>
@@ -77,7 +89,7 @@
       </section>
 
       <aside class="flex flex-col gap-4">
-        <section class="bg-white border border-slate-200 rounded-[6px]">
+        <section v-if="isOwner" class="bg-white border border-slate-200 rounded-[6px]">
           <div class="px-4 py-3 border-b border-slate-200 text-sm font-semibold text-slate-900">Quỹ phép năm {{ balanceYear }}</div>
           <div class="p-4 grid grid-cols-2 gap-3 text-xs">
             <div><div class="text-slate-500">Phép đầu kỳ</div><div class="font-mono font-bold text-slate-900">{{ formatDays(balance?.opening_days) }}</div></div>
@@ -126,6 +138,7 @@ import Select from 'primevue/select';
 import Tag from 'primevue/tag';
 import Textarea from 'primevue/textarea';
 import PageHeader from '../../../components/common/PageHeader.vue';
+import LeaveDecisionDialog from '../components/LeaveDecisionDialog.vue';
 import { eofficeApi } from '../../../api/eoffice.api';
 import { identityApi } from '../../../api/identity.api';
 import { formatDate, formatDateTime } from '../../../utils/format';
@@ -168,6 +181,9 @@ const startSessionOptions = computed(() => singleDay.value ? SESSION_OPTIONS : S
 const endSessionOptions = SESSION_OPTIONS.filter(option => option.value !== 'AFTERNOON');
 const handoverOptions = computed(() => users.value.filter(user => Number(user.id) !== Number(currentUser?.sub)));
 const pendingStep = computed(() => request.value?.approval_steps?.find(step => step.status === 'PENDING'));
+const myPendingStep = computed(() => pendingStep.value && Number(pendingStep.value.approver_id) === Number(currentUser?.sub));
+const decision = reactive({ visible: false, type: 'APPROVED' });
+const openDecision = type => Object.assign(decision, { visible: true, type });
 const returnedComment = computed(() => {
   if (request.value?.status !== 'RETURNED') return null;
   return [...(request.value.approval_steps || [])].reverse().find(step => step.status === 'RETURNED')?.comment;

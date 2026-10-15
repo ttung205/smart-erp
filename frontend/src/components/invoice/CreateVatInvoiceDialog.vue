@@ -299,7 +299,7 @@ const initItems = async () => {
   try {
     const res = await salesApi.getUnbilledRevenueItems({ invoice_id: inv.id });
     const unbilledList = res.data || [];
-    
+
     if (unbilledList.length > 0) {
       invoiceItems.value = unbilledList.map((r) => ({
         revenue_report_item_id: r.id,

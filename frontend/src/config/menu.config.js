@@ -7,24 +7,24 @@ export const menuCategories = [
         path: '/dashboard',
         label: 'Bảng điều khiển',
         icon: 'pi pi-home'
-      },
-      {
-        id: 'eoffice-hub',
-        label: 'Văn phòng số',
-        icon: 'pi pi-briefcase',
-        isFolder: true,
-        children: [
-          { id: 'eoffice-leave', path: '/eoffice/leave', label: 'Nghỉ phép của tôi', icon: 'pi pi-calendar-minus' },
-          { id: 'eoffice-leave-calendar', path: '/eoffice/leave-calendar', label: 'Lịch nghỉ của phòng', icon: 'pi pi-calendar' },
-          { id: 'eoffice-approvals', path: '/eoffice/approvals', label: 'Chờ tôi duyệt', icon: 'pi pi-check-square' },
-          { id: 'eoffice-leave-balances', path: '/eoffice/leave-balances', resource: 'eoffice', permission: 'eoffice.manage', label: 'Quản lý phép năm', icon: 'pi pi-sliders-h' }
-        ]
       }
     ]
   },
   {
     category: 'Phân Hệ Nghiệp Vụ',
     items: [
+      {
+        id: 'eoffice-hub',
+        label: 'Văn phòng số',
+        icon: 'pi pi-briefcase',
+        isFolder: true,
+        children: [
+          { id: 'eoffice-leave',
+            path: '/eoffice/leave',
+            label: 'Nghỉ phép',
+            icon: 'pi pi-calendar-minus' }
+        ]
+      },
       {
         id: 'partner-hub',
         label: 'Đối tác',
@@ -305,7 +305,7 @@ export const menuCategories = [
             permission: 'inventory.view',
             label: 'Lịch sử tồn kho',
             icon: 'pi pi-history'
-          },
+          }
         ]
       },
       {

@@ -1,8 +1,8 @@
 <template>
-  <Dialog 
-    :visible="visible" 
-    modal 
-    header="Hủy Khóa Giữ Chỗ Tồn Kho (Release Reservation)" 
+  <Dialog
+    :visible="visible"
+    modal
+    header="Hủy Khóa Giữ Chỗ Tồn Kho (Release Reservation)"
     :style="{ width: '500px' }"
     @update:visible="$emit('update:visible', $event)"
   >
@@ -13,34 +13,34 @@
 
       <div class="flex flex-col gap-1.5">
         <label class="block text-xs font-semibold text-slate-700">Mã Đơn Bán Hàng Cần Hủy Giữ *</label>
-        <InputText 
-          v-model="form.orderId" 
-          placeholder="Ví dụ: SO-202609-0088" 
-          class="!text-xs w-full font-mono !rounded-[6px]" 
+        <InputText
+          v-model="form.orderId"
+          placeholder="Ví dụ: SO-202609-0088"
+          class="!text-xs w-full font-mono !rounded-[6px]"
         />
       </div>
 
       <div class="flex flex-col gap-1.5">
         <label class="block text-xs font-semibold text-slate-700">Kho Bãi Đang Giữ Hàng *</label>
-        <Select 
-          v-model="form.warehouseId" 
-          :options="warehouseOptions" 
-          optionLabel="label" 
-          optionValue="value" 
-          placeholder="Chọn kho..." 
-          class="w-full !rounded-[6px]" 
+        <Select
+          v-model="form.warehouseId"
+          :options="warehouseOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Chọn kho..."
+          class="w-full !rounded-[6px]"
         />
       </div>
 
       <div class="flex flex-col gap-1.5">
         <label class="block text-xs font-semibold text-slate-700">Mặt Hàng Cần Hủy Giữ Chỗ *</label>
-        <Select 
-          v-model="form.productId" 
-          :options="productOptions" 
-          optionLabel="label" 
-          optionValue="value" 
-          placeholder="Chọn mặt hàng..." 
-          class="w-full !rounded-[6px]" 
+        <Select
+          v-model="form.productId"
+          :options="productOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Chọn mặt hàng..."
+          class="w-full !rounded-[6px]"
         />
       </div>
 
@@ -69,12 +69,12 @@
             (Tối đa giải phóng: {{ selectedStock.quantity_reserved }})
           </span>
         </div>
-        <InputNumber 
-          v-model="form.quantity" 
-          :min="1" 
-          :max="selectedStock?.quantity_reserved || 10000" 
-          class="w-full font-mono !rounded-[6px]" 
-          placeholder="Nhập số lượng hủy..." 
+        <InputNumber
+          v-model="form.quantity"
+          :min="1"
+          :max="selectedStock?.quantity_reserved || 10000"
+          class="w-full font-mono !rounded-[6px]"
+          placeholder="Nhập số lượng hủy..."
         />
       </div>
     </div>
@@ -82,13 +82,13 @@
     <template #footer>
       <div class="flex items-center justify-end gap-2 w-full pt-2">
         <Button label="Đóng" text size="small" class="!rounded-[6px]" @click="$emit('update:visible', false)" />
-        <Button 
-          label="Xác Nhận Hủy Giữ Chỗ" 
-          size="small" 
-          class="!bg-amber-600 hover:!bg-amber-700 !text-white !border-amber-600 !rounded-[6px]" 
-          :loading="loading" 
+        <Button
+          label="Xác Nhận Hủy Giữ Chỗ"
+          size="small"
+          class="!bg-amber-600 hover:!bg-amber-700 !text-white !border-amber-600 !rounded-[6px]"
+          :loading="loading"
           :disabled="!selectedStock || selectedStock.quantity_reserved === 0"
-          @click="$emit('submit')" 
+          @click="$emit('submit')"
         />
       </div>
     </template>
