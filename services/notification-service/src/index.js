@@ -16,9 +16,11 @@ if (!config.jwtSecret) {
 const db = openDatabase(config.dbPath);
 const repository = new NotificationRepository(db);
 
-// Realtime gắn vào http server sau khi tạo app; publisher dùng tham chiếu trễ để app và socket dùng chung
 let realtime = null;
-const publisher = { toUser: (...args) => realtime?.toUser(...args) };
+const publisher = {
+  toUser: (...args) => realtime?.toUser(...args),
+  broadcast: (...args) => realtime?.broadcast(...args),
+};
 
 const app = createApp({
   repository,

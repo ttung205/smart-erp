@@ -150,4 +150,13 @@ export const rules = {
     recipients: () => ({}),
     resolves: (p) => [leaveKey(p)],
   },
+
+  // ── Sản phẩm mới: thông báo đến bộ phận Kho vận (LOGISTIC) để theo dõi tồn kho ──
+  ProductCreated: {
+    category: 'info',
+    recipients: () => ({ permissions: ['inventory.view'] }),
+    title: (p) => `Sản phẩm mới [${p.sku || p.name}]`,
+    body: (p) => `Sản phẩm "${p.name || ''}" (SKU: ${p.sku || ''}) vừa được thêm vào hệ thống. Tồn kho đã khởi tạo tự động.`,
+    link: () => '/inventory',
+  },
 };

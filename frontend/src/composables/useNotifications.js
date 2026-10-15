@@ -1,6 +1,7 @@
 import { computed, reactive } from 'vue';
 import { io } from 'socket.io-client';
 import { notificationApi } from '../api/notification.api';
+import { useStockStore } from '../stores/stockStore';
 
 const PAGE_SIZE = 20;
 
@@ -82,6 +83,27 @@ function connect(token) {
   });
   socket.on('notification:unread_count', ({ unread_count: count }) => {
     state.unreadCount = count;
+  });
+
+  // Giai đoạn 3: Real-time Catalog & Stock Sync
+  socket.on('catalog:product_created', (product) => {
+    try {
+      const stockStore = useStockStore();
+      stockStore.syncNewProduct(product);
+      window.dispatchEvent(new CustomEvent('catalog:product_created', { detail: product }));
+    } catch (e) {
+      console.error('[Realtime] Lỗi xử lý catalog:product_created:', e);
+    }
+  });
+
+  socket.on('inventory:stock_updated', (payload) => {
+    try {
+      const stockStore = useStockStore();
+      stockStore.applyStockUpdated(payload);
+      window.dispatchEvent(new CustomEvent('inventory:stock_updated', { detail: payload }));
+    } catch (e) {
+      console.error('[Realtime] Lỗi xử lý inventory:stock_updated:', e);
+    }
   });
 }
 

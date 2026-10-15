@@ -106,7 +106,8 @@ const ICONS = {
   SalesOrder: 'pi pi-shopping-cart',
   Delivery: 'pi pi-truck',
   WarehouseDispatch: 'pi pi-box',
-  LeaveRequest: 'pi pi-calendar'
+  LeaveRequest: 'pi pi-calendar',
+  Product: 'pi pi-box'
 };
 
 function iconFor(item) {

@@ -69,6 +69,7 @@ public class RabbitMqConnection : IDisposable
                 // Bind queue với các routing key cần nghe
                 channel.QueueBind(queue: InventoryQueueName, exchange: ExchangeName, routingKey: "sales.order.*");
                 channel.QueueBind(queue: InventoryQueueName, exchange: ExchangeName, routingKey: "purchase.goods.*");
+                channel.QueueBind(queue: InventoryQueueName, exchange: ExchangeName, routingKey: "catalog.product.*");
 
                 _logger.LogInformation("Đã kết nối thành công tới RabbitMQ Broker tại {Host}:{Port}", factory.HostName, factory.Port);
                 return true;

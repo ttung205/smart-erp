@@ -296,6 +296,19 @@ onMounted(async () => {
   } else if (route.path !== '/login' && route.path !== '/forbidden') {
     router.replace({ path: '/login', query: { redirect: route.fullPath } });
   }
+  window.addEventListener('catalog:product_created', (event) => {
+    const p = event.detail;
+    if (p) {
+      toast.add({
+        severity: 'info',
+        summary: 'Sản phẩm mới',
+        detail: `Sản phẩm mới [${p.sku || p.name}] vừa được thêm vào hệ thống`,
+        life: 4000
+      });
+      fetchProducts();
+    }
+  });
+
   setInterval(checkHealth, 15000);
 });
 </script>
