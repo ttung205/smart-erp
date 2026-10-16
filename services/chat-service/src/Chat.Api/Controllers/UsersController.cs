@@ -1,27 +1,34 @@
 using Chat.Application.Common.Models;
-using Chat.Infrastructure.Realtime;
+using Chat.Application.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Chat.Api.Controllers;
 
 [ApiController]
-[Route("api/v1/chat/users")]
-public class UsersController : ControllerBase
+[Route("api/v1/chat")]
+public class UsersController(UserService users) : ControllerBase
 {
-    private readonly HubConnectionTracker _tracker;
+    public record AliasInput(string? Alias);
 
-    public UsersController(HubConnectionTracker tracker)
-    {
-        _tracker = tracker;
-    }
+    private static OkObjectResult Data<T>(T data) => new(ApiEnvelope<T>.Ok(data));
 
-    /// <summary>
-    /// Lấy danh sách ID các nhân viên đang online realtime
-    /// </summary>
-    [HttpGet("online")]
-    public IActionResult GetOnlineUsers()
-    {
-        var onlineUserIds = _tracker.GetOnlineUsers();
-        return Ok(ApiEnvelope<List<int>>.Ok(onlineUserIds));
-    }
+    [HttpGet("users/search")]
+    public async Task<IActionResult> Search([FromQuery] string? q, [FromQuery] int limit = 20, CancellationToken ct = default) =>
+        Data(await users.SearchAsync(q, limit, ct));
+
+    [HttpGet("users/{id:long}")]
+    public async Task<IActionResult> Get(long id, CancellationToken ct) => Data(await users.GetAsync(id, ct));
+
+    [HttpGet("users/online")]
+    public IActionResult Online() => Data(users.OnlineUserIds());
+
+    [HttpPut("users/{id:long}/alias")]
+    public async Task<IActionResult> SetAlias(long id, [FromBody] AliasInput input, CancellationToken ct) =>
+        Data(new { alias = await users.SetAliasAsync(id, input.Alias, ct) });
+
+    [HttpGet("contacts")]
+    public async Task<IActionResult> Contacts(CancellationToken ct) => Data(await users.ContactsAsync(ct));
+
+    [HttpGet("preferences")]
+    public async Task<IActionResult> Preferences(CancellationToken ct) => Data(await users.PreferencesAsync(ct));
 }

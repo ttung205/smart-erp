@@ -1,17 +1,19 @@
+using System.Security.Claims;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Chat.Api.Hubs;
+using System.Threading.RateLimiting;
 using Chat.Api.Middlewares;
-using Chat.Api.Services;
+using Chat.Api.Realtime;
 using Chat.Application;
 using Chat.Application.Common.Interfaces;
+using Chat.Application.Common.Models;
 using Chat.Infrastructure;
 using Chat.Infrastructure.Persistence;
-using Chat.Infrastructure.Realtime;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Cấu hình JSON Naming Policy: snake_case theo chuẩn toàn hệ thống
+// 1. JSON snake_case theo chuẩn toàn hệ thống (REST và SignalR dùng chung)
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -19,104 +21,70 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
     });
 
-// 2. Đăng ký HttpContextAccessor, Tracker kết nối và CurrentUserService
-builder.Services.AddHttpContextAccessor();
-builder.Services.AddSingleton<HubConnectionTracker>();
-builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
-builder.Services.AddScoped<IChatHubService, ChatHubService>();
+builder.Services.AddSignalR(options =>
+    {
+        options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+        options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+        options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+    })
+    .AddJsonProtocol(options => options.PayloadSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower);
 
-// 3. Đăng ký Application & Infrastructure Services
+// 2. Application, Infrastructure và các adapter của tầng Api
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddScoped<HttpCurrentUser>();
+builder.Services.AddScoped<ICurrentUser>(provider => provider.GetRequiredService<HttpCurrentUser>());
+builder.Services.AddSingleton<IChatNotifier, SignalRChatNotifier>();
 
-// 4. Đăng ký SignalR Realtime Engine
-builder.Services.AddSignalR(options =>
+// 3. Giới hạn tần suất gửi tin theo từng người dùng (chỉ áp cho gửi/chuyển tiếp, không gộp với các API đọc)
+builder.Services.AddRateLimiter(options =>
 {
-    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
-    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
-    options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
-});
-
-// 5. Cấu hình CORS cho API Gateway (:8000), Vite Frontend (:5173 / :5174 / :5175) kèm WebSocket Credentials
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("ChatCorsPolicy", policy =>
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("send", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromSeconds(10) }));
+    options.OnRejected = async (context, ct) =>
     {
-        policy.SetIsOriginAllowed(_ => true)
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
-    });
+        context.HttpContext.Response.ContentType = "application/json";
+        var envelope = ApiEnvelope<object>.Fail("RATE_LIMITED", "Bạn gửi tin quá nhanh, vui lòng chờ một chút.");
+        await context.HttpContext.Response.WriteAsync(JsonSerializer.Serialize(envelope), ct);
+    };
 });
 
-// 6. Cấu hình Swagger OpenAPI qua Swashbuckle kèm bảo mật Bearer Token
+// 4. CORS: chỉ các origin frontend được khai báo (WebSocket cần AllowCredentials)
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:8000"];
+builder.Services.AddCors(options => options.AddPolicy("ChatCorsPolicy", policy =>
+    policy.WithOrigins(allowedOrigins).AllowAnyMethod().AllowAnyHeader().AllowCredentials()));
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
-    {
-        Title = "Smart ERP - Chat Realtime Service API",
-        Version = "v1",
-        Description = "Microservice Chat Realtime Doanh Nghiệp & Tích Hợp RabbitMQ Bot (.NET 10 Web API + SignalR)"
-    });
-
-    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-    {
-        Description = "Nhập JWT token theo định dạng: Bearer {token}",
-        Name = "Authorization",
-        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
-    });
-
-    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
-    {
-        {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-            {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
-                {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
-    });
-});
+    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo { Title = "Smart ERP - Chat Service API", Version = "v1" }));
 
 var app = builder.Build();
 
-app.UseCors("ChatCorsPolicy");
+// 5. Tạo/cập nhật CSDL theo migration
+using (var scope = app.Services.CreateScope())
+{
+    await scope.ServiceProvider.GetRequiredService<ChatDbContext>().Database.MigrateAsync();
+}
 
-// 7. Đăng ký Middlewares: Correlation ID, Global Exception Handling và JWT Authentication
+app.UseCors("ChatCorsPolicy");
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 app.UseMiddleware<JwtAuthMiddleware>();
+app.UseRateLimiter();
 
-// 8. Khởi tạo Database SQLite và Seed 6 kênh phòng ban mặc định
-using (var scope = app.Services.CreateScope())
-{
-    var context = scope.ServiceProvider.GetRequiredService<ChatDbContext>();
-    await DbInitializer.SeedAsync(context);
-}
-
-// 9. Cấu hình Swagger UI trong môi trường Development
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Chat Service API v1");
-        c.RoutePrefix = "swagger";
-    });
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Chat Service API v1"));
 }
 
-app.UseAuthorization();
 app.MapControllers();
-
-// 10. Map SignalR Hub endpoints cho WebSocket Realtime
-app.MapHub<ChatHub>("/api/v1/chat/hub");
-app.MapHub<ChatHub>("/hubs/chat");
+app.MapHub<ChatHub>(JwtAuthMiddleware.HubPath);
 
 app.Run();
+
+public partial class Program;

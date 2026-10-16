@@ -1,3 +1,4 @@
+using Chat.Application.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Chat.Application;
@@ -6,7 +7,9 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
-        // MediatR or other application services if needed
+        services.AddScoped<ConversationService>();
+        services.AddScoped<MessageService>();
+        services.AddScoped<UserService>();
         return services;
     }
 }

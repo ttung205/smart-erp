@@ -12,10 +12,10 @@
 
       <!-- Unread badge on the circular button -->
       <span
-        v-if="chatStore.totalUnreadCount > 0"
+        v-if="chat.unreadTotal > 0"
         class="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white shadow-xs"
       >
-        {{ chatStore.totalUnreadCount > 99 ? '99+' : chatStore.totalUnreadCount }}
+        {{ chat.unreadTotal > 99 ? '99+' : chat.unreadTotal }}
       </span>
     </button>
 
@@ -49,10 +49,10 @@
           >
             <span>Tin nhắn nội bộ</span>
             <span
-              v-if="chatStore.totalUnreadCount > 0"
+              v-if="chat.unreadTotal > 0"
               class="px-1.5 py-0.2 text-[10px] font-bold bg-rose-600 text-white rounded-[4px]"
             >
-              {{ chatStore.totalUnreadCount }}
+              {{ chat.unreadTotal }}
             </span>
           </button>
         </div>
@@ -155,273 +155,42 @@
         </footer>
       </div>
 
-      <!-- TAB 2: TIN NHẮN NỘI BỘ (REALTIME ENTERPRISE CHAT) -->
-      <div v-show="activeTab === 'chat'" class="flex-1 flex flex-col min-h-0 bg-slate-50">
-        <!-- VIEW A: DANH SÁCH HỘI THOẠI (KHI CHƯA CHỌN PHÒNG BAN/NGƯỜI DÙNG) -->
-        <div v-if="!chatStore.activeConversationId" class="flex-1 flex flex-col min-h-0 bg-white">
-          <!-- Search Header -->
-          <div class="p-2.5 border-b border-slate-200 flex items-center justify-between gap-2">
-            <div class="relative flex-1">
-              <i class="pi pi-search absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-              <input
-                v-model="chatSearchQuery"
-                type="text"
-                placeholder="Tìm kênh hoặc người dùng..."
-                class="w-full pl-7 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-[6px] focus:outline-none focus:border-sky-500 focus:bg-white text-slate-800"
-              />
-            </div>
-            <Button
-              icon="pi pi-refresh"
-              text
-              size="small"
-              class="!w-7 !h-7 !p-0"
-              :loading="chatStore.loading.conversations"
-              v-tooltip.bottom="'Tải lại danh sách'"
-              @click="chatStore.fetchConversations"
-            />
-          </div>
-
-          <!-- Conversation List Items -->
-          <div class="flex-1 overflow-y-auto divide-y divide-slate-100">
-            <!-- Channels Section -->
-            <div class="py-1.5">
-              <div class="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Kênh phòng ban
-              </div>
-
-              <div
-                v-for="channel in filteredChannels"
-                :key="channel.id"
-                class="px-3 py-2 flex items-center gap-2.5 hover:bg-slate-50 cursor-pointer transition-colors"
-                @click="openChatConversation(channel.id)"
-              >
-                <div class="w-7 h-7 rounded-[4px] bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-xs text-slate-600 shrink-0">
-                  #
-                </div>
-
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center justify-between gap-1 leading-tight">
-                    <span class="text-xs font-semibold text-slate-800 truncate">{{ channel.name }}</span>
-                    <span v-if="channel.last_message" class="text-[10px] text-slate-400 shrink-0">
-                      {{ formatShortTime(channel.last_message.created_at) }}
-                    </span>
-                  </div>
-                  <div class="flex items-center justify-between gap-1 mt-0.5">
-                    <p class="text-[11px] text-slate-500 truncate m-0">
-                      <span v-if="channel.last_message">
-                        <span class="font-medium text-slate-600">{{ channel.last_message.sender_name }}:</span>
-                        {{ channel.last_message.content }}
-                      </span>
-                      <span v-else class="text-slate-400 italic">Chưa có tin nhắn</span>
-                    </p>
-                    <span
-                      v-if="channel.unread_count > 0"
-                      class="px-1.5 py-0.2 text-[10px] font-bold bg-sky-600 text-white rounded-[4px] shrink-0"
-                    >
-                      {{ channel.unread_count }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Direct Messages Section -->
-            <div class="py-1.5">
-              <div class="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Tin nhắn trực tiếp
-              </div>
-
-              <div v-if="filteredDirects.length === 0" class="px-3 py-2 text-xs text-slate-400 italic">
-                Chưa có cuộc trò chuyện 1-1.
-              </div>
-
-              <div
-                v-for="dm in filteredDirects"
-                :key="dm.id"
-                class="px-3 py-2 flex items-center gap-2.5 hover:bg-slate-50 cursor-pointer transition-colors"
-                @click="openChatConversation(dm.id)"
-              >
-                <div class="relative shrink-0">
-                  <Avatar
-                    :label="getDirectPartnerName(dm).charAt(0)"
-                    shape="circle"
-                    class="!bg-slate-200 !text-slate-700 !font-bold !text-xs !w-7 !h-7"
-                  />
-                  <span
-                    class="absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white"
-                    :class="isPartnerOnline(dm) ? 'bg-emerald-500' : 'bg-slate-300'"
-                  ></span>
-                </div>
-
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center justify-between gap-1 leading-tight">
-                    <span class="text-xs font-semibold text-slate-800 truncate">{{ getDirectPartnerName(dm) }}</span>
-                    <span v-if="dm.last_message" class="text-[10px] text-slate-400 shrink-0">
-                      {{ formatShortTime(dm.last_message.created_at) }}
-                    </span>
-                  </div>
-                  <div class="flex items-center justify-between gap-1 mt-0.5">
-                    <p class="text-[11px] text-slate-500 truncate m-0">
-                      <span v-if="dm.last_message">{{ dm.last_message.content }}</span>
-                      <span v-else class="text-slate-400 italic">Bắt đầu trò chuyện</span>
-                    </p>
-                    <span
-                      v-if="dm.unread_count > 0"
-                      class="px-1.5 py-0.2 text-[10px] font-bold bg-sky-600 text-white rounded-[4px] shrink-0"
-                    >
-                      {{ dm.unread_count }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- VIEW B: KHUNG CHAT CHI TIẾT (KHI ĐANG CHỌN 1 HỘI THOẠI) -->
-        <div v-else class="flex-1 flex flex-col min-h-0 bg-slate-50">
-          <!-- Chat Sub-header -->
-          <div class="h-10 px-3 bg-white border-b border-slate-200 flex items-center justify-between shrink-0">
-            <div class="flex items-center gap-2 min-w-0">
-              <Button
-                icon="pi pi-arrow-left"
-                text
-                size="small"
-                class="!w-6 !h-6 !p-0 !text-slate-600"
-                v-tooltip.bottom="'Danh sách hội thoại'"
-                @click="chatStore.activeConversationId = null"
-              />
-
-              <div class="flex flex-col min-w-0 leading-tight">
-                <span class="text-xs font-bold text-slate-800 truncate">
-                  {{ chatStore.activeConversation?.type === 'Channel' ? chatStore.activeConversation.name : getDirectPartnerName(chatStore.activeConversation) }}
-                </span>
-                <span class="text-[10px] text-slate-400 truncate">
-                  {{ chatStore.activeConversation?.type === 'Channel' ? (chatStore.activeConversation.description || 'Kênh phòng ban') : (isPartnerOnline(chatStore.activeConversation) ? 'Trực tuyến' : 'Ngoại tuyến') }}
-                </span>
-              </div>
-            </div>
-
-            <Button
-              icon="pi pi-refresh"
-              text
-              size="small"
-              class="!w-6 !h-6 !p-0"
-              :loading="chatStore.loading.messages"
-              v-tooltip.bottom="'Tải lại tin nhắn'"
-              @click="chatStore.fetchMessages(chatStore.activeConversationId)"
-            />
-          </div>
-
-          <!-- Chat Messages Stream -->
-          <div ref="chatScrollContainer" class="flex-1 overflow-y-auto p-3 flex flex-col gap-2.5">
-            <div v-if="chatStore.loading.messages" class="flex justify-center py-6 text-slate-400">
-              <i class="pi pi-spin pi-spinner text-sky-600"></i>
-            </div>
-
-            <div v-else-if="chatStore.activeMessages.length === 0" class="flex-1 flex flex-col items-center justify-center text-center p-4 text-slate-400 text-xs">
-              <p class="m-0">Chưa có tin nhắn trong cuộc hội thoại này.</p>
-              <p class="text-[11px] mt-1 text-slate-400">Hãy gửi tin nhắn đầu tiên bên dưới.</p>
-            </div>
-
-            <template v-else>
-              <div
-                v-for="msg in chatStore.activeMessages"
-                :key="msg.id"
-                class="w-full flex"
-                :class="msg.message_type === 'SYSTEMBOT' ? 'justify-center' : (isMyMessage(msg) ? 'justify-end' : 'justify-start')"
-              >
-                <!-- Bot message -->
-                <div
-                  v-if="msg.message_type === 'SYSTEMBOT'"
-                  class="w-full bg-white border border-slate-200 rounded-[6px] p-2.5 text-xs text-slate-700 shadow-xs"
-                >
-                  <div class="flex items-center justify-between border-b border-slate-100 pb-1 mb-1.5">
-                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-                      Hệ thống
-                    </span>
-                    <span class="text-[10px] text-slate-400">{{ formatShortTime(msg.created_at) }}</span>
-                  </div>
-                  <p class="m-0 leading-relaxed">{{ msg.content }}</p>
-                </div>
-
-                <!-- My message -->
-                <div
-                  v-else-if="isMyMessage(msg)"
-                  class="flex flex-col items-end max-w-[80%]"
-                >
-                  <div class="bg-sky-50 border border-sky-200 rounded-[6px] px-2.5 py-1.5 text-xs text-slate-800 leading-relaxed shadow-xs">
-                    <p class="whitespace-pre-wrap break-words m-0">{{ msg.content }}</p>
-                  </div>
-                  <span class="text-[9px] text-slate-400 mt-0.5">{{ formatShortTime(msg.created_at) }}</span>
-                </div>
-
-                <!-- Partner message -->
-                <div
-                  v-else
-                  class="flex items-start gap-1.5 max-w-[80%]"
-                >
-                  <Avatar
-                    :label="msg.sender_name ? msg.sender_name.charAt(0) : 'U'"
-                    shape="circle"
-                    class="!bg-slate-200 !text-slate-700 !font-bold !text-[10px] !w-6 !h-6 shrink-0 mt-0.5"
-                  />
-                  <div class="flex flex-col items-start min-w-0">
-                    <span class="text-[10px] font-semibold text-slate-500 mb-0.5 ml-0.5">{{ msg.sender_name }}</span>
-                    <div class="bg-white border border-slate-200 rounded-[6px] px-2.5 py-1.5 text-xs text-slate-800 leading-relaxed shadow-xs">
-                      <p class="whitespace-pre-wrap break-words m-0">{{ msg.content }}</p>
-                    </div>
-                    <span class="text-[9px] text-slate-400 mt-0.5 ml-0.5">{{ formatShortTime(msg.created_at) }}</span>
-                  </div>
-                </div>
-              </div>
-            </template>
-          </div>
-
-          <!-- Typing Indicator -->
-          <div v-if="chatStore.getTypingText" class="px-3 py-1 text-[10px] italic text-slate-500 bg-white border-t border-slate-100">
-            {{ chatStore.getTypingText }}
-          </div>
-
-          <!-- Error Banner if send failed -->
-          <div v-if="chatSendError" class="px-3 py-1 bg-rose-50 border-t border-rose-200 text-rose-600 text-[11px] flex items-center justify-between">
-            <span>{{ chatSendError }}</span>
-            <button type="button" @click="chatSendError = ''" class="font-bold text-rose-500">&times;</button>
-          </div>
-
-          <!-- Chat Message Input Bar -->
-          <footer class="p-2.5 bg-white border-t border-slate-200">
-            <form @submit.prevent="handleSendChatMessage" class="flex items-center gap-1.5">
-              <input
-                ref="chatInputRef"
-                v-model="chatInput"
-                type="text"
-                placeholder="Nhập tin nhắn..."
-                class="flex-1 px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-[6px] focus:outline-none focus:border-sky-500 focus:bg-white text-slate-800"
-              />
-              <Button
-                type="submit"
-                icon="pi pi-send"
-                size="small"
-                :disabled="!chatInput.trim()"
-                :loading="chatStore.loading.sending"
-                class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-none !rounded-[6px] !w-8 !h-8 !p-0"
-                v-tooltip.top="'Gửi'"
-              />
-            </form>
-          </footer>
-        </div>
+      <!-- TAB 2: TIN NHẮN NỘI BỘ (dùng chung component với trang /chat) -->
+      <div v-if="activeTab === 'chat'" class="flex-1 flex flex-col min-h-0">
+        <ChatInfoPanel v-if="chat.activeConversation && infoOpen" :conv="chat.activeConversation" @close="infoOpen = false" @open-direct="openDirect" />
+        <ChatConversationView
+          v-else-if="chat.activeConversation"
+          :key="chat.activeConversation.id"
+          :conv="chat.activeConversation"
+          compact
+          @back="closeConversation"
+          @toggle-info="infoOpen = true"
+        />
+        <ChatConversationList v-else compact @select="openConversation" @new-direct="picker = 'direct'" @new-group="picker = 'group'" />
       </div>
     </div>
+
+    <ChatUserPickerDialog
+      :visible="!!picker"
+      :mode="picker || 'direct'"
+      :saving="creating"
+      @update:visible="(v) => !v && (picker = null)"
+      @pick="openDirect"
+      @confirm="createGroup"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useToast } from 'primevue/usetoast';
 import { useChatStore } from '../../stores/chatStore';
 import Button from 'primevue/button';
-import Avatar from 'primevue/avatar';
+import ChatConversationList from '../chat/ChatConversationList.vue';
+import ChatConversationView from '../chat/ChatConversationView.vue';
+import ChatInfoPanel from '../chat/ChatInfoPanel.vue';
+import ChatUserPickerDialog from '../chat/ChatUserPickerDialog.vue';
 
 const props = defineProps({
   userName: {
@@ -436,7 +205,8 @@ const props = defineProps({
 
 const route = useRoute();
 const router = useRouter();
-const chatStore = useChatStore();
+const chat = useChatStore();
+const toast = useToast();
 
 // Hide widget completely when user is already on the dedicated chat page
 const isChatRoute = computed(() => {
@@ -467,17 +237,13 @@ const aiSuggestions = [
 
 function toggleOpen() {
   visible.value = !visible.value;
-  if (visible.value) {
-    if (chatStore.connectionState === 'DISCONNECTED') {
-      chatStore.initHub();
-      chatStore.fetchConversations();
-    }
-  }
+  if (visible.value) chat.init();
 }
 
 function openFullScreenChat() {
+  const id = chat.activeId;
   visible.value = false;
-  router.push('/chat');
+  router.push(id ? `/chat/${id}` : '/chat');
 }
 
 async function sendAiQuery(text) {
@@ -533,112 +299,59 @@ function scrollAiToBottom() {
   });
 }
 
-// --- TAB 2: CHAT REALTIME STATE & ACTIONS ---
-const chatSearchQuery = ref('');
-const chatInput = ref('');
-const chatSendError = ref('');
-const chatScrollContainer = ref(null);
-const chatInputRef = ref(null);
+// --- TAB 2: TIN NHẮN NỘI BỘ ---
+const infoOpen = ref(false);
+const picker = ref(null);
+const creating = ref(false);
 
-const filteredChannels = computed(() => {
-  const query = chatSearchQuery.value.trim().toLowerCase();
-  return chatStore.conversations.filter(c => {
-    if (c.type !== 'Channel') return false;
-    if (!query) return true;
-    return c.name.toLowerCase().includes(query) || (c.description && c.description.toLowerCase().includes(query));
-  });
-});
-
-const filteredDirects = computed(() => {
-  const query = chatSearchQuery.value.trim().toLowerCase();
-  return chatStore.conversations.filter(c => {
-    if (c.type !== 'Direct') return false;
-    if (!query) return true;
-    return getDirectPartnerName(c).toLowerCase().includes(query);
-  });
-});
-
-function openChatConversation(convId) {
-  chatStore.selectConversation(convId);
-  nextTick(() => {
-    scrollChatToBottom();
-    if (chatInputRef.value) {
-      chatInputRef.value.focus();
-    }
-  });
+function openConversation(id) {
+  infoOpen.value = false;
+  chat.openConversation(id);
 }
 
-async function handleSendChatMessage() {
-  const text = chatInput.value.trim();
-  if (!text) return;
+function closeConversation() {
+  infoOpen.value = false;
+  chat.openConversation(null);
+}
 
-  chatSendError.value = '';
-  chatInput.value = '';
-  chatStore.sendTyping(false);
-
+async function openDirect(userId) {
   try {
-    await chatStore.sendMessage(text);
-    scrollChatToBottom();
-  } catch (err) {
-    console.error('Lỗi gửi tin nhắn mini widget:', err);
-    chatInput.value = text;
-    chatSendError.value = err.message || 'Lỗi gửi tin nhắn. Hãy kiểm tra kết nối chat service.';
+    const id = await chat.openDirect(userId);
+    picker.value = null;
+    openConversation(id);
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Lỗi', detail: e.message, life: 4000 });
   }
 }
 
-function scrollChatToBottom() {
-  nextTick(() => {
-    if (chatScrollContainer.value) {
-      chatScrollContainer.value.scrollTop = chatScrollContainer.value.scrollHeight;
-    }
-  });
-}
-
-watch(
-  () => chatStore.activeMessages.length,
-  () => {
-    if (visible.value && activeTab.value === 'chat') {
-      scrollChatToBottom();
-    }
+async function createGroup({ title, userIds }) {
+  creating.value = true;
+  try {
+    const id = await chat.createGroup(title, userIds);
+    picker.value = null;
+    openConversation(id);
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Không tạo được nhóm', detail: e.message, life: 4000 });
+  } finally {
+    creating.value = false;
   }
-);
-
-function isMyMessage(msg) {
-  const currentUserId = Number(props.currentUser?.id || props.currentUser?.sub || 0);
-  return Number(msg.sender_id) === currentUserId;
 }
 
-function getDirectPartnerName(conv) {
-  if (!conv) return '';
-  const currentUserId = Number(props.currentUser?.id || props.currentUser?.sub || 0);
-  const otherMember = conv.members?.find(m => Number(m.user_id) !== currentUserId);
-  return otherMember ? (otherMember.user_name || `User #${otherMember.user_id}`) : conv.name;
-}
+// Widget đóng hoặc chuyển tab thì không còn "đang xem" hội thoại nào (để tin mới được tính chưa đọc)
+watch([visible, activeTab], ([isVisible, tab]) => {
+  if (!isVisible || tab !== 'chat') {
+    infoOpen.value = false;
+    if (!isChatRoute.value) chat.openConversation(null);
+  }
+});
 
-function isPartnerOnline(conv) {
-  if (!conv || conv.type !== 'Direct') return false;
-  const currentUserId = Number(props.currentUser?.id || props.currentUser?.sub || 0);
-  const otherMember = conv.members?.find(m => Number(m.user_id) !== currentUserId);
-  return otherMember ? chatStore.isUserOnline(otherMember.user_id) : false;
-}
+// Đăng nhập/đăng xuất: khởi động lại kết nối chat theo token mới
+watch(() => props.currentUser?.sub ?? props.currentUser?.id, () => chat.init());
 
 function formatCurrentTime() {
   const date = new Date();
   return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 }
 
-function formatShortTime(isoString) {
-  if (!isoString) return '';
-  try {
-    const date = new Date(isoString);
-    return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return '';
-  }
-}
-
-onMounted(() => {
-  chatStore.initHub();
-  chatStore.fetchConversations();
-});
+onMounted(() => chat.init());
 </script>

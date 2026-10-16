@@ -1,403 +1,511 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import * as signalR from '@microsoft/signalr';
 import { chatApi } from '../api/chat.api';
 import { storage } from '../utils/storage';
 import { parseJwt } from '../utils/jwt';
 
+const TYPING_TTL_MS = 4000;
+const TYPING_THROTTLE_MS = 3000;
+const SOUND_KEY = 'chat.sound';
+
+export const REACTIONS = ['❤️', '👍', '😄', '😮', '😢', '😡'];
+export const RECALL_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Trạng thái chat dùng chung cho trang /chat và widget nổi.
+ * Mọi thao tác ghi đi qua REST; SignalR chỉ nhận sự kiện server đẩy xuống theo user.
+ */
 export const useChatStore = defineStore('chat', () => {
-  // State
-  const hubConnection = ref(null);
-  const connectionState = ref('DISCONNECTED'); // DISCONNECTED | CONNECTING | CONNECTED | RECONNECTING
+  const meId = ref(0);
   const conversations = ref([]);
-  const activeConversationId = ref(null);
-  const messages = ref({}); // { [conversationId]: Array<ChatMessageDto> }
-  const onlineUserIds = ref(new Set());
-  const typingUsers = ref({}); // { [conversationId]: { [userId]: userName } }
-  const typingTimeouts = {};
+  const messages = reactive({}); // convId -> { items, hasMore, loaded, loadingOlder }
+  const pins = reactive({}); // convId -> [message]
+  const typing = reactive({}); // convId -> { userId: { name, until } }
+  const online = ref(new Set());
+  const aliases = ref({});
+  const activeId = ref(null);
+  const connectionState = ref('disconnected');
+  const loadingConversations = ref(false);
+  const soundEnabled = ref(readSoundSetting());
 
-  const loading = ref({
-    conversations: false,
-    messages: false,
-    sending: false
-  });
+  let connection = null;
+  let startedToken = '';
+  let lastTypingSentAt = 0;
 
-  const pagination = ref({}); // { [conversationId]: { currentPage, totalPages, totalItems } }
+  // ---------- Getter ----------
 
-  // Getters
-  const activeConversation = computed(() => {
-    return conversations.value.find(c => c.id === activeConversationId.value) || null;
-  });
+  const conversationMap = computed(() => new Map(conversations.value.map((c) => [c.id, c])));
+  const activeConversation = computed(() => conversationMap.value.get(activeId.value) || null);
+  const unreadTotal = computed(() => conversations.value.reduce((sum, c) => sum + (c.muted ? 0 : c.unread_count || 0), 0));
 
-  const activeMessages = computed(() => {
-    if (!activeConversationId.value) return [];
-    return messages.value[activeConversationId.value] || [];
-  });
+  function partnerOf(conv) {
+    if (!conv || conv.type !== 'direct') return null;
+    return conv.members.find((m) => m.user_id !== meId.value) || null;
+  }
 
-  const totalUnreadCount = computed(() => {
-    return conversations.value.reduce((acc, c) => acc + (c.unread_count || 0), 0);
-  });
+  function displayName(userId, fallback) {
+    return aliases.value[userId] || fallback || `User #${userId}`;
+  }
 
-  const isUserOnline = (userId) => {
-    return onlineUserIds.value.has(Number(userId));
-  };
+  function conversationName(conv) {
+    if (!conv) return '';
+    if (conv.type === 'group') return conv.title || 'Nhóm chat';
+    const partner = partnerOf(conv);
+    return partner ? displayName(partner.user_id, partner.name) : 'Hội thoại';
+  }
 
-  const getTypingText = computed(() => {
-    if (!activeConversationId.value) return '';
-    const typers = typingUsers.value[activeConversationId.value];
-    if (!typers) return '';
-    const names = Object.values(typers);
-    if (names.length === 0) return '';
-    if (names.length === 1) return `${names[0]} đang soạn tin...`;
-    return `${names.slice(0, 2).join(', ')} và những người khác đang soạn tin...`;
-  });
+  function memberName(conv, userId, fallback) {
+    const member = conv?.members.find((m) => m.user_id === userId);
+    return displayName(userId, member?.name || fallback);
+  }
 
-  // Actions
-  async function initHub() {
+  const isOnline = (userId) => online.value.has(userId);
+
+  function typingNames(convId) {
+    const now = Date.now();
+    return Object.values(typing[convId] || {}).filter((t) => t.until > now).map((t) => t.name);
+  }
+
+  // ---------- Khởi động & kết nối ----------
+
+  async function init() {
     const token = storage.getToken();
     if (!token) return;
+    if (startedToken === token) return;
+    await stop();
+    startedToken = token;
+    meId.value = Number(parseJwt(token)?.sub || 0);
 
-    if (hubConnection.value && hubConnection.value.state === signalR.HubConnectionState.Connected) {
-      return;
+    await Promise.allSettled([fetchConversations(), fetchPreferences(), fetchOnline()]);
+    await connect();
+  }
+
+  async function stop() {
+    startedToken = '';
+    if (connection) {
+      const old = connection;
+      connection = null;
+      await old.stop().catch(() => {});
     }
+    conversations.value = [];
+    Object.keys(messages).forEach((k) => delete messages[k]);
+    Object.keys(pins).forEach((k) => delete pins[k]);
+    activeId.value = null;
+    connectionState.value = 'disconnected';
+  }
+
+  async function connect() {
+    connection = new signalR.HubConnectionBuilder()
+      .withUrl(chatApi.hubUrl, { accessTokenFactory: () => storage.getToken() })
+      .withAutomaticReconnect([0, 2000, 5000, 10000, 20000, 30000])
+      .configureLogging(signalR.LogLevel.Warning)
+      .build();
+
+    connection.on('conversation.upserted', ({ conversation }) => upsertConversation(conversation));
+    connection.on('conversation.removed', ({ conversation_id }) => removeConversation(conversation_id));
+    connection.on('message.created', ({ message }) => onMessageCreated(message));
+    connection.on('message.updated', ({ message }) => onMessageUpdated(message));
+    connection.on('message.hidden', ({ conversation_id, message_id }) => removeMessage(conversation_id, message_id));
+    connection.on('read.updated', onReadUpdated);
+    connection.on('typing', onTyping);
+    connection.on('presence', ({ user_id, online: isUp }) => setOnline(user_id, isUp));
+
+    connection.onreconnecting(() => (connectionState.value = 'reconnecting'));
+    connection.onreconnected(async () => {
+      connectionState.value = 'connected';
+      await resync();
+    });
+    connection.onclose(() => (connectionState.value = 'disconnected'));
 
     try {
-      connectionState.value = 'CONNECTING';
-
-      const connection = new signalR.HubConnectionBuilder()
-        .withUrl('/api/v1/chat/hub', {
-          accessTokenFactory: () => storage.getToken(),
-          skipNegotiation: false,
-          transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling
-        })
-        .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
-        .configureLogging(signalR.LogLevel.Warning)
-        .build();
-
-      // Sự kiện: Nhận tin nhắn mới
-      connection.on('ReceiveMessage', (message) => {
-        handleIncomingMessage(message);
-      });
-
-      // Sự kiện: Người dùng đang soạn tin
-      connection.on('UserTyping', (convId, userId, userName, isTyping) => {
-        handleUserTyping(convId, userId, userName, isTyping);
-      });
-
-      // Sự kiện: Tin nhắn đã được đọc
-      connection.on('MessageRead', (messageId, userId) => {
-        handleMessageRead(messageId, userId);
-      });
-
-      // Sự kiện: Trạng thái Online / Offline
-      connection.on('UserOnlineStatus', (userId, isOnline) => {
-        if (isOnline) {
-          onlineUserIds.value.add(Number(userId));
-        } else {
-          onlineUserIds.value.delete(Number(userId));
-        }
-      });
-
-      connection.onreconnecting(() => {
-        connectionState.value = 'RECONNECTING';
-      });
-
-      connection.onreconnected(() => {
-        connectionState.value = 'CONNECTED';
-        // Tải lại danh sách sau khi reconnect
-        fetchConversations();
-      });
-
-      connection.onclose(() => {
-        connectionState.value = 'DISCONNECTED';
-      });
-
+      connectionState.value = 'connecting';
       await connection.start();
-      hubConnection.value = connection;
-      connectionState.value = 'CONNECTED';
-
-      // Lấy danh sách user online ban đầu
-      fetchOnlineUsers();
-    } catch (err) {
-      console.error('[SignalR] Lỗi kết nối Hub:', err);
-      connectionState.value = 'DISCONNECTED';
+      connectionState.value = 'connected';
+    } catch (e) {
+      connectionState.value = 'disconnected';
+      console.warn('Không kết nối được chat realtime:', e);
     }
   }
 
-  function handleIncomingMessage(message) {
-    const convId = message.conversation_id;
-    if (!messages.value[convId]) {
-      messages.value[convId] = [];
-    }
-
-    // Tránh trùng lặp tin nhắn nếu đã có trong store
-    const exists = messages.value[convId].some(m => m.id === message.id);
-    if (!exists) {
-      messages.value[convId].push(message);
-    }
-
-    // Cập nhật cuộc hội thoại trong danh sách
-    const convIndex = conversations.value.findIndex(c => c.id === convId);
-    if (convIndex !== -1) {
-      const conv = conversations.value[convIndex];
-      conv.last_message = message;
-
-      if (convId !== activeConversationId.value) {
-        conv.unread_count = (conv.unread_count || 0) + 1;
-      } else {
-        // Đang mở hội thoại này -> tự động đánh dấu đã đọc
-        markAsRead(message.id);
+  /** Sau khi mất kết nối: tải lại danh sách và tải bù tin mới của các hội thoại đã mở. */
+  async function resync() {
+    await Promise.allSettled([fetchConversations(), fetchOnline()]);
+    for (const convId of Object.keys(messages).map(Number)) {
+      if (!conversationMap.value.has(convId)) {
+        delete messages[convId];
+        continue;
       }
-
-      // Đưa hội thoại vừa có tin nhắn lên đầu danh sách
-      conversations.value.splice(convIndex, 1);
-      conversations.value.unshift(conv);
-    } else {
-      // Nếu là hội thoại mới tạo chưa có trong danh sách, fetch lại
-      fetchConversations();
-    }
-  }
-
-  function handleUserTyping(convId, userId, userName, isTyping) {
-    if (!typingUsers.value[convId]) {
-      typingUsers.value[convId] = {};
-    }
-
-    const key = `${convId}_${userId}`;
-    if (typingTimeouts[key]) {
-      clearTimeout(typingTimeouts[key]);
-      delete typingTimeouts[key];
-    }
-
-    if (isTyping) {
-      typingUsers.value[convId][userId] = userName;
-      // Tự động clear sau 3s nếu không nhận được tín hiệu tiếp
-      typingTimeouts[key] = setTimeout(() => {
-        if (typingUsers.value[convId]) {
-          delete typingUsers.value[convId][userId];
-        }
-      }, 3000);
-    } else {
-      delete typingUsers.value[convId][userId];
-    }
-  }
-
-  function handleMessageRead(messageId, userId) {
-    for (const convId in messages.value) {
-      const msg = messages.value[convId].find(m => m.id === messageId);
-      if (msg) {
-        if (!msg.read_by) msg.read_by = [];
-        if (!msg.read_by.includes(Number(userId))) {
-          msg.read_by.push(Number(userId));
-        }
-        break;
+      const bucket = messages[convId];
+      let afterId = bucket.items.length ? bucket.items[bucket.items.length - 1].id : 0;
+      for (let page = 0; page < 10; page++) {
+        const result = await chatApi.messages(convId, { after_id: afterId, limit: 100 }).catch(() => null);
+        if (!result) break;
+        result.data.forEach((m) => insertMessage(m));
+        if (!result.has_more || !result.data.length) break;
+        afterId = result.data[result.data.length - 1].id;
       }
     }
+    if (activeId.value) await loadPins(activeId.value);
   }
+
+  // ---------- Danh sách hội thoại ----------
 
   async function fetchConversations() {
-    loading.value.conversations = true;
+    loadingConversations.value = true;
     try {
-      const list = await chatApi.getConversations();
-      conversations.value = list;
-
-      // Nếu chưa chọn cuộc hội thoại nào, mặc định chọn kênh #chung
-      if (!activeConversationId.value && list.length > 0) {
-        const generalChan = list.find(c => c.code === 'dept:general') || list[0];
-        selectConversation(generalChan.id);
+      const all = [];
+      for (let page = 1; page <= 20; page++) {
+        const result = await chatApi.conversations({ page, per_page: 100 });
+        all.push(...result.data);
+        if (all.length >= result.total || !result.data.length) break;
       }
-    } catch (err) {
-      console.error('Lỗi lấy danh sách hội thoại:', err);
+      conversations.value = sortConversations(all);
     } finally {
-      loading.value.conversations = false;
+      loadingConversations.value = false;
     }
   }
 
-  async function fetchOnlineUsers() {
-    try {
-      const onlineIds = await chatApi.getOnlineUsers();
-      onlineUserIds.value = new Set(onlineIds.map(Number));
-    } catch (err) {
-      console.error('Lỗi lấy danh sách online:', err);
-    }
+  async function fetchPreferences() {
+    aliases.value = (await chatApi.preferences()).aliases || {};
   }
 
-  async function selectConversation(convId) {
-    if (!convId) return;
-    activeConversationId.value = convId;
+  async function fetchOnline() {
+    online.value = new Set(await chatApi.onlineUsers());
+  }
 
-    // Reset unread count trên UI
-    const conv = conversations.value.find(c => c.id === convId);
-    if (conv) {
-      conv.unread_count = 0;
+  function sortConversations(list) {
+    return [...list].sort((a, b) => {
+      if (!!a.pinned_at !== !!b.pinned_at) return a.pinned_at ? -1 : 1;
+      if (a.pinned_at && b.pinned_at && a.pinned_at !== b.pinned_at) return a.pinned_at > b.pinned_at ? -1 : 1;
+      const at = a.last_message_at || a.created_at;
+      const bt = b.last_message_at || b.created_at;
+      if (at !== bt) return at > bt ? -1 : 1;
+      return b.id - a.id;
+    });
+  }
+
+  function upsertConversation(conv) {
+    const index = conversations.value.findIndex((c) => c.id === conv.id);
+    const next = [...conversations.value];
+    if (index >= 0) next[index] = conv;
+    else next.push(conv);
+    conversations.value = sortConversations(next);
+    return conv;
+  }
+
+  function patchConversation(id, patch) {
+    const conv = conversationMap.value.get(id);
+    if (conv) upsertConversation({ ...conv, ...patch });
+  }
+
+  function removeConversation(id) {
+    conversations.value = conversations.value.filter((c) => c.id !== id);
+    delete messages[id];
+    delete pins[id];
+    if (activeId.value === id) activeId.value = null;
+  }
+
+  // ---------- Tin nhắn ----------
+
+  function bucketOf(convId) {
+    if (!messages[convId]) messages[convId] = { items: [], hasMore: true, loaded: false, loadingOlder: false };
+    return messages[convId];
+  }
+
+  function insertMessage(message) {
+    const bucket = messages[message.conversation_id];
+    if (!bucket || !bucket.loaded) return false;
+    const index = bucket.items.findIndex((m) => m.id === message.id);
+    if (index >= 0) {
+      bucket.items[index] = message;
+      return false;
     }
+    // Giữ thứ tự tăng dần theo id
+    let position = bucket.items.length;
+    while (position > 0 && bucket.items[position - 1].id > message.id) position--;
+    bucket.items.splice(position, 0, message);
+    return true;
+  }
 
-    // Tham gia group SignalR nếu chưa vào
-    if (hubConnection.value && hubConnection.value.state === signalR.HubConnectionState.Connected) {
+  function removeMessage(convId, messageId) {
+    const bucket = messages[convId];
+    if (bucket) bucket.items = bucket.items.filter((m) => m.id !== messageId);
+    if (pins[convId]) pins[convId] = pins[convId].filter((m) => m.id !== messageId);
+  }
+
+  async function openConversation(id) {
+    activeId.value = id;
+    if (!id) return;
+    if (!conversationMap.value.has(id)) {
       try {
-        await hubConnection.value.invoke('JoinConversation', convId);
-      } catch (e) {
-        console.warn('Không thể join conversation group:', e);
+        upsertConversation(await chatApi.conversation(id));
+      } catch {
+        activeId.value = null;
+        return;
       }
     }
-
-    // Lấy tin nhắn nếu chưa có trong cache
-    if (!messages.value[convId] || messages.value[convId].length === 0) {
-      await fetchMessages(convId, 1);
+    const bucket = bucketOf(id);
+    if (!bucket.loaded) {
+      const result = await chatApi.messages(id, { limit: 50 });
+      bucket.items = result.data;
+      bucket.hasMore = result.has_more;
+      bucket.loaded = true;
     }
-
-    // Đánh dấu đã đọc các tin nhắn chưa đọc
-    markAllActiveAsRead();
+    await loadPins(id);
+    await markRead(id);
   }
 
-  async function fetchMessages(convId, page = 1) {
-    loading.value.messages = true;
+  async function loadOlder(id) {
+    const bucket = bucketOf(id);
+    if (!bucket.loaded || !bucket.hasMore || bucket.loadingOlder) return 0;
+    bucket.loadingOlder = true;
     try {
-      const res = await chatApi.getMessages(convId, { page, pageSize: 50 });
-      messages.value[convId] = res.messages;
-      pagination.value[convId] = res.meta?.pagination || { currentPage: 1, totalPages: 1 };
-    } catch (err) {
-      console.error('Lỗi lấy lịch sử tin nhắn:', err);
+      const result = await chatApi.messages(id, { limit: 50, before_id: bucket.items[0]?.id || 0 });
+      bucket.items = [...result.data, ...bucket.items];
+      bucket.hasMore = result.has_more;
+      return result.data.length;
     } finally {
-      loading.value.messages = false;
+      bucket.loadingOlder = false;
     }
   }
 
-  async function sendMessage(content, attachmentUrl = null) {
-    if (!activeConversationId.value || !content.trim()) return;
-
-    loading.value.sending = true;
-    const conv = activeConversation.value;
-    let sentViaWs = false;
-
-    try {
-      // 1. Thử gửi qua WebSocket SignalR Hub nếu đang kết nối
-      if (hubConnection.value && hubConnection.value.state === signalR.HubConnectionState.Connected) {
-        try {
-          if (conv.type === 'Channel') {
-            await hubConnection.value.invoke('SendChannelMessage', {
-              conversation_id: conv.id,
-              department_code: conv.department_code,
-              content: content.trim(),
-              attachment_url: attachmentUrl
-            });
-          } else {
-            const otherMember = conv.members?.find(m => !isCurrentUser(m.user_id));
-            await hubConnection.value.invoke('SendDirectMessage', {
-              conversation_id: conv.id,
-              recipient_id: otherMember ? Number(otherMember.user_id) : 0,
-              content: content.trim(),
-              attachment_url: attachmentUrl
-            });
-          }
-          sentViaWs = true;
-        } catch (wsErr) {
-          console.warn('[SignalR] Lỗi gửi qua WebSocket, chuyển sang gửi qua REST API:', wsErr);
-        }
-      }
-
-      // 2. Fallback gửi qua REST API nếu chưa gửi được qua WebSocket
-      if (!sentViaWs) {
-        const result = await chatApi.sendMessage(conv.id, {
-          content: content.trim(),
-          attachment_url: attachmentUrl
-        });
-        if (result) {
-          handleIncomingMessage(result);
-        }
-      }
-    } catch (err) {
-      console.error('Lỗi gửi tin nhắn:', err);
-      throw err;
-    } finally {
-      loading.value.sending = false;
+  /** Tải lần lượt tin cũ hơn tới khi thấy tin cần cuộn tới (tối đa 20 trang). */
+  async function ensureMessageLoaded(convId, messageId) {
+    const bucket = bucketOf(convId);
+    for (let i = 0; i < 20 && !bucket.items.some((m) => m.id === messageId) && bucket.hasMore; i++) {
+      await loadOlder(convId);
     }
+    return bucket.items.some((m) => m.id === messageId);
   }
 
-  async function startDirectChat(recipientId, recipientName) {
-    try {
-      const conv = await chatApi.getOrCreateDirectConversation(recipientId, recipientName);
-      
-      const existsIndex = conversations.value.findIndex(c => c.id === conv.id);
-      if (existsIndex === -1) {
-        conversations.value.unshift(conv);
-      }
-      
-      await selectConversation(conv.id);
-      return conv;
-    } catch (err) {
-      console.error('Lỗi bắt đầu hội thoại 1-1:', err);
-      throw err;
-    }
+  async function loadPins(id) {
+    pins[id] = await chatApi.pins(id).catch(() => []);
   }
 
-  function sendTyping(isTyping) {
-    if (!activeConversationId.value || !hubConnection.value || hubConnection.value.state !== signalR.HubConnectionState.Connected) {
+  function isViewing(convId) {
+    return activeId.value === convId && document.visibilityState === 'visible' && document.hasFocus();
+  }
+
+  function onMessageCreated(message) {
+    const convId = message.conversation_id;
+    const conv = conversationMap.value.get(convId);
+    const fromOther = message.sender && message.sender.id !== meId.value;
+
+    insertMessage(message);
+    if (message.sender) clearTyping(convId, message.sender.id);
+
+    if (!conv) {
+      // Hội thoại mới với mình (vd: tin đầu tiên của chat 1-1): tải về
+      chatApi.conversation(convId).then((c) => {
+        upsertConversation(c);
+        if (fromOther && !c.muted) notify(c, message);
+      }).catch(() => {});
       return;
     }
-    hubConnection.value.invoke('SendTypingIndicator', activeConversationId.value, isTyping)
-      .catch(() => {});
+
+    const members = message.sender
+      ? conv.members.map((m) => (m.user_id === message.sender.id ? { ...m, last_read_message_id: Math.max(m.last_read_message_id || 0, message.id) } : m))
+      : conv.members;
+    const viewing = isViewing(convId);
+    patchConversation(convId, {
+      members,
+      last_message: toPreview(message),
+      last_message_at: message.created_at,
+      unread_count: fromOther && !viewing ? (conv.unread_count || 0) + 1 : conv.unread_count
+    });
+
+    if (viewing) markRead(convId);
+    else if (fromOther && !conv.muted) notify(conv, message);
   }
 
-  async function markAsRead(messageId) {
-    if (!messageId) return;
+  function onMessageUpdated(message) {
+    const convId = message.conversation_id;
+    insertMessage(message);
+    if (pins[convId]) {
+      const others = pins[convId].filter((m) => m.id !== message.id);
+      pins[convId] = message.pinned_at ? [message, ...others].sort((a, b) => (a.pinned_at > b.pinned_at ? -1 : 1)) : others;
+    }
+    const conv = conversationMap.value.get(convId);
+    if (conv?.last_message?.id === message.id) patchConversation(convId, { last_message: toPreview(message) });
+  }
+
+  function toPreview(m) {
+    return {
+      id: m.id,
+      sender_id: m.sender?.id ?? null,
+      sender_name: m.sender?.name ?? '',
+      type: m.type,
+      content: m.recalled ? 'Tin nhắn đã được thu hồi' : m.type === 'file' ? '[Tệp đính kèm]' : m.content.slice(0, 120),
+      recalled: m.recalled,
+      created_at: m.created_at
+    };
+  }
+
+  function onReadUpdated({ conversation_id, user_id, message_id }) {
+    const conv = conversationMap.value.get(conversation_id);
+    if (!conv) return;
+    const members = conv.members.map((m) =>
+      m.user_id === user_id ? { ...m, last_read_message_id: Math.max(m.last_read_message_id || 0, message_id) } : m);
+    const patch = { members };
+    // Mình đọc ở tab khác: xoá số chưa đọc nếu đã đọc tới tin cuối
+    if (user_id === meId.value && message_id >= (conv.last_message?.id || 0)) patch.unread_count = 0;
+    patchConversation(conversation_id, patch);
+  }
+
+  function onTyping({ conversation_id, user_id, user_name }) {
+    if (!typing[conversation_id]) typing[conversation_id] = {};
+    typing[conversation_id][user_id] = { name: user_name, until: Date.now() + TYPING_TTL_MS };
+    setTimeout(() => {
+      const entry = typing[conversation_id]?.[user_id];
+      if (entry && entry.until <= Date.now()) delete typing[conversation_id][user_id];
+    }, TYPING_TTL_MS + 50);
+  }
+
+  function clearTyping(convId, userId) {
+    if (typing[convId]) delete typing[convId][userId];
+  }
+
+  function setOnline(userId, isUp) {
+    const next = new Set(online.value);
+    if (isUp) next.add(userId);
+    else next.delete(userId);
+    online.value = next;
+  }
+
+  // ---------- Thao tác ----------
+
+  async function markRead(convId) {
+    const conv = conversationMap.value.get(convId);
+    const bucket = messages[convId];
+    const lastId = Math.max(bucket?.items[bucket.items.length - 1]?.id || 0, conv?.last_message?.id || 0);
+    const mine = conv?.members.find((m) => m.user_id === meId.value);
+    if (!conv || !lastId) return;
+    if ((mine?.last_read_message_id || 0) >= lastId && !conv.unread_count) return;
+    patchConversation(convId, { unread_count: 0 });
+    await chatApi.markRead(convId, lastId).catch(() => {});
+  }
+
+  async function markAllRead() {
+    await chatApi.markAllRead();
+    conversations.value = conversations.value.map((c) => ({ ...c, unread_count: 0 }));
+  }
+
+  async function send(convId, payload) {
+    const message = await chatApi.send(convId, payload);
+    onMessageCreated(message);
+    return message;
+  }
+
+  const edit = async (messageId, content) => onMessageUpdated(await chatApi.edit(messageId, content));
+  const recall = async (messageId) => onMessageUpdated(await chatApi.recall(messageId));
+  const react = async (messageId, emoji) => onMessageUpdated(await chatApi.react(messageId, emoji));
+  const setMessagePinned = async (messageId, pinned) => onMessageUpdated(await chatApi.setMessagePinned(messageId, pinned));
+  const forward = (messageId, conversationIds) => chatApi.forward(messageId, conversationIds);
+
+  async function hide(convId, messageId) {
+    await chatApi.hide(messageId);
+    removeMessage(convId, messageId);
+  }
+
+  async function openDirect(userId) {
+    return upsertConversation(await chatApi.openDirect(userId)).id;
+  }
+
+  async function createGroup(title, userIds) {
+    return upsertConversation(await chatApi.createGroup(title, userIds)).id;
+  }
+
+  const rename = async (id, title) => upsertConversation(await chatApi.rename(id, title));
+  const setAvatar = async (id, file) => upsertConversation(await chatApi.setAvatar(id, file));
+  const removeAvatar = async (id) => upsertConversation(await chatApi.removeAvatar(id));
+  const addMembers = async (id, userIds) => upsertConversation(await chatApi.addMembers(id, userIds));
+  const setRole = async (id, userId, role) => upsertConversation(await chatApi.setRole(id, userId, role));
+  const transferOwner = async (id, userId) => upsertConversation(await chatApi.transferOwner(id, userId));
+  const setPinned = async (id, pinned) => upsertConversation(await chatApi.setPinned(id, pinned));
+  const setMuted = async (id, muted) => upsertConversation(await chatApi.setMuted(id, muted));
+
+  async function removeMember(id, userId) {
+    await chatApi.removeMember(id, userId);
+    const conv = conversationMap.value.get(id);
+    if (conv) patchConversation(id, { members: conv.members.filter((m) => m.user_id !== userId) });
+  }
+
+  async function leave(id, newOwnerId = null) {
+    await chatApi.leave(id, newOwnerId);
+    removeConversation(id);
+  }
+
+  async function dissolve(id) {
+    await chatApi.dissolve(id);
+    removeConversation(id);
+  }
+
+  async function setAlias(userId, alias) {
+    const result = await chatApi.setAlias(userId, alias);
+    const next = { ...aliases.value };
+    if (result.alias) next[userId] = result.alias;
+    else delete next[userId];
+    aliases.value = next;
+  }
+
+  function sendTyping(convId) {
+    const now = Date.now();
+    if (!connection || connectionState.value !== 'connected' || now - lastTypingSentAt < TYPING_THROTTLE_MS) return;
+    lastTypingSentAt = now;
+    connection.invoke('Typing', convId).catch(() => {});
+  }
+
+  // ---------- Thông báo ----------
+
+  function readSoundSetting() {
     try {
-      if (hubConnection.value && hubConnection.value.state === signalR.HubConnectionState.Connected) {
-        await hubConnection.value.invoke('MarkMessageAsRead', messageId);
-      } else {
-        await chatApi.markAsRead(messageId);
-      }
-    } catch (err) {
-      // Bỏ qua lỗi đánh dấu đọc ngầm
+      return localStorage.getItem(SOUND_KEY) !== 'off';
+    } catch {
+      return true;
     }
   }
 
-  function markAllActiveAsRead() {
-    const activeMsgs = activeMessages.value;
-    if (activeMsgs && activeMsgs.length > 0) {
-      const lastMsg = activeMsgs[activeMsgs.length - 1];
-      markAsRead(lastMsg.id);
+  function setSoundEnabled(enabled) {
+    soundEnabled.value = enabled;
+    try {
+      localStorage.setItem(SOUND_KEY, enabled ? 'on' : 'off');
+    } catch { /* trình duyệt chặn localStorage */ }
+    if (enabled && 'Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+  }
+
+  function notify(conv, message) {
+    if (!soundEnabled.value) return;
+    playChime();
+    if (document.visibilityState === 'hidden' && 'Notification' in window && Notification.permission === 'granted') {
+      const body = message.recalled ? 'Tin nhắn đã được thu hồi' : message.content || '[Tệp đính kèm]';
+      const title = conv.type === 'group' ? `${message.sender?.name} · ${conversationName(conv)}` : conversationName(conv);
+      new Notification(title, { body: body.slice(0, 140), tag: `chat-${conv.id}` });
     }
   }
 
-  function disconnectHub() {
-    if (hubConnection.value) {
-      hubConnection.value.stop();
-      hubConnection.value = null;
-      connectionState.value = 'DISCONNECTED';
-    }
-  }
-
-  function isCurrentUser(userId) {
-    const token = storage.getToken();
-    if (!token) return false;
-    const payload = parseJwt(token);
-    if (!payload) return false;
-    return String(payload.sub || payload.id) === String(userId);
+  let audioContext = null;
+  function playChime() {
+    try {
+      audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.frequency.value = 880;
+      gain.gain.setValueAtTime(0.08, audioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.25);
+      oscillator.connect(gain).connect(audioContext.destination);
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.25);
+    } catch { /* trình duyệt chưa cho phát âm thanh */ }
   }
 
   return {
-    hubConnection,
-    connectionState,
-    conversations,
-    activeConversationId,
-    activeConversation,
-    activeMessages,
-    messages,
-    onlineUserIds,
-    loading,
-    totalUnreadCount,
-    getTypingText,
-    isUserOnline,
-    initHub,
-    disconnectHub,
-    fetchConversations,
-    fetchOnlineUsers,
-    selectConversation,
-    fetchMessages,
-    sendMessage,
-    startDirectChat,
-    sendTyping,
-    markAsRead
+    meId, conversations, messages, pins, typing, online, aliases, activeId, connectionState, loadingConversations, soundEnabled,
+    conversationMap, activeConversation, unreadTotal,
+    partnerOf, displayName, conversationName, memberName, isOnline, typingNames,
+    init, stop, fetchConversations, openConversation, loadOlder, ensureMessageLoaded, markRead, markAllRead,
+    send, edit, recall, react, setMessagePinned, forward, hide,
+    openDirect, createGroup, rename, setAvatar, removeAvatar, addMembers, removeMember, setRole, transferOwner, leave, dissolve,
+    setPinned, setMuted, setAlias, sendTyping, setSoundEnabled
   };
 });

@@ -1,74 +1,73 @@
 using Chat.Application.Common.Interfaces;
 using Chat.Application.Common.Models;
+using Chat.Application.Services;
 using Chat.Domain.Entities;
-using Chat.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Net.Http.Headers;
 
 namespace Chat.Api.Controllers;
 
 [ApiController]
-[Route("api/v1/chat/messages")]
-public class MessagesController : ControllerBase
+[Route("api/v1/chat")]
+public class MessagesController(MessageService messages, IChatDbContext db, ICurrentUser me, IFileStorage storage) : ControllerBase
 {
-    private readonly ChatDbContext _context;
-    private readonly ICurrentUserService _currentUser;
-    private readonly IChatHubService _hubService;
+    public record ContentInput(string? Content);
+    public record EmojiInput(string? Emoji);
+    public record ForwardInput(List<long>? ConversationIds);
 
-    public MessagesController(
-        ChatDbContext context,
-        ICurrentUserService currentUser,
-        IChatHubService hubService)
+    private static OkObjectResult Data<T>(T data) => new(ApiEnvelope<T>.Ok(data));
+
+    [HttpPatch("messages/{id:long}")]
+    public async Task<IActionResult> Edit(long id, [FromBody] ContentInput input, CancellationToken ct) =>
+        Data(await messages.EditAsync(id, input.Content, ct));
+
+    [HttpPost("messages/{id:long}/recall")]
+    public async Task<IActionResult> Recall(long id, CancellationToken ct) => Data(await messages.RecallAsync(id, ct));
+
+    [HttpPost("messages/{id:long}/hide")]
+    public async Task<IActionResult> Hide(long id, CancellationToken ct)
     {
-        _context = context;
-        _currentUser = currentUser;
-        _hubService = hubService;
+        await messages.HideAsync(id, ct);
+        return Data(new { hidden = true });
     }
 
+    [HttpPost("messages/{id:long}/reactions")]
+    public async Task<IActionResult> React(long id, [FromBody] EmojiInput input, CancellationToken ct) =>
+        Data(await messages.ReactAsync(id, input.Emoji, ct));
+
+    [HttpPost("messages/{id:long}/pin")]
+    public async Task<IActionResult> Pin(long id, CancellationToken ct) => Data(await messages.SetPinnedAsync(id, true, ct));
+
+    [HttpDelete("messages/{id:long}/pin")]
+    public async Task<IActionResult> Unpin(long id, CancellationToken ct) => Data(await messages.SetPinnedAsync(id, false, ct));
+
+    [HttpPost("messages/{id:long}/forward")]
+    [EnableRateLimiting("send")]
+    public async Task<IActionResult> Forward(long id, [FromBody] ForwardInput input, CancellationToken ct) =>
+        Data(new { forwarded = await messages.ForwardAsync(id, input.ConversationIds ?? [], ct) });
+
     /// <summary>
-    /// Xác nhận đã đọc một tin nhắn
+    /// Tải tệp đính kèm: chỉ thành viên hội thoại. Ảnh trả inline để xem trước, loại khác luôn ép tải về;
+    /// nosniff để trình duyệt không đoán lại kiểu nội dung.
     /// </summary>
-    [HttpPost("{id:guid}/read")]
-    public async Task<IActionResult> MarkAsRead(Guid id, CancellationToken ct)
+    [HttpGet("attachments/{id:long}")]
+    public async Task<IActionResult> Download(long id, CancellationToken ct)
     {
-        var currentUserId = _currentUser.UserId ?? 0;
-        if (currentUserId <= 0)
+        var attachment = await db.MessageAttachments.AsNoTracking()
+            .Where(a => a.Id == id && a.Message!.RecalledAt == null && a.Message.Conversation!.Members.Any(m => m.UserId == me.Id))
+            .FirstOrDefaultAsync(ct) ?? throw ChatException.NotFound("Không tìm thấy tệp.");
+
+        Response.Headers.XContentTypeOptions = "nosniff";
+        Response.Headers.CacheControl = "private, max-age=86400";
+        if (FileRules.IsImage(attachment.ContentType))
         {
-            return Unauthorized(ApiEnvelope<object>.Fail("UNAUTHORIZED", "Chưa xác thực người dùng."));
+            var disposition = new ContentDispositionHeaderValue("inline");
+            disposition.SetHttpFileName(attachment.FileName);
+            Response.Headers.ContentDisposition = disposition.ToString();
+            return File(storage.OpenRead(attachment.StoragePath), attachment.ContentType);
         }
-
-        var message = await _context.ChatMessages
-            .Include(m => m.Receipts)
-            .FirstOrDefaultAsync(m => m.Id == id, ct);
-
-        if (message == null)
-        {
-            return NotFound(ApiEnvelope<object>.Fail("MESSAGE_NOT_FOUND", "Không tìm thấy tin nhắn."));
-        }
-
-        var receipt = message.Receipts.FirstOrDefault(r => r.UserId == currentUserId);
-        if (receipt == null)
-        {
-            receipt = new MessageReceipt
-            {
-                Id = Guid.NewGuid(),
-                MessageId = message.Id,
-                UserId = currentUserId,
-                ReadAt = DateTime.UtcNow
-            };
-
-            await _context.MessageReceipts.AddAsync(receipt, ct);
-            await _context.SaveChangesAsync(ct);
-
-            // Bắn tín hiệu realtime cho người gửi tin nhắn
-            await _hubService.NotifyMessageReadAsync(message.Id, currentUserId, receipt.ReadAt, message.SenderId);
-        }
-
-        return Ok(ApiEnvelope<object>.Ok(new
-        {
-            message_id = message.Id,
-            user_id = currentUserId,
-            read_at = receipt.ReadAt
-        }));
+        return File(storage.OpenRead(attachment.StoragePath), attachment.ContentType, attachment.FileName);
     }
 }

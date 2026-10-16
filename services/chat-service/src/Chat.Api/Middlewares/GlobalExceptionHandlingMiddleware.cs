@@ -40,6 +40,17 @@ public class GlobalExceptionHandlingMiddleware
 
         switch (exception)
         {
+            case ChatException chat:
+                statusCode = (HttpStatusCode)chat.StatusCode;
+                errorCode = chat.Code;
+                break;
+
+            case BadHttpRequestException bad:
+                statusCode = (HttpStatusCode)bad.StatusCode;
+                errorCode = "BAD_REQUEST";
+                message = bad.StatusCode == 413 ? "Tệp tải lên vượt quá dung lượng cho phép." : "Yêu cầu không hợp lệ.";
+                break;
+
             case KeyNotFoundException:
                 statusCode = HttpStatusCode.NotFound;
                 errorCode = "RESOURCE_NOT_FOUND";

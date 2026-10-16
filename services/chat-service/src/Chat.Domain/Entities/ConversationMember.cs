@@ -1,40 +1,26 @@
-using Chat.Domain.Common;
 using Chat.Domain.Enums;
 
 namespace Chat.Domain.Entities;
 
-public class ConversationMember : BaseEntity
+/// <summary>Thành viên hội thoại kèm trạng thái riêng của từng người (đã đọc, tắt thông báo, ghim).</summary>
+public class ConversationMember
 {
-    public Guid ConversationId { get; set; }
-    public Conversation Conversation { get; set; } = null!;
+    public long Id { get; set; }
+    public long ConversationId { get; set; }
+    public long UserId { get; set; }
 
-    /// <summary>
-    /// ID nguyên thủy của User từ identity-service
-    /// </summary>
-    public int UserId { get; set; }
+    /// <summary>Tên lúc được thêm vào, dùng khi không lấy được danh bạ từ identity-service.</summary>
+    public string UserName { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Snapshot tên nhân viên
-    /// </summary>
-    public string? UserName { get; set; }
-
-    /// <summary>
-    /// Snapshot email nhân viên
-    /// </summary>
-    public string? UserEmail { get; set; }
-
-    /// <summary>
-    /// Snapshot avatar nhân viên
-    /// </summary>
-    public string? UserAvatar { get; set; }
-
-    /// <summary>
-    /// Vai trò trong nhóm (Member / Admin)
-    /// </summary>
     public MemberRole Role { get; set; } = MemberRole.Member;
 
-    /// <summary>
-    /// Thời điểm tham gia nhóm
-    /// </summary>
+    /// <summary>Con trỏ đã đọc: mọi tin có id &lt;= giá trị này coi như đã đọc. Chỉ tiến, không lùi.</summary>
+    public long? LastReadMessageId { get; set; }
+    public DateTime? LastReadAt { get; set; }
+
+    public bool Muted { get; set; }
+    public DateTime? PinnedAt { get; set; }
     public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
+
+    public Conversation? Conversation { get; set; }
 }

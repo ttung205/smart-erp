@@ -1,79 +1,71 @@
 import { apiClient } from './client';
+import { storage } from '../utils/storage';
+
+const root = '/api/v1/chat';
+const json = (method, data) => ({ method, body: JSON.stringify(data ?? {}) });
+const unwrap = (promise) => promise.then((res) => res.data);
 
 export const chatApi = {
-  /**
-   * Lấy danh sách các cuộc hội thoại (phòng ban & 1-1)
-   */
-  async getConversations() {
-    const res = await apiClient('/api/v1/chat/conversations');
-    return res.data || [];
+  // Hội thoại
+  conversations: (params = {}) => unwrap(apiClient(`${root}/conversations?${new URLSearchParams(params)}`)),
+  conversation: (id) => unwrap(apiClient(`${root}/conversations/${id}`)),
+  unreadCount: () => unwrap(apiClient(`${root}/conversations/unread-count`)),
+  openDirect: (userId) => unwrap(apiClient(`${root}/conversations/direct`, json('POST', { user_id: userId }))),
+  createGroup: (title, userIds) => unwrap(apiClient(`${root}/conversations/group`, json('POST', { title, user_ids: userIds }))),
+  markRead: (id, messageId) => unwrap(apiClient(`${root}/conversations/${id}/read`, json('POST', { message_id: messageId }))),
+  markAllRead: () => unwrap(apiClient(`${root}/conversations/read-all`, json('POST'))),
+  setPinned: (id, pinned) => unwrap(apiClient(`${root}/conversations/${id}/pin`, { method: pinned ? 'POST' : 'DELETE' })),
+  setMuted: (id, muted) => unwrap(apiClient(`${root}/conversations/${id}/mute`, { method: muted ? 'POST' : 'DELETE' })),
+
+  // Quản lý nhóm
+  rename: (id, title) => unwrap(apiClient(`${root}/conversations/${id}`, json('PATCH', { title }))),
+  setAvatar: (id, file) => {
+    const body = new FormData();
+    body.append('avatar', file);
+    return unwrap(apiClient(`${root}/conversations/${id}/avatar`, { method: 'POST', body }));
   },
+  removeAvatar: (id) => unwrap(apiClient(`${root}/conversations/${id}/avatar`, { method: 'DELETE' })),
+  addMembers: (id, userIds) => unwrap(apiClient(`${root}/conversations/${id}/members`, json('POST', { user_ids: userIds }))),
+  removeMember: (id, userId) => unwrap(apiClient(`${root}/conversations/${id}/members/${userId}`, { method: 'DELETE' })),
+  setRole: (id, userId, role) => unwrap(apiClient(`${root}/conversations/${id}/members/${userId}/role`, json('PUT', { role }))),
+  transferOwner: (id, userId) => unwrap(apiClient(`${root}/conversations/${id}/transfer-owner/${userId}`, json('POST'))),
+  leave: (id, newOwnerId = null) => unwrap(apiClient(`${root}/conversations/${id}/leave`, json('POST', { new_owner_id: newOwnerId }))),
+  dissolve: (id) => unwrap(apiClient(`${root}/conversations/${id}`, { method: 'DELETE' })),
 
-  /**
-   * Lấy chi tiết cuộc hội thoại
-   */
-  async getConversationById(id) {
-    const res = await apiClient(`/api/v1/chat/conversations/${id}`);
-    return res.data;
+  // Tin nhắn
+  messages: (id, params = {}) => unwrap(apiClient(`${root}/conversations/${id}/messages?${new URLSearchParams(params)}`)),
+  pins: (id) => unwrap(apiClient(`${root}/conversations/${id}/pins`)),
+  search: (id, q) => unwrap(apiClient(`${root}/conversations/${id}/messages/search?${new URLSearchParams({ q })}`)),
+  send: (id, { content, replyToId, mentions = [], mentionAll = false, files = [] }) => {
+    const body = new FormData();
+    if (content) body.append('content', content);
+    if (replyToId) body.append('reply_to_id', replyToId);
+    mentions.forEach((userId) => body.append('mentions[]', userId));
+    if (mentionAll) body.append('mention_all', 'true');
+    files.forEach((file) => body.append('attachments[]', file, file.name));
+    return unwrap(apiClient(`${root}/conversations/${id}/messages`, { method: 'POST', body }));
   },
+  edit: (messageId, content) => unwrap(apiClient(`${root}/messages/${messageId}`, json('PATCH', { content }))),
+  recall: (messageId) => unwrap(apiClient(`${root}/messages/${messageId}/recall`, json('POST'))),
+  hide: (messageId) => unwrap(apiClient(`${root}/messages/${messageId}/hide`, json('POST'))),
+  react: (messageId, emoji) => unwrap(apiClient(`${root}/messages/${messageId}/reactions`, json('POST', { emoji }))),
+  setMessagePinned: (messageId, pinned) => unwrap(apiClient(`${root}/messages/${messageId}/pin`, { method: pinned ? 'POST' : 'DELETE' })),
+  forward: (messageId, conversationIds) => unwrap(apiClient(`${root}/messages/${messageId}/forward`, json('POST', { conversation_ids: conversationIds }))),
 
-  /**
-   * Lấy lịch sử tin nhắn của một cuộc hội thoại (hỗ trợ phân trang)
-   */
-  async getMessages(conversationId, params = {}) {
-    const query = new URLSearchParams();
-    if (params.page) query.append('page', params.page);
-    if (params.pageSize) query.append('pageSize', params.pageSize);
-    if (params.beforeMessageId) query.append('beforeMessageId', params.beforeMessageId);
+  // Người dùng
+  searchUsers: (q = '', limit = 20) => unwrap(apiClient(`${root}/users/search?${new URLSearchParams({ q, limit })}`)),
+  user: (userId) => unwrap(apiClient(`${root}/users/${userId}`)),
+  contacts: () => unwrap(apiClient(`${root}/contacts`)),
+  onlineUsers: () => unwrap(apiClient(`${root}/users/online`)),
+  preferences: () => unwrap(apiClient(`${root}/preferences`)),
+  setAlias: (userId, alias) => unwrap(apiClient(`${root}/users/${userId}/alias`, json('PUT', { alias }))),
 
-    const queryString = query.toString() ? `?${query.toString()}` : '';
-    const res = await apiClient(`/api/v1/chat/conversations/${conversationId}/messages${queryString}`);
-    return {
-      messages: res.data || [],
-      meta: res.meta || {}
-    };
+  /** Tải tệp/ảnh có kiểm tra quyền (cần header Authorization nên không dùng thẳng URL). */
+  async fetchBlob(url) {
+    const response = await fetch(url, { headers: { Authorization: `Bearer ${storage.getToken()}` } });
+    if (!response.ok) throw new Error('Không tải được tệp.');
+    return response.blob();
   },
-
-  /**
-   * Gửi tin nhắn qua REST API
-   */
-  async sendMessage(conversationId, data) {
-    const res = await apiClient(`/api/v1/chat/conversations/${conversationId}/messages`, {
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
-    return res.data;
-  },
-
-  /**
-   * Khởi tạo hoặc tìm cuộc trò chuyện 1-1
-   */
-  async getOrCreateDirectConversation(recipientId, recipientName = '') {
-    const res = await apiClient('/api/v1/chat/conversations/direct', {
-      method: 'POST',
-      body: JSON.stringify({
-        recipient_id: recipientId,
-        recipient_name: recipientName
-      })
-    });
-    return res.data;
-  },
-
-  /**
-   * Đánh dấu tin nhắn đã đọc
-   */
-  async markAsRead(messageId) {
-    const res = await apiClient(`/api/v1/chat/messages/${messageId}/read`, {
-      method: 'POST'
-    });
-    return res.data;
-  },
-
-  /**
-   * Lấy danh sách ID người dùng đang online
-   */
-  async getOnlineUsers() {
-    const res = await apiClient('/api/v1/chat/users/online');
-    return res.data || [];
-  }
+  attachmentUrl: (attachmentId) => `${root}/attachments/${attachmentId}`,
+  hubUrl: `${root}/hub`
 };

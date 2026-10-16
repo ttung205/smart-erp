@@ -19,15 +19,15 @@ public class HealthController : ControllerBase
     [HttpGet("api/v1/chat/health")]
     public async Task<IActionResult> Check(CancellationToken ct)
     {
-        bool dbConnected = false;
-        string? dbError = null;
+        bool dbConnected;
         try
         {
             dbConnected = await _context.Database.CanConnectAsync(ct);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            dbError = ex.Message;
+            // Endpoint công khai: không trả chi tiết lỗi CSDL ra ngoài
+            dbConnected = false;
         }
 
         return Ok(ApiEnvelope<object>.Ok(new
@@ -37,7 +37,6 @@ public class HealthController : ControllerBase
             version = "1.0.0",
             framework = ".NET 10",
             database = dbConnected ? "CONNECTED" : "DISCONNECTED",
-            dbError,
             timestamp = DateTime.UtcNow
         }));
     }

@@ -19,169 +19,187 @@ namespace Chat.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Chat.Domain.Entities.ChatMessage", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT")
-                        .HasColumnName("id");
-
-                    b.Property<string>("AttachmentUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("attachment_url");
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Content")
                         .IsRequired()
-                        .HasColumnType("TEXT")
-                        .HasColumnName("content");
+                        .HasMaxLength(16000)
+                        .HasColumnType("TEXT");
 
-                    b.Property<Guid>("ConversationId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("conversation_id");
+                    b.Property<long>("ConversationId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("created_at");
+                        .HasColumnType("TEXT");
 
-                    b.Property<string>("MessageType")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("message_type");
+                    b.Property<DateTime?>("EditedAt")
+                        .HasColumnType("TEXT");
 
-                    b.Property<string>("MetadataJson")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("metadata_json");
+                    b.Property<string>("ForwardedFromName")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
 
-                    b.Property<string>("SenderAvatar")
-                        .HasMaxLength(255)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("sender_avatar");
+                    b.Property<bool>("MentionAll")
+                        .HasColumnType("INTEGER");
 
-                    b.Property<int>("SenderId")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("sender_id");
+                    b.Property<string>("Mentions")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("PinnedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("PinnedById")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("RecalledAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("ReplyToId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("SenderId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("SenderName")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("sender_name");
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
 
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("updated_at");
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SenderId");
+                    b.HasIndex("ReplyToId");
 
-                    b.HasIndex("ConversationId", "CreatedAt");
+                    b.HasIndex("ConversationId", "Id");
+
+                    b.HasIndex("ConversationId", "PinnedAt");
 
                     b.ToTable("chat_messages", (string)null);
                 });
 
-            modelBuilder.Entity("Chat.Domain.Entities.Conversation", b =>
+            modelBuilder.Entity("Chat.Domain.Entities.ContactAlias", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT")
-                        .HasColumnName("id");
+                        .HasColumnType("INTEGER");
 
-                    b.Property<string>("Code")
+                    b.Property<string>("Alias")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("code");
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("created_at");
+                    b.Property<long>("OwnerId")
+                        .HasColumnType("INTEGER");
 
-                    b.Property<string>("DepartmentCode")
-                        .HasMaxLength(50)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("department_code");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("description");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("name");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("type");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("updated_at");
+                    b.Property<long>("TargetId")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Code")
+                    b.HasIndex("OwnerId", "TargetId")
                         .IsUnique();
 
-                    b.HasIndex("CreatedAt");
+                    b.ToTable("contact_aliases", (string)null);
+                });
 
-                    b.HasIndex("DepartmentCode");
+            modelBuilder.Entity("Chat.Domain.Entities.Conversation", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AvatarContentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AvatarPath")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("AvatarVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CreatedBy")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("DirectKey")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastMessageAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("LastMessageId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DirectKey")
+                        .IsUnique();
+
+                    b.HasIndex("LastMessageAt");
 
                     b.ToTable("conversations", (string)null);
                 });
 
             modelBuilder.Entity("Chat.Domain.Entities.ConversationMember", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT")
-                        .HasColumnName("id");
+                        .HasColumnType("INTEGER");
 
-                    b.Property<Guid>("ConversationId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("conversation_id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("created_at");
+                    b.Property<long>("ConversationId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("JoinedAt")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("joined_at");
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastReadAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("LastReadMessageId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Muted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("PinnedAt")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Role")
                         .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("role");
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
 
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("UserAvatar")
-                        .HasMaxLength(255)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("user_avatar");
-
-                    b.Property<string>("UserEmail")
-                        .HasMaxLength(150)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("user_email");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("user_id");
+                    b.Property<long>("UserId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("UserName")
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("user_name");
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -193,32 +211,54 @@ namespace Chat.Infrastructure.Persistence.Migrations
                     b.ToTable("conversation_members", (string)null);
                 });
 
-            modelBuilder.Entity("Chat.Domain.Entities.MessageReceipt", b =>
+            modelBuilder.Entity("Chat.Domain.Entities.MessageAttachment", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT")
-                        .HasColumnName("id");
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("MessageId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("Size")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MessageId");
+
+                    b.ToTable("message_attachments", (string)null);
+                });
+
+            modelBuilder.Entity("Chat.Domain.Entities.MessageHide", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("created_at");
+                        .HasColumnType("TEXT");
 
-                    b.Property<Guid>("MessageId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("message_id");
+                    b.Property<long>("MessageId")
+                        .HasColumnType("INTEGER");
 
-                    b.Property<DateTime>("ReadAt")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("read_at");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("updated_at");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("user_id");
+                    b.Property<long>("UserId")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -227,7 +267,40 @@ namespace Chat.Infrastructure.Persistence.Migrations
                     b.HasIndex("MessageId", "UserId")
                         .IsUnique();
 
-                    b.ToTable("message_receipts", (string)null);
+                    b.ToTable("message_hides", (string)null);
+                });
+
+            modelBuilder.Entity("Chat.Domain.Entities.MessageReaction", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Emoji")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("MessageId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("UserName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MessageId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("message_reactions", (string)null);
                 });
 
             modelBuilder.Entity("Chat.Domain.Entities.ChatMessage", b =>
@@ -238,7 +311,14 @@ namespace Chat.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Chat.Domain.Entities.ChatMessage", "ReplyTo")
+                        .WithMany()
+                        .HasForeignKey("ReplyToId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Conversation");
+
+                    b.Navigation("ReplyTo");
                 });
 
             modelBuilder.Entity("Chat.Domain.Entities.ConversationMember", b =>
@@ -252,10 +332,10 @@ namespace Chat.Infrastructure.Persistence.Migrations
                     b.Navigation("Conversation");
                 });
 
-            modelBuilder.Entity("Chat.Domain.Entities.MessageReceipt", b =>
+            modelBuilder.Entity("Chat.Domain.Entities.MessageAttachment", b =>
                 {
                     b.HasOne("Chat.Domain.Entities.ChatMessage", "Message")
-                        .WithMany("Receipts")
+                        .WithMany("Attachments")
                         .HasForeignKey("MessageId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -263,9 +343,20 @@ namespace Chat.Infrastructure.Persistence.Migrations
                     b.Navigation("Message");
                 });
 
+            modelBuilder.Entity("Chat.Domain.Entities.MessageReaction", b =>
+                {
+                    b.HasOne("Chat.Domain.Entities.ChatMessage", null)
+                        .WithMany("ReactionList")
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Chat.Domain.Entities.ChatMessage", b =>
                 {
-                    b.Navigation("Receipts");
+                    b.Navigation("Attachments");
+
+                    b.Navigation("ReactionList");
                 });
 
             modelBuilder.Entity("Chat.Domain.Entities.Conversation", b =>
