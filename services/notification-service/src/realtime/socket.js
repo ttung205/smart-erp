@@ -29,5 +29,8 @@ export function createRealtime(httpServer, { jwtSecret, logger = console }) {
     toUser(userId, event, data) {
       io.to(`user:${userId}`).emit(event, data);
     },
+    broadcast(event, data) {
+      io.emit(event, data);
+    },
   };
 }

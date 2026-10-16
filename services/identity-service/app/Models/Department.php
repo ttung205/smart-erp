@@ -12,10 +12,16 @@ class Department extends Model
         'code',
         'name',
         'description',
+        'manager_id',
     ];
 
     public function users()
     {
         return $this->hasMany(User::class, 'department_id');
+    }
+
+    public function manager()
+    {
+        return $this->belongsTo(User::class, 'manager_id');
     }
 }

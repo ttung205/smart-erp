@@ -82,6 +82,33 @@ public class GoodsReceivedItemPayload
     public int QuantityReceived { get; set; }
 }
 
+/// <summary>
+/// Sự kiện ProductCreated bắn từ catalog-service qua routing key: catalog.product.created
+/// </summary>
+public class ProductCreatedPayload
+{
+    [JsonPropertyName("product_id")]
+    public long ProductId { get; set; }
+
+    [JsonPropertyName("sku")]
+    public string Sku { get; set; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("origin")]
+    public string Origin { get; set; } = "Việt Nam";
+
+    [JsonPropertyName("unit")]
+    public string Unit { get; set; } = "Cái";
+
+    [JsonPropertyName("gross_price")]
+    public decimal GrossPrice { get; set; }
+
+    [JsonPropertyName("min_stock")]
+    public int MinStock { get; set; }
+}
+
 #endregion
 
 #region Outgoing Payloads

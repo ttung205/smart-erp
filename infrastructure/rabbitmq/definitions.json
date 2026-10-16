@@ -165,6 +165,14 @@
     {
       "source": "erp.events",
       "vhost": "/",
+      "destination": "erp.inventory.events",
+      "destination_type": "queue",
+      "routing_key": "catalog.product.*",
+      "arguments": {}
+    },
+    {
+      "source": "erp.events",
+      "vhost": "/",
       "destination": "erp.sales.events",
       "destination_type": "queue",
       "routing_key": "inventory.stock.*",
@@ -240,6 +248,22 @@
       "destination": "erp.notification.events",
       "destination_type": "queue",
       "routing_key": "purchase.inquiry.*",
+      "arguments": {}
+    },
+    {
+      "source": "erp.events",
+      "vhost": "/",
+      "destination": "erp.notification.events",
+      "destination_type": "queue",
+      "routing_key": "catalog.product.*",
+      "arguments": {}
+    },
+    {
+      "source": "erp.events",
+      "vhost": "/",
+      "destination": "erp.notification.events",
+      "destination_type": "queue",
+      "routing_key": "inventory.stock.*",
       "arguments": {}
     },
     {

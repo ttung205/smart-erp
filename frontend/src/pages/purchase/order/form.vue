@@ -329,29 +329,31 @@ const canApprove = computed(() => {
 const loadOrder = async (id) => {
   let matchedData = null;
 
-  // 1. Tìm trong localStorage trước (chứa thay đổi mới nhất từ client)
+  // 1. Ưu tiên lấy trực tiếp từ Backend API (Nguồn dữ liệu thực tế)
   try {
-    const localList = JSON.parse(localStorage.getItem('smart_erp_mock_po_list') || '[]');
-    matchedData = localList.find(x => String(x.id) === String(id) || x.po_number === String(id) || x.code === String(id));
+    const res = await purchaseApi.getOrderById(id);
+    matchedData = res?.data || res;
   } catch (err) {
-    console.warn('Error reading local PO:', err);
+    console.warn('API getOrderById warning:', err);
   }
 
-  // 2. Nếu chưa có thì lấy từ Backend API
+  // 2. Nếu server không có, fallback tìm trong localStorage (client offline/mock)
   if (!matchedData) {
     try {
-      const res = await purchaseApi.getOrderById(id);
-      matchedData = res?.data || res;
+      const localList = JSON.parse(localStorage.getItem('smart_erp_mock_po_list') || '[]');
+      matchedData = localList.find(x => String(x.id) === String(id) || x.po_number === String(id) || x.code === String(id));
     } catch (err) {
-      console.warn('API getOrderById warning:', err);
+      console.warn('Error reading local PO:', err);
     }
   }
 
   if (matchedData) {
     const rawStatus = String(matchedData.status || 'DRAFT').toUpperCase();
-    const normalizedStatus = rawStatus === 'PENDINGAPPROVAL' ? 'SUBMITTED'
-      : rawStatus === 'PARTIALLYRECEIVED' ? 'PARTIALLY_RECEIVED'
-        : rawStatus;
+    const normalizedStatus = (rawStatus === 'PENDINGAPPROVAL' || rawStatus === 'PENDING_APPROVAL') ? 'SUBMITTED'
+      : (rawStatus === 'PARTIALLYRECEIVED' || rawStatus === 'PARTIALLY_RECEIVED') ? 'PARTIALLY_RECEIVED'
+      : (rawStatus === 'COMPLETED' || rawStatus === 'RECEIVED') ? 'RECEIVED'
+      : rawStatus;
+
 
     form.id = matchedData.id;
     form.po_number = matchedData.po_number || matchedData.code || `PO-202610-${String(id).padStart(4, '0')}`;

@@ -24,6 +24,14 @@ export class NotificationService {
       return { skipped: 'DUPLICATE' };
     }
 
+    // Đẩy broadcast Socket.IO đồng bộ dữ liệu thời gian thực cho frontend (Giai đoạn 3)
+    if (eventType === 'ProductCreated') {
+      this.publisher?.broadcast?.('catalog:product_created', envelope.payload || {});
+    }
+    if (eventType === 'StockUpdated' || eventType === 'StockReserved') {
+      this.publisher?.broadcast?.('inventory:stock_updated', envelope.payload || {});
+    }
+
     const rule = this.rules[eventType];
     if (!rule) {
       this.repository.markProcessed(eventId, eventType);

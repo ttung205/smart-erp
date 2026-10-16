@@ -17,6 +17,7 @@ class User extends Authenticatable
         'email',
         'password_hash',
         'department_id',
+        'line_manager_id',
         'is_active',
     ];
 
@@ -28,6 +29,11 @@ class User extends Authenticatable
     public function department()
     {
         return $this->belongsTo(Department::class, 'department_id');
+    }
+
+    public function lineManager()
+    {
+        return $this->belongsTo(User::class, 'line_manager_id');
     }
 
     public function roles()

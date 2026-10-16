@@ -8,6 +8,7 @@ public interface IPurchaseOrderService
     Task<PurchaseOrderDto> SubmitAsync(long id, CancellationToken ct = default);
     Task<PurchaseOrderDto> ApproveAsync(long id, long approvedBy, CancellationToken ct = default);
     Task<PurchaseOrderDto> CancelAsync(long id, CancelPurchaseOrderDto dto, CancellationToken ct = default);
+    Task<PurchaseOrderDto> CloseAsync(long id, ClosePurchaseOrderDto dto, CancellationToken ct = default);
     Task<PurchaseOrderDto?> GetByIdAsync(long id, CancellationToken ct = default);
     Task<List<PurchaseOrderDto>> GetListAsync(long? supplierId = null, long? warehouseId = null, string? status = null, CancellationToken ct = default);
 }

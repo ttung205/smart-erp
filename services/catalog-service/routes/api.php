@@ -35,6 +35,7 @@ Route::put('/customers/{customerId}/contacts/{contactId}', [CustomerController::
 Route::delete('/customers/{customerId}/contacts/{contactId}', [CustomerController::class, 'deleteContact']);
 
 // 6. Suppliers (Nhà cung cấp)
+Route::get('/suppliers/generate-code', [SupplierController::class, 'generateCode']);
 Route::apiResource('suppliers', SupplierController::class);
 
 // 7. Partners & Warehouses

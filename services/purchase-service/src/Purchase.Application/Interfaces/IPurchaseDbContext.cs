@@ -15,6 +15,8 @@ public interface IPurchaseDbContext
     DbSet<GoodsReceiptItem> GoodsReceiptItems { get; }
     DbSet<PurchaseInvoice> PurchaseInvoices { get; }
     DbSet<PurchaseInvoiceItem> PurchaseInvoiceItems { get; }
+    DbSet<PurchaseReturn> PurchaseReturns { get; }
+    DbSet<PurchaseReturnItem> PurchaseReturnItems { get; }
     DbSet<OutboxEvent> OutboxEvents { get; }
     DbSet<ProcessedEvent> ProcessedEvents { get; }
 

@@ -70,8 +70,14 @@ public class PurchaseInvoiceDto
     [JsonPropertyName("purchase_order_id")]
     public long PurchaseOrderId { get; set; }
 
+    [JsonPropertyName("po_code")]
+    public string PoCode { get; set; } = string.Empty;
+
     [JsonPropertyName("goods_receipt_id")]
     public long? GoodsReceiptId { get; set; }
+
+    [JsonPropertyName("goods_receipt_code")]
+    public string? GoodsReceiptCode { get; set; }
 
     [JsonPropertyName("supplier_id")]
     public long SupplierId { get; set; }

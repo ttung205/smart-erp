@@ -224,3 +224,12 @@ public class CancelPurchaseOrderDto
     [JsonPropertyName("reason")]
     public string? Reason { get; set; }
 }
+
+public class ClosePurchaseOrderDto
+{
+    [JsonPropertyName("closed_by")]
+    public long ClosedBy { get; set; } = 1;
+
+    [JsonPropertyName("reason")]
+    public string? Reason { get; set; }
+}

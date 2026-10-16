@@ -67,6 +67,8 @@ import InquiryRequestFormPage from '../pages/inquiry-request/form.vue';
 import InquiryRequestViewPage from '../pages/inquiry-request/view.vue';
 import InquiryIndexPage from '../pages/inquiry/index.vue';
 import InquiryFormPage from '../pages/inquiry/form.vue';
+import PurchaseReturnPage from '../pages/purchase/return/index.vue';
+import PurchaseReturnFormPage from '../pages/purchase/return/form.vue';
 
 export const routes = [
   {
@@ -390,9 +392,9 @@ export const routes = [
     component: PurchaseInvoicePage,
     meta: {
       requiresAuth: true,
-      resource: 'purchase',
+      resource: ['purchase', 'finance'],
       permission: 'purchase.view',
-      title: 'Hóa Đơn & Đối Chiếu 3 Bên'
+      title: 'Chứng Từ Mua Hàng & Đối Chiếu 3 Bên'
     }
   },
   {
@@ -401,9 +403,9 @@ export const routes = [
     component: PurchaseInvoiceFormPage,
     meta: {
       requiresAuth: true,
-      resource: 'purchase',
+      resource: ['purchase', 'finance'],
       permission: 'purchase.create',
-      title: 'Nhập Hóa Đơn Mua Hàng Mới'
+      title: 'Lập Chứng Từ Mua Hàng Mới'
     }
   },
   {
@@ -412,9 +414,42 @@ export const routes = [
     component: PurchaseInvoiceFormPage,
     meta: {
       requiresAuth: true,
+      resource: ['purchase', 'finance'],
+      permission: 'purchase.view',
+      title: 'Chi Tiết Chứng Từ Mua Hàng & Đối Chiếu 3 Bên'
+    }
+  },
+  {
+    path: '/purchase/returns',
+    name: 'purchase-returns',
+    component: PurchaseReturnPage,
+    meta: {
+      requiresAuth: true,
       resource: 'purchase',
       permission: 'purchase.view',
-      title: 'Chi Tiết Hóa Đơn & Đối Chiếu'
+      title: 'Trả Hàng Mua (RTV)'
+    }
+  },
+  {
+    path: '/purchase/returns/create',
+    name: 'purchase-returns-create',
+    component: PurchaseReturnFormPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'purchase',
+      permission: 'purchase.create',
+      title: 'Lập Phiếu Trả Hàng Mua'
+    }
+  },
+  {
+    path: '/purchase/returns/:id',
+    name: 'purchase-returns-detail',
+    component: PurchaseReturnFormPage,
+    meta: {
+      requiresAuth: true,
+      resource: 'purchase',
+      permission: 'purchase.view',
+      title: 'Chi Tiết Phiếu Trả Hàng Mua'
     }
   },
   {

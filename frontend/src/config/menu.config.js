@@ -147,6 +147,14 @@ export const menuCategories = [
             icon: 'pi pi-file'
           },
           {
+            id: 'accounting-purchase-invoice',
+            path: '/purchase/invoices',
+            resource: 'purchase',
+            permission: 'purchase.view',
+            label: 'Chứng từ mua hàng',
+            icon: 'pi pi-file-import'
+          },
+          {
             id: 'accounting-delivery-request',
             path: '/delivery-request',
             resource: 'delivery',
@@ -271,8 +279,16 @@ export const menuCategories = [
             path: '/purchase/invoices',
             resource: 'purchase',
             permission: 'purchase.view',
-            label: 'Hóa đơn & Đối chiếu',
-            icon: 'pi pi-receipt'
+            label: 'Chứng từ mua hàng',
+            icon: 'pi pi-file-import'
+          },
+          {
+            id: 'purchase-return',
+            path: '/purchase/returns',
+            resource: 'purchase',
+            permission: 'purchase.view',
+            label: 'Trả hàng mua (RTV)',
+            icon: 'pi pi-replay'
           }
         ]
       },

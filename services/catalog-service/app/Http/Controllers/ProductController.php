@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Messaging\RabbitMqPublisher;
 
 class ProductController extends Controller
 {
@@ -143,7 +144,7 @@ class ProductController extends Controller
         return response()->json(['success' => true, 'data' => $p]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, RabbitMqPublisher $publisher)
     {
         $sku = trim($request->input('sku', ''));
         $grossPrice = (float) $request->input('gross_price', 0);
@@ -167,22 +168,38 @@ class ProductController extends Controller
             $categoryId = $cat ? $cat->id : DB::table('categories')->insertGetId(['name' => $categoryName, 'code' => Str::slug($categoryName) . '-' . rand(100, 999), 'created_at' => now(), 'updated_at' => now()]);
         }
 
+        $designation = $request->input('designation') ?: $description;
+        $origin = $request->input('com', 'Việt Nam');
+        $unit = $request->input('unit', 'Cái');
+        $minStock = (int) $request->input('min_stock', 0);
+
         $id = DB::table('products')->insertGetId([
             'sku' => $sku,
-            'designation' => $request->input('designation'),
+            'designation' => $designation,
             'brand_id' => $brandId,
             'category_id' => $categoryId,
             'description' => $description,
-            'com' => $request->input('com', 'Việt Nam'),
-            'unit' => $request->input('unit', 'Cái'),
+            'com' => $origin,
+            'unit' => $unit,
             'gross_price' => $grossPrice,
             'spec' => $request->input('spec'),
             'cost_price' => (float) $request->input('cost_price', 0),
-            'min_stock' => (int) $request->input('min_stock', 0),
+            'min_stock' => $minStock,
             'status' => 'ACTIVE',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+
+        $publisher->publishProductCreated([
+            'product_id' => $id,
+            'sku' => $sku,
+            'name' => $designation,
+            'origin' => $origin,
+            'unit' => $unit,
+            'gross_price' => $grossPrice,
+            'min_stock' => $minStock,
+        ]);
+        $publisher->close();
 
         return response()->json(['success' => true, 'data' => ['id' => $id, 'sku' => $sku]], 201);
     }

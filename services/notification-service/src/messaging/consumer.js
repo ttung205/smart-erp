@@ -10,6 +10,8 @@ export const BINDINGS = [
   'sales.dispatch.*',
   'eoffice.leave.*',
   'purchase.inquiry.*',
+  'catalog.product.*',
+  'inventory.stock.*',
 ];
 
 const RETRY_HEADER = 'x-retry-count';
