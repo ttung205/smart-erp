@@ -62,10 +62,14 @@ export const useChatStore = defineStore('chat', () => {
 
   const isOnline = (userId) => online.value.has(userId);
 
-  function typingNames(convId) {
+  function typingUsers(convId) {
     const now = Date.now();
-    return Object.values(typing[convId] || {}).filter((t) => t.until > now).map((t) => t.name);
+    return Object.entries(typing[convId] || {})
+      .filter(([, t]) => t.until > now)
+      .map(([userId, t]) => ({ userId: Number(userId), name: t.name }));
   }
+
+  const typingNames = (convId) => typingUsers(convId).map((t) => t.name);
 
   // ---------- Khởi động & kết nối ----------
 
@@ -502,7 +506,7 @@ export const useChatStore = defineStore('chat', () => {
   return {
     meId, conversations, messages, pins, typing, online, aliases, activeId, connectionState, loadingConversations, soundEnabled,
     conversationMap, activeConversation, unreadTotal,
-    partnerOf, displayName, conversationName, memberName, isOnline, typingNames,
+    partnerOf, displayName, conversationName, memberName, isOnline, typingNames, typingUsers,
     init, stop, fetchConversations, openConversation, loadOlder, ensureMessageLoaded, markRead, markAllRead,
     send, edit, recall, react, setMessagePinned, forward, hide,
     openDirect, createGroup, rename, setAvatar, removeAvatar, addMembers, removeMember, setRole, transferOwner, leave, dissolve,

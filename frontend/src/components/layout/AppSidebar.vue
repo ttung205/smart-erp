@@ -1,11 +1,11 @@
 <template>
   <aside
     class="fixed top-0 bottom-0 left-0 z-50 flex flex-col bg-white border-r border-slate-200 transition-all duration-200 select-none"
-    :class="isCollapsed ? 'w-[68px]' : 'w-64'"
+    :class="isCollapsed ? 'w-[68px]' : 'w-[220px]'"
   >
     <!-- Brand Header & Collapse Toggle Button -->
     <div
-      class="h-14 flex items-center border-b border-slate-200"
+      class="h-12 flex items-center border-b border-slate-200"
       :class="isCollapsed ? 'justify-center px-0' : 'justify-between px-4'"
     >
       <div

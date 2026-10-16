@@ -17,10 +17,10 @@
 
       <!-- 2. Main Content Area (Tự động co giãn theo Sidebar) -->
       <div class="flex-1 flex flex-col min-w-0 transition-all duration-200"
-        :class="isSidebarCollapsed ? 'ml-[68px]' : 'ml-64'">
+        :class="isSidebarCollapsed ? 'ml-[68px]' : 'ml-[220px]'">
         <AppTopbar :current-user="currentUser" :health="health" @refresh-health="checkHealth" @logout="logout" />
 
-        <main class="px-4 py-3 w-full flex-1">
+        <main class="w-full flex-1" :class="route.path === '/intro' ? 'p-0' : 'px-4 py-3'">
           <router-view v-slot="{ Component }">
             <component
               :is="Component"
@@ -38,7 +38,7 @@
       </div>
 
       <!-- 3. Clean Floating Communication Hub (AI Assistant + Realtime Chat) -->
-      <CommunicationHub :user-name="currentUser ? currentUser.name : 'người dùng'" :current-user="currentUser" />
+      <CommunicationHub :current-user="currentUser" />
     </div>
   </div>
 </template>
@@ -136,9 +136,9 @@ const submitLogin = async ({ email, password }) => {
       });
 
       fetchAllData();
-      let target = route.query.redirect || '/dashboard';
+      let target = route.query.redirect || '/intro';
       if (target === '/login' || target === '/') {
-        target = '/dashboard';
+        target = '/intro';
       }
       await router.replace(target);
     }
@@ -264,7 +264,7 @@ watch(
   [() => currentUser.value, () => route.path],
   ([user, path]) => {
     if (user && path === '/login') {
-      const target = route.query.redirect || '/dashboard';
+      const target = route.query.redirect || '/intro';
       router.replace(target);
     }
   },
@@ -278,7 +278,7 @@ onMounted(async () => {
     fetchCurrentUserInfo();
     fetchAllData();
     if (route.path === '/' || route.path === '/login') {
-      const target = route.query.redirect || '/dashboard';
+      const target = route.query.redirect || '/intro';
       router.replace(target);
     }
   } else if (route.path !== '/login' && route.path !== '/forbidden') {

@@ -3,9 +3,9 @@ export const menuCategories = [
     category: 'Tổng Quan',
     items: [
       {
-        id: 'dashboard',
-        path: '/dashboard',
-        label: 'Bảng điều khiển',
+        id: 'intro',
+        path: '/intro',
+        label: 'Giới thiệu',
         icon: 'pi pi-home'
       }
     ]
@@ -22,7 +22,11 @@ export const menuCategories = [
           { id: 'eoffice-leave',
             path: '/eoffice/leave',
             label: 'Nghỉ phép',
-            icon: 'pi pi-calendar-minus' }
+            icon: 'pi pi-calendar-minus' },
+          { id: 'eoffice-chat',
+            path: '/chat',
+            label: 'Trò chuyện',
+            icon: 'pi pi-comments' }
         ]
       },
       {

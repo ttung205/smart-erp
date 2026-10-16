@@ -7,22 +7,13 @@
           <InputIcon class="pi pi-search" />
           <InputText v-model="keyword" placeholder="Tìm hội thoại..." class="w-full !text-xs !py-1.5" />
         </IconField>
-        <Button icon="pi pi-user-plus" text size="small" class="!w-8 !h-8 !p-0" v-tooltip.bottom="'Chat với đồng nghiệp'" @click="emit('new-direct')" />
-        <Button icon="pi pi-users" text size="small" class="!w-8 !h-8 !p-0" v-tooltip.bottom="'Tạo nhóm chat'" @click="emit('new-group')" />
-        <Button icon="pi pi-ellipsis-v" text size="small" severity="secondary" class="!w-8 !h-8 !p-0" @click="settingsMenu.toggle($event)" />
+        <Button icon="pi pi-user-plus" text size="small" class="!w-8 !h-8 !p-0 !rounded-[6px]" v-tooltip.bottom="'Chat với đồng nghiệp'" @click="emit('new-direct')" />
+        <Button icon="pi pi-users" text size="small" class="!w-8 !h-8 !p-0 !rounded-[6px]" v-tooltip.bottom="'Tạo nhóm chat'" @click="emit('new-group')" />
+        <Button icon="pi pi-ellipsis-v" text size="small" severity="secondary" class="!w-8 !h-8 !p-0 !rounded-[6px]" @click="settingsMenu.toggle($event)" />
         <Menu ref="settingsMenu" :model="settingsItems" popup />
       </div>
       <div class="flex items-center gap-1">
-        <button
-          v-for="tab in tabs"
-          :key="tab.value"
-          type="button"
-          class="px-2.5 py-1 text-[11px] font-semibold rounded-[4px] cursor-pointer"
-          :class="filter === tab.value ? 'bg-sky-50 text-sky-700 border border-sky-200' : 'text-slate-500 hover:bg-slate-50 border border-transparent'"
-          @click="filter = tab.value"
-        >
-          {{ tab.label }}
-        </button>
+        <SelectButton v-model="filter" :options="tabs" option-label="label" option-value="value" size="small" class="[&_.p-togglebutton]:!rounded-[6px] [&_.p-togglebutton]:!text-[11px]" aria-label="Lọc hội thoại" />
         <span v-if="chat.connectionState !== 'connected'" class="ml-auto text-[10px] text-amber-600" :title="'Trạng thái kết nối: ' + chat.connectionState">
           {{ chat.connectionState === 'reconnecting' ? 'Đang kết nối lại…' : 'Mất kết nối realtime' }}
         </span>
@@ -35,13 +26,16 @@
       <div v-else-if="!visibleConversations.length" class="p-6 text-center text-xs text-slate-400">
         {{ keyword || filter !== 'all' ? 'Không có hội thoại phù hợp.' : 'Chưa có hội thoại nào. Bấm biểu tượng ở trên để bắt đầu.' }}
       </div>
-      <button
+      <div
         v-for="conv in visibleConversations"
         :key="conv.id"
-        type="button"
+        role="button"
+        tabindex="0"
         class="w-full flex items-center gap-2.5 px-3 py-2.5 text-left border-b border-slate-100 cursor-pointer transition-colors"
         :class="conv.id === chat.activeId ? 'bg-sky-50' : 'hover:bg-slate-50'"
         @click="emit('select', conv.id)"
+        @keydown.enter="emit('select', conv.id)"
+        @keydown.space.prevent="emit('select', conv.id)"
         @contextmenu.prevent="openContextMenu($event, conv)"
       >
         <ChatAvatar
@@ -60,19 +54,20 @@
           </div>
           <div class="flex items-center gap-1 mt-0.5">
             <span class="text-[11px] truncate flex-1" :class="conv.unread_count ? 'text-slate-800 font-semibold' : 'text-slate-500'">
-              <template v-if="typingText(conv)"><span class="text-sky-600 italic">{{ typingText(conv) }}</span></template>
+              <span v-if="typingText(conv)" class="inline-flex items-center gap-1.5 text-sky-600">
+                <ChatTypingDots :size="4" />{{ typingText(conv) }}
+              </span>
               <template v-else>{{ previewText(conv) }}</template>
             </span>
-            <span
+            <Tag
               v-if="conv.unread_count"
-              class="min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold text-white flex items-center justify-center shrink-0"
-              :class="conv.muted ? 'bg-slate-400' : 'bg-rose-600'"
-            >
-              {{ conv.unread_count > 99 ? '99+' : conv.unread_count }}
-            </span>
+              :value="conv.unread_count > 99 ? '99+' : String(conv.unread_count)"
+              severity="danger"
+              class="!bg-red-600 !text-white !border-red-600 !rounded-full !font-bold !text-[10px] !w-4 !h-4 !min-w-4 !p-0 !justify-center shrink-0"
+            />
           </div>
         </div>
-      </button>
+      </div>
     </div>
 
     <ContextMenu ref="contextMenu" :model="contextItems" />
@@ -93,6 +88,8 @@
 import { computed, reactive, ref } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import Button from 'primevue/button';
+import SelectButton from 'primevue/selectbutton';
+import Tag from 'primevue/tag';
 import InputText from 'primevue/inputtext';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
@@ -100,6 +97,7 @@ import Menu from 'primevue/menu';
 import ContextMenu from 'primevue/contextmenu';
 import ChatAvatar from './ChatAvatar.vue';
 import ChatPromptDialog from './ChatPromptDialog.vue';
+import ChatTypingDots from './ChatTypingDots.vue';
 import { useChatStore } from '../../stores/chatStore';
 import { formatListTime } from './chatFormat';
 

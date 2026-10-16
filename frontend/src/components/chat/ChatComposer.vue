@@ -2,15 +2,13 @@
   <div class="border-t border-slate-200 bg-white shrink-0">
     <!-- Đang trả lời / đang sửa -->
     <div v-if="replyTo || editing" class="flex items-center gap-2 px-3 pt-2">
-      <div class="flex-1 min-w-0 px-2 py-1 border-l-2 border-sky-500 bg-slate-50 rounded-r-[4px]">
+      <div class="flex-1 min-w-0 px-2 py-1 border border-sky-200 bg-sky-50 rounded-[6px]">
         <div class="text-[11px] font-semibold text-sky-700">
           {{ editing ? 'Đang sửa tin nhắn' : `Trả lời ${replyName}` }}
         </div>
         <div v-if="replyTo" class="text-[11px] text-slate-500 truncate">{{ replyTo.content || '[Tệp đính kèm]' }}</div>
       </div>
-      <button type="button" class="w-6 h-6 rounded-full hover:bg-slate-100 text-slate-400 cursor-pointer" title="Huỷ" @click="cancelMode">
-        <i class="pi pi-times text-[11px]"></i>
-      </button>
+      <Button icon="pi pi-times" text severity="secondary" size="small" class="!w-7 !h-7 !p-0 !rounded-[6px]" v-tooltip.top="'Huỷ'" @click="cancelMode" />
     </div>
 
     <!-- Tệp chờ gửi -->
@@ -19,59 +17,58 @@
         <i :class="fileIcon(file.type, file.name)"></i>
         <span class="truncate">{{ file.name }}</span>
         <span class="text-slate-400 shrink-0">{{ formatFileSize(file.size) }}</span>
-        <button type="button" class="w-4 h-4 rounded-full hover:bg-slate-200 cursor-pointer shrink-0" @click="files.splice(i, 1)"><i class="pi pi-times text-[8px]"></i></button>
+        <Button icon="pi pi-times" text severity="secondary" size="small" class="!w-5 !h-5 !p-0 !rounded-[6px] shrink-0" @click="files.splice(i, 1)" />
       </span>
     </div>
 
     <div class="relative flex items-end gap-1 p-2">
       <!-- Gợi ý nhắc tên -->
-      <div v-if="mentionOpen" class="absolute bottom-full left-2 mb-1 w-64 max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-[6px] shadow-lg z-20">
-        <button
+      <div v-if="mentionOpen" class="absolute bottom-full left-2 mb-1 w-64 max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-[6px] shadow-sm z-20" role="listbox">
+        <div
           v-for="(option, i) in mentionOptions"
           :key="option.id"
-          type="button"
-          class="w-full flex items-center gap-2 px-2.5 py-1.5 text-left text-xs cursor-pointer"
+          role="option"
+          :aria-selected="i === mentionIndex"
+          class="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs cursor-pointer"
           :class="i === mentionIndex ? 'bg-sky-50' : 'hover:bg-slate-50'"
           @mousedown.prevent="applyMention(option)"
         >
           <ChatAvatar :name="option.name" :group="option.id === 'all'" :size="22" />
           <span class="truncate">{{ option.name }}</span>
-        </button>
+        </div>
       </div>
 
       <template v-if="!editing">
-        <button type="button" class="tool-btn" title="Đính kèm tệp" @click="fileInput.click()"><i class="pi pi-paperclip"></i></button>
-        <input ref="fileInput" type="file" multiple class="hidden" @change="onPickFiles" />
+        <FileUpload ref="fileInput" mode="basic" multiple custom-upload choose-icon="pi pi-paperclip" choose-label=" " :choose-button-props="{ text: true, severity: 'secondary', size: 'small', class: TOOL_CLASS, 'aria-label': 'Đính kèm tệp' }" @select="onPickFiles" />
       </template>
-      <button type="button" class="tool-btn" title="Biểu tượng cảm xúc" @click="emojiPanel.toggle($event)"><i class="pi pi-face-smile"></i></button>
+      <Button icon="pi pi-face-smile" text severity="secondary" :class="TOOL_CLASS" v-tooltip.top="'Biểu tượng cảm xúc'" @click="emojiPanel.toggle($event)" />
 
-      <textarea
+      <Textarea
         ref="textarea"
         v-model="text"
         rows="1"
+        auto-resize
         :placeholder="placeholder"
-        class="flex-1 resize-none px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-[8px] focus:outline-none focus:border-sky-500 focus:bg-white max-h-36"
+        class="flex-1 !resize-none !text-[13px] !rounded-[6px] max-h-36"
         @keydown="onKeydown"
         @input="onInput"
         @paste="onPaste"
         @click="detectMention"
-      ></textarea>
+      />
 
       <Button
         :icon="editing ? 'pi pi-check' : 'pi pi-send'"
         size="small"
         :loading="sending"
         :disabled="!canSend"
-        class="!w-9 !h-9 !p-0 !rounded-full"
+        class="!w-9 !h-9 !p-0 !rounded-[6px]"
         @click="submit"
       />
     </div>
 
     <Popover ref="emojiPanel">
       <div class="grid grid-cols-8 gap-0.5 w-72">
-        <button v-for="emoji in EMOJIS" :key="emoji" type="button" class="w-8 h-8 text-lg rounded hover:bg-slate-100 cursor-pointer" @click="insertText(emoji)">
-          {{ emoji }}
-        </button>
+        <Button v-for="emoji in EMOJIS" :key="emoji" :label="emoji" text size="small" class="!w-9 !h-9 !p-0 !text-lg !rounded-[6px]" @click="insertText(emoji)" />
       </div>
     </Popover>
   </div>
@@ -82,12 +79,15 @@ import { computed, nextTick, ref, watch } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import Button from 'primevue/button';
 import Popover from 'primevue/popover';
+import Textarea from 'primevue/textarea';
+import FileUpload from 'primevue/fileupload';
 import ChatAvatar from './ChatAvatar.vue';
 import { useChatStore } from '../../stores/chatStore';
 import { fileIcon, formatFileSize } from './chatFormat';
 
 const MAX_FILES = 10;
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
+const TOOL_CLASS = '!w-9 !h-9 !p-0 !rounded-[6px]';
 const EMOJIS = ['😀', '😂', '😊', '😍', '🥰', '😘', '😎', '🤔', '😅', '😭', '😡', '😱', '👍', '👎', '👏', '🙏', '💪', '🤝', '👌', '✌️', '❤️', '💔', '🔥', '🎉', '✅', '❌', '⚠️', '📌', '📎', '📦', '💰', '⏰'];
 
 const props = defineProps({
@@ -103,6 +103,7 @@ const text = ref('');
 const files = ref([]);
 const sending = ref(false);
 const textarea = ref(null);
+const textareaEl = () => textarea.value?.$el;
 const fileInput = ref(null);
 const emojiPanel = ref(null);
 
@@ -123,19 +124,11 @@ watch(() => props.conv.id, () => {
 
 function focusEnd() {
   nextTick(() => {
-    const el = textarea.value;
+    const el = textareaEl();
     if (!el) return;
     el.focus();
     el.setSelectionRange(el.value.length, el.value.length);
-    autosize();
   });
-}
-
-function autosize() {
-  const el = textarea.value;
-  if (!el) return;
-  el.style.height = 'auto';
-  el.style.height = `${Math.min(el.scrollHeight, 144)}px`;
 }
 
 function cancelMode() {
@@ -161,7 +154,7 @@ const mentionOptions = computed(() => {
 
 function detectMention() {
   if (props.conv.type !== 'group') return;
-  const el = textarea.value;
+  const el = textareaEl();
   const before = text.value.slice(0, el.selectionStart);
   const match = before.match(/(?:^|\s)@([^\s@]{0,30})$/);
   if (match) {
@@ -175,7 +168,7 @@ function detectMention() {
 }
 
 function applyMention(option) {
-  const el = textarea.value;
+  const el = textareaEl();
   const end = el.selectionStart;
   const insert = `@${option.name} `;
   text.value = text.value.slice(0, mentionStart.value) + insert + text.value.slice(end);
@@ -196,7 +189,6 @@ function collectMentions(content) {
 
 // ---------- Nhập liệu ----------
 function onInput() {
-  autosize();
   detectMention();
   if (!props.editing && text.value.trim()) chat.sendTyping(props.conv.id);
 }
@@ -227,7 +219,7 @@ function onKeydown(event) {
 }
 
 function insertText(value) {
-  const el = textarea.value;
+  const el = textareaEl();
   const start = el?.selectionStart ?? text.value.length;
   text.value = text.value.slice(0, start) + value + text.value.slice(start);
   nextTick(() => {
@@ -250,12 +242,12 @@ function addFiles(list) {
     }
     files.value.push(file);
   }
-  textarea.value?.focus();
+  textareaEl()?.focus();
 }
 
 function onPickFiles(event) {
-  addFiles([...event.target.files]);
-  event.target.value = '';
+  addFiles(event.files);
+  fileInput.value?.clear();
 }
 
 function onPaste(event) {
@@ -281,31 +273,13 @@ async function submit() {
     }
     text.value = '';
     emit('sent');
-    nextTick(autosize);
   } catch (e) {
     toast.add({ severity: 'error', summary: 'Không gửi được tin nhắn', detail: e.message, life: 4000 });
   } finally {
     sending.value = false;
-    textarea.value?.focus();
+    textareaEl()?.focus();
   }
 }
 
-defineExpose({ addFiles, focus: () => textarea.value?.focus() });
+defineExpose({ addFiles, focus: () => textareaEl()?.focus() });
 </script>
-
-<style scoped>
-.tool-btn {
-  width: 34px;
-  height: 34px;
-  border-radius: 9999px;
-  color: rgb(100 116 139);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.tool-btn:hover {
-  background: rgb(241 245 249);
-  color: rgb(2 132 199);
-}
-</style>

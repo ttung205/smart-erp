@@ -2,7 +2,7 @@
   <div class="flex flex-col min-h-0 h-full bg-white">
     <div class="h-12 px-3 flex items-center justify-between border-b border-slate-200 shrink-0">
       <span class="text-xs font-bold text-slate-800 uppercase tracking-wide">{{ isGroup ? 'Thông tin nhóm' : 'Thông tin hội thoại' }}</span>
-      <button type="button" class="w-7 h-7 rounded-full hover:bg-slate-100 text-slate-500 cursor-pointer" @click="emit('close')"><i class="pi pi-times text-xs"></i></button>
+      <Button icon="pi pi-times" text severity="secondary" size="small" class="!w-7 !h-7 !p-0 !rounded-[6px]" aria-label="Đóng thông tin hội thoại" @click="emit('close')" />
     </div>
 
     <div class="flex-1 overflow-y-auto">
@@ -10,26 +10,23 @@
       <div class="flex flex-col items-center gap-2 px-4 py-5 border-b border-slate-100">
         <div class="relative">
           <ChatAvatar :name="chat.conversationName(conv)" :url="conv.avatar_url || ''" :group="isGroup" :size="72" :online="!isGroup && chat.isOnline(partner?.user_id)" />
-          <button
+          <Button
             v-if="isGroup && canManage"
-            type="button"
-            class="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-white border border-slate-200 shadow-sm text-slate-600 hover:text-sky-600 cursor-pointer"
-            title="Đổi ảnh nhóm"
+            icon="pi pi-camera"
+            outlined
+            severity="secondary"
+            size="small"
+            class="!absolute -bottom-1 -right-1 !w-7 !h-7 !p-0 !rounded-[6px] !bg-white !border-slate-200 shadow-sm"
+            aria-label="Đổi ảnh nhóm"
             @click="avatarMenu.toggle($event)"
-          >
-            <i class="pi pi-camera text-xs"></i>
-          </button>
-          <input ref="avatarInput" type="file" accept=".jpg,.jpeg,.png,.webp" class="hidden" @change="onAvatarPicked" />
+          />
+          <FileUpload ref="avatarInput" mode="basic" accept=".jpg,.jpeg,.png,.webp" custom-upload class="hidden" @select="onAvatarPicked" />
           <Menu ref="avatarMenu" :model="avatarItems" popup />
         </div>
         <div class="flex items-center gap-1">
           <span class="text-sm font-bold text-slate-900 text-center">{{ chat.conversationName(conv) }}</span>
-          <button v-if="isGroup && canManage" type="button" class="w-6 h-6 rounded-full hover:bg-slate-100 text-slate-400 cursor-pointer" title="Đổi tên nhóm" @click="renameDialog = true">
-            <i class="pi pi-pencil text-[11px]"></i>
-          </button>
-          <button v-if="!isGroup && partner" type="button" class="w-6 h-6 rounded-full hover:bg-slate-100 text-slate-400 cursor-pointer" title="Đặt tên gợi nhớ" @click="openAlias(partner.user_id)">
-            <i class="pi pi-pencil text-[11px]"></i>
-          </button>
+          <Button v-if="isGroup && canManage" icon="pi pi-pencil" text severity="secondary" size="small" class="!w-6 !h-6 !p-0 !rounded-[6px]" aria-label="Đổi tên nhóm" @click="renameDialog = true" />
+          <Button v-if="!isGroup && partner" icon="pi pi-pencil" text severity="secondary" size="small" class="!w-6 !h-6 !p-0 !rounded-[6px]" aria-label="Đặt tên gợi nhớ" @click="openAlias(partner.user_id)" />
         </div>
         <span v-if="isGroup" class="text-[11px] text-slate-500">{{ conv.members.length }} thành viên</span>
         <span v-else-if="partnerInfo" class="text-[11px] text-slate-500 text-center">{{ [partnerInfo.department_name, partnerInfo.email].filter(Boolean).join(' · ') }}</span>
@@ -37,18 +34,9 @@
 
       <!-- Tuỳ chọn riêng -->
       <div class="flex justify-center gap-6 py-3 border-b border-slate-100">
-        <button type="button" class="flex flex-col items-center gap-1 text-[11px] text-slate-600 cursor-pointer" @click="run(() => chat.setMuted(conv.id, !conv.muted))">
-          <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center"><i class="pi" :class="conv.muted ? 'pi-bell' : 'pi-bell-slash'"></i></span>
-          {{ conv.muted ? 'Bật thông báo' : 'Tắt thông báo' }}
-        </button>
-        <button type="button" class="flex flex-col items-center gap-1 text-[11px] text-slate-600 cursor-pointer" @click="run(() => chat.setPinned(conv.id, !conv.pinned_at))">
-          <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center"><i class="pi pi-thumbtack"></i></span>
-          {{ conv.pinned_at ? 'Bỏ ghim' : 'Ghim hội thoại' }}
-        </button>
-        <button v-if="isGroup && canManage" type="button" class="flex flex-col items-center gap-1 text-[11px] text-slate-600 cursor-pointer" @click="addDialog = true">
-          <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center"><i class="pi pi-user-plus"></i></span>
-          Thêm thành viên
-        </button>
+        <Button :icon="conv.muted ? 'pi pi-bell' : 'pi pi-bell-slash'" :label="conv.muted ? 'Bật thông báo' : 'Tắt thông báo'" text severity="secondary" size="small" class="!flex-col !gap-1 !text-[11px] !rounded-[6px]" @click="run(() => chat.setMuted(conv.id, !conv.muted))" />
+        <Button icon="pi pi-thumbtack" :label="conv.pinned_at ? 'Bỏ ghim' : 'Ghim hội thoại'" text severity="secondary" size="small" class="!flex-col !gap-1 !text-[11px] !rounded-[6px]" @click="run(() => chat.setPinned(conv.id, !conv.pinned_at))" />
+        <Button v-if="isGroup && canManage" icon="pi pi-user-plus" label="Thêm thành viên" text severity="secondary" size="small" class="!flex-col !gap-1 !text-[11px] !rounded-[6px]" @click="addDialog = true" />
       </div>
 
       <!-- Thành viên -->
@@ -65,14 +53,16 @@
               {{ member.is_active ? roleLabel(member.role) : 'Đã ngừng hoạt động' }}
             </div>
           </div>
-          <button
+          <Button
             v-if="member.user_id !== chat.meId"
-            type="button"
-            class="w-7 h-7 rounded-full hover:bg-slate-200 text-slate-500 cursor-pointer"
+            icon="pi pi-ellipsis-h"
+            text
+            severity="secondary"
+            size="small"
+            class="!w-7 !h-7 !p-0 !rounded-[6px]"
+            :aria-label="`Thao tác với ${member.name}`"
             @click="openMemberMenu($event, member)"
-          >
-            <i class="pi pi-ellipsis-h text-xs"></i>
-          </button>
+          />
         </div>
         <Menu ref="memberMenu" :model="memberItems" popup />
       </div>
@@ -139,6 +129,7 @@ import Button from 'primevue/button';
 import Menu from 'primevue/menu';
 import Dialog from 'primevue/dialog';
 import Select from 'primevue/select';
+import FileUpload from 'primevue/fileupload';
 import ChatAvatar from './ChatAvatar.vue';
 import ChatPromptDialog from './ChatPromptDialog.vue';
 import ChatUserPickerDialog from './ChatUserPickerDialog.vue';
@@ -188,13 +179,13 @@ function openAlias(userId) {
 const avatarMenu = ref(null);
 const avatarInput = ref(null);
 const avatarItems = computed(() => [
-  { label: 'Chọn ảnh mới', icon: 'pi pi-upload', command: () => avatarInput.value.click() },
+  { label: 'Chọn ảnh mới', icon: 'pi pi-upload', command: () => avatarInput.value?.choose() },
   ...(props.conv.avatar_url ? [{ label: 'Xoá ảnh nhóm', icon: 'pi pi-trash', command: () => run(() => chat.removeAvatar(props.conv.id)) }] : [])
 ]);
 
 function onAvatarPicked(event) {
-  const file = event.target.files?.[0];
-  event.target.value = '';
+  const file = event.files?.[0];
+  avatarInput.value?.clear();
   if (file) run(() => chat.setAvatar(props.conv.id, file));
 }
 

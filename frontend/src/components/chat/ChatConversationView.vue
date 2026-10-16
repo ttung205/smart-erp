@@ -2,16 +2,26 @@
   <div class="relative flex flex-col min-h-0 h-full bg-slate-50" @dragover.prevent="dragging = true" @dragleave.self="dragging = false" @drop.prevent="onDrop">
     <!-- Header -->
     <header class="h-14 px-3 flex items-center gap-2.5 bg-white border-b border-slate-200 shrink-0">
-      <button v-if="compact || showBack" type="button" class="w-7 h-7 rounded-full hover:bg-slate-100 text-slate-500 cursor-pointer" :class="{ 'md:hidden': !compact }" @click="emit('back')">
-        <i class="pi pi-arrow-left text-xs"></i>
-      </button>
+      <Button
+        v-if="compact || showBack"
+        icon="pi pi-arrow-left"
+        text
+        severity="secondary"
+        :class="[HEAD_CLASS, { 'md:hidden': !compact }]"
+        v-tooltip.bottom="'Quay lại danh sách'"
+        @click="emit('back')"
+      />
       <ChatAvatar :name="title" :url="conv.avatar_url || ''" :group="isGroup" :size="36" :online="!isGroup && chat.isOnline(partner?.user_id)" />
       <div class="flex-1 min-w-0">
         <div class="text-sm font-bold text-slate-900 truncate">{{ title }}</div>
-        <div class="text-[11px] truncate" :class="typingLabel ? 'text-sky-600 italic' : 'text-slate-500'">{{ typingLabel || subtitle }}</div>
+        <div v-if="typingLabel" class="flex items-center gap-1.5 text-[11px] text-sky-600 truncate">
+          <ChatTypingDots :size="4" />
+          <span class="truncate">{{ typingLabel }}</span>
+        </div>
+        <div v-else class="text-[11px] text-slate-500 truncate">{{ subtitle }}</div>
       </div>
-      <button type="button" class="head-btn" :class="{ 'text-sky-600 bg-sky-50': searchOpen }" title="Tìm tin nhắn" @click="toggleSearch"><i class="pi pi-search"></i></button>
-      <button type="button" class="head-btn" :class="{ 'text-sky-600 bg-sky-50': infoOpen }" title="Thông tin" @click="emit('toggle-info')"><i class="pi pi-info-circle"></i></button>
+      <Button icon="pi pi-search" text :severity="searchOpen ? 'info' : 'secondary'" :class="[HEAD_CLASS, { '!bg-sky-50': searchOpen }]" v-tooltip.bottom="'Tìm tin nhắn'" @click="toggleSearch" />
+      <Button icon="pi pi-info-circle" text :severity="infoOpen ? 'info' : 'secondary'" :class="[HEAD_CLASS, { '!bg-sky-50': infoOpen }]" v-tooltip.bottom="'Thông tin hội thoại'" @click="emit('toggle-info')" />
       <slot name="header-actions" />
     </header>
 
@@ -26,19 +36,33 @@
       <div v-if="searchQuery.trim().length >= 2" class="max-h-56 overflow-y-auto border-t border-slate-100">
         <div v-if="searching" class="p-3 text-center text-xs text-slate-400">Đang tìm...</div>
         <div v-else-if="!searchHits.length" class="p-3 text-center text-xs text-slate-400">Không có kết quả.</div>
-        <button v-for="hit in searchHits" :key="hit.id" type="button" class="w-full px-3 py-2 text-left hover:bg-slate-50 border-b border-slate-50 cursor-pointer" @click="jumpTo(hit.id)">
+        <div
+          v-for="hit in searchHits"
+          :key="hit.id"
+          role="button"
+          tabindex="0"
+          class="px-3 py-2 hover:bg-slate-50 border-b border-slate-100 cursor-pointer"
+          @click="jumpTo(hit.id)"
+          @keydown.enter="jumpTo(hit.id)"
+        >
           <div class="flex justify-between text-[10px] text-slate-400">
             <span>{{ hit.sender ? chat.memberName(conv, hit.sender.id, hit.sender.name) : '' }}</span>
             <span>{{ formatListTime(hit.created_at) }}</span>
           </div>
           <div class="text-xs text-slate-700 line-clamp-2">{{ hit.content }}</div>
-        </button>
+        </div>
       </div>
     </div>
 
     <!-- Tin ghim -->
     <div v-if="pinned.length" class="bg-white border-b border-slate-200 shrink-0">
-      <button type="button" class="w-full flex items-center gap-2 px-3 py-1.5 text-left cursor-pointer hover:bg-slate-50" @click="pinsExpanded = !pinsExpanded">
+      <div
+        role="button"
+        tabindex="0"
+        class="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-slate-50"
+        @click="pinsExpanded = !pinsExpanded"
+        @keydown.enter="pinsExpanded = !pinsExpanded"
+      >
         <i class="pi pi-thumbtack text-sky-600 text-xs"></i>
         <span class="flex-1 min-w-0 text-xs text-slate-700 truncate">
           <span class="font-semibold">{{ pinned[0].sender ? chat.memberName(conv, pinned[0].sender.id, pinned[0].sender.name) : '' }}:</span>
@@ -46,13 +70,13 @@
         </span>
         <span v-if="pinned.length > 1" class="text-[10px] text-slate-400 shrink-0">{{ pinned.length }} tin ghim</span>
         <i class="pi text-[10px] text-slate-400" :class="pinsExpanded ? 'pi-chevron-up' : 'pi-chevron-down'"></i>
-      </button>
+      </div>
       <div v-if="pinsExpanded" class="border-t border-slate-100">
         <div v-for="pin in pinned" :key="pin.id" class="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50">
-          <button type="button" class="flex-1 min-w-0 text-left text-xs text-slate-700 truncate cursor-pointer" @click="jumpTo(pin.id)">
+          <span role="button" tabindex="0" class="flex-1 min-w-0 text-xs text-slate-700 truncate cursor-pointer" @click="jumpTo(pin.id)" @keydown.enter="jumpTo(pin.id)">
             <span class="font-semibold">{{ pin.sender ? chat.memberName(conv, pin.sender.id, pin.sender.name) : '' }}:</span> {{ pin.content || '[Tệp đính kèm]' }}
-          </button>
-          <button type="button" class="text-[11px] text-slate-400 hover:text-rose-600 cursor-pointer shrink-0" @click="run(() => chat.setMessagePinned(pin.id, false))">Bỏ ghim</button>
+          </span>
+          <Button label="Bỏ ghim" text severity="danger" size="small" class="!px-2 !py-0.5 !text-[11px] !rounded-[6px] shrink-0" @click="run(() => chat.setMessagePinned(pin.id, false))" />
         </div>
       </div>
     </div>
@@ -71,7 +95,7 @@
         </div>
         <ChatMessageBubble
           v-else
-          :class="{ 'chat-highlight': highlightId === row.message.id }"
+          :class="{ 'bg-sky-100': highlightId === row.message.id }"
           :message="row.message"
           :conv="conv"
           :mine="row.message.sender?.id === chat.meId"
@@ -84,21 +108,39 @@
           @jump="jumpTo"
         />
       </template>
+
+      <!-- Bong bóng "đang soạn tin" -->
+      <Transition
+        enter-active-class="transition duration-200"
+        leave-active-class="transition duration-200"
+        enter-from-class="opacity-0 translate-y-1.5"
+        leave-to-class="opacity-0 translate-y-1.5"
+      >
+        <div v-if="typers.length" class="flex items-end gap-2 px-3 mt-2">
+          <div class="w-8 shrink-0 flex">
+            <ChatAvatar :name="chat.memberName(conv, typers[0].userId, typers[0].name)" :size="32" />
+          </div>
+          <div class="px-3 py-3 bg-white border border-slate-200 rounded-[6px] text-slate-500">
+            <ChatTypingDots />
+          </div>
+          <span v-if="isGroup" class="text-[10px] text-slate-400 mb-1">{{ typingLabel }}</span>
+        </div>
+      </Transition>
     </div>
 
-    <button
+    <Button
       v-if="showJumpToBottom"
-      type="button"
-      class="absolute right-4 bottom-24 w-9 h-9 rounded-full bg-white border border-slate-200 shadow-md text-slate-600 hover:text-sky-600 cursor-pointer z-10"
-      title="Tin mới nhất"
+      icon="pi pi-arrow-down"
+      outlined
+      severity="secondary"
+      class="!absolute right-4 bottom-24 !w-9 !h-9 !p-0 !rounded-[6px] !bg-white shadow-sm z-10"
+      v-tooltip.left="'Tin mới nhất'"
       @click="scrollToBottom(true)"
-    >
-      <i class="pi pi-arrow-down text-xs"></i>
-    </button>
+    />
 
     <ChatComposer ref="composer" :conv="conv" :reply-to="replyTo" :editing="editing" @cancel="clearMode" @sent="onSent" />
 
-    <div v-if="dragging" class="absolute inset-0 bg-sky-50/90 border-2 border-dashed border-sky-400 rounded-[6px] flex items-center justify-center z-30 pointer-events-none">
+    <div v-if="dragging" class="absolute inset-0 bg-sky-50 border border-dashed border-sky-400 rounded-[6px] flex items-center justify-center z-30 pointer-events-none">
       <span class="text-sm font-semibold text-sky-700"><i class="pi pi-upload mr-2"></i>Thả tệp để gửi kèm</span>
     </div>
 
@@ -115,6 +157,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useToast } from 'primevue/usetoast';
+import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
@@ -122,11 +165,13 @@ import ChatAvatar from './ChatAvatar.vue';
 import ChatMessageBubble from './ChatMessageBubble.vue';
 import ChatComposer from './ChatComposer.vue';
 import ChatForwardDialog from './ChatForwardDialog.vue';
+import ChatTypingDots from './ChatTypingDots.vue';
 import { useChatStore } from '../../stores/chatStore';
 import { chatApi } from '../../api/chat.api';
 import { dayKey, formatDayLabel, formatListTime } from './chatFormat';
 
 const GROUP_GAP_MS = 5 * 60 * 1000;
+const HEAD_CLASS = '!w-8 !h-8 !p-0 !rounded-[6px]';
 const ROLE_RANK = { member: 1, deputy: 2, owner: 3 };
 
 const props = defineProps({
@@ -164,6 +209,13 @@ const subtitle = computed(() => {
   }
   if (partner.value && !partner.value.is_active) return 'Đã ngừng hoạt động';
   return chat.isOnline(partner.value?.user_id) ? 'Đang hoạt động' : 'Ngoại tuyến';
+});
+
+const typers = computed(() => chat.typingUsers(props.conv.id));
+
+// Bong bóng đang soạn tin xuất hiện khi đang ở cuối khung chat thì cuộn xuống cho thấy
+watch(() => typers.value.length, (count, old) => {
+  if (count > old && nearBottom()) scrollToBottom(true);
 });
 
 const typingLabel = computed(() => {
@@ -361,32 +413,3 @@ onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', onFocus);
 });
 </script>
-
-<style scoped>
-.head-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 9999px;
-  color: rgb(100 116 139);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.head-btn:hover {
-  background: rgb(241 245 249);
-  color: rgb(2 132 199);
-}
-:deep(.chat-highlight) {
-  animation: chat-flash 1.6s ease-out;
-}
-@keyframes chat-flash {
-  0%,
-  40% {
-    background: rgb(224 242 254);
-  }
-  100% {
-    background: transparent;
-  }
-}
-</style>

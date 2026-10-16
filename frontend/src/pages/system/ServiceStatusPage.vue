@@ -391,7 +391,7 @@ const services = ref([
     runtime: 'Vite 6 / Tailwind CSS',
     port: 5175,
     endpoint: '/',
-    scope: 'Giao diện bảng điều khiển ERP tập trung theo chuẩn kiến trúc phẳng SPA',
+    scope: 'Giao diện Smart ERP tập trung theo chuẩn kiến trúc phẳng SPA',
     icon: 'pi pi-desktop',
     iconBg: 'bg-amber-50 border border-amber-200',
     iconColor: 'text-amber-600',

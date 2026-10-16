@@ -12,7 +12,7 @@
     </div>
     <span
       v-if="online"
-      class="absolute bottom-0 right-0 rounded-full bg-emerald-500 border-2 border-white"
+      class="absolute bottom-0 right-0 rounded-full bg-emerald-500 border border-slate-200"
       :style="{ width: `${Math.max(8, size * 0.28)}px`, height: `${Math.max(8, size * 0.28)}px` }"
     ></span>
   </div>

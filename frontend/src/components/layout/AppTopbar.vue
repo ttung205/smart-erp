@@ -1,5 +1,5 @@
 <template>
-  <header class="h-14 bg-white border-b border-slate-200 px-6 flex items-center justify-end sticky top-0 z-40">
+  <header class="h-12 bg-white border-b border-slate-200 px-6 flex items-center justify-end sticky top-0 z-40">
     <!-- Right: Current User Widget -->
     <div class="flex items-center gap-3">
       <NotificationBell v-if="currentUser" />

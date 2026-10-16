@@ -1,10 +1,10 @@
 <template>
   <!-- Tin hệ thống -->
   <div v-if="message.type === 'system'" class="flex justify-center my-2 px-4">
-    <span class="px-3 py-1 text-[11px] text-slate-500 bg-slate-100 rounded-full text-center">{{ message.content }}</span>
+    <span class="px-3 py-1 text-[11px] text-slate-500 bg-slate-100 border border-slate-200 rounded-[6px] text-center">{{ message.content }}</span>
   </div>
 
-  <div v-else :id="`chat-msg-${message.id}`" class="group flex gap-2 px-3" :class="[mine ? 'flex-row-reverse' : '', showSender ? 'mt-2' : 'mt-0.5']">
+  <div v-else :id="`chat-msg-${message.id}`" class="group flex gap-2 px-3 transition-colors duration-700" :class="[mine ? 'flex-row-reverse' : '', showSender ? 'mt-2' : 'mt-0.5']">
     <div class="w-8 shrink-0">
       <ChatAvatar v-if="!mine && showSender" :name="senderName" :size="32" />
     </div>
@@ -15,7 +15,7 @@
       <div class="flex items-center gap-1" :class="mine ? 'flex-row-reverse' : ''">
         <!-- Nội dung -->
         <div
-          class="rounded-[10px] text-[13px] leading-relaxed break-words min-w-0"
+          class="rounded-[6px] text-[13px] leading-relaxed break-words min-w-0"
           :class="bubbleClass"
         >
           <span v-if="message.recalled" class="italic text-slate-400 px-3 py-2 block">Tin nhắn đã được thu hồi</span>
@@ -24,16 +24,18 @@
               <i class="pi pi-reply text-[10px] -scale-x-100"></i> Chuyển tiếp từ {{ message.forwarded_from_name }}
             </div>
 
-            <button
+            <div
               v-if="message.reply_to"
-              type="button"
-              class="mx-2 mt-2 px-2 py-1 text-left text-[11px] rounded-[6px] border-l-2 block max-w-full cursor-pointer"
-              :class="mine ? 'bg-sky-700/40 border-sky-200 text-sky-50' : 'bg-slate-100 border-sky-500 text-slate-600'"
+              role="button"
+              tabindex="0"
+              class="mx-2 mt-2 px-2 py-1 text-[11px] rounded-[6px] border block max-w-full cursor-pointer"
+              :class="mine ? 'bg-sky-700 border-sky-500 text-sky-50' : 'bg-slate-50 border-slate-200 text-slate-600'"
               @click="emit('jump', message.reply_to.id)"
+              @keydown.enter="emit('jump', message.reply_to.id)"
             >
-              <span class="font-semibold block">{{ message.reply_to.sender_name }}</span>
+              <span class="font-semibold block" :class="mine ? 'text-white' : 'text-sky-700'">{{ message.reply_to.sender_name }}</span>
               <span class="line-clamp-2">{{ message.reply_to.recalled ? 'Tin nhắn đã được thu hồi' : message.reply_to.content || '[Tệp đính kèm]' }}</span>
-            </button>
+            </div>
 
             <p v-if="message.content" class="m-0 px-3 py-2 whitespace-pre-wrap">
               <template v-for="(seg, i) in segments" :key="i">
@@ -47,12 +49,14 @@
               <ChatImageThumb v-for="att in images" :key="att.id" :attachment="att" :size="images.length === 1 ? 220 : 110" @open="openImage" />
             </div>
             <div v-if="files.length" class="flex flex-col gap-1 p-1.5">
-              <button
+              <div
                 v-for="att in files"
                 :key="att.id"
-                type="button"
-                class="flex items-center gap-2 px-2.5 py-2 bg-white border border-slate-200 rounded-[6px] text-left hover:border-sky-300 cursor-pointer min-w-[200px]"
+                role="button"
+                tabindex="0"
+                class="flex items-center gap-2 px-2.5 py-2 bg-white border border-slate-200 rounded-[6px] hover:border-sky-300 cursor-pointer min-w-[200px]"
                 @click="download(att)"
+                @keydown.enter="download(att)"
               >
                 <i :class="fileIcon(att.content_type, att.name)" class="text-lg"></i>
                 <span class="flex-1 min-w-0">
@@ -60,33 +64,43 @@
                   <span class="block text-[10px] text-slate-400">{{ formatFileSize(att.size) }}</span>
                 </span>
                 <i class="pi pi-download text-xs text-slate-400"></i>
-              </button>
+              </div>
             </div>
           </template>
         </div>
 
         <!-- Thanh thao tác khi rê chuột -->
         <div v-if="!message.recalled" class="opacity-0 group-hover:opacity-100 focus-within:opacity-100 flex items-center gap-0.5 transition-opacity shrink-0">
-          <button type="button" class="action-btn" title="Thả cảm xúc" @click="reactionPanel.toggle($event)"><i class="pi pi-face-smile"></i></button>
-          <button type="button" class="action-btn" title="Trả lời" @click="emit('reply', message)"><i class="pi pi-reply"></i></button>
-          <button type="button" class="action-btn" title="Thêm" @click="moreMenu.toggle($event)"><i class="pi pi-ellipsis-h"></i></button>
+          <Button icon="pi pi-face-smile" text severity="secondary" size="small" :class="ACTION_CLASS" v-tooltip.top="'Thả cảm xúc'" @click="reactionPanel.toggle($event)" />
+          <Button icon="pi pi-reply" text severity="secondary" size="small" :class="ACTION_CLASS" v-tooltip.top="'Trả lời'" @click="emit('reply', message)" />
+          <Button icon="pi pi-ellipsis-h" text severity="secondary" size="small" :class="ACTION_CLASS" v-tooltip.top="'Thêm'" @click="moreMenu.toggle($event)" />
         </div>
-        <button v-else-if="mine" type="button" class="action-btn opacity-0 group-hover:opacity-100" title="Xoá phía tôi" @click="hide"><i class="pi pi-trash"></i></button>
+        <Button
+          v-else-if="mine"
+          icon="pi pi-trash"
+          text
+          severity="secondary"
+          size="small"
+          :class="[ACTION_CLASS, 'opacity-0 group-hover:opacity-100']"
+          v-tooltip.top="'Xoá phía tôi'"
+          @click="hide"
+        />
       </div>
 
       <!-- Cảm xúc -->
       <div v-if="message.reactions.length" class="flex flex-wrap gap-1 -mt-1.5 px-2 relative z-[1]">
-        <button
+        <Button
           v-for="r in message.reactions"
           :key="r.emoji"
-          type="button"
-          class="px-1.5 py-0.5 text-[11px] rounded-full border shadow-xs cursor-pointer bg-white"
-          :class="r.users.some((u) => u.id === chat.meId) ? 'border-sky-300' : 'border-slate-200'"
-          :title="r.users.map((u) => u.name).join(', ')"
+          :label="r.users.length > 1 ? `${r.emoji} ${r.users.length}` : r.emoji"
+          outlined
+          severity="secondary"
+          size="small"
+          class="!px-1.5 !py-0 !h-6 !text-[11px] !rounded-[6px] !bg-white shadow-xs"
+          :class="r.users.some((u) => u.id === chat.meId) ? '!border-sky-300 !text-sky-700' : '!border-slate-200 !text-slate-600'"
+          v-tooltip.top="r.users.map((u) => u.name).join(', ')"
           @click="react(r.emoji)"
-        >
-          {{ r.emoji }} <span v-if="r.users.length > 1" class="text-slate-500">{{ r.users.length }}</span>
-        </button>
+        />
       </div>
 
       <span class="text-[10px] text-slate-400 mt-0.5 px-1">
@@ -104,9 +118,7 @@
 
     <Popover ref="reactionPanel">
       <div class="flex gap-1">
-        <button v-for="emoji in REACTIONS" :key="emoji" type="button" class="w-8 h-8 text-lg rounded-full hover:bg-slate-100 cursor-pointer" @click="react(emoji)">
-          {{ emoji }}
-        </button>
+        <Button v-for="emoji in REACTIONS" :key="emoji" :label="emoji" text size="small" class="!w-9 !h-9 !p-0 !text-lg !rounded-[6px]" @click="react(emoji)" />
       </div>
     </Popover>
     <Menu ref="moreMenu" :model="menuItems" popup />
@@ -117,6 +129,7 @@
 import { computed, ref } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
+import Button from 'primevue/button';
 import Menu from 'primevue/menu';
 import Popover from 'primevue/popover';
 import ChatAvatar from './ChatAvatar.vue';
@@ -137,6 +150,8 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['reply', 'edit', 'forward', 'jump']);
+
+const ACTION_CLASS = '!w-7 !h-7 !p-0 !rounded-[6px] !text-slate-500 hover:!text-sky-600';
 
 const chat = useChatStore();
 const toast = useToast();
@@ -213,21 +228,3 @@ async function copy() {
 const download = (att) => run(() => downloadAuthFile(chatApi.attachmentUrl(att.id), att.name));
 const openImage = (url) => window.open(url, '_blank', 'noopener');
 </script>
-
-<style scoped>
-.action-btn {
-  width: 26px;
-  height: 26px;
-  border-radius: 9999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgb(100 116 139);
-  font-size: 12px;
-  cursor: pointer;
-}
-.action-btn:hover {
-  background: rgb(241 245 249);
-  color: rgb(2 132 199);
-}
-</style>

@@ -15,7 +15,7 @@ public class UserService(
 {
     public const int MaxAliasLength = 60;
 
-    /// <summary>Tìm nhân viên đang hoạt động theo tên/email (trừ chính mình).</summary>
+    /// <summary>Tìm nhân viên đang hoạt động theo tên/email/phòng ban (trừ chính mình). Bỏ trống từ khoá để lấy cả danh bạ.</summary>
     public async Task<IReadOnlyList<ChatUserDto>> SearchAsync(string? q, int limit, CancellationToken ct)
     {
         var users = await directory.GetUsersAsync(ct);
@@ -24,9 +24,10 @@ public class UserService(
             .Where(u => u.IsActive && u.Id != me.Id)
             .Where(u => keyword.Length == 0
                         || u.Name.Contains(keyword, StringComparison.CurrentCultureIgnoreCase)
-                        || (u.Email?.Contains(keyword, StringComparison.OrdinalIgnoreCase) ?? false))
+                        || (u.Email?.Contains(keyword, StringComparison.OrdinalIgnoreCase) ?? false)
+                        || (u.DepartmentName?.Contains(keyword, StringComparison.CurrentCultureIgnoreCase) ?? false))
             .OrderBy(u => u.Name)
-            .Take(Math.Clamp(limit, 1, 50))
+            .Take(Math.Clamp(limit, 1, 1000))
             .Select(ToDto)
             .ToList();
     }
