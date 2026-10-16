@@ -74,7 +74,7 @@ Route::middleware('jwt')->group(function () {
     Route::post('/invoices/{id}/post-accounting', [InvoiceController::class, 'postAccounting'])->middleware('permission:finance.approve');
     Route::get('/invoices', [InvoiceController::class, 'index'])->middleware('permission:invoice.view');
     Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->middleware('permission:invoice.view');
-    Route::post('/invoices', [InvoiceController::class, 'store'])->middleware('permission:invoice.create');
+    Route::post('/invoices', [InvoiceController::class, 'store'])->middleware('permission:sale-invoice.create');
 
     // 6. VAT Invoices (Hóa Đơn GTGT)
     Route::get('/vat-invoices/next-number', [VatInvoiceController::class, 'getNextInvoiceNumber'])->middleware('permission:invoice.create');

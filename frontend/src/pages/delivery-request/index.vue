@@ -115,7 +115,7 @@
               @click="openRequestDetailDialog(data)"
             />
 
-            <!-- Nút Duyệt yêu cầu (Quyền delivery-request.approve) -->
+            <!-- Nút Duyệt yêu cầu -->
             <Button
               v-if="data.status === 'PENDING'"
               icon="pi pi-check"
@@ -124,13 +124,13 @@
               severity="success"
               class="!w-7 !h-7 !p-0 rounded-[6px]"
               :disabled="!canApproveRequest"
-              v-tooltip.bottom="canApproveRequest ? 'Phê duyệt lệnh giao hàng này' : 'Cần quyền delivery-request.approve để duyệt'"
+              v-tooltip.bottom="canApproveRequest ? 'Phê duyệt lệnh giao hàng này' : 'Cần quyền delivery.manage để duyệt'"
               @click="confirmApproveRequest(data)"
             />
 
             <!-- Nút Lập chứng từ bán hàng (khi đã duyệt và chưa tạo chứng từ) -->
             <Button
-              v-else-if="data.status === 'APPROVED'"
+              v-else-if="data.status === 'APPROVED' && canCreateSaleInvoice"
               icon="pi pi-file-plus"
               outlined
               size="small"
@@ -171,7 +171,7 @@ import DeliveryRequestDetailDialog from '../../components/delivery/DeliveryReque
 
 import { salesApi } from '../../api/sales.api';
 import { identityApi } from '../../api/identity.api';
-import { isSuperAdmin, hasPermission } from '../../utils/rbac';
+import { hasPermission } from '../../utils/rbac';
 
 const props = defineProps({
   currentUser: {
@@ -243,11 +243,9 @@ const requestColumns = [
 
 // Quyền duyệt yêu cầu giao hàng
 const canApproveRequest = computed(() => {
-  const user = props.currentUser || JSON.parse(localStorage.getItem('user') || '{}');
-  if (!user || !user.id) return true;
-  if (isSuperAdmin(user)) return true;
-  return hasPermission('delivery-request.approve', user) || hasPermission('delivery.approve', user);
+  return hasPermission('delivery.manage', props.currentUser);
 });
+const canCreateSaleInvoice = computed(() => hasPermission('sale-invoice.create', props.currentUser));
 
 // Tải dữ liệu Yêu Cầu Giao Hàng và Danh sách người dùng để join ID
 const loadDeliveries = async () => {

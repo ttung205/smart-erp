@@ -30,6 +30,18 @@ CREATE TABLE IF NOT EXISTS processed_events (
   event_type TEXT NOT NULL,
   processed_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS email_jobs (
+  id TEXT PRIMARY KEY,
+  recipient TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  attachments_count INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL,
+  message_id TEXT,
+  error TEXT,
+  created_at TEXT NOT NULL,
+  sent_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_email_jobs_created ON email_jobs (created_at DESC);
 `;
 
 /** Mở (hoặc tạo) DB SQLite của notification-service. Truyền ':memory:' khi test. */

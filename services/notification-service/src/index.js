@@ -3,6 +3,8 @@ import { createApp } from './app.js';
 import { config } from './config.js';
 import { openDatabase } from './db.js';
 import { startConsumer } from './messaging/consumer.js';
+import { enqueueEmail, startEmailConsumer } from './email/email.queue.js';
+import { markEmailFailed, sendQueuedEmail } from './email/email.routes.js';
 import { NotificationRepository } from './notifications/notification.repository.js';
 import { NotificationService } from './notifications/notification.service.js';
 import { RecipientResolver } from './notifications/recipient-resolver.js';
@@ -21,9 +23,11 @@ let realtime = null;
 const publisher = { toUser: (...args) => realtime?.toUser(...args) };
 
 const app = createApp({
+  db,
   repository,
   publisher,
   jwtSecret: config.jwtSecret,
+  enqueueEmail: (job) => enqueueEmail(config.rabbitmq, job),
   smtpInfo: {
     host: process.env.SMTP_HOST || '127.0.0.1',
     port: Number(process.env.SMTP_PORT) || 1025,
@@ -41,6 +45,11 @@ const notificationService = new NotificationService({
   publisher,
 });
 const consumer = startConsumer({ rabbitmq: config.rabbitmq, handle: (envelope) => notificationService.handleEvent(envelope) });
+const emailConsumer = startEmailConsumer({
+  rabbitmq: config.rabbitmq,
+  handle: (job) => sendQueuedEmail(db, job),
+  onFailed: (job, error) => markEmailFailed(db, job, error),
+});
 
 server.listen(config.port, () => {
   console.log(`[Notification Service] Running on port ${config.port}`);
@@ -49,6 +58,7 @@ server.listen(config.port, () => {
 
 async function shutdown() {
   await consumer.stop();
+  await emailConsumer.stop();
   realtime.io.close();
   server.close(() => {
     db.close();

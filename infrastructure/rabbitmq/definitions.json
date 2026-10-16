@@ -117,6 +117,27 @@
       }
     },
     {
+      "name": "erp.email.send",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "erp.dlx",
+        "x-dead-letter-routing-key": "dead.letter.email"
+      }
+    },
+    {
+      "name": "erp.email.retry",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 10000,
+        "x-dead-letter-exchange": "",
+        "x-dead-letter-routing-key": "erp.email.send"
+      }
+    },
+    {
       "name": "erp.dead_letters",
       "vhost": "/",
       "durable": true,
@@ -211,6 +232,14 @@
       "destination": "erp.notification.events",
       "destination_type": "queue",
       "routing_key": "eoffice.leave.*",
+      "arguments": {}
+    },
+    {
+      "source": "erp.events",
+      "vhost": "/",
+      "destination": "erp.notification.events",
+      "destination_type": "queue",
+      "routing_key": "purchase.inquiry.*",
       "arguments": {}
     },
     {

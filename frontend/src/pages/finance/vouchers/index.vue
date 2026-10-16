@@ -3,6 +3,7 @@
     <PageHeader :title="title" :subtitle="subtitle">
       <template #actions>
         <Button
+          v-if="canCreate"
           :label="createLabel"
           icon="pi pi-plus"
           size="small"
@@ -78,6 +79,7 @@ const vouchers = ref([]);
 const loading = ref(false);
 const postingId = ref(null);
 const voucherType = computed(() => route.meta.voucherType);
+const canCreate = computed(() => hasPermission('finance.create', currentUser));
 const canPost = computed(() => hasPermission('finance.post', currentUser) || hasPermission('finance.approve', currentUser));
 
 const labels = {

@@ -30,6 +30,17 @@ class SalesApiSecurityTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_sales_invoice_requires_its_own_create_permission(): void
+    {
+        $this->withHeaders($this->jwtHeaders(['invoice.create']))
+            ->postJson('/api/invoices', [])
+            ->assertForbidden();
+
+        $this->withHeaders($this->jwtHeaders(['sale-invoice.create']))
+            ->postJson('/api/invoices', [])
+            ->assertUnprocessable();
+    }
+
     public function test_super_admin_bypasses_individual_permissions(): void
     {
         $this->withHeaders($this->jwtHeaders([], ['SUPER_ADMIN']))

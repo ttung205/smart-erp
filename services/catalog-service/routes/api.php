@@ -15,6 +15,7 @@ Route::get('/health', [HealthController::class, 'check']);
 
 // 2. Products (CRUD & Import Excel)
 Route::post('/products/import', [ProductController::class, 'import']);
+Route::post('/products/apply-inquiry-result', [ProductController::class, 'applyInquiryResult']);
 Route::apiResource('products', ProductController::class);
 
 // 3. Brands (Thương hiệu)

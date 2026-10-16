@@ -10,6 +10,7 @@ public static class DbInitializer
     {
         // 1. Tự động khởi tạo Database & các Bảng (cho cả SQLite và MySQL)
         await context.Database.EnsureCreatedAsync();
+        await CreateInquiryTablesAsync(context);
 
         // 2. Nạp dữ liệu mẫu cho Đề nghị mua hàng (PR) - Khớp 100% với danh mục thiết bị điện tử từ Catalog
         if (!await context.PurchaseRequisitions.AnyAsync())
@@ -154,5 +155,25 @@ public static class DbInitializer
             await context.PurchaseOrderPrAllocations.AddAsync(allocation);
             await context.SaveChangesAsync();
         }
+    }
+
+    private static async Task CreateInquiryTablesAsync(PurchaseDbContext context)
+    {
+        // EnsureCreated does not add tables to an existing database.
+        var mysql = context.Database.IsMySql();
+        var id = mysql ? "BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY" : "INTEGER PRIMARY KEY AUTOINCREMENT";
+        var text = mysql ? "TEXT" : "TEXT";
+        var date = mysql ? "DATETIME(6)" : "TEXT";
+        var real = mysql ? "DECIMAL(18,4)" : "REAL";
+        var tables = new[]
+        {
+            $"CREATE TABLE IF NOT EXISTS item_inquiry_requests (id {id}, code VARCHAR(100) NOT NULL UNIQUE, customer_id BIGINT NOT NULL, customer_code VARCHAR(50) NOT NULL, customer_name VARCHAR(200) NOT NULL, requested_by BIGINT NOT NULL, assignee_id BIGINT NOT NULL, watcher_id BIGINT NULL, status VARCHAR(30) NOT NULL, due_date {date} NULL, description {text} NULL, created_at {date} NOT NULL, updated_at {date} NOT NULL)",
+            $"CREATE TABLE IF NOT EXISTS item_inquiry_request_items (id {id}, request_id BIGINT NOT NULL, sku VARCHAR(100) NULL, designation VARCHAR(255) NOT NULL, item_description {text} NULL, brand VARCHAR(200) NULL, category VARCHAR(200) NULL, com VARCHAR(100) NULL, unit VARCHAR(50) NULL, quantity {real} NOT NULL, lead_time VARCHAR(100) NULL, note {text} NULL, spec {text} NULL, selected_inquiry_item_id BIGINT NULL, gross_price {real} NULL)",
+            $"CREATE TABLE IF NOT EXISTS item_inquiry_attachments (id {id}, request_id BIGINT NOT NULL, file_name VARCHAR(255) NOT NULL, content_type VARCHAR(150) NOT NULL, storage_name VARCHAR(100) NOT NULL, size BIGINT NOT NULL, created_at {date} NOT NULL)",
+            $"CREATE TABLE IF NOT EXISTS supplier_inquiries (id {id}, request_id BIGINT NOT NULL, code VARCHAR(100) NOT NULL UNIQUE, supplier_id BIGINT NOT NULL, supplier_code VARCHAR(50) NOT NULL, supplier_name VARCHAR(200) NOT NULL, supplier_email VARCHAR(255) NOT NULL, created_by BIGINT NOT NULL, status VARCHAR(30) NOT NULL, email_job_id VARCHAR(100) NULL, sent_at {date} NULL, completed_at {date} NULL, created_at {date} NOT NULL, updated_at {date} NOT NULL)",
+            $"CREATE TABLE IF NOT EXISTS supplier_inquiry_items (id {id}, inquiry_id BIGINT NOT NULL, request_item_id BIGINT NOT NULL, sku VARCHAR(100) NULL, designation VARCHAR(255) NOT NULL, item_description {text} NULL, brand_id BIGINT NOT NULL, brand_name VARCHAR(200) NOT NULL, category VARCHAR(200) NULL, com VARCHAR(100) NULL, unit VARCHAR(50) NULL, quantity {real} NOT NULL, lead_time VARCHAR(100) NULL, note {text} NULL, spec {text} NULL, buying_price {real} NOT NULL, vat {real} NOT NULL, tax {real} NOT NULL, price_index {real} NULL, gross_price {real} NULL)",
+            $"CREATE TABLE IF NOT EXISTS supplier_inquiry_attachments (id {id}, inquiry_id BIGINT NOT NULL, request_attachment_id BIGINT NOT NULL)"
+        };
+        foreach (var sql in tables) await context.Database.ExecuteSqlRawAsync(sql);
     }
 }

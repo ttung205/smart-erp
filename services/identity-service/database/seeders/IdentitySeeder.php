@@ -40,6 +40,8 @@ class IdentitySeeder extends Seeder
             ['code' => 'catalog.manage', 'module' => 'catalog', 'description' => 'Thêm, sửa, xóa sản phẩm và bảng giá'],
             ['code' => 'catalog.create', 'module' => 'catalog', 'description' => 'Tạo mới sản phẩm'],
             ['code' => 'catalog.edit', 'module' => 'catalog', 'description' => 'Chỉnh sửa sản phẩm'],
+            ['code' => 'customer.view', 'module' => 'catalog', 'description' => 'Xem danh sách khách hàng'],
+            ['code' => 'supplier.view', 'module' => 'catalog', 'description' => 'Xem danh sách nhà cung cấp'],
 
             // Phân hệ Kho hàng (Inventory)
             ['code' => 'inventory.view', 'module' => 'inventory', 'description' => 'Xem tồn kho On-Hand, Reserved (Route: /inventory)'],
@@ -70,6 +72,7 @@ class IdentitySeeder extends Seeder
             ['code' => 'delivery.manage', 'module' => 'delivery', 'description' => 'Quản trị giao hàng'],
             ['code' => 'invoice.view', 'module' => 'invoice', 'description' => 'Xem danh sách chứng từ và hóa đơn (Route: /invoice)'],
             ['code' => 'invoice.create', 'module' => 'invoice', 'description' => 'Tạo chứng từ xuất hóa đơn'],
+            ['code' => 'sale-invoice.create', 'module' => 'invoice', 'description' => 'Lập chứng từ bán hàng từ yêu cầu giao hàng'],
             ['code' => 'invoice.manage', 'module' => 'invoice', 'description' => 'Quản trị chứng từ và hóa đơn'],
 
             // Phân hệ Hàng bán trả lại
@@ -92,6 +95,9 @@ class IdentitySeeder extends Seeder
             ['code' => 'purchase.view', 'module' => 'purchase', 'description' => 'Xem danh sách đơn mua hàng PO'],
             ['code' => 'purchase.create', 'module' => 'purchase', 'description' => 'Tạo mới đơn mua hàng PO'],
             ['code' => 'purchase.approve', 'module' => 'purchase', 'description' => 'Phê duyệt đơn mua hàng PO'],
+            ['code' => 'item-inquiry.view', 'module' => 'purchase', 'description' => 'Xem yêu cầu hỏi hàng của mình'],
+            ['code' => 'item-inquiry.create', 'module' => 'purchase', 'description' => 'Tạo và gửi yêu cầu hỏi hàng'],
+            ['code' => 'item-inquiry.process', 'module' => 'purchase', 'description' => 'Xử lý yêu cầu và phiếu hỏi hàng nhà cung cấp'],
             ['code' => 'finance.view', 'module' => 'finance', 'description' => 'Xem báo cáo tài chính và công nợ'],
             ['code' => 'finance.create', 'module' => 'finance', 'description' => 'Lập chứng từ và yêu cầu điều chỉnh hóa đơn'],
             ['code' => 'finance.approve', 'module' => 'finance', 'description' => 'Duyệt thanh toán và xuất hóa đơn'],
@@ -153,7 +159,7 @@ class IdentitySeeder extends Seeder
                 'quotation.view', 'quotation.create', 'quotation.update', 'quotation.cancel',
                 'order.view', 'order.create', 'order.update',
                 'delivery.view', 'delivery.create',
-                'invoice.view', 'sale_return.view', 'sale_return.create', 'catalog.view', 'master.view', 'inventory.view',
+                'sale_return.view', 'sale_return.create', 'catalog.view', 'customer.view', 'master.view', 'inventory.view', 'item-inquiry.view', 'item-inquiry.create',
             ];
             foreach ($salePermCodes as $code) {
                 if (isset($allPerms[$code])) {
@@ -172,9 +178,8 @@ class IdentitySeeder extends Seeder
                 'quotation.view', 'quotation.create', 'quotation.update', 'quotation.cancel', 'quotation.approve', 'quotation.manage',
                 'order.view', 'order.create', 'order.update', 'order.cancel', 'order.approve', 'order.manage',
                 'delivery.view', 'delivery.create', 'delivery.manage',
-                'invoice.view', 'invoice.create', 'invoice.manage',
                 'sale_return.view', 'sale_return.create', 'sale_return.approve',
-                'catalog.view', 'master.view', 'inventory.view',
+                'catalog.view', 'customer.view', 'master.view', 'inventory.view', 'item-inquiry.view', 'item-inquiry.create',
             ];
             foreach ($smPermCodes as $code) {
                 if (isset($allPerms[$code])) {
@@ -187,12 +192,14 @@ class IdentitySeeder extends Seeder
         }
 
         $rolePermissionMap = [
-            'TECHNICAL' => ['sale_return.view', 'sale_return.technical', 'inventory.view'],
-            'TECHNICAL_MANAGER' => ['sale_return.view', 'sale_return.technical', 'sale_return.approve', 'inventory.view'],
-            'LOGISTIC' => ['sale_return.view', 'sale_return.approve', 'inventory.view', 'inventory.transfer'],
-            'LOGISTIC_MANAGER' => ['sale_return.view', 'sale_return.approve', 'sale_return.post', 'inventory.view', 'inventory.manage'],
-            'FINANCE_ACCOUNTING' => ['finance.view', 'finance.create', 'invoice.view', 'sale_return.view', 'sale_return.post', 'inventory.view', 'master.view'],
-            'FINANCE_ACCOUNTING_MANAGER' => ['finance.view', 'finance.create', 'finance.approve', 'invoice.view', 'invoice.manage', 'sale_return.view', 'sale_return.approve', 'sale_return.post', 'inventory.view', 'master.view'],
+            'PURCHASE' => ['purchase.view', 'purchase.create', 'catalog.view', 'supplier.view', 'inventory.view', 'item-inquiry.view', 'item-inquiry.process'],
+            'PURCHASE_MANAGER' => ['purchase.view', 'purchase.create', 'purchase.approve', 'catalog.view', 'supplier.view', 'inventory.view', 'item-inquiry.view', 'item-inquiry.process'],
+            'TECHNICAL' => ['sale_return.view', 'sale_return.technical', 'catalog.view', 'customer.view', 'supplier.view', 'inventory.view'],
+            'TECHNICAL_MANAGER' => ['sale_return.view', 'sale_return.technical', 'sale_return.approve', 'catalog.view', 'customer.view', 'supplier.view', 'inventory.view'],
+            'LOGISTIC' => ['sale_return.view', 'sale_return.approve', 'catalog.view', 'inventory.view', 'inventory.transfer', 'invoice.view', 'invoice.manage'],
+            'LOGISTIC_MANAGER' => ['sale_return.view', 'sale_return.approve', 'sale_return.post', 'catalog.view', 'inventory.view', 'inventory.manage', 'invoice.view', 'invoice.manage'],
+            'FINANCE_ACCOUNTING' => ['finance.view', 'finance.create', 'invoice.view', 'invoice.create', 'sale-invoice.create', 'sale_return.view', 'sale_return.post', 'delivery.view', 'catalog.view', 'customer.view', 'supplier.view', 'inventory.view', 'master.view'],
+            'FINANCE_ACCOUNTING_MANAGER' => ['finance.view', 'finance.create', 'finance.approve', 'invoice.view', 'invoice.create', 'sale-invoice.create', 'invoice.manage', 'sale_return.view', 'sale_return.approve', 'sale_return.post', 'delivery.view', 'catalog.view', 'customer.view', 'supplier.view', 'inventory.view', 'master.view'],
         ];
         foreach ($rolePermissionMap as $roleCode => $permissionCodes) {
             $roleId = DB::table('roles')->where('code', $roleCode)->value('id');

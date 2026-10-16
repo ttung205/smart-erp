@@ -63,6 +63,16 @@ beforeEach(() => {
 const quotation = { quotation_id: 10, quotation_number: 'QT-001', customer_name: 'Công ty A', total_amount: 1500000, currency: 'VND', created_by_id: 3 };
 
 describe('NotificationService', () => {
+  it('gửi yêu cầu hỏi hàng cho Purchase và báo lại Sale khi đã chọn đủ kết quả', async () => {
+    const payload = { request_id: 77, code: 'IQ-RE-161026', assignee_id: 9, watcher_id: 10, requested_by: 7, actor: { id: 7, name: 'Sale' } };
+    await service.handleEvent(envelope('ItemInquiryRequested', payload));
+    assert.equal(repository.list(9)[0].action_key, 'item-inquiry:77:process');
+    assert.equal(repository.list(10)[0].link, '/purchase/item-inquiries/77');
+    assert.equal(repository.list(7).length, 0);
+    await service.handleEvent(envelope('ItemInquiryResponded', { ...payload, actor: { id: 9, name: 'Purchase' } }));
+    assert.equal(repository.list(9).some(x => x.status === 'RESOLVED'), true);
+    assert.equal(repository.list(7)[0].link, '/sale/item-inquiries/77');
+  });
   it('gửi việc cần duyệt cho mọi người có quyền, trừ người gửi', async () => {
     const result = await service.handleEvent(envelope('QuotationSubmitted', { ...quotation, actor: { id: 3, name: 'Sale' } }));
 

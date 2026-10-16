@@ -19,6 +19,11 @@
           @keyup.enter="$emit('save', form)"
         />
       </div>
+      <div v-if="admin" class="flex flex-col gap-1">
+        <label for="price-index" class="font-semibold text-slate-700">Price index (hệ số nhân)</label>
+        <InputNumber id="price-index" v-model="form.price_index" :min="0.0001" :min-fraction-digits="0" :max-fraction-digits="4" class="w-full" input-class="w-full" />
+        <small class="text-slate-500">Ví dụ 10 nghĩa là nhân 10 khi tính gross price.</small>
+      </div>
     </div>
 
     <template #footer>
@@ -48,7 +53,13 @@
 import { ref, watch } from 'vue';
 import Dialog from 'primevue/dialog';
 import InputText from 'primevue/inputtext';
+import InputNumber from 'primevue/inputnumber';
 import Button from 'primevue/button';
+import { storage } from '../../utils/storage';
+import { parseJwt } from '../../utils/jwt';
+import { isSuperAdmin } from '../../utils/rbac';
+
+const admin = isSuperAdmin(parseJwt(storage.getToken()));
 
 const props = defineProps({
   visible: {
@@ -68,16 +79,16 @@ const props = defineProps({
 defineEmits(['update:visible', 'save']);
 
 const form = ref({
-  name: ''
+  name: '', price_index: null
 });
 
 watch(
   () => props.brand,
   (newVal) => {
     if (newVal) {
-      form.value = { name: newVal.name || '' };
+      form.value = { name: newVal.name || '', ...(admin ? { price_index: newVal.price_index == null ? null : Number(newVal.price_index) } : {}) };
     } else {
-      form.value = { name: '' };
+      form.value = { name: '', ...(admin ? { price_index: null } : {}) };
     }
   },
   { immediate: true }

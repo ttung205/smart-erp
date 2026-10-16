@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { storage } from '../utils/storage';
 import { parseJwt } from '../utils/jwt';
-import { canView } from '../utils/rbac';
+import { canView, hasPermission, isSuperAdmin } from '../utils/rbac';
 
 // Page components
 import LoginPage from '../pages/auth/LoginPage.vue';
@@ -62,6 +62,11 @@ import PurchaseReceiptPage from '../pages/purchase/receipt/index.vue';
 import PurchaseReceiptFormPage from '../pages/purchase/receipt/form.vue';
 import PurchaseInvoicePage from '../pages/purchase/invoice/index.vue';
 import PurchaseInvoiceFormPage from '../pages/purchase/invoice/form.vue';
+import InquiryRequestIndexPage from '../pages/inquiry-request/index.vue';
+import InquiryRequestFormPage from '../pages/inquiry-request/form.vue';
+import InquiryRequestViewPage from '../pages/inquiry-request/view.vue';
+import InquiryIndexPage from '../pages/inquiry/index.vue';
+import InquiryFormPage from '../pages/inquiry/form.vue';
 
 export const routes = [
   {
@@ -140,7 +145,7 @@ export const routes = [
     meta: {
       requiresAuth: true,
       resource: 'catalog',
-      permission: 'catalog.view',
+      permission: 'customer.view',
       title: 'Quản Lý Khách Hàng'
     }
   },
@@ -151,7 +156,7 @@ export const routes = [
     meta: {
       requiresAuth: true,
       resource: 'catalog',
-      permission: 'catalog.view',
+      permission: 'customer.view',
       title: 'Thêm Khách Hàng Mới'
     }
   },
@@ -162,7 +167,7 @@ export const routes = [
     meta: {
       requiresAuth: true,
       resource: 'catalog',
-      permission: 'catalog.view',
+      permission: 'customer.view',
       title: 'Chỉnh Sửa Khách Hàng'
     }
   },
@@ -177,7 +182,7 @@ export const routes = [
     meta: {
       requiresAuth: true,
       resource: 'catalog',
-      permission: 'catalog.view',
+      permission: 'supplier.view',
       title: 'Quản Lý Nhà Cung Cấp'
     }
   },
@@ -270,6 +275,16 @@ export const routes = [
     path: '/purchase',
     redirect: '/purchase/requisitions'
   },
+  { path: '/sale/item-inquiries', component: InquiryRequestIndexPage, meta: { requiresAuth: true, permission: 'item-inquiry.view', title: 'Yêu cầu hỏi hàng' } },
+  { path: '/sale/item-inquiries/create', component: InquiryRequestFormPage, meta: { requiresAuth: true, permission: 'item-inquiry.create', title: 'Lập yêu cầu hỏi hàng' } },
+  { path: '/sale/item-inquiries/:id/edit', component: InquiryRequestFormPage, meta: { requiresAuth: true, permission: 'item-inquiry.create', title: 'Sửa yêu cầu hỏi hàng' } },
+  { path: '/sale/item-inquiries/:id', component: InquiryRequestViewPage, meta: { requiresAuth: true, permission: 'item-inquiry.view', title: 'Xem yêu cầu hỏi hàng' } },
+  { path: '/purchase/item-inquiries', component: InquiryRequestIndexPage, meta: { requiresAuth: true, permission: 'item-inquiry.process', title: 'Yêu cầu hỏi hàng' } },
+  { path: '/purchase/item-inquiries/:id/supplier-inquiries/:inquiryId', redirect: to => to.params.inquiryId === 'create' ? `/purchase/inquiries/create?requestId=${to.params.id}` : `/purchase/inquiries/${to.params.inquiryId}` },
+  { path: '/purchase/item-inquiries/:id', component: InquiryRequestViewPage, meta: { requiresAuth: true, permission: 'item-inquiry.process', title: 'Xem yêu cầu hỏi hàng' } },
+  { path: '/purchase/inquiries', component: InquiryIndexPage, meta: { requiresAuth: true, permission: 'item-inquiry.process', title: 'Hỏi hàng nhà cung cấp' } },
+  { path: '/purchase/inquiries/create', component: InquiryFormPage, meta: { requiresAuth: true, permission: 'item-inquiry.process', title: 'Lập phiếu hỏi hàng' } },
+  { path: '/purchase/inquiries/:inquiryId', component: InquiryFormPage, meta: { requiresAuth: true, permission: 'item-inquiry.process', title: 'Phiếu hỏi hàng' } },
   {
     path: '/purchase/requisitions',
     name: 'purchase-requisitions',
@@ -520,7 +535,7 @@ export const routes = [
     meta: {
       requiresAuth: true,
       resource: 'invoice',
-      permission: 'invoice.create',
+      permission: 'sale-invoice.create',
       title: 'Lập Chứng Từ Bán Hàng'
     }
   },
@@ -607,7 +622,8 @@ export const routes = [
   { path: '/finance/bank-receipts', name: 'finance-bank-receipts', component: FinanceVouchersPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Thu tiền ngân hàng', voucherType: 'BANK_RECEIPT' } },
   { path: '/finance/bank-payments', name: 'finance-bank-payments', component: FinanceVouchersPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Chi tiền ngân hàng', voucherType: 'BANK_PAYMENT' } },
   { path: '/finance/internal-transfers', name: 'finance-internal-transfers', component: FinanceVouchersPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.view', title: 'Chuyển tiền nội bộ', voucherType: 'INTERNAL_TRANSFER' } },
-  { path: '/finance/vouchers/new', name: 'finance-voucher-new', component: FinanceVoucherFormPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.approve', title: 'Lập chứng từ thu chi' } },
+  { path: '/finance/vouchers/new', name: 'finance-voucher-new', component: FinanceVoucherFormPage,
+    meta: { requiresAuth: true, permission: 'finance.create', title: 'Lập chứng từ thu chi' } },
   { path: '/finance/receivable-allocation', name: 'finance-receivable-allocation', component: ReceivableAllocationPage, meta: { requiresAuth: true, resource: 'finance', permission: 'finance.approve', title: 'Đối trừ công nợ' } },
   { path: '/accounting', redirect: '/customer-receivables' },
   // E-Office: mọi nhân viên đăng nhập đều dùng được (quyền chi tiết kiểm tra ở eoffice-service)
@@ -695,6 +711,14 @@ const router = createRouter({
   routes
 });
 
+const sectionRoles = [
+  { matches: path => path.startsWith('/purchase/'), roles: ['PURCHASE', 'PURCHASE_MANAGER'] },
+  { matches: path => path.startsWith('/inventory/') || path === '/warehouse-request-sale', roles: ['LOGISTIC', 'LOGISTIC_MANAGER'] },
+  { matches: path => path.startsWith('/finance/') || path.startsWith('/invoice') || path.startsWith('/vat-invoice') || path === '/customer-receivables', roles: ['FINANCE_ACCOUNTING', 'FINANCE_ACCOUNTING_MANAGER'] },
+  { matches: path => path.startsWith('/quotation') || path.startsWith('/order') || path === '/delivery', roles: ['SALE', 'SALE_MANAGER'] },
+  { matches: path => path === '/delivery-request', roles: ['SALE', 'SALE_MANAGER', 'FINANCE_ACCOUNTING', 'FINANCE_ACCOUNTING_MANAGER'] }
+];
+
 // Route Guard kiểm tra xác thực và phân quyền theo Route
 router.beforeEach((to, from, next) => {
   const token = storage.getToken();
@@ -706,6 +730,12 @@ router.beforeEach((to, from, next) => {
       return next({ path: '/login', query: { redirect: to.fullPath } });
     }
 
+    const section = sectionRoles.find(item => item.matches(to.path));
+    const userRoles = (user.roles || []).map(role => typeof role === 'string' ? role : role.code);
+    if (section && !isSuperAdmin(user) && !section.roles.some(role => userRoles.includes(role))) {
+      return next({ path: '/forbidden' });
+    }
+
     // 2. Kiểm tra quyền truy cập theo Route Resource
     if (to.meta.resource) {
       const allowed = canView(to.meta.resource, user);
@@ -715,6 +745,9 @@ router.beforeEach((to, from, next) => {
           query: { permission: to.meta.permission || `${to.meta.resource}.view` }
         });
       }
+    }
+    if (to.meta.permission && !hasPermission(to.meta.permission, user)) {
+      return next({ path: '/forbidden', query: { permission: to.meta.permission } });
     }
   }
 

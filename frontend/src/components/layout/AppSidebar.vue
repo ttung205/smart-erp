@@ -184,7 +184,7 @@ import { useRouter, useRoute } from 'vue-router';
 import Button from 'primevue/button';
 import { appConfig } from '../../config/app.config';
 import { menuCategories as rawMenuCategories } from '../../config/menu.config';
-import { canView } from '../../utils/rbac';
+import { hasPermission, isSuperAdmin } from '../../utils/rbac';
 
 const router = useRouter();
 const route = useRoute();
@@ -224,22 +224,25 @@ const menuCategories = computed(() => {
   if (!props.currentUser) return rawMenuCategories;
 
   // Super Admin thấy tất cả
-  if (props.currentUser.roles && props.currentUser.roles.includes('SUPER_ADMIN')) {
+  if (isSuperAdmin(props.currentUser)) {
     return rawMenuCategories;
   }
+
+  const roles = (props.currentUser.roles || []).map(role => typeof role === 'string' ? role : role.code);
+  const canShow = item =>
+    (!item.roles || item.roles.some(role => roles.includes(role))) &&
+    (!item.permission || hasPermission(item.permission, props.currentUser));
 
   return rawMenuCategories.map(cat => {
     const filteredItems = cat.items.map(item => {
       if (item.children) {
-        const visibleChildren = item.children.filter(child => {
-          return !child.resource || canView(child.resource, props.currentUser);
-        });
+        const visibleChildren = canShow(item) ? item.children.filter(canShow) : [];
         return { ...item, children: visibleChildren };
       }
       return item;
     }).filter(item => {
       if (item.children) return item.children.length > 0;
-      return !item.resource || canView(item.resource, props.currentUser);
+      return canShow(item);
     });
 
     return { ...cat, items: filteredItems };

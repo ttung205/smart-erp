@@ -9,6 +9,7 @@ export const BINDINGS = [
   'sales.delivery.*',
   'sales.dispatch.*',
   'eoffice.leave.*',
+  'purchase.inquiry.*',
 ];
 
 const RETRY_HEADER = 'x-retry-count';

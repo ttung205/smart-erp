@@ -7,19 +7,46 @@ use Illuminate\Support\Facades\DB;
 
 class BrandController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $brands = DB::table('brands')
             ->leftJoin('products', 'brands.id', '=', 'products.brand_id')
-            ->select('brands.id', 'brands.name', 'brands.created_at', DB::raw('COUNT(products.id) as products_count'))
-            ->groupBy('brands.id', 'brands.name', 'brands.created_at')
+            ->select('brands.id', 'brands.name', 'brands.price_index', 'brands.created_at', DB::raw('COUNT(products.id) as products_count'))
+            ->groupBy('brands.id', 'brands.name', 'brands.price_index', 'brands.created_at')
             ->orderBy('brands.name')
             ->get();
+        if (!$this->hasRole($request, ['SUPER_ADMIN', 'PURCHASE', 'PURCHASE_MANAGER'])) {
+            foreach ($brands as $brand) unset($brand->price_index);
+        }
         return response()->json(['success' => true, 'data' => $brands]);
     }
 
+    public function show(Request $request, $id)
+    {
+        $brand = DB::table('brands')->where('id', $id)->first();
+        if ($brand && !$this->hasRole($request, ['SUPER_ADMIN', 'PURCHASE', 'PURCHASE_MANAGER'])) unset($brand->price_index);
+        return $brand ? response()->json(['success' => true, 'data' => $brand]) : response()->json(['success' => false], 404);
+    }
+
+    private function hasRole(Request $request, array $allowed): bool
+    {
+        $token = $request->bearerToken();
+        if (!$token || count($parts = explode('.', $token)) !== 3) return false;
+        [$header, $payload, $signature] = $parts;
+        $secret = env('JWT_SECRET', 'smart_erp_super_secure_jwt_secret_key_2026');
+        $expected = rtrim(strtr(base64_encode(hash_hmac('sha256', "$header.$payload", $secret, true)), '+/', '-_'), '=');
+        if (!hash_equals($expected, $signature)) return false;
+        $claims = json_decode(base64_decode(strtr($payload, '-_', '+/')), true);
+        return is_array($claims) && ($claims['exp'] ?? 0) > time() && count(array_intersect($allowed, $claims['roles'] ?? [])) > 0;
+    }
+
+    private function isSuperAdmin(Request $request): bool { return $this->hasRole($request, ['SUPER_ADMIN']); }
+
     public function store(Request $request)
     {
+        if ($request->has('price_index') && !$this->isSuperAdmin($request)) return response()->json(['success' => false, 'error' => ['message' => 'Chỉ Super Admin được thiết lập price index.']], 403);
+        $index = $request->input('price_index');
+        if ($index !== null && (!is_numeric($index) || $index <= 0)) return response()->json(['success' => false, 'error' => ['message' => 'Price index phải lớn hơn 0.']], 422);
         $name = trim($request->input('name', ''));
         if (empty($name)) {
             return response()->json(['success' => false, 'error' => ['code' => 'VALIDATION_FAILED', 'message' => 'Tên thương hiệu không được để trống']], 422);
@@ -30,6 +57,7 @@ class BrandController extends Controller
         }
         $id = DB::table('brands')->insertGetId([
             'name' => $name,
+            'price_index' => $index,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -38,14 +66,19 @@ class BrandController extends Controller
 
     public function update(Request $request, $id)
     {
+        if ($request->has('price_index') && !$this->isSuperAdmin($request)) return response()->json(['success' => false, 'error' => ['message' => 'Chỉ Super Admin được thiết lập price index.']], 403);
+        $index = $request->input('price_index');
+        if ($request->has('price_index') && $index !== null && (!is_numeric($index) || $index <= 0)) return response()->json(['success' => false, 'error' => ['message' => 'Price index phải lớn hơn 0.']], 422);
         $name = trim($request->input('name', ''));
         if (empty($name)) {
             return response()->json(['success' => false, 'error' => ['code' => 'VALIDATION_FAILED', 'message' => 'Tên thương hiệu không được để trống']], 422);
         }
-        DB::table('brands')->where('id', $id)->update([
+        $changes = [
             'name' => $name,
             'updated_at' => now(),
-        ]);
+        ];
+        if ($request->has('price_index')) $changes['price_index'] = $index;
+        DB::table('brands')->where('id', $id)->update($changes);
         return response()->json(['success' => true, 'data' => ['id' => $id, 'name' => $name]]);
     }
 

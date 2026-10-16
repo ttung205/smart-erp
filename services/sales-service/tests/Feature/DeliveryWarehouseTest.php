@@ -53,7 +53,7 @@ class DeliveryWarehouseTest extends TestCase
             'delivery_request_id' => $delivery->id, 'order_item_id' => $orderItem->id, 'product_id' => 100, 'sku' => 'SM456-SHA', 'quantity' => 20,
         ]);
 
-        $invoiceId = $this->withHeaders($this->jwtHeaders(['invoice.create']))->postJson('/api/invoices', [
+        $invoiceId = $this->withHeaders($this->jwtHeaders(['sale-invoice.create']))->postJson('/api/invoices', [
             'delivery_request_id' => $delivery->id,
             'invoice_date' => '2026-10-15',
             'items' => [['delivery_request_item_id' => $deliveryItem->id, 'order_item_id' => $orderItem->id, 'product_id' => 100, 'sku' => 'SM456-SHA', 'quantity' => 20, 'unit_price' => 1000]],

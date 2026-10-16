@@ -18,6 +18,7 @@ builder.Services.AddControllers()
 // 2. Đăng ký Application Services & Infrastructure (EF Core hỗ trợ Dual Provider)
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddHttpClient();
 
 // 3. Cấu hình CORS cho API Gateway (:8000) và Frontend (:5173 / :5174)
 builder.Services.AddCors(options =>

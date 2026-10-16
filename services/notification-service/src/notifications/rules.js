@@ -23,6 +23,22 @@ const dispatchKey = (p) => `dispatch:${p.dispatch_id}:process`;
 const leaveKey = (p) => `leave:${p.id}:approve`;
 
 export const rules = {
+  ItemInquiryRequested: {
+    category: 'task',
+    recipients: (p) => ({ userIds: userIds(p.assignee_id, p.watcher_id) }),
+    title: (p) => `Yêu cầu hỏi hàng ${p.code} cần xử lý`,
+    body: (p) => `${actorName(p)} đã gửi yêu cầu hỏi hàng.`,
+    link: (p) => `/purchase/item-inquiries/${p.request_id}`,
+    actionKey: (p) => `item-inquiry:${p.request_id}:process`,
+  },
+  ItemInquiryResponded: {
+    category: 'info',
+    recipients: (p) => ({ userIds: userIds(p.requested_by, p.assignee_id, p.watcher_id) }),
+    title: (p) => `Yêu cầu hỏi hàng ${p.code} đã phản hồi`,
+    body: () => 'Các item đã có kết quả hỏi hàng và gross price mới.',
+    link: (p) => `/sale/item-inquiries/${p.request_id}`,
+    resolves: (p) => [`item-inquiry:${p.request_id}:process`],
+  },
   // ── Báo giá ──────────────────────────────────────────────
   QuotationSubmitted: {
     category: 'task',

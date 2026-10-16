@@ -150,6 +150,9 @@ import PageHeader from '../../components/common/PageHeader.vue';
 import CommonDataTable from '../../components/common/CommonDataTable.vue';
 import BrandFormDialog from '../../components/brand/BrandFormDialog.vue';
 import { catalogApi } from '../../api/catalog.api';
+import { storage } from '../../utils/storage';
+import { parseJwt } from '../../utils/jwt';
+import { isSuperAdmin } from '../../utils/rbac';
 
 const toast = useToast();
 
@@ -164,6 +167,7 @@ const brandForm = ref({ name: '' });
 
 const tableColumns = [
   { field: 'name', header: 'Tên Thương Hiệu', sortable: true, width: 'auto' },
+  { field: 'price_index', header: 'Price index', sortable: true, width: '110px' },
   { field: 'products_count', header: 'Số Lượng Sản Phẩm', sortable: true, width: '180px', align: 'center' },
   { field: 'created_at', header: 'Ngày Tạo', sortable: true, width: '180px' }
 ];
@@ -225,8 +229,9 @@ const saveBrand = async (formData) => {
 
   saving.value = true;
   try {
+    const payload = isSuperAdmin(parseJwt(storage.getToken())) ? { name, price_index: dataToSave.price_index } : { name };
     if (editingBrand.value) {
-      await catalogApi.updateBrand(editingBrand.value.id, { name });
+      await catalogApi.updateBrand(editingBrand.value.id, payload);
       toast.add({
         severity: 'success',
         summary: 'Thành công',
@@ -234,7 +239,7 @@ const saveBrand = async (formData) => {
         life: 3000
       });
     } else {
-      await catalogApi.createBrand({ name });
+      await catalogApi.createBrand(payload);
       toast.add({
         severity: 'success',
         summary: 'Thành công',

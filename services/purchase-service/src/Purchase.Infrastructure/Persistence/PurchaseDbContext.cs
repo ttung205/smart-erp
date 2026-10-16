@@ -22,6 +22,12 @@ public class PurchaseDbContext : DbContext, IPurchaseDbContext
     public DbSet<PurchaseInvoiceItem> PurchaseInvoiceItems => Set<PurchaseInvoiceItem>();
     public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
     public DbSet<ProcessedEvent> ProcessedEvents => Set<ProcessedEvent>();
+    public DbSet<ItemInquiryRequest> ItemInquiryRequests => Set<ItemInquiryRequest>();
+    public DbSet<ItemInquiryRequestItem> ItemInquiryRequestItems => Set<ItemInquiryRequestItem>();
+    public DbSet<ItemInquiryAttachment> ItemInquiryAttachments => Set<ItemInquiryAttachment>();
+    public DbSet<SupplierInquiry> SupplierInquiries => Set<SupplierInquiry>();
+    public DbSet<SupplierInquiryItem> SupplierInquiryItems => Set<SupplierInquiryItem>();
+    public DbSet<SupplierInquiryAttachment> SupplierInquiryAttachments => Set<SupplierInquiryAttachment>();
 
     public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
     {

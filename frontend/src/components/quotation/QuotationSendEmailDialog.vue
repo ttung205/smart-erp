@@ -232,8 +232,8 @@ const handleSendEmail = async () => {
 
     toast.add({
       severity: 'success',
-      summary: 'Đã gửi email thành công',
-      detail: `Email báo giá đã được chuyển tiếp tới ${form.to}. Bạn có thể kiểm tra tại Mailpit (http://localhost:8025).`,
+      summary: 'Đã đưa email vào hàng đợi',
+      detail: `Email báo giá tới ${form.to} đang chờ gửi. Có thể kiểm tra trạng thái trong lịch sử email.`,
       life: 5000
     });
 

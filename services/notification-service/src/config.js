@@ -17,5 +17,7 @@ export const config = {
     retryDelayMs: 10000,
     maxRetries: 5,
     prefetch: 10,
+    emailQueue: 'erp.email.send',
+    emailRetryQueue: 'erp.email.retry',
   },
 };

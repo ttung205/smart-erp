@@ -1,137 +1,95 @@
+import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import nodemailer from 'nodemailer';
 
-// In-memory email logs for audit and tracking
-const emailLogs = [];
-
-// Create reusable Nodemailer transporter
 export function getTransporter() {
   const host = process.env.SMTP_HOST || '127.0.0.1';
-  const port = Number(process.env.SMTP_PORT) || 1025; // 1025 is default Mailpit SMTP port
+  const port = Number(process.env.SMTP_PORT) || 1025;
   const user = (process.env.SMTP_USER || '').trim();
   const pass = (process.env.SMTP_PASS || '').replace(/\s+/g, '');
-
-  const config = {
-    host,
-    port,
-    secure: port === 465,
-    ignoreTLS: port === 1025 || port === 1026, // ignore TLS for local Mailpit / Mailtrap
-  };
-
-  if (user && pass) {
-    config.auth = { user, pass };
-  }
-
+  const config = { host, port, secure: port === 465, ignoreTLS: port === 1025 || port === 1026 };
+  if (user && pass) config.auth = { user, pass };
   return nodemailer.createTransport(config);
 }
 
-export const emailRouter = Router();
-
-// Send Email Endpoint (Sync API)
-emailRouter.post('/send', async (req, res) => {
-  try {
-    const {
-      to,
-      cc,
-      bcc,
-      subject,
-      text,
-      html,
-      body,
-      attachments = [],
-      senderName = 'Smart ERP - Công ty Thanh Tùng'
-    } = req.body;
-
-    if (!to) {
-      return res.status(400).json({
-        success: false,
-        error: { message: 'Địa chỉ người nhận (to) là bắt buộc.' }
-      });
+export function createEmailRouter({ db, enqueue }) {
+  const router = Router();
+  router.post('/send', async (req, res) => {
+    const { to, cc, bcc, subject, text, html, body, attachments = [], senderName = 'Smart ERP' } = req.body;
+    if (!to || (Array.isArray(to) && to.length === 0)) {
+      return res.status(400).json({ success: false, error: { message: 'Địa chỉ người nhận (to) là bắt buộc.' } });
     }
-
     if (!subject) {
-      return res.status(400).json({
-        success: false,
-        error: { message: 'Tiêu đề email (subject) là bắt buộc.' }
-      });
+      return res.status(400).json({ success: false, error: { message: 'Tiêu đề email (subject) là bắt buộc.' } });
+    }
+    if (!Array.isArray(attachments)) {
+      return res.status(400).json({ success: false, error: { message: 'attachments phải là một danh sách.' } });
     }
 
-    const fromAddress = process.env.MAIL_FROM_ADDRESS || 'sales@thanhtung.vn';
-    const from = `"${senderName}" <${fromAddress}>`;
-
-    // Process attachments (support base64 content, buffers, or direct paths)
-    const formattedAttachments = (attachments || []).map((att) => {
-      if (att.content && typeof att.content === 'string' && att.content.startsWith('data:')) {
-        // Data URL format
-        const base64Data = att.content.split(',')[1];
-        return {
-          filename: att.filename || 'attachment.pdf',
-          content: Buffer.from(base64Data, 'base64'),
-          contentType: att.contentType || 'application/pdf'
-        };
-      } else if (att.content && typeof att.content === 'string') {
-        // Base64 string or plain text
-        return {
-          filename: att.filename || 'attachment.pdf',
-          content: Buffer.from(att.content, att.encoding === 'base64' ? 'base64' : 'utf-8'),
-          contentType: att.contentType || 'application/pdf'
-        };
-      }
-      return att;
-    });
-
+    const id = randomUUID();
+    const recipient = Array.isArray(to) ? to.join(', ') : to;
     const mailOptions = {
-      from,
-      to: Array.isArray(to) ? to.join(', ') : to,
+      from: `"${senderName}" <${process.env.MAIL_FROM_ADDRESS || 'sales@thanhtung.vn'}>`,
+      to: recipient,
       cc: Array.isArray(cc) ? cc.join(', ') : cc,
       bcc: Array.isArray(bcc) ? bcc.join(', ') : bcc,
       subject,
       text: text || body || '',
       html: html || (body ? body.replace(/\n/g, '<br>') : ''),
-      attachments: formattedAttachments
+      attachments: attachments.map((att) => {
+        if (typeof att.content !== 'string') return att;
+        const dataUrl = att.content.startsWith('data:');
+        return {
+          filename: att.filename || 'attachment.pdf',
+          content: dataUrl ? att.content.split(',')[1] : att.content,
+          encoding: dataUrl ? 'base64' : (att.encoding === 'base64' ? 'base64' : 'utf-8'),
+          contentType: att.contentType || 'application/pdf',
+        };
+      }),
     };
 
-    const transporter = getTransporter();
-    const info = await transporter.sendMail(mailOptions);
-
-    const logEntry = {
-      id: Date.now(),
-      messageId: info.messageId,
-      to,
-      subject,
-      attachmentsCount: formattedAttachments.length,
-      sentAt: new Date().toISOString(),
-      status: 'SENT'
-    };
-    emailLogs.unshift(logEntry);
-    if (emailLogs.length > 100) emailLogs.pop();
-
-    return res.json({
-      success: true,
-      data: {
-        messageId: info.messageId,
-        to,
-        subject,
-        sentAt: logEntry.sentAt,
-        response: info.response
-      }
-    });
-  } catch (error) {
-    console.error('[NotificationService] Lỗi gửi email:', error);
-    return res.status(500).json({
-      success: false,
-      error: {
-        message: error.message || 'Không thể gửi email.',
-        details: error.stack
-      }
-    });
-  }
-});
-
-// Email Logs Endpoint
-emailRouter.get('/logs', (req, res) => {
-  res.json({
-    success: true,
-    data: emailLogs
+    try {
+      await enqueue({ id, mailOptions });
+      db.prepare(`INSERT INTO email_jobs (id, recipient, subject, attachments_count, status, created_at)
+        VALUES (?, ?, ?, ?, 'QUEUED', ?) ON CONFLICT(id) DO NOTHING`)
+        .run(id, recipient, subject, attachments.length, new Date().toISOString());
+      return res.status(202).json({ success: true, data: { id, to, subject, status: 'QUEUED' } });
+    } catch (error) {
+      console.error('[NotificationService] Email queue error:', error);
+      return res.status(503).json({ success: false, error: { message: 'Không thể đưa email vào hàng đợi.' } });
+    }
   });
-});
+
+  router.get('/logs', (_req, res) => {
+    const rows = db.prepare(`SELECT id, message_id AS messageId, recipient AS "to", subject,
+      attachments_count AS attachmentsCount, status, created_at AS createdAt, sent_at AS sentAt, error
+      FROM email_jobs ORDER BY created_at DESC LIMIT 100`).all();
+    res.json({ success: true, data: rows });
+  });
+  router.get('/logs/:id', (req, res) => {
+    const row = db.prepare(`SELECT id, message_id AS messageId, recipient AS "to", subject,
+      attachments_count AS attachmentsCount, status, created_at AS createdAt, sent_at AS sentAt, error
+      FROM email_jobs WHERE id = ?`).get(req.params.id);
+    return row ? res.json({ success: true, data: row }) : res.status(404).json({ success: false, error: { message: 'Email job không tồn tại.' } });
+  });
+  return router;
+}
+
+export async function sendQueuedEmail(db, job, transporter = getTransporter()) {
+  const existing = db.prepare('SELECT status FROM email_jobs WHERE id = ?').get(job.id);
+  if (existing?.status === 'SENT') return;
+  const { to, subject, attachments = [] } = job.mailOptions;
+  db.prepare(`INSERT INTO email_jobs (id, recipient, subject, attachments_count, status, created_at)
+    VALUES (?, ?, ?, ?, 'QUEUED', ?) ON CONFLICT(id) DO NOTHING`)
+    .run(job.id, to, subject, attachments.length, new Date().toISOString());
+  const info = await transporter.sendMail(job.mailOptions);
+  db.prepare(`UPDATE email_jobs SET status = 'SENT', message_id = ?, sent_at = ?, error = NULL WHERE id = ?`)
+    .run(info.messageId, new Date().toISOString(), job.id);
+}
+
+export function markEmailFailed(db, job, error) {
+  db.prepare(`INSERT INTO email_jobs (id, recipient, subject, attachments_count, status, error, created_at)
+    VALUES (?, ?, ?, ?, 'FAILED', ?, ?) ON CONFLICT(id) DO UPDATE SET status = 'FAILED', error = excluded.error`)
+    .run(job.id, job.mailOptions.to, job.mailOptions.subject, job.mailOptions.attachments?.length || 0,
+      error.message, new Date().toISOString());
+}

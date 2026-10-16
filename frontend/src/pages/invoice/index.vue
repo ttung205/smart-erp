@@ -34,13 +34,6 @@
 
       <template #end>
         <div class="flex items-center gap-2">
-          <Button
-            label="Trang Yêu Cầu Xuất Kho ➔"
-            icon="pi pi-dolly"
-            size="small"
-            class="!text-xs !py-1 !px-2.5 rounded-[6px] !bg-indigo-50 hover:!bg-indigo-100 !text-indigo-700 !border-indigo-200 !font-semibold"
-            @click="$router.push('/warehouse-request-sale')"
-          />
           <span class="text-xs text-slate-500">
             Tổng số: <strong class="text-slate-800">{{ invoices.length }}</strong> chứng từ bán
           </span>
@@ -146,7 +139,7 @@
 
             <!-- Nút: Gửi xuống kho (nếu chưa gửi) -->
             <Button
-              v-if="data.warehouse_status === 'PENDING_WAREHOUSE'"
+              v-if="data.warehouse_status === 'PENDING_WAREHOUSE' && canManageInvoice"
               icon="pi pi-send"
               outlined
               size="small"
@@ -156,17 +149,6 @@
               @click="sendToWarehouse(data)"
             />
 
-            <!-- Nút: Xem tiến độ tại kho Logistics (nếu đã gửi kho) -->
-            <Button
-              v-if="data.warehouse_status !== 'PENDING_WAREHOUSE'"
-              icon="pi pi-truck"
-              outlined
-              size="small"
-              severity="secondary"
-              class="!w-7 !h-7 !p-0 rounded-[6px]"
-              v-tooltip.bottom="'Xem tiến độ nhặt hàng & xuất kho tại phòng Logistics'"
-              @click="$router.push('/warehouse-request-sale')"
-            />
           </div>
         </template>
       </Column>
@@ -176,7 +158,6 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import Column from 'primevue/column';
 import Toolbar from 'primevue/toolbar';
@@ -191,9 +172,12 @@ import CommonDataTable from '../../components/common/CommonDataTable.vue';
 
 import { salesApi } from '../../api/sales.api';
 import { formatCurrency, formatDate } from '../../utils/format';
+import { hasPermission } from '../../utils/rbac';
 
-const router = useRouter();
+const props = defineProps({ currentUser: { type: Object, default: null } });
+
 const toast = useToast();
+const canManageInvoice = computed(() => hasPermission('invoice.manage', props.currentUser));
 
 const invoices = ref([]);
 const loading = ref(false);
@@ -277,13 +261,10 @@ const sendToWarehouse = async (inv) => {
     toast.add({
       severity: 'success',
       summary: 'Đã gửi xuống kho',
-      detail: `Chứng từ ${inv.invoice_number} đã được gửi xuống phòng Logistics. Đang chuyển sang trang Yêu Cầu Xuất Kho...`,
+      detail: `Chứng từ ${inv.invoice_number} đã được gửi xuống phòng Logistics.`,
       life: 3000
     });
 
-    setTimeout(() => {
-      router.push('/warehouse-request-sale');
-    }, 800);
   } catch (err) {
     toast.add({
       severity: 'error',

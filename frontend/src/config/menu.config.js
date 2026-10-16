@@ -35,7 +35,7 @@ export const menuCategories = [
             id: 'customer',
             path: '/customer',
             resource: 'catalog',
-            permission: 'catalog.view',
+            permission: 'customer.view',
             label: 'Khách hàng',
             icon: 'pi pi-user'
           },
@@ -43,7 +43,7 @@ export const menuCategories = [
             id: 'supplier',
             path: '/supplier',
             resource: 'catalog',
-            permission: 'catalog.view',
+            permission: 'supplier.view',
             label: 'Nhà cung cấp',
             icon: 'pi pi-truck'
           }
@@ -85,6 +85,7 @@ export const menuCategories = [
         id: 'sales',
         label: 'Bán hàng',
         icon: 'pi pi-shopping-bag',
+        roles: ['SALE', 'SALE_MANAGER'],
         isFolder: true,
         children: [
           {
@@ -119,14 +120,7 @@ export const menuCategories = [
             label: 'Yêu cầu giao hàng',
             icon: 'pi pi-send'
           },
-          {
-            id: 'sales-warehouse-dispatch',
-            path: '/warehouse-request-sale',
-            resource: 'inventory',
-            permission: 'inventory.view',
-            label: 'Yêu cầu xuất kho',
-            icon: 'pi pi-box'
-          },
+          { id: 'sale-item-inquiry', path: '/sale/item-inquiries', resource: 'item-inquiry', permission: 'item-inquiry.view', label: 'Yêu cầu hỏi hàng', icon: 'pi pi-search' },
           {
             id: 'sale-return-request',
             path: '/sale-return-request',
@@ -141,6 +135,7 @@ export const menuCategories = [
         id: 'accounting-hub',
         label: 'Kế toán',
         icon: 'pi pi-calculator',
+        roles: ['FINANCE_ACCOUNTING', 'FINANCE_ACCOUNTING_MANAGER'],
         isFolder: true,
         children: [
           {
@@ -214,6 +209,7 @@ export const menuCategories = [
         id: 'cash-hub',
         label: 'Quỹ',
         icon: 'pi pi-wallet',
+        roles: ['FINANCE_ACCOUNTING', 'FINANCE_ACCOUNTING_MANAGER'],
         isFolder: true,
         children: [
           { id: 'cash-book', path: '/finance/cash-book', resource: 'finance', permission: 'finance.view', label: 'Sổ quỹ', icon: 'pi pi-book' },
@@ -226,6 +222,7 @@ export const menuCategories = [
         id: 'bank-hub',
         label: 'Ngân hàng',
         icon: 'pi pi-building-columns',
+        roles: ['FINANCE_ACCOUNTING', 'FINANCE_ACCOUNTING_MANAGER'],
         isFolder: true,
         children: [
           { id: 'bank-book', path: '/finance/bank-book', resource: 'finance', permission: 'finance.view', label: 'Sổ tiền gửi', icon: 'pi pi-book' },
@@ -240,8 +237,11 @@ export const menuCategories = [
         id: 'purchase-hub',
         label: 'Thu mua',
         icon: 'pi pi-shopping-cart',
+        roles: ['PURCHASE', 'PURCHASE_MANAGER'],
         isFolder: true,
         children: [
+          { id: 'purchase-item-inquiry', path: '/purchase/item-inquiries', permission: 'item-inquiry.process', label: 'Yêu cầu hỏi hàng', icon: 'pi pi-inbox' },
+          { id: 'purchase-inquiry', path: '/purchase/inquiries', permission: 'item-inquiry.process', label: 'Hỏi hàng nhà cung cấp', icon: 'pi pi-search' },
           {
             id: 'purchase-requisition',
             path: '/purchase/requisitions',
@@ -280,8 +280,17 @@ export const menuCategories = [
         id: 'inventory-hub',
         label: 'Quản lý kho',
         icon: 'pi pi-server',
+        roles: ['LOGISTIC', 'LOGISTIC_MANAGER'],
         isFolder: true,
         children: [
+          {
+            id: 'sales-warehouse-dispatch',
+            path: '/warehouse-request-sale',
+            resource: 'inventory',
+            permission: 'inventory.view',
+            label: 'Yêu cầu xuất kho',
+            icon: 'pi pi-box'
+          },
           {
             id: 'inventory-overview',
             path: '/inventory/overview',

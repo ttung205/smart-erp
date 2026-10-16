@@ -22,6 +22,7 @@ vendor/
 *.db
 *.db-shm
 *.db-wal
+**/inquiry-attachments/
 
 # Log files
 *.log

@@ -12,6 +12,8 @@ export const SYSTEM_PERMISSIONS = [
   // Phân hệ Sản phẩm (Catalog)
   { code: 'catalog.view', desc: 'Xem danh mục sản phẩm (Route: /catalog)' },
   { code: 'catalog.manage', desc: 'Thêm, sửa, xóa sản phẩm và bảng giá' },
+  { code: 'customer.view', desc: 'Xem danh sách khách hàng' },
+  { code: 'supplier.view', desc: 'Xem danh sách nhà cung cấp' },
 
   // Phân hệ Kho hàng (Inventory)
   { code: 'inventory.view', desc: 'Xem tồn kho thực tế On-Hand / Reserved (Route: /inventory)' },
@@ -43,6 +45,7 @@ export const SYSTEM_PERMISSIONS = [
   { code: 'delivery.manage', desc: 'Quản trị giao hàng' },
   { code: 'invoice.view', desc: 'Xem danh sách chứng từ và hóa đơn (Route: /invoice)' },
   { code: 'invoice.create', desc: 'Tạo chứng từ xuất hóa đơn' },
+  { code: 'sale-invoice.create', desc: 'Lập chứng từ bán hàng từ yêu cầu giao hàng' },
   { code: 'invoice.manage', desc: 'Quản trị chứng từ và hóa đơn' },
 
   // Phân hệ Đối tác & Kho bãi (Master)
@@ -57,6 +60,9 @@ export const SYSTEM_PERMISSIONS = [
   { code: 'purchase.view', desc: 'Xem danh sách và chi tiết đơn mua hàng PO' },
   { code: 'purchase.create', desc: 'Tạo mới đơn mua hàng PO' },
   { code: 'purchase.approve', desc: 'Phê duyệt đơn mua hàng PO' },
+  { code: 'item-inquiry.view', desc: 'Xem yêu cầu hỏi hàng của mình' },
+  { code: 'item-inquiry.create', desc: 'Tạo và gửi yêu cầu hỏi hàng' },
+  { code: 'item-inquiry.process', desc: 'Xử lý yêu cầu và phiếu hỏi hàng nhà cung cấp' },
   { code: 'finance.view', desc: 'Xem báo cáo tài chính và công nợ' },
   { code: 'finance.approve', desc: 'Duyệt thanh toán và hóa đơn' },
   { code: 'ai.use', desc: 'Sử dụng trợ lý AI phân tích dữ liệu' },

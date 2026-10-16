@@ -133,7 +133,6 @@
       :quotation="quotation"
       :pdfBase64="currentPdfBase64"
       :currentUser="currentUser"
-      @sent="handleEmailSent"
     />
   </div>
 </template>
@@ -283,12 +282,4 @@ const openSendEmailDialog = async () => {
   showSendEmailDialog.value = true;
 };
 
-const handleEmailSent = () => {
-  toast.add({
-    severity: 'success',
-    summary: 'Hoàn tất gửi báo giá',
-    detail: 'Email báo giá kèm PDF đã được gửi tới khách hàng thành công.',
-    life: 4000
-  });
-};
 </script>

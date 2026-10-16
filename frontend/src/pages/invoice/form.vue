@@ -27,22 +27,17 @@
       <!-- Action Buttons -->
       <div class="flex items-center gap-2.5">
         <!-- Nút Đồng bộ / Kích hoạt Giữ Chỗ Tồn Kho (Khi đang ở chế độ xem chứng từ) -->
-        <Button v-if="isEditMode && form.accounting_status !== 'POSTED'" label="Đồng Bộ Giữ Chỗ Kho" icon="pi pi-lock"
+        <Button v-if="isEditMode && canManageInvoice && form.accounting_status !== 'POSTED'" label="Đồng Bộ Giữ Chỗ Kho" icon="pi pi-lock"
           size="small" severity="help" outlined class="!text-xs !py-2 !px-3 rounded-[6px] !font-semibold"
           :loading="syncingReserve"
           v-tooltip.bottom="'Gửi lệnh giữ chỗ (Reserve) tới Inventory Service cho chứng từ này'"
           @click="handleSyncReserve" />
 
         <!-- Nút Gửi xuống kho (khi chưa gửi) -->
-        <Button v-if="form.warehouse_status === 'PENDING_WAREHOUSE' || !isEditMode" label="Gửi Xuống Kho"
+        <Button v-if="!isEditMode || (canManageInvoice && form.warehouse_status === 'PENDING_WAREHOUSE')" label="Gửi Xuống Kho"
           icon="pi pi-send" size="small"
           class="!bg-indigo-600 hover:!bg-indigo-700 !text-white !border-indigo-600 !text-xs !py-2 !px-3.5 rounded-[6px] !font-bold shadow-sm"
           :loading="saving" @click="saveInvoice(true)" />
-
-        <!-- Nút Chuyển sang trang Điều Phối Kho khi đã gửi -->
-        <Button v-else label="Trang Yêu Cầu Xuất Kho ➔" icon="pi pi-dolly" size="small"
-          class="!bg-sky-600 hover:!bg-sky-700 !text-white !border-sky-600 !text-xs !py-2 !px-3.5 rounded-[6px] !font-semibold shadow-sm"
-          @click="$router.push('/warehouse-request-sale')" />
 
         <!-- Nút Lưu Chứng Từ (Chờ gửi kho) -->
         <Button v-if="form.accounting_status !== 'POSTED'" label="Lưu Chứng Từ & Giữ Kho" icon="pi pi-save" size="small"
@@ -222,6 +217,7 @@ import FormAttachmentUpload from '../../components/common/FormAttachmentUpload.v
 import { salesApi } from '../../api/sales.api';
 import { inventoryApi } from '../../api/inventory.api';
 import { formatCurrency } from '../../utils/format';
+import { hasPermission } from '../../utils/rbac';
 
 const props = defineProps({
   currentUser: {
@@ -229,6 +225,7 @@ const props = defineProps({
     default: null
   }
 });
+const canManageInvoice = computed(() => hasPermission('invoice.manage', props.currentUser));
 
 const route = useRoute();
 const router = useRouter();
@@ -322,7 +319,7 @@ const refreshStockInfo = async () => {
           }
         });
       }
-    } catch { }
+    } catch { /* Continue with stock data when the product catalog is unavailable. */ }
 
     const res = await inventoryApi.getStocks({ warehouseId });
     const list = res?.data || (Array.isArray(res) ? res : []);
@@ -487,7 +484,7 @@ const initFormData = async () => {
                 if (oi.sku) orderItemsMap.set(oi.sku, oi);
               });
             }
-          } catch { }
+          } catch { /* Keep the invoice data when its source order is unavailable. */ }
         }
 
         form.value = {
@@ -651,11 +648,7 @@ const saveInvoice = async (sendImmediately = false) => {
       life: 5000
     });
 
-    if (sendImmediately) {
-      router.push('/warehouse-request-sale');
-    } else {
-      router.push('/invoice');
-    }
+    router.push('/invoice');
   } catch (err) {
     toast.add({
       severity: 'error',

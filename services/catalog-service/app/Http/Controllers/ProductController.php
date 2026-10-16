@@ -8,6 +8,66 @@ use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
+    private function hasSignedRole(Request $request, array $allowed): bool
+    {
+        $token = $request->bearerToken();
+        if (!$token || count($parts = explode('.', $token)) !== 3) return false;
+        [$header, $payload, $signature] = $parts;
+        $expected = rtrim(strtr(base64_encode(hash_hmac('sha256', "$header.$payload", env('JWT_SECRET', 'smart_erp_super_secure_jwt_secret_key_2026'), true)), '+/', '-_'), '=');
+        if (!hash_equals($expected, $signature)) return false;
+        $claims = json_decode(base64_decode(strtr($payload, '-_', '+/')), true);
+        return is_array($claims) && ($claims['exp'] ?? 0) > time() && count(array_intersect($allowed, $claims['roles'] ?? [])) > 0;
+    }
+
+    private function canSeeCost(Request $request): bool
+    {
+        return $this->hasSignedRole($request, ['SUPER_ADMIN', 'PURCHASE', 'PURCHASE_MANAGER', 'FINANCE_ACCOUNTING', 'FINANCE_ACCOUNTING_MANAGER']);
+    }
+    public function applyInquiryResult(Request $request)
+    {
+        $key = env('INTERNAL_SERVICE_KEY', 'smart_erp_internal_2026');
+        if (!hash_equals($key, (string) $request->header('X-Internal-Service-Key')) || !$this->hasSignedRole($request, ['SUPER_ADMIN', 'PURCHASE', 'PURCHASE_MANAGER'])) {
+            return response()->json(['success' => false, 'error' => ['message' => 'Forbidden']], 403);
+        }
+        $data = $request->validate([
+            'inquiry_item_id' => 'required|integer|min:1',
+            'sku' => 'nullable|string|max:100',
+            'designation' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'brand_id' => 'required|integer',
+            'category' => 'nullable|string|max:200',
+            'com' => 'nullable|string|max:100',
+            'unit' => 'nullable|string|max:50',
+            'spec' => 'nullable|string',
+            'buying_price' => 'required|numeric|min:0',
+            'vat' => 'required|numeric|between:0,100',
+            'tax' => 'required|numeric|between:0,100',
+            'price_index' => 'required|numeric|gt:0',
+        ]);
+        return DB::transaction(function () use ($data) {
+            $brand = DB::table('brands')->where('id', $data['brand_id'])->first();
+            if (!$brand) return response()->json(['success' => false, 'error' => ['message' => 'Brand không tồn tại']], 422);
+            $sku = trim($data['sku'] ?? '') ?: 'IQP-' . $data['inquiry_item_id'];
+            $gross = round((float) $data['buying_price'] * (1 + ((float) $data['vat'] + (float) $data['tax']) / 100) * (float) $data['price_index'], 2);
+            $categoryId = null;
+            if (!empty($data['category'])) {
+                $categoryId = DB::table('categories')->where('name', $data['category'])->value('id');
+                if (!$categoryId) $categoryId = DB::table('categories')->insertGetId(['name' => $data['category'], 'code' => Str::slug($data['category']) . '-' . $data['inquiry_item_id'], 'created_at' => now(), 'updated_at' => now()]);
+            }
+            $changes = ['designation' => $data['designation'], 'brand_id' => $brand->id, 'category_id' => $categoryId, 'description' => $data['description'] ?? null,
+                'com' => $data['com'] ?? null, 'unit' => $data['unit'] ?? 'Cái', 'spec' => $data['spec'] ?? null,
+                'cost_price' => $data['buying_price'], 'gross_price' => $gross, 'status' => 'ACTIVE', 'updated_at' => now()];
+            $existing = DB::table('products')->where('sku', $sku)->first();
+            if ($existing) DB::table('products')->where('id', $existing->id)->update($changes);
+            else {
+                $changes['sku'] = $sku;
+                $changes['min_stock'] = 0;
+                $changes['created_at'] = now();
+                $existing = (object) ['id' => DB::table('products')->insertGetId($changes)];
+            }
+            return response()->json(['success' => true, 'data' => ['id' => $existing->id, 'sku' => $sku, 'gross_price' => $gross]]);
+        });
+    }
     public function index(Request $request)
     {
         $search = trim($request->input('search', ''));
@@ -58,11 +118,12 @@ class ProductController extends Controller
         }
 
         $products = $query->orderBy('products.id', 'desc')->get();
+        if (!$this->canSeeCost($request)) foreach ($products as $product) unset($product->cost_price);
 
         return response()->json(['success' => true, 'data' => $products]);
     }
 
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $p = DB::table('products')
             ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
@@ -78,6 +139,7 @@ class ProductController extends Controller
         if (!$p) {
             return response()->json(['success' => false, 'error' => ['code' => 'PRODUCT_NOT_FOUND']], 404);
         }
+        if (!$this->canSeeCost($request)) unset($p->cost_price);
         return response()->json(['success' => true, 'data' => $p]);
     }
 

@@ -92,6 +92,12 @@ Cấu hình `notification-service/.env`: `JWT_SECRET`, `IDENTITY_SERVICE_URL`, `
 ## 6. Hướng mở rộng
 
 - Email cho việc cần làm quá hạn (nodemailer đã có sẵn trong service).
+
+## 7. Hàng đợi gửi email
+
+`POST /api/v1/notifications/email/send` xác nhận email đã được RabbitMQ nhận bằng publisher confirm rồi trả HTTP `202` với `status: QUEUED` và `id`. Đây chưa phải xác nhận SMTP đã gửi. Worker trong notification-service lấy job từ `erp.email.send`, gửi SMTP, rồi cập nhật `email_jobs` trong SQLite thành `SENT`. `GET /api/v1/notifications/email/logs` trả các trạng thái `QUEUED`, `SENT`, `FAILED`.
+
+Nếu SMTP lỗi, job chuyển sang `erp.email.retry` trong 10 giây rồi quay lại, tối đa 5 lần; sau đó chuyển đến `erp.dead_letters`. Cần chạy RabbitMQ và notification-service để gửi email. Job chứa nội dung và tệp đính kèm dạng base64, nên tránh tệp quá lớn. RabbitMQ giao job theo cơ chế at-least-once; nếu worker ngừng sau khi SMTP nhận thư nhưng trước khi cập nhật SQLite, một bản gửi trùng có thể xảy ra khi retry.
 - Cài đặt nhận thông báo theo user (tắt/bật từng loại, từng kênh).
 - Outbox + event cho purchase (PR/PO cần duyệt), finance, trả hàng bán.
 - Chuyển DB notification sang MySQL khi chạy production (chỉ cần thay `db.js` + repository).
