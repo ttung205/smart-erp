@@ -1,7 +1,7 @@
 <template>
   <aside
     class="fixed top-0 bottom-0 left-0 z-50 flex flex-col bg-white border-r border-slate-200 transition-all duration-200 select-none"
-    :class="isCollapsed ? 'w-[68px]' : 'w-[220px]'"
+    :class="isCollapsed ? 'w-[68px]' : 'w-[264px]'"
   >
     <!-- Brand Header & Collapse Toggle Button -->
     <div
@@ -85,12 +85,12 @@
                   v-for="child in item.children"
                   :key="child.id"
                   type="button"
-                  class="flex items-center rounded-[6px] border text-xs font-medium transition-colors cursor-pointer w-full gap-2 px-2.5 py-1.5 text-left"
+                  class="flex items-center rounded-[6px] border text-xs font-medium transition-colors cursor-pointer w-full min-w-0 gap-2 px-2.5 py-1.5 text-left"
                   :class="isItemActive(child) ? 'bg-sky-50 border-sky-200 text-sky-700 font-semibold' : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'"
                   @click="handleNavigate(child)"
                 >
                   <i :class="[child.icon, 'text-sm shrink-0', isItemActive(child) ? 'text-sky-700' : 'text-slate-400']"></i>
-                  <span class="flex-1 whitespace-nowrap overflow-hidden text-ellipsis">{{ child.label }}</span>
+                  <span class="flex-1 min-w-0 whitespace-normal break-words leading-snug">{{ child.label }}</span>
                 </button>
               </div>
             </div>
@@ -118,7 +118,7 @@
                   isItemActive(item) ? 'text-sky-700' : 'text-slate-400 group-hover:text-slate-600'
                 ]"
               ></i>
-              <span v-if="!isCollapsed" class="flex-1 whitespace-nowrap overflow-hidden text-ellipsis">
+              <span v-if="!isCollapsed" class="flex-1 min-w-0 whitespace-normal break-words leading-snug">
                 {{ item.label }}
               </span>
             </button>
@@ -205,17 +205,32 @@ const props = defineProps({
 
 const emit = defineEmits(['select-tab', 'toggle-collapse']);
 
-const openFolders = ref({
+const DEFAULT_OPEN_FOLDERS = {
   organization: true,
   sales: true,
   'inventory-hub': true
-});
+};
+const OPEN_FOLDERS_STORAGE_KEY = 'smart_erp_open_folders';
+const readOpenFolders = () => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(OPEN_FOLDERS_STORAGE_KEY));
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return null;
+    return Object.fromEntries(Object.entries(saved).filter(([, value]) => typeof value === 'boolean'));
+  } catch {
+    return null;
+  }
+};
+const savedOpenFolders = readOpenFolders();
+let hasSavedFolderState = savedOpenFolders !== null;
+const openFolders = ref({ ...DEFAULT_OPEN_FOLDERS, ...savedOpenFolders });
 
 const ACTIVE_MENU_STORAGE_KEY = 'smart_erp_active_menu_id';
 const activeMenuId = ref(sessionStorage.getItem(ACTIVE_MENU_STORAGE_KEY) || '');
 
 const toggleFolder = (folderId) => {
   openFolders.value[folderId] = !openFolders.value[folderId];
+  localStorage.setItem(OPEN_FOLDERS_STORAGE_KEY, JSON.stringify(openFolders.value));
+  hasSavedFolderState = true;
 };
 
 // Lọc menu theo quyền người dùng (chỉ hiển thị những trang có quyền .view)
@@ -328,17 +343,19 @@ const handleNavigate = (item) => {
   }
 };
 
-// Tự động mở folder nếu một tab con đang được chọn
+// Chỉ tự mở mục đang chọn khi người dùng chưa lưu lựa chọn đóng/mở menu.
 watch([() => route.path, matchingRouteItems], ([newPath]) => {
   if (!newPath) return;
   if (resolvedActiveMenuId.value) {
     activeMenuId.value = resolvedActiveMenuId.value;
     sessionStorage.setItem(ACTIVE_MENU_STORAGE_KEY, resolvedActiveMenuId.value);
   }
-  for (const cat of menuCategories.value) {
-    for (const item of cat.items) {
-      if (item.children && item.children.some(c => isItemActive(c))) {
-        openFolders.value[item.id] = true;
+  if (!hasSavedFolderState) {
+    for (const cat of menuCategories.value) {
+      for (const item of cat.items) {
+        if (item.children && item.children.some(c => isItemActive(c))) {
+          openFolders.value[item.id] = true;
+        }
       }
     }
   }

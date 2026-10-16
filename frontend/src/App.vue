@@ -17,7 +17,7 @@
 
       <!-- 2. Main Content Area (Tự động co giãn theo Sidebar) -->
       <div class="flex-1 flex flex-col min-w-0 transition-all duration-200"
-        :class="isSidebarCollapsed ? 'ml-[68px]' : 'ml-[220px]'">
+        :class="isSidebarCollapsed ? 'ml-[68px]' : 'ml-[264px]'">
         <AppTopbar :current-user="currentUser" :health="health" @refresh-health="checkHealth" @logout="logout" />
 
         <main class="w-full flex-1" :class="route.path === '/intro' ? 'p-0' : 'px-4 py-3'">

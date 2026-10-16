@@ -323,7 +323,7 @@
                 </span>
               </template>
             </Column>
-            <Column field="gross_price" header="Giá Niêm Yết" class="text-right" style="width: 130px">
+            <Column field="gross_price" header="Giá Gross" class="text-right" style="width: 130px">
               <template #body="{ data }">
                 <span class="font-mono text-xs font-bold text-slate-700">{{ formatCurrency(data.gross_price) }}</span>
               </template>

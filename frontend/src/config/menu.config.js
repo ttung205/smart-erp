@@ -92,6 +92,7 @@ export const menuCategories = [
         roles: ['SALE', 'SALE_MANAGER'],
         isFolder: true,
         children: [
+          { id: 'sale-item-inquiry', path: '/sale/item-inquiries', resource: 'item-inquiry', permission: 'item-inquiry.view', label: 'Yêu cầu hỏi hàng', icon: 'pi pi-search' },
           {
             id: 'quotation',
             path: '/quotation',
@@ -124,7 +125,6 @@ export const menuCategories = [
             label: 'Yêu cầu giao hàng',
             icon: 'pi pi-send'
           },
-          { id: 'sale-item-inquiry', path: '/sale/item-inquiries', resource: 'item-inquiry', permission: 'item-inquiry.view', label: 'Yêu cầu hỏi hàng', icon: 'pi pi-search' },
           {
             id: 'sale-return-request',
             path: '/sale-return-request',

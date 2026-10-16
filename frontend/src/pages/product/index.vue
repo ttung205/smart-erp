@@ -2,7 +2,7 @@
   <div class="flex flex-col gap-4 pb-10">
     <PageHeader
       title="Danh Mục Sản Phẩm (Product Master)"
-      subtitle="Quản lý mã hàng SKU, thông số kỹ thuật, giá niêm yết chuẩn và đồng bộ toàn hệ thống"
+      subtitle="Quản lý mã hàng SKU, thông số kỹ thuật, giá gross chuẩn và đồng bộ toàn hệ thống"
       badge="Catalog Service"
       badge-severity="info"
     >
@@ -88,7 +88,7 @@
       :columns="tableColumns"
       scrollable
       scrollHeight="600px"
-      :tableStyle="{ minWidth: '1720px' }"
+      :tableStyle="{ minWidth: '1435px', tableLayout: 'fixed' }"
       :rows="15"
       :rowsPerPageOptions="[15, 30, 50, 100]"
       :paginator="filteredProducts.length > 15"
@@ -99,26 +99,26 @@
     >
       <!-- 1. SKU -->
       <template #col-sku="{ data }">
-        <span class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-200">
+        <span class="inline-block max-w-full overflow-hidden text-ellipsis whitespace-nowrap align-middle font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-200" :title="data.sku">
           {{ data.sku }}
         </span>
       </template>
 
       <!-- 2. Designation -->
       <template #col-designation="{ data }">
-        <span class="font-mono text-xs font-semibold text-rose-700">
+        <span class="block truncate font-mono text-xs font-semibold text-rose-700" :title="data.designation || ''">
           {{ data.designation || '-' }}
         </span>
       </template>
 
       <!-- 3. Brand -->
       <template #col-brand="{ data }">
-        <span class="text-xs font-bold text-slate-800">{{ data.brand || '-' }}</span>
+        <span class="block truncate text-xs font-bold text-slate-800" :title="data.brand || ''">{{ data.brand || '-' }}</span>
       </template>
 
       <!-- 4. Category -->
       <template #col-category="{ data }">
-        <Badge severity="secondary" :value="data.category || 'Mặc định'" />
+        <Badge severity="secondary" :value="data.category || 'Mặc định'" class="!max-w-full !overflow-hidden !text-ellipsis !whitespace-nowrap" :title="data.category || 'Mặc định'" />
       </template>
 
       <!-- 5. Item Description -->
@@ -130,7 +130,7 @@
 
       <!-- 6. COM (Xuất xứ) -->
       <template #col-com="{ data }">
-        <span class="text-xs text-slate-600">{{ data.com || 'Việt Nam' }}</span>
+        <span class="block truncate text-xs text-slate-600" :title="data.com || 'Việt Nam'">{{ data.com || 'Việt Nam' }}</span>
       </template>
 
       <!-- 7. Unit -->
@@ -147,7 +147,7 @@
 
       <!-- 9. Specs (Thông số kỹ thuật) -->
       <template #col-spec="{ data }">
-        <span class="text-[11px] text-slate-500 font-mono block truncate" :title="data.spec">
+        <span class="block w-full overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-slate-500 font-mono" :title="data.spec || ''">
           {{ data.spec || '-' }}
         </span>
       </template>
@@ -220,15 +220,15 @@ import { formatCurrency } from '../../utils/format';
 const toast = useToast();
 
 const tableColumns = [
-  { field: 'sku', header: 'MÃ SKU', sortable: true, width: '170px' },
-  { field: 'designation', header: 'DESIGNATION', sortable: true, width: '150px' },
+  { field: 'sku', header: 'MÃ SKU', sortable: true, width: '200px' },
+  { field: 'designation', header: 'DESIGNATION', sortable: true, width: '135px' },
   { field: 'brand', header: 'BRAND', sortable: true, width: '110px' },
   { field: 'category', header: 'DANH MỤC', sortable: true, width: '130px' },
-  { field: 'description', header: 'ITEM DESCRIPTION', sortable: false, width: '300px' },
-  { field: 'com', header: 'COM', sortable: false, width: '110px' },
-  { field: 'unit', header: 'UNIT', sortable: false, width: '75px', align: 'center' },
-  { field: 'gross_price', header: 'GROSS PRICE', sortable: true, width: '150px', align: 'right' },
-  { field: 'spec', header: 'THÔNG SỐ KỸ THUẬT (SPECS)', sortable: false, width: '360px' }
+  { field: 'description', header: 'ITEM DESCRIPTION', sortable: false, width: '270px' },
+  { field: 'com', header: 'COM', sortable: false, width: '90px' },
+  { field: 'unit', header: 'UNIT', sortable: false, width: '70px', align: 'center' },
+  { field: 'gross_price', header: 'GROSS PRICE', sortable: true, width: '140px', align: 'right' },
+  { field: 'spec', header: 'THÔNG SỐ (SPECS)', sortable: false, width: '190px' }
 ];
 
 const products = ref([]);

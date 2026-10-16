@@ -135,11 +135,11 @@
         />
       </template>
 
-      <!-- 11. Giá niêm yết (Gross Price - Snapshot) -->
+      <!-- 11. Giá gross (Snapshot) -->
       <template #col-gross_price="{ data }">
         <span
           class="font-mono text-xs font-semibold text-slate-700 px-2 py-1 bg-slate-50 border border-slate-100 rounded-[4px] block text-right"
-          :title="`Giá niêm yết gốc tại thời điểm tạo đơn: ${formatCurrency(data.gross_price)}`"
+          :title="`Giá gross gốc tại thời điểm tạo đơn: ${formatCurrency(data.gross_price)}`"
         >
           {{ formatCurrency(data.gross_price) }}
         </span>

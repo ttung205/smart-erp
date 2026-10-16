@@ -3,7 +3,7 @@
     <!-- Single Page Title -->
     <PageHeader
       title="Danh Mục Sản Phẩm (Catalog Master)"
-      subtitle="Quản lý mã hàng SKU, thông số kỹ thuật, giá niêm yết chuẩn và đồng bộ toàn hệ thống"
+      subtitle="Quản lý mã hàng SKU, thông số kỹ thuật, giá gross chuẩn và đồng bộ toàn hệ thống"
       badge="Catalog Service"
       badge-severity="info"
     >

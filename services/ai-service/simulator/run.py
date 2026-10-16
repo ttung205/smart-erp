@@ -149,7 +149,7 @@ def summary(sim: Simulation) -> None:
                   if o.status not in ("CANCELLED", "REJECTED") for line in o.lines)
     print(f"Đơn còn chờ giao cuối kỳ: {pending / 1e9:.1f} tỷ")
     lost = sum(sim.lost_demand[p.id] * p.gross_price for p in md.products)
-    print(f"Nhu cầu không đáp ứng được (hết hàng): ~{lost / 1e9:.1f} tỷ theo giá niêm yết")
+    print(f"Nhu cầu không đáp ứng được (hết hàng): ~{lost / 1e9:.1f} tỷ theo giá gross")
 
 
 def main() -> None:

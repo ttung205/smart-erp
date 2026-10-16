@@ -70,7 +70,7 @@
       <!-- 2. Thông tin chung -->
       <InquiryRequestInfoPanel :request="request" :users="users" :linkable="isPurchase" @open-inquiry="openInquiry" />
 
-      <!-- 3. Item yêu cầu + kết quả hỏi hàng -->
+      <!-- 3. Item yêu cầu -->
       <div class="flex flex-col gap-1">
         <span class="px-1 text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
           <i class="pi pi-box text-sky-600 text-xs"></i>
@@ -79,6 +79,17 @@
         <InquiryRequestItemTable
           :modelValue="request.items"
           readonly
+        />
+      </div>
+
+      <!-- 4. Kết quả từ các phiếu hỏi hàng đã hoàn thành -->
+      <div class="flex flex-col gap-1">
+        <span class="px-1 text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+          <i class="pi pi-list-check text-emerald-600 text-xs"></i>
+          Kết quả hỏi hàng ({{ request.results?.length || 0 }})
+        </span>
+        <InquiryResultTable
+          :items="request.items"
           :results="request.results || []"
           :selectable="isPurchase"
           @select-result="selectResult"
@@ -86,7 +97,7 @@
         />
       </div>
 
-      <!-- 4. Tài liệu đính kèm -->
+      <!-- 5. Tài liệu đính kèm -->
       <FormAttachmentUpload
         :model-value="request.attachments || []"
         title="Tài Liệu Đính Kèm Yêu Cầu Hỏi Hàng"
@@ -112,6 +123,7 @@ import Tag from 'primevue/tag';
 import PageHeader from '../../components/common/PageHeader.vue';
 import InquiryRequestInfoPanel from '../../components/inquiry-request/InquiryRequestInfoPanel.vue';
 import InquiryRequestItemTable from '../../components/inquiry-request/InquiryRequestItemTable.vue';
+import InquiryResultTable from '../../components/inquiry-request/InquiryResultTable.vue';
 import FormAttachmentUpload from '../../components/common/FormAttachmentUpload.vue';
 import { itemInquiryApi } from '../../api/item-inquiry.api';
 import { identityApi } from '../../api/identity.api';
@@ -185,7 +197,7 @@ const openInquiry = id => router.push(`/purchase/inquiries/${id}`);
 onMounted(async () => {
   // Quay về từ phiếu hỏi hàng NCC vừa hoàn thành
   if (route.query.completed) {
-    toast.add({ severity: 'success', summary: 'Hoàn thành hỏi hàng', detail: `Phiếu ${route.query.completed} đã hoàn thành, kết quả đã cập nhật vào bảng item.`, life: 5000 });
+    toast.add({ severity: 'success', summary: 'Hoàn thành hỏi hàng', detail: `Phiếu ${route.query.completed} đã hoàn thành, kết quả đã cập nhật vào bảng kết quả hỏi hàng.`, life: 5000 });
     router.replace({ query: {} });
   }
   try {

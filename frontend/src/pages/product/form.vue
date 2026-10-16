@@ -40,10 +40,16 @@
         <!-- Brand -->
         <div class="flex flex-col gap-1">
           <label for="brand" class="font-semibold text-slate-700">Thương hiệu (Brand)</label>
-          <InputText
+          <Select
             id="brand"
-            v-model="form.brand"
-            placeholder="Ví dụ: LG, SKF, Toshiba..."
+            v-model="form.brand_id"
+            :options="brands"
+            option-label="name"
+            option-value="id"
+            filter
+            filter-placeholder="Tìm thương hiệu..."
+            placeholder="Chọn thương hiệu..."
+            :loading="loadingOptions"
             class="w-full rounded-[6px]"
             size="small"
           />
@@ -52,10 +58,16 @@
         <!-- Category -->
         <div class="flex flex-col gap-1">
           <label for="category" class="font-semibold text-slate-700">Danh mục (Category)</label>
-          <InputText
+          <Select
             id="category"
-            v-model="form.category"
-            placeholder="Ví dụ: Tủ lạnh, Vòng bi..."
+            v-model="form.category_id"
+            :options="categories"
+            option-label="name"
+            option-value="id"
+            filter
+            filter-placeholder="Tìm danh mục..."
+            placeholder="Chọn danh mục..."
+            :loading="loadingOptions"
             class="w-full rounded-[6px]"
             size="small"
           />
@@ -101,7 +113,7 @@
 
         <!-- Gross Price -->
         <div class="flex flex-col gap-1">
-          <label for="gross_price" class="font-semibold text-slate-700">Giá niêm yết</label>
+          <label for="gross_price" class="font-semibold text-slate-700">Giá gross</label>
           <InputNumber
             id="gross_price"
             v-model="form.gross_price"
@@ -152,12 +164,15 @@
 </template>
 
 <script setup>
-import { reactive, watch, computed } from 'vue';
+import { ref, reactive, watch, computed } from 'vue';
 import Dialog from 'primevue/dialog';
 import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
+import Select from 'primevue/select';
 import Textarea from 'primevue/textarea';
 import Button from 'primevue/button';
+import { useToast } from 'primevue/usetoast';
+import { catalogApi } from '../../api/catalog.api';
 
 const props = defineProps({
   visible: {
@@ -176,14 +191,18 @@ const props = defineProps({
 
 defineEmits(['update:visible', 'submit']);
 
+const toast = useToast();
 const isEdit = computed(() => Boolean(props.initialData && props.initialData.id));
+const brands = ref([]);
+const categories = ref([]);
+const loadingOptions = ref(false);
 
 const form = reactive({
   id: null,
   sku: '',
   designation: '',
-  brand: '',
-  category: '',
+  brand_id: null,
+  category_id: null,
   description: '',
   com: 'Việt Nam',
   unit: 'Cái',
@@ -199,8 +218,8 @@ watch(
         id: val.id || null,
         sku: val.sku || '',
         designation: val.designation || '',
-        brand: val.brand || '',
-        category: val.category || '',
+        brand_id: val.brand_id ?? null,
+        category_id: val.category_id ?? null,
         description: val.description || val.item_description || val.name || '',
         com: val.com || 'Việt Nam',
         unit: val.unit || 'Cái',
@@ -212,8 +231,8 @@ watch(
         id: null,
         sku: '',
         designation: '',
-        brand: '',
-        category: '',
+        brand_id: null,
+        category_id: null,
         description: '',
         com: 'Việt Nam',
         unit: 'Cái',
@@ -224,4 +243,19 @@ watch(
   },
   { immediate: true }
 );
+
+watch(() => props.visible, async (open) => {
+  if (!open) return;
+  loadingOptions.value = true;
+  const [brandResult, categoryResult] = await Promise.allSettled([
+    catalogApi.getBrands(),
+    catalogApi.getCategories()
+  ]);
+  brands.value = brandResult.status === 'fulfilled' ? brandResult.value.data || [] : [];
+  categories.value = categoryResult.status === 'fulfilled' ? categoryResult.value.data || [] : [];
+  if (brandResult.status === 'rejected' || categoryResult.status === 'rejected') {
+    toast.add({ severity: 'error', summary: 'Không tải được danh mục', detail: 'Vui lòng đóng và mở lại form để thử lại.', life: 3000 });
+  }
+  loadingOptions.value = false;
+}, { immediate: true });
 </script>

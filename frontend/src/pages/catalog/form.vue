@@ -100,7 +100,7 @@
 
         <!-- Gross Price -->
         <div class="flex flex-col gap-1">
-          <label for="gross_price" class="text-xs font-semibold text-slate-700">Giá niêm yết</label>
+          <label for="gross_price" class="text-xs font-semibold text-slate-700">Giá gross</label>
           <InputNumber
             id="gross_price"
             v-model="form.gross_price"

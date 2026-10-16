@@ -3,7 +3,7 @@ export const PRODUCT_COLUMNS = [
   { field: 'name', header: 'Tên Sản Phẩm', sortable: true },
   { field: 'category_name', header: 'Danh Mục', sortable: false },
   { field: 'unit_code', header: 'Đơn Vị Tính', sortable: false },
-  { field: 'gross_price', header: 'Giá Niêm Yết', sortable: true, align: 'right' },
+  { field: 'gross_price', header: 'Giá Gross', sortable: true, align: 'right' },
   { field: 'cost_price', header: 'Giá Vốn', sortable: true, align: 'right' },
   { field: 'min_stock', header: 'Tồn An Toàn', sortable: true, align: 'center' },
   { field: 'status', header: 'Trạng Thái', sortable: false, align: 'center' }
