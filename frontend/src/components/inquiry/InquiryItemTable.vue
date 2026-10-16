@@ -51,7 +51,7 @@
         :maxFractionDigits="2"
         class="w-full min-w-24"
         inputClass="w-full !text-xs !rounded-[6px]"
-        @update:modelValue="notifyChange()"
+        @update:modelValue="value => onPriceFieldChange(data, field.key, value, notifyChange)"
       />
     </template>
 
@@ -77,6 +77,12 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue']);
 const items = computed({ get: () => props.modelValue, set: value => emit('update:modelValue', value) });
+
+// ItemDataTable chuẩn hoá vat = vat_percent ?? vat mỗi lần dữ liệu đổi, nên phải đồng bộ cả vat_percent để VAT không bị ghi đè về giá trị cũ
+const onPriceFieldChange = (row, key, value, notifyChange) => {
+  if (key === 'vat') row.vat_percent = value;
+  notifyChange();
+};
 
 const brandName = id => props.brands.find(b => b.id === id)?.name || id || '—';
 
