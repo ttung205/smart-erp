@@ -37,8 +37,8 @@
         </main>
       </div>
 
-      <!-- 3. Clean Floating AI Assistant -->
-      <AiAssistant :user-name="currentUser ? currentUser.name : 'người dùng'" />
+      <!-- 3. Clean Floating Communication Hub (AI Assistant + Realtime Chat) -->
+      <CommunicationHub :user-name="currentUser ? currentUser.name : 'người dùng'" :current-user="currentUser" />
     </div>
   </div>
 </template>
@@ -53,7 +53,7 @@ import ConfirmDialog from 'primevue/confirmdialog';
 import LoginPage from './pages/auth/LoginPage.vue';
 import AppSidebar from './components/layout/AppSidebar.vue';
 import AppTopbar from './components/layout/AppTopbar.vue';
-import AiAssistant from './components/common/AiAssistant.vue';
+import CommunicationHub from './components/common/CommunicationHub.vue';
 
 import { authApi } from './api/auth.api';
 import { catalogApi } from './api/catalog.api';

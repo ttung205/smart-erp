@@ -21,6 +21,8 @@ import InventoryView from '../pages/inventory/InventoryView.vue';
 import MasterPage from '../pages/master/index.vue';
 import ArchitecturePage from '../pages/architecture/index.vue';
 import ServiceStatusPage from '../pages/system/ServiceStatusPage.vue';
+import ChatPage from '../pages/chat/index.vue';
+import ChatFormPage from '../pages/chat/form.vue';
 
 // Sales sub-pages
 import QuotationPage from '../pages/quotation/index.vue';
@@ -94,6 +96,24 @@ export const routes = [
     meta: {
       requiresAuth: true,
       title: 'Bảng Điều Khiển Tổng Quan'
+    }
+  },
+  {
+    path: '/chat',
+    name: 'chat',
+    component: ChatPage,
+    meta: {
+      requiresAuth: true,
+      title: 'Tin Nhắn Nội Bộ'
+    }
+  },
+  {
+    path: '/chat/create',
+    name: 'chat-create',
+    component: ChatFormPage,
+    meta: {
+      requiresAuth: true,
+      title: 'Bắt Đầu Trò Chuyện Mới'
     }
   },
   {
