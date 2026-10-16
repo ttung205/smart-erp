@@ -1,6 +1,5 @@
 export const appConfig = {
   appName: 'Smart ERP',
-  version: 'v2.0',
   architecture: 'Microservices & Database-per-Service',
   eventRelay: 'Transactional Outbox & RabbitMQ',
   company: {

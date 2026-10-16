@@ -15,13 +15,12 @@
       >
         <div
           class="w-8 h-8 rounded-[6px] bg-sky-50 border border-sky-200 flex items-center justify-center shrink-0"
-          v-tooltip.right="isCollapsed ? `${appConfig.appName} ${appConfig.version} (Mở rộng)` : undefined"
+          v-tooltip.right="isCollapsed ? `${appConfig.appName} (Mở rộng)` : undefined"
         >
           <i class="pi pi-bolt text-sky-600 text-base"></i>
         </div>
         <div v-show="!isCollapsed" class="flex items-center gap-2 whitespace-nowrap">
           <span class="font-bold text-[15px] text-slate-800 tracking-tight">{{ appConfig.appName }}</span>
-          <span class="text-[11px] font-semibold bg-slate-50 border border-slate-200 text-sky-600 px-1.5 py-0.5 rounded-[6px]">{{ appConfig.version }}</span>
         </div>
       </div>
 

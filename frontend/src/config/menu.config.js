@@ -136,6 +136,57 @@ export const menuCategories = [
         ]
       },
       {
+        id: 'purchase-hub',
+        label: 'Mua hàng',
+        icon: 'pi pi-shopping-cart',
+        roles: ['PURCHASE', 'PURCHASE_MANAGER'],
+        isFolder: true,
+        children: [
+          { id: 'purchase-item-inquiry', path: '/purchase/item-inquiries', permission: 'item-inquiry.process', label: 'Yêu cầu hỏi hàng', icon: 'pi pi-inbox' },
+          { id: 'purchase-inquiry', path: '/purchase/inquiries', permission: 'item-inquiry.process', label: 'Hỏi hàng nhà cung cấp', icon: 'pi pi-search' },
+          {
+            id: 'purchase-requisition',
+            path: '/purchase/requisitions',
+            resource: 'purchase',
+            permission: 'purchase.view',
+            label: 'Đề nghị mua (PR)',
+            icon: 'pi pi-file-plus'
+          },
+          {
+            id: 'purchase-order',
+            path: '/purchase/orders',
+            resource: 'purchase',
+            permission: 'purchase.view',
+            label: 'Đơn đặt mua (PO)',
+            icon: 'pi pi-shopping-cart'
+          },
+          {
+            id: 'purchase-receipt',
+            path: '/purchase/receipts',
+            resource: 'purchase',
+            permission: 'purchase.view',
+            label: 'Nhập kho (GRN)',
+            icon: 'pi pi-inbox'
+          },
+          {
+            id: 'purchase-invoice',
+            path: '/purchase/invoices',
+            resource: 'purchase',
+            permission: 'purchase.view',
+            label: 'Chứng từ mua hàng',
+            icon: 'pi pi-file-import'
+          },
+          {
+            id: 'purchase-return',
+            path: '/purchase/returns',
+            resource: 'purchase',
+            permission: 'purchase.view',
+            label: 'Trả hàng mua (RTV)',
+            icon: 'pi pi-replay'
+          }
+        ]
+      },
+      {
         id: 'accounting-hub',
         label: 'Kế toán',
         icon: 'pi pi-calculator',
@@ -246,57 +297,6 @@ export const menuCategories = [
         ]
       },
       {
-        id: 'purchase-hub',
-        label: 'Thu mua',
-        icon: 'pi pi-shopping-cart',
-        roles: ['PURCHASE', 'PURCHASE_MANAGER'],
-        isFolder: true,
-        children: [
-          { id: 'purchase-item-inquiry', path: '/purchase/item-inquiries', permission: 'item-inquiry.process', label: 'Yêu cầu hỏi hàng', icon: 'pi pi-inbox' },
-          { id: 'purchase-inquiry', path: '/purchase/inquiries', permission: 'item-inquiry.process', label: 'Hỏi hàng nhà cung cấp', icon: 'pi pi-search' },
-          {
-            id: 'purchase-requisition',
-            path: '/purchase/requisitions',
-            resource: 'purchase',
-            permission: 'purchase.view',
-            label: 'Đề nghị mua (PR)',
-            icon: 'pi pi-file-plus'
-          },
-          {
-            id: 'purchase-order',
-            path: '/purchase/orders',
-            resource: 'purchase',
-            permission: 'purchase.view',
-            label: 'Đơn đặt mua (PO)',
-            icon: 'pi pi-shopping-cart'
-          },
-          {
-            id: 'purchase-receipt',
-            path: '/purchase/receipts',
-            resource: 'purchase',
-            permission: 'purchase.view',
-            label: 'Nhập kho (GRN)',
-            icon: 'pi pi-inbox'
-          },
-          {
-            id: 'purchase-invoice',
-            path: '/purchase/invoices',
-            resource: 'purchase',
-            permission: 'purchase.view',
-            label: 'Chứng từ mua hàng',
-            icon: 'pi pi-file-import'
-          },
-          {
-            id: 'purchase-return',
-            path: '/purchase/returns',
-            resource: 'purchase',
-            permission: 'purchase.view',
-            label: 'Trả hàng mua (RTV)',
-            icon: 'pi pi-replay'
-          }
-        ]
-      },
-      {
         id: 'inventory-hub',
         label: 'Quản lý kho',
         icon: 'pi pi-server',
@@ -386,15 +386,7 @@ export const menuCategories = [
         id: 'service-status',
         path: '/service-status',
         label: 'Trạng thái dịch vụ',
-        icon: 'pi pi-pulse'
-      },
-      {
-        id: 'architecture',
-        path: '/architecture',
-        resource: 'architecture',
-        permission: 'architecture.view',
-        label: 'Kiến trúc Outbox & MQ',
-        icon: 'pi pi-share-alt'
+        icon: 'pi pi-info-circle'
       }
     ]
   }

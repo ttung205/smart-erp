@@ -202,17 +202,10 @@
           Cổng điều phối tập trung, quản lý định tuyến HTTP, xử lý CORS và tự động đính kèm mã định danh vết <code>X-Correlation-ID</code>.
         </div>
         <div class="flex items-center gap-2 pt-1 text-[11px] text-slate-500 font-mono flex-wrap">
-          <span>/api/v1/auth</span>
-          <span>•</span>
-          <span>/api/v1/catalog</span>
-          <span>•</span>
-          <span>/api/v1/purchase</span>
-          <span>•</span>
-          <span>/api/v1/inventory</span>
-          <span>•</span>
-          <span>/api/v1/sales</span>
-          <span>•</span>
-          <span>/api/v1/chat</span>
+          <template v-for="(service, index) in services" :key="service.id">
+            <span v-if="index > 0">•</span>
+            <span>{{ service.endpoint.replace(/\/health$/, '') }}</span>
+          </template>
         </div>
       </div>
 
@@ -258,12 +251,7 @@
           Mỗi microservice sở hữu cơ sở dữ liệu riêng biệt. Tuyệt đối không JOIN trực tiếp qua database của nhau.
         </div>
         <div class="flex items-center gap-1.5 pt-1 text-[10px] text-slate-500 font-mono flex-wrap">
-          <span class="bg-slate-100 px-1 py-0.5 rounded">identity.sqlite</span>
-          <span class="bg-slate-100 px-1 py-0.5 rounded">catalog.sqlite</span>
-          <span class="bg-slate-100 px-1 py-0.5 rounded">purchase.db</span>
-          <span class="bg-slate-100 px-1 py-0.5 rounded">inventory.db</span>
-          <span class="bg-slate-100 px-1 py-0.5 rounded">sales.sqlite</span>
-          <span class="bg-slate-100 px-1 py-0.5 rounded">chat.db</span>
+          <span v-for="service in services" :key="service.id" class="bg-slate-100 px-1 py-0.5 rounded">{{ service.id.replace('-service', '') }}</span>
         </div>
       </div>
     </div>
@@ -368,6 +356,54 @@ const services = ref([
     payload: null
   },
   {
+    id: 'notification-service',
+    name: 'Notification & Email Service',
+    tech: 'Node.js / Express / Socket.IO',
+    runtime: 'Node.js 24 / SQLite',
+    port: 8006,
+    endpoint: '/api/v1/notifications/health',
+    scope: 'Hộp thư thông báo, đẩy sự kiện realtime và gửi email',
+    icon: 'pi pi-bell',
+    iconBg: 'bg-orange-50 border border-orange-200',
+    iconColor: 'text-orange-600',
+    online: false,
+    latency: 0,
+    loading: false,
+    payload: null
+  },
+  {
+    id: 'eoffice-service',
+    name: 'E-Office Service',
+    tech: 'Laravel PHP',
+    runtime: 'PHP 8.2+ / SQLite',
+    port: 8007,
+    endpoint: '/api/v1/eoffice/health',
+    scope: 'Đơn nghỉ phép và luồng phê duyệt nội bộ',
+    icon: 'pi pi-briefcase',
+    iconBg: 'bg-teal-50 border border-teal-200',
+    iconColor: 'text-teal-600',
+    online: false,
+    latency: 0,
+    loading: false,
+    payload: null
+  },
+  {
+    id: 'finance-service',
+    name: 'Finance & Accounting Service',
+    tech: 'Laravel PHP',
+    runtime: 'PHP 8.2+ / SQLite',
+    port: 8008,
+    endpoint: '/api/v1/finance/health',
+    scope: 'Kế toán, thu chi, công nợ, sổ cái và chứng từ tài chính',
+    icon: 'pi pi-wallet',
+    iconBg: 'bg-cyan-50 border border-cyan-200',
+    iconColor: 'text-cyan-600',
+    online: false,
+    latency: 0,
+    loading: false,
+    payload: null
+  },
+  {
     id: 'chat-service',
     name: 'Realtime Enterprise Chat Service',
     tech: '.NET 10 Web API + SignalR',
@@ -383,22 +419,6 @@ const services = ref([
     latency: 0,
     loading: false,
     payload: null
-  },
-  {
-    id: 'frontend-service',
-    name: 'Frontend Web Application',
-    tech: 'Vue 3 + PrimeVue 4',
-    runtime: 'Vite 6 / Tailwind CSS',
-    port: 5175,
-    endpoint: '/',
-    scope: 'Giao diện Smart ERP tập trung theo chuẩn kiến trúc phẳng SPA',
-    icon: 'pi pi-desktop',
-    iconBg: 'bg-amber-50 border border-amber-200',
-    iconColor: 'text-amber-600',
-    online: true,
-    latency: 1,
-    loading: false,
-    payload: { status: 'READY', framework: 'Vue 3' }
   }
 ]);
 
@@ -420,10 +440,7 @@ const pingService = async (service) => {
         const json = await res.json();
         service.payload = json.data || json;
       } catch {
-        // Non-JSON response like frontend index HTML
-        if (service.id === 'frontend-service') {
-          service.payload = { status: 'READY', framework: 'Vue 3' };
-        }
+        service.payload = null;
       }
     } else {
       service.payload = null;

@@ -18,7 +18,6 @@ import CustomerPage from '../pages/customer/index.vue';
 import CustomerFormPage from '../pages/customer/form.vue';
 import SupplierPage from '../pages/supplier/index.vue';
 import InventoryView from '../pages/inventory/InventoryView.vue';
-import ArchitecturePage from '../pages/architecture/index.vue';
 import ServiceStatusPage from '../pages/system/ServiceStatusPage.vue';
 import ChatPage from '../pages/chat/index.vue';
 
@@ -691,17 +690,6 @@ export const routes = [
   { path: '/sales/delivery', redirect: '/delivery' },
   { path: '/sales/invoice', redirect: '/invoice' },
   { path: '/sales/accounting', redirect: '/customer-receivables' },
-  {
-    path: '/architecture',
-    name: 'architecture',
-    component: ArchitecturePage,
-    meta: {
-      requiresAuth: true,
-      resource: 'architecture',
-      permission: 'architecture.view',
-      title: 'Kiến Trúc & Outbox'
-    }
-  },
   {
     path: '/service-status',
     name: 'service-status',

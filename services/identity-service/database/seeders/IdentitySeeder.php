@@ -84,7 +84,6 @@ class IdentitySeeder extends Seeder
             ['code' => 'sale_return.manage', 'module' => 'sale_return', 'description' => 'Toàn quyền nghiệp vụ hàng bán trả lại'],
 
             // Hạ tầng hệ thống & Outbox
-            ['code' => 'architecture.view', 'module' => 'system', 'description' => 'Xem kiến trúc phân tán & Outbox (Route: /architecture)'],
             ['code' => 'architecture.manage', 'module' => 'system', 'description' => 'Quản trị hạ tầng hệ thống và đồng bộ Outbox'],
 
             // Khác

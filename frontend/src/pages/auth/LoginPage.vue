@@ -7,7 +7,7 @@
           <i class="pi pi-bolt"></i>
         </div>
         <h1 class="text-[22px] font-bold text-slate-900 m-0 tracking-tight">Đăng Nhập Smart ERP</h1>
-        <p class="text-[13px] text-slate-500 m-0">Hệ thống quản trị nguồn lực doanh nghiệp phân tán (Enterprise v2.0)</p>
+        <p class="text-[13px] text-slate-500 m-0">Hệ thống quản trị nguồn lực doanh nghiệp phân tán</p>
       </div>
 
       <!-- 2. Main Login Card (100% TailwindCSS, Flat, Hairline Border, Bo góc 6px) -->

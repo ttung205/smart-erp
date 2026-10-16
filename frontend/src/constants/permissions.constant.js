@@ -49,7 +49,6 @@ export const SYSTEM_PERMISSIONS = [
   { code: 'invoice.manage', desc: 'Quản trị chứng từ và hóa đơn' },
 
   // Hạ tầng & Outbox
-  { code: 'architecture.view', desc: 'Xem kiến trúc phân tán & Outbox (Route: /architecture)' },
   { code: 'architecture.manage', desc: 'Quản trị hạ tầng hệ thống và đồng bộ Outbox' },
 
   // Phân hệ Mua hàng & Tài chính
