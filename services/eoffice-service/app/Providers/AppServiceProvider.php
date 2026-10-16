@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Auth\JwtVerifier;
 use App\Models\LeaveRequest;
+use App\Models\OfficeRequest;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
 
@@ -25,6 +26,7 @@ class AppServiceProvider extends ServiceProvider
         // Alias lưu ở cột approvable_type, khớp với config('eoffice.approval_handlers')
         Relation::enforceMorphMap([
             'leave_request' => LeaveRequest::class,
+            'office_request' => OfficeRequest::class,
         ]);
     }
 }

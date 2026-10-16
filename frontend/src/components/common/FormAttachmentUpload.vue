@@ -87,7 +87,7 @@
 
             <div class="flex items-center gap-2 text-slate-400 text-xs pr-1">
               <i class="pi pi-info-circle text-[11px]"></i>
-              <span class="text-[11px]">Tối đa {{ maxFileSizeMb }}MB/tệp (PDF, Word, Excel, Ảnh, ZIP)</span>
+              <span class="text-[11px]">Tối đa {{ maxFileSizeMb }}MB/tệp ({{ fileTypesLabel }})</span>
             </div>
           </div>
         </template>
@@ -299,6 +299,10 @@ const props = defineProps({
   multiple: {
     type: Boolean,
     default: true
+  },
+  fileTypesLabel: {
+    type: String,
+    default: 'PDF, Word, Excel, Ảnh, ZIP'
   },
   // Các hàm xử lý tệp cho module không dùng API đính kèm của sales (mặc định: salesApi)
   // uploadHandler(files) => danh sách attachment; removeHandler(item); downloadHandler(item)

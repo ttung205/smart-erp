@@ -3,6 +3,7 @@
 use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\LeaveRequestController;
 use App\Http\Controllers\LeaveSetupController;
+use App\Http\Controllers\OfficeRequestController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn () => response()->json(['success' => true, 'service' => 'eoffice-service']));
@@ -17,6 +18,18 @@ Route::middleware('jwt')->group(function (): void {
     Route::delete('/leave-requests/{leaveRequest}', [LeaveRequestController::class, 'destroy']);
     Route::post('/leave-requests/{leaveRequest}/submit', [LeaveRequestController::class, 'submit']);
     Route::post('/leave-requests/{leaveRequest}/cancel', [LeaveRequestController::class, 'cancel']);
+
+    // Hai loại đề nghị có URL riêng; cùng dùng luồng duyệt E-Office.
+    Route::get('/{kind}-requests', [OfficeRequestController::class, 'index'])->whereIn('kind', ['purchase', 'payment']);
+    Route::post('/{kind}-requests', [OfficeRequestController::class, 'store'])->whereIn('kind', ['purchase', 'payment']);
+    Route::get('/{kind}-requests/{officeRequest}', [OfficeRequestController::class, 'show'])->whereIn('kind', ['purchase', 'payment']);
+    Route::put('/{kind}-requests/{officeRequest}', [OfficeRequestController::class, 'update'])->whereIn('kind', ['purchase', 'payment']);
+    Route::delete('/{kind}-requests/{officeRequest}', [OfficeRequestController::class, 'destroy'])->whereIn('kind', ['purchase', 'payment']);
+    Route::post('/{kind}-requests/{officeRequest}/submit', [OfficeRequestController::class, 'submit'])->whereIn('kind', ['purchase', 'payment']);
+    Route::post('/{kind}-requests/{officeRequest}/cancel', [OfficeRequestController::class, 'cancel'])->whereIn('kind', ['purchase', 'payment']);
+    Route::post('/{kind}-requests/{officeRequest}/attachments', [OfficeRequestController::class, 'upload'])->whereIn('kind', ['purchase', 'payment']);
+    Route::get('/{kind}-requests/{officeRequest}/attachments/{attachment}', [OfficeRequestController::class, 'download'])->whereIn('kind', ['purchase', 'payment']);
+    Route::delete('/{kind}-requests/{officeRequest}/attachments/{attachment}', [OfficeRequestController::class, 'removeAttachment'])->whereIn('kind', ['purchase', 'payment']);
 
     Route::get('/leave-types', [LeaveSetupController::class, 'leaveTypes']);
     Route::get('/holidays', [LeaveSetupController::class, 'holidays']);

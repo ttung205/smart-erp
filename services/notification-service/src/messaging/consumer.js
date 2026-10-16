@@ -9,6 +9,8 @@ export const BINDINGS = [
   'sales.delivery.*',
   'sales.dispatch.*',
   'eoffice.leave.*',
+  'eoffice.purchase.*',
+  'eoffice.payment.*',
   'purchase.inquiry.*',
   'catalog.product.*',
   'inventory.stock.*',

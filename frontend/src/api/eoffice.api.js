@@ -10,6 +10,35 @@ const withQuery = (path, params = {}) => {
 };
 
 export const eofficeApi = {
+  getOfficeRequests(kind, params = {}) {
+    return apiClient(withQuery(`/api/v1/eoffice/${kind}-requests`, params));
+  },
+  getOfficeRequest(kind, id) {
+    return apiClient(`/api/v1/eoffice/${kind}-requests/${id}`);
+  },
+  createOfficeRequest(kind, data) {
+    return apiClient(`/api/v1/eoffice/${kind}-requests`, { method: 'POST', body: JSON.stringify(data) });
+  },
+  updateOfficeRequest(kind, id, data) {
+    return apiClient(`/api/v1/eoffice/${kind}-requests/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  },
+  deleteOfficeRequest(kind, id) {
+    return apiClient(`/api/v1/eoffice/${kind}-requests/${id}`, { method: 'DELETE' });
+  },
+  submitOfficeRequest(kind, id) {
+    return apiClient(`/api/v1/eoffice/${kind}-requests/${id}/submit`, { method: 'POST' });
+  },
+  cancelOfficeRequest(kind, id, reason) {
+    return apiClient(`/api/v1/eoffice/${kind}-requests/${id}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) });
+  },
+  uploadOfficeAttachment(kind, id, file) {
+    const body = new FormData();
+    body.append('file', file);
+    return apiClient(`/api/v1/eoffice/${kind}-requests/${id}/attachments`, { method: 'POST', body });
+  },
+  removeOfficeAttachment(kind, id, attachmentId) {
+    return apiClient(`/api/v1/eoffice/${kind}-requests/${id}/attachments/${attachmentId}`, { method: 'DELETE' });
+  },
   // Đơn xin nghỉ phép
   getLeaveRequests(params = {}) {
     return apiClient(withQuery('/api/v1/eoffice/leave-requests', params));

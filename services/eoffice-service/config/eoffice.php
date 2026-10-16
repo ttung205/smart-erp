@@ -1,6 +1,7 @@
 <?php
 
 use App\Services\LeaveRequestService;
+use App\Services\OfficeRequestService;
 
 return [
 
@@ -13,6 +14,7 @@ return [
     // Nghiệp vụ xử lý khi người duyệt ra quyết định, theo morph alias của chứng từ
     'approval_handlers' => [
         'leave_request' => LeaveRequestService::class,
+        'office_request' => OfficeRequestService::class,
     ],
 
 ];

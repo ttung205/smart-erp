@@ -21,8 +21,54 @@ const orderKey = (p) => `order:${p.order_id}:approve`;
 const deliveryKey = (p) => `delivery:${p.delivery_request_id}:approve`;
 const dispatchKey = (p) => `dispatch:${p.dispatch_id}:process`;
 const leaveKey = (p) => `leave:${p.id}:approve`;
+const officeKey = (kind) => (p) => `office:${kind}:${p.id}:approve`;
+
+const officeRules = (kind, label, path) => {
+  const key = officeKey(kind);
+  return {
+    [`Office${kind}RequestSubmitted`]: {
+      category: 'task',
+      recipients: (p) => ({ userIds: userIds(p.approver?.id) }),
+      title: (p) => `${label} ${p.code} cần duyệt`,
+      body: (p) => `${p.requester_name} đề nghị ${money(p.total_amount)}: ${p.title}`,
+      link: () => `${path}?scope=to_approve`,
+      actionKey: key,
+    },
+    [`Office${kind}RequestApproved`]: {
+      category: 'info',
+      recipients: (p) => ({ userIds: userIds(p.requester_id) }),
+      title: (p) => `${label} ${p.code} đã được duyệt`,
+      body: (p) => withReason(`${actorName(p)} đã duyệt đề nghị.`, p.comment),
+      link: (p) => `${path}/${p.id}`,
+      resolves: (p) => [key(p)],
+    },
+    [`Office${kind}RequestRejected`]: {
+      category: 'info',
+      recipients: (p) => ({ userIds: userIds(p.requester_id) }),
+      title: (p) => `${label} ${p.code} bị từ chối`,
+      body: (p) => withReason(`${actorName(p)} đã từ chối đề nghị.`, p.comment),
+      link: (p) => `${path}/${p.id}`,
+      resolves: (p) => [key(p)],
+    },
+    [`Office${kind}RequestReturned`]: {
+      category: 'info',
+      recipients: (p) => ({ userIds: userIds(p.requester_id) }),
+      title: (p) => `${label} ${p.code} bị trả lại`,
+      body: (p) => withReason(`${actorName(p)} trả lại đề nghị để bổ sung.`, p.comment),
+      link: (p) => `${path}/${p.id}`,
+      resolves: (p) => [key(p)],
+    },
+    [`Office${kind}RequestCancelled`]: {
+      category: 'info',
+      recipients: () => ({}),
+      resolves: (p) => [key(p)],
+    },
+  };
+};
 
 export const rules = {
+  ...officeRules('Purchase', 'Đề nghị mua sắm', '/eoffice/purchase-requests'),
+  ...officeRules('Payment', 'Đề nghị thanh toán', '/eoffice/payment-requests'),
   ItemInquiryRequested: {
     category: 'task',
     recipients: (p) => ({ userIds: userIds(p.assignee_id, p.watcher_id) }),

@@ -19,14 +19,22 @@ export const menuCategories = [
         icon: 'pi pi-briefcase',
         isFolder: true,
         children: [
+          { id: 'eoffice-chat',
+            path: '/chat',
+            label: 'Trò chuyện',
+            icon: 'pi pi-comments' },
           { id: 'eoffice-leave',
             path: '/eoffice/leave',
             label: 'Nghỉ phép',
             icon: 'pi pi-calendar-minus' },
-          { id: 'eoffice-chat',
-            path: '/chat',
-            label: 'Trò chuyện',
-            icon: 'pi pi-comments' }
+          { id: 'eoffice-purchase-requests',
+            path: '/eoffice/purchase-requests',
+            label: 'Đề nghị mua sắm',
+            icon: 'pi pi-shopping-cart' },
+          { id: 'eoffice-payment-requests',
+            path: '/eoffice/payment-requests',
+            label: 'Đề nghị thanh toán',
+            icon: 'pi pi-wallet' },
         ]
       },
       {

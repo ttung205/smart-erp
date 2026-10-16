@@ -247,6 +247,22 @@
       "vhost": "/",
       "destination": "erp.notification.events",
       "destination_type": "queue",
+      "routing_key": "eoffice.purchase.*",
+      "arguments": {}
+    },
+    {
+      "source": "erp.events",
+      "vhost": "/",
+      "destination": "erp.notification.events",
+      "destination_type": "queue",
+      "routing_key": "eoffice.payment.*",
+      "arguments": {}
+    },
+    {
+      "source": "erp.events",
+      "vhost": "/",
+      "destination": "erp.notification.events",
+      "destination_type": "queue",
       "routing_key": "purchase.inquiry.*",
       "arguments": {}
     },

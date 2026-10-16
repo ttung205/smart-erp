@@ -51,6 +51,10 @@ import LeaveRequestPage from '../pages/eoffice/leave/index.vue';
 import LeaveRequestFormPage from '../pages/eoffice/leave/form.vue';
 import LeaveCalendarPage from '../pages/eoffice/leave-calendar/index.vue';
 import LeaveBalancesPage from '../pages/eoffice/leave-balances/index.vue';
+import PurchaseRequestIndex from '../pages/eoffice/purchase-request/index.vue';
+import PurchaseRequestForm from '../pages/eoffice/purchase-request/form.vue';
+import PaymentRequestIndex from '../pages/eoffice/payment-request/index.vue';
+import PaymentRequestForm from '../pages/eoffice/payment-request/form.vue';
 
 // Purchase sub-pages
 import PurchaseRequisitionPage from '../pages/purchase/requisition/index.vue';
@@ -681,6 +685,12 @@ export const routes = [
   // Trang con của Nghỉ phép (đường dẫn tĩnh được ưu tiên hơn /eoffice/leave/:id)
   { path: '/eoffice/leave/calendar', name: 'eoffice-leave-calendar', component: LeaveCalendarPage, meta: { requiresAuth: true, title: 'Lịch nghỉ' } },
   { path: '/eoffice/leave/balances', name: 'eoffice-leave-balances', component: LeaveBalancesPage, meta: { requiresAuth: true, resource: 'eoffice', permission: 'eoffice.manage', title: 'Quản lý phép năm' } },
+  { path: '/eoffice/purchase-requests', name: 'eoffice-purchase-requests', component: PurchaseRequestIndex, meta: { requiresAuth: true, title: 'Đề nghị mua sắm' } },
+  { path: '/eoffice/purchase-requests/new', name: 'eoffice-purchase-request-new', component: PurchaseRequestForm, meta: { requiresAuth: true, title: 'Lập đề nghị mua sắm' } },
+  { path: '/eoffice/purchase-requests/:id(\\d+)', name: 'eoffice-purchase-request-detail', component: PurchaseRequestForm, meta: { requiresAuth: true, title: 'Chi tiết đề nghị mua sắm' } },
+  { path: '/eoffice/payment-requests', name: 'eoffice-payment-requests', component: PaymentRequestIndex, meta: { requiresAuth: true, title: 'Đề nghị thanh toán' } },
+  { path: '/eoffice/payment-requests/new', name: 'eoffice-payment-request-new', component: PaymentRequestForm, meta: { requiresAuth: true, title: 'Lập đề nghị thanh toán' } },
+  { path: '/eoffice/payment-requests/:id(\\d+)', name: 'eoffice-payment-request-detail', component: PaymentRequestForm, meta: { requiresAuth: true, title: 'Chi tiết đề nghị thanh toán' } },
   { path: '/eoffice/leave-calendar', redirect: '/eoffice/leave/calendar' },
   { path: '/eoffice/leave-balances', redirect: '/eoffice/leave/balances' },
   { path: '/eoffice/approvals', redirect: { path: '/eoffice/leave', query: { scope: 'to_approve' } } },

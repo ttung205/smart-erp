@@ -137,6 +137,17 @@ describe('NotificationService', () => {
     assert.equal(identityCalls.length, 0);
   });
 
+  it('đề nghị mua sắm và thanh toán gửi đến người duyệt rồi báo kết quả', async () => {
+    const purchase = { id: 11, code: 'MS-2026-0001', requester_id: 42, requester_name: 'Nhân viên', total_amount: 300000, title: 'Mua vật tư' };
+    const payment = { id: 12, code: 'TT-2026-0001', requester_id: 42, requester_name: 'Nhân viên', total_amount: 500000, title: 'Tiếp khách' };
+    await service.handleEvent(envelope('OfficePurchaseRequestSubmitted', { ...purchase, approver: { id: 8 }, actor: { id: 42, name: 'Nhân viên' } }));
+    await service.handleEvent(envelope('OfficePaymentRequestSubmitted', { ...payment, approver: { id: 8 }, actor: { id: 42, name: 'Nhân viên' } }));
+    assert.equal(repository.list(8).length, 2);
+    await service.handleEvent(envelope('OfficePurchaseRequestApproved', { ...purchase, actor: { id: 8, name: 'Quản lý' } }));
+    assert.equal(repository.list(8).find(item => item.action_key === 'office:Purchase:11:approve').status, 'RESOLVED');
+    assert.match(repository.list(42)[0].title, /mua sắm/);
+  });
+
   it('identity lỗi thì ném lỗi để retry, không đánh dấu đã xử lý', async () => {
     const failing = buildService(async () => ({ ok: false, status: 503 }));
     const event = envelope('QuotationSubmitted', { ...quotation, actor: { id: 3, name: 'Sale' } }, 'evt-retry');
