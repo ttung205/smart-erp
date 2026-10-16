@@ -48,10 +48,6 @@ export const SYSTEM_PERMISSIONS = [
   { code: 'sale-invoice.create', desc: 'Lập chứng từ bán hàng từ yêu cầu giao hàng' },
   { code: 'invoice.manage', desc: 'Quản trị chứng từ và hóa đơn' },
 
-  // Phân hệ Đối tác & Kho bãi (Master)
-  { code: 'master.view', desc: 'Xem danh mục đối tác khách hàng & kho bãi (Route: /master)' },
-  { code: 'master.manage', desc: 'Thêm, sửa, xóa đối tác và kho bãi' },
-
   // Hạ tầng & Outbox
   { code: 'architecture.view', desc: 'Xem kiến trúc phân tán & Outbox (Route: /architecture)' },
   { code: 'architecture.manage', desc: 'Quản trị hạ tầng hệ thống và đồng bộ Outbox' },

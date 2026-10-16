@@ -18,7 +18,6 @@ import CustomerPage from '../pages/customer/index.vue';
 import CustomerFormPage from '../pages/customer/form.vue';
 import SupplierPage from '../pages/supplier/index.vue';
 import InventoryView from '../pages/inventory/InventoryView.vue';
-import MasterPage from '../pages/master/index.vue';
 import ArchitecturePage from '../pages/architecture/index.vue';
 import ServiceStatusPage from '../pages/system/ServiceStatusPage.vue';
 
@@ -678,17 +677,6 @@ export const routes = [
   { path: '/sales/delivery', redirect: '/delivery' },
   { path: '/sales/invoice', redirect: '/invoice' },
   { path: '/sales/accounting', redirect: '/customer-receivables' },
-  {
-    path: '/master',
-    name: 'master',
-    component: MasterPage,
-    meta: {
-      requiresAuth: true,
-      resource: 'master',
-      permission: 'master.view',
-      title: 'Đối Tác & Kho Bãi'
-    }
-  },
   {
     path: '/architecture',
     name: 'architecture',

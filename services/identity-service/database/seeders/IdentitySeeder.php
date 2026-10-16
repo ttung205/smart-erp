@@ -83,10 +83,6 @@ class IdentitySeeder extends Seeder
             ['code' => 'sale_return.post', 'module' => 'sale_return', 'description' => 'Ghi sổ và lập phiếu trả hàng bán'],
             ['code' => 'sale_return.manage', 'module' => 'sale_return', 'description' => 'Toàn quyền nghiệp vụ hàng bán trả lại'],
 
-            // Phân hệ Đối tác & Kho bãi (Master)
-            ['code' => 'master.view', 'module' => 'master', 'description' => 'Xem danh mục đối tác khách hàng & kho bãi (Route: /master)'],
-            ['code' => 'master.manage', 'module' => 'master', 'description' => 'Thêm, sửa, xóa đối tác và kho bãi'],
-
             // Hạ tầng hệ thống & Outbox
             ['code' => 'architecture.view', 'module' => 'system', 'description' => 'Xem kiến trúc phân tán & Outbox (Route: /architecture)'],
             ['code' => 'architecture.manage', 'module' => 'system', 'description' => 'Quản trị hạ tầng hệ thống và đồng bộ Outbox'],
@@ -159,7 +155,7 @@ class IdentitySeeder extends Seeder
                 'quotation.view', 'quotation.create', 'quotation.update', 'quotation.cancel',
                 'order.view', 'order.create', 'order.update',
                 'delivery.view', 'delivery.create',
-                'sale_return.view', 'sale_return.create', 'catalog.view', 'customer.view', 'master.view', 'inventory.view', 'item-inquiry.view', 'item-inquiry.create',
+                'sale_return.view', 'sale_return.create', 'catalog.view', 'customer.view', 'inventory.view', 'item-inquiry.view', 'item-inquiry.create',
             ];
             foreach ($salePermCodes as $code) {
                 if (isset($allPerms[$code])) {
@@ -179,7 +175,7 @@ class IdentitySeeder extends Seeder
                 'order.view', 'order.create', 'order.update', 'order.cancel', 'order.approve', 'order.manage',
                 'delivery.view', 'delivery.create', 'delivery.manage',
                 'sale_return.view', 'sale_return.create', 'sale_return.approve',
-                'catalog.view', 'customer.view', 'master.view', 'inventory.view', 'item-inquiry.view', 'item-inquiry.create',
+                'catalog.view', 'customer.view', 'inventory.view', 'item-inquiry.view', 'item-inquiry.create',
             ];
             foreach ($smPermCodes as $code) {
                 if (isset($allPerms[$code])) {
@@ -198,8 +194,8 @@ class IdentitySeeder extends Seeder
             'TECHNICAL_MANAGER' => ['sale_return.view', 'sale_return.technical', 'sale_return.approve', 'catalog.view', 'customer.view', 'supplier.view', 'inventory.view'],
             'LOGISTIC' => ['sale_return.view', 'sale_return.approve', 'catalog.view', 'inventory.view', 'inventory.transfer', 'invoice.view', 'invoice.manage'],
             'LOGISTIC_MANAGER' => ['sale_return.view', 'sale_return.approve', 'sale_return.post', 'catalog.view', 'inventory.view', 'inventory.manage', 'invoice.view', 'invoice.manage'],
-            'FINANCE_ACCOUNTING' => ['finance.view', 'finance.create', 'invoice.view', 'invoice.create', 'sale-invoice.create', 'sale_return.view', 'sale_return.post', 'delivery.view', 'catalog.view', 'customer.view', 'supplier.view', 'inventory.view', 'master.view'],
-            'FINANCE_ACCOUNTING_MANAGER' => ['finance.view', 'finance.create', 'finance.approve', 'invoice.view', 'invoice.create', 'sale-invoice.create', 'invoice.manage', 'sale_return.view', 'sale_return.approve', 'sale_return.post', 'delivery.view', 'catalog.view', 'customer.view', 'supplier.view', 'inventory.view', 'master.view'],
+            'FINANCE_ACCOUNTING' => ['finance.view', 'finance.create', 'invoice.view', 'invoice.create', 'sale-invoice.create', 'sale_return.view', 'sale_return.post', 'delivery.view', 'catalog.view', 'customer.view', 'supplier.view', 'inventory.view'],
+            'FINANCE_ACCOUNTING_MANAGER' => ['finance.view', 'finance.create', 'finance.approve', 'invoice.view', 'invoice.create', 'sale-invoice.create', 'invoice.manage', 'sale_return.view', 'sale_return.approve', 'sale_return.post', 'delivery.view', 'catalog.view', 'customer.view', 'supplier.view', 'inventory.view'],
         ];
         foreach ($rolePermissionMap as $roleCode => $permissionCodes) {
             $roleId = DB::table('roles')->where('code', $roleCode)->value('id');
