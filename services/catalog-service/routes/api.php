@@ -8,7 +8,6 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\SupplierController;
-use App\Http\Controllers\WarehouseController;
 
 // 1. Health check
 Route::get('/health', [HealthController::class, 'check']);
@@ -38,6 +37,5 @@ Route::delete('/customers/{customerId}/contacts/{contactId}', [CustomerControlle
 Route::get('/suppliers/generate-code', [SupplierController::class, 'generateCode']);
 Route::apiResource('suppliers', SupplierController::class);
 
-// 7. Partners & Warehouses
+// 7. Partners
 Route::get('/partners', [PartnerController::class, 'index']);
-Route::get('/warehouses', [WarehouseController::class, 'index']);

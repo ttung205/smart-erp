@@ -178,12 +178,8 @@ export const catalogApi = {
     });
   },
 
-  // 6. Partners & Warehouses
+  // 6. Partners
   getPartners() {
     return apiClient('/api/v1/catalog/partners');
-  },
-
-  getWarehouses() {
-    return apiClient('/api/v1/catalog/warehouses');
   }
 };

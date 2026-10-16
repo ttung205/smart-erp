@@ -29,7 +29,6 @@
               :loading-create="loading.createProduct"
               :customers="customers"
               :partners="partners"
-              :warehouses="warehouses"
               @refresh-products="fetchProducts"
               @create-product="submitCreateProduct"
               @order-created="onOrderCreated"
@@ -90,7 +89,6 @@ const loading = reactive({
 // Shared Master Data
 const products = ref([]);
 const partners = ref([]);
-const warehouses = ref([]);
 
 const customers = computed(() => {
   return partners.value.filter((p) => p.type === 'CUSTOMER');
@@ -198,19 +196,9 @@ const fetchPartners = async () => {
   }
 };
 
-const fetchWarehouses = async () => {
-  try {
-    const res = await catalogApi.getWarehouses();
-    if (res.data) warehouses.value = res.data;
-  } catch (e) {
-    console.error('Lỗi tải kho bãi:', e);
-  }
-};
-
 const fetchAllData = () => {
   fetchProducts();
   fetchPartners();
-  fetchWarehouses();
 };
 
 // Create Product Handler

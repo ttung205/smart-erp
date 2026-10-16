@@ -115,20 +115,6 @@ conn.close()
             ]));
         }
 
-        // Seed default warehouses
-        $defaultWarehouses = [
-            ['code' => 'WH-HN-01', 'name' => 'Kho Tổng Miền Bắc (Hà Nội)', 'address' => 'Khu CN Đài Tư, Long Biên, Hà Nội', 'is_active' => true],
-            ['code' => 'WH-HCM-01', 'name' => 'Kho Miền Nam (TP.HCM)', 'address' => 'Khu CN Tân Bình, TP.HCM', 'is_active' => true],
-            ['code' => 'WH-DN-01', 'name' => 'Kho Miền Trung (Đà Nẵng)', 'address' => 'Khu CN Hòa Khánh, Đà Nẵng', 'is_active' => true],
-        ];
-
-        foreach ($defaultWarehouses as $w) {
-            DB::table('warehouses')->updateOrInsert(['code' => $w['code']], array_merge($w, [
-                'created_at' => now(),
-                'updated_at' => now()
-            ]));
-        }
-
         // Seed default customers and multiple contacts per customer
         $customersData = [
             [

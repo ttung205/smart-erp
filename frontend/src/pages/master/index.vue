@@ -60,7 +60,7 @@
           <span class="text-sm font-bold text-slate-900">Danh mục kho bãi & Điểm tập kết</span>
           <Tag
             severity="success"
-            :value="warehouses.length + ' Kho hoạt động'"
+            :value="activeCount + ' Kho hoạt động'"
             class="text-[11px] px-2 py-0.5 rounded-[6px]"
           />
         </div>
@@ -82,13 +82,17 @@
             <span class="font-semibold text-slate-900">{{ data.name }}</span>
           </template>
 
-          <template #col-address="{ data }">
-            <span class="text-slate-500 text-xs">{{ data.address }}</span>
+          <template #col-location="{ data }">
+            <span class="text-slate-500 text-xs">{{ data.location || '—' }}</span>
           </template>
 
-          <template #col-status>
+          <template #col-status="{ data }">
             <div class="text-center">
-              <Tag severity="success" value="Hoạt động" class="text-[11px] px-1.5 py-0.5 rounded-[6px]" />
+              <Tag
+                :severity="data.is_active !== false ? 'success' : 'secondary'"
+                :value="data.is_active !== false ? 'Hoạt động' : 'Ngừng hoạt động'"
+                class="text-[11px] px-1.5 py-0.5 rounded-[6px]"
+              />
             </div>
           </template>
         </CommonDataTable>
@@ -98,21 +102,25 @@
 </template>
 
 <script setup>
+import { computed, onMounted } from 'vue';
 import Tag from 'primevue/tag';
 import PageHeader from '../../components/common/PageHeader.vue';
 import CommonDataTable from '../../components/common/CommonDataTable.vue';
 import { formatCurrency } from '../../utils/format';
+import { useWarehouses } from '../../composables/useWarehouses';
 
 defineProps({
   partners: {
     type: Array,
     default: () => []
-  },
-  warehouses: {
-    type: Array,
-    default: () => []
   }
 });
+
+// Kho bãi do inventory-service quản lý
+const { warehouses, fetchWarehouses } = useWarehouses();
+const activeCount = computed(() => warehouses.value.filter(w => w.is_active !== false).length);
+
+onMounted(() => fetchWarehouses());
 
 const partnerColumns = [
   { field: 'code', header: 'Mã', sortable: true },
@@ -124,7 +132,7 @@ const partnerColumns = [
 const warehouseColumns = [
   { field: 'code', header: 'Mã Kho', sortable: true },
   { field: 'name', header: 'Tên Kho Bãi', sortable: true },
-  { field: 'address', header: 'Địa Chỉ', sortable: false },
+  { field: 'location', header: 'Địa Chỉ', sortable: false },
   { field: 'status', header: 'Trạng Thái', sortable: false, align: 'center' }
 ];
 </script>

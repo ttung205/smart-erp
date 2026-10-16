@@ -205,7 +205,6 @@
     <CreateDeliveryDialog
       v-model:visible="showDeliveryDialog"
       :order="selectedOrder"
-      :warehouses="warehouses"
       @create-delivery-request="handleCreateDelivery"
     />
   </div>
@@ -237,10 +236,6 @@ const props = defineProps({
   currentUser: {
     type: Object,
     default: null
-  },
-  warehouses: {
-    type: Array,
-    default: () => []
   }
 });
 

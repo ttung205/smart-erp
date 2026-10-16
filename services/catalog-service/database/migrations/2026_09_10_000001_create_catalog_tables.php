@@ -63,16 +63,6 @@ return new class extends Migration
             $table->index('type');
         });
 
-        // 5. Warehouses (Kho bãi)
-        Schema::create('warehouses', function (Blueprint $table) {
-            $table->id();
-            $table->string('code', 50)->unique();
-            $table->string('name', 150);
-            $table->string('address', 255);
-            $table->boolean('is_active')->default(true);
-            $table->timestamps();
-        });
-
         // 6. Outbox Events (Event-driven Architecture)
         Schema::create('outbox_events', function (Blueprint $table) {
             $table->id();
@@ -95,7 +85,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('outbox_events');
-        Schema::dropIfExists('warehouses');
         Schema::dropIfExists('partners');
         Schema::dropIfExists('products');
         Schema::dropIfExists('brands');
