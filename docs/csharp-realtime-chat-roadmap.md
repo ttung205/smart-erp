@@ -11,7 +11,7 @@
 │                           FRONTEND (VUE 3 + PINIA)                             │
 │                  Thư viện: @microsoft/signalr  |  Pinia: chatStore             │
 └──────────────────────────────────────┬─────────────────────────────────────────┘
-                                       │ WebSocket / SignalR Hub (Port 8010)
+                                       │ WebSocket / SignalR Hub (Port 8009)
                                        ▼
 ┌────────────────────────────────────────────────────────────────────────────────┐
 │                    CHAT-SERVICE (C# .NET 10 WEB API)                           │
@@ -34,7 +34,7 @@
 
 ### Thông số kỹ thuật của `chat-service`:
 * **Ngôn ngữ & Runtime:** C# (.NET 10 / ASP.NET Core Web API).
-* **Cổng dịch vụ (Port):** `8010` (Map proxy Frontend qua `/api/v1/chat`).
+* **Cổng dịch vụ (Port):** `8009` (Map proxy Frontend qua `/api/v1/chat`).
 * **Realtime Engine:** **ASP.NET Core SignalR** với cơ chế Groups (Phòng ban) và User Mapping (Chat 1-1).
 * **Cơ sở dữ liệu:** **Entity Framework Core (EF Core 10)** + SQLite (`chat.db`) hoặc PostgreSQL.
 * **Tích hợp sự kiện:** **RabbitMQ.Client** triển khai dưới dạng .NET `BackgroundService` (`IHostedService`).
@@ -183,35 +183,36 @@ public class RabbitMqBotConsumerWorker : BackgroundService
 ## 6. LỘ TRÌNH THỰC HIỆN TỪNG BƯỚC (PHASED ROADMAP)
 
 ### 🚀 Giai đoạn 1: Khởi tạo Project & CSDL C# (.NET 10)
-- [ ] Dùng `dotnet new` khởi tạo Solution `ChatService.sln` gồm 4 Project:
+- [x] Dùng `dotnet new` khởi tạo Solution `ChatService.slnx` gồm 4 Project:
   - `Chat.Domain`, `Chat.Application`, `Chat.Infrastructure`, `Chat.Api`.
-- [ ] Khai báo các thực thể `Conversation`, `ChatMessage`, `MessageReceipt`.
-- [ ] Cấu hình EF Core DbContext với SQLite (`chat.db`).
-- [ ] Tạo Migration ban đầu và viết Seeder tự động nạp 6 kênh phòng ban mặc định.
-- [ ] Cấu hình CORS và Authentication JWT Bearer với `JWT_SECRET`.
+- [x] Khai báo các thực thể `Conversation`, `ChatMessage`, `MessageReceipt`.
+- [x] Cấu hình EF Core DbContext với SQLite (`chat.db`).
+- [x] Tạo Migration ban đầu và viết Seeder tự động nạp 6 kênh phòng ban mặc định.
+- [x] Cấu hình CORS và Authentication JWT Bearer với `JWT_SECRET`.
 
 ### 🚀 Giai đoạn 2: Xây dựng SignalR Hub & REST API
-- [ ] Cài đặt package `Microsoft.AspNetCore.SignalR`.
-- [ ] Xây dựng `ChatHub : Hub<IChatClient>` hỗ trợ Groups phòng ban và tin nhắn riêng tư.
-- [ ] Viết REST API:
+- [x] Cài đặt package `Microsoft.AspNetCore.SignalR`.
+- [x] Xây dựng `ChatHub : Hub<IChatClient>` hỗ trợ Groups phòng ban và tin nhắn riêng tư.
+- [x] Viết REST API:
   - `GET /api/v1/chat/conversations`: Danh sách phòng ban và hội thoại gần nhất.
   - `GET /api/v1/chat/conversations/{id}/messages`: Phân trang lịch sử tin nhắn cũ.
-- [ ] Viết test xác thực kết nối SignalR bằng script console/node.
+- [x] Viết test xác thực kết nối SignalR bằng script console/node.
 
 ### 🚀 Giai đoạn 3: Tích hợp RabbitMQ Bot Worker
-- [ ] Cài đặt package `RabbitMQ.Client` trong `Chat.Infrastructure`.
-- [ ] Xây dựng `RabbitMqBotConsumerWorker : BackgroundService`.
-- [ ] Đăng ký consumer queue `erp.chat.events` bind tới `erp.events`.
-- [ ] Khi có event nghiệp vụ $\rightarrow$ Lưu bản ghi `ChatMessages` (loại `SYSTEM_BOT`) và phát realtime vào nhóm chat tương ứng.
+- [x] Cài đặt package `RabbitMQ.Client` trong `Chat.Infrastructure`.
+- [x] Xây dựng `RabbitMqBotConsumerWorker : BackgroundService`.
+- [x] Đăng ký consumer queue `erp.chat.events` bind tới `erp.events`.
+- [x] Khi có event nghiệp vụ $\rightarrow$ Lưu bản ghi `ChatMessages` (loại `SYSTEM_BOT`) và phát realtime vào nhóm chat tương ứng.
 
 ### 🚀 Giai đoạn 4: Xây dựng Giao diện Chat trên Frontend (Vue 3 + Pinia)
-- [ ] Cài đặt gói `@microsoft/signalr` trong `frontend`.
-- [ ] Xây dựng Pinia store [chatStore.js](file:///g:/Do_an_lien_nganh/smart-erp/frontend/src/stores/chatStore.js) quản lý state kết nối Hub, danh sách tin nhắn, trạng thái online/offline.
-- [ ] Thêm proxy `/api/v1/chat` và WebSocket proxy trong `vite.config.js` trỏ về port `8010`.
-- [ ] Thiết kế Giao diện Khung Chat theo phong cách Clean Flat White Canvas:
+- [x] Cài đặt gói `@microsoft/signalr` trong `frontend`.
+- [x] Xây dựng Pinia store [chatStore.js](file:///g:/Do_an_lien_nganh/smart-erp/frontend/src/stores/chatStore.js) quản lý state kết nối Hub, danh sách tin nhắn, trạng thái online/offline.
+- [x] Thêm proxy `/api/v1/chat` và WebSocket proxy trong `vite.config.js` trỏ về port `8009`.
+- [x] Thiết kế Giao diện Khung Chat theo phong cách Clean Flat White Canvas:
   - Cột trái: Danh sách kênh phòng ban (#chung, #kho-van, #thu-mua...) và đồng nghiệp.
   - Khung giữa: Bong bóng chat, avatar, thời gian gửi, phân biệt tin nhắn nhân viên và tin nhắn Bot hệ thống.
   - Hỗ trợ hiển thị trạng thái *"Nguyễn Văn A đang soạn tin..."*.
+  - Tuân thủ quy tắc: Hạn chế sử dụng icon ở các text; chỉ sử dụng icon cho các hành động (nút bấm, tìm kiếm).
 
 ### 🚀 Giai đoạn 5: Kiểm thử Toàn diện & Nghiệm thu
 - [ ] Mở 2 trình duyệt với 2 tài khoản khác nhau (ví dụ: `logistic@erp.local` và `sale@erp.local`):
@@ -226,7 +227,7 @@ public class RabbitMqBotConsumerWorker : BackgroundService
 
 | Dịch vụ | Cổng | Công nghệ | Nhiệm vụ đối với Chat |
 | :--- | :--- | :--- | :--- |
-| **`chat-service`** | **8010** | **C# .NET 10** | Quản lý SignalR ChatHub, lưu trữ tin nhắn, phát realtime |
+| **`chat-service`** | **8009** | **C# .NET 10** | Quản lý SignalR ChatHub, lưu trữ tin nhắn, phát realtime |
 | **`identity-service`** | **8001** | PHP Laravel | Xác thực JWT và cung cấp danh sách nhân viên |
 | **`notification-service`** | **8006** | Node.js | Quản lý Quả chuông thông báo cá nhân (Inbox Bell) |
 | **`RabbitMQ`** | **5672** | AMQP | Trung chuyển sự kiện nghiệp vụ sang Chat Bot |

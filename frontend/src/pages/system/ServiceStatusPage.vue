@@ -211,6 +211,8 @@
           <span>/api/v1/inventory</span>
           <span>•</span>
           <span>/api/v1/sales</span>
+          <span>•</span>
+          <span>/api/v1/chat</span>
         </div>
       </div>
 
@@ -261,6 +263,7 @@
           <span class="bg-slate-100 px-1 py-0.5 rounded">purchase.db</span>
           <span class="bg-slate-100 px-1 py-0.5 rounded">inventory.db</span>
           <span class="bg-slate-100 px-1 py-0.5 rounded">sales.sqlite</span>
+          <span class="bg-slate-100 px-1 py-0.5 rounded">chat.db</span>
         </div>
       </div>
     </div>
@@ -365,11 +368,28 @@ const services = ref([
     payload: null
   },
   {
+    id: 'chat-service',
+    name: 'Realtime Enterprise Chat Service',
+    tech: '.NET 10 Web API + SignalR',
+    runtime: 'C# 13 / EF Core / SQLite',
+    port: 8009,
+    endpoint: '/api/v1/chat/health',
+    scope: 'Tin nhắn nội bộ theo kênh phòng ban, chat 1-1 đồng nghiệp & RabbitMQ System Bot cảnh báo nghiệp vụ',
+    icon: 'pi pi-comments',
+    iconBg: 'bg-sky-50 border border-sky-200',
+    iconColor: 'text-sky-600',
+    swagger: true,
+    online: false,
+    latency: 0,
+    loading: false,
+    payload: null
+  },
+  {
     id: 'frontend-service',
     name: 'Frontend Web Application',
     tech: 'Vue 3 + PrimeVue 4',
     runtime: 'Vite 6 / Tailwind CSS',
-    port: 5174,
+    port: 5175,
     endpoint: '/',
     scope: 'Giao diện bảng điều khiển ERP tập trung theo chuẩn kiến trúc phẳng SPA',
     icon: 'pi pi-desktop',

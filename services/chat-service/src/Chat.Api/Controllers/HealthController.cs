@@ -1,0 +1,44 @@
+using Chat.Application.Common.Models;
+using Chat.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Chat.Api.Controllers;
+
+[ApiController]
+public class HealthController : ControllerBase
+{
+    private readonly ChatDbContext _context;
+
+    public HealthController(ChatDbContext context)
+    {
+        _context = context;
+    }
+
+    [HttpGet("health")]
+    [HttpGet("api/health")]
+    [HttpGet("api/v1/chat/health")]
+    public async Task<IActionResult> Check(CancellationToken ct)
+    {
+        bool dbConnected = false;
+        string? dbError = null;
+        try
+        {
+            dbConnected = await _context.Database.CanConnectAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            dbError = ex.Message;
+        }
+
+        return Ok(ApiEnvelope<object>.Ok(new
+        {
+            status = dbConnected ? "UP" : "DEGRADED",
+            service = "chat-service",
+            version = "1.0.0",
+            framework = ".NET 10",
+            database = dbConnected ? "CONNECTED" : "DISCONNECTED",
+            dbError,
+            timestamp = DateTime.UtcNow
+        }));
+    }
+}

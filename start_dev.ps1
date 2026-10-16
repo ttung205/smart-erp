@@ -26,6 +26,7 @@ $services = @(
     [pscustomobject]@{ Name = 'Notification Service (Node.js)'; Port = 8006; Directory = "$projectRoot\services\notification-service"; Command = { npm run dev } },
     [pscustomobject]@{ Name = 'EOffice Service'; Port = 8007; Directory = "$projectRoot\services\eoffice-service"; Command = { php artisan serve --host=127.0.0.1 --port=8007 } },
     [pscustomobject]@{ Name = 'Finance Service'; Port = 8008; Directory = "$projectRoot\services\finance-service"; Command = { php artisan serve --host=127.0.0.1 --port=8008 } },
+    [pscustomobject]@{ Name = 'Chat Service (.NET 10)'; Port = 8009; Directory = "$projectRoot\services\chat-service\src\Chat.Api"; Command = { dotnet run --urls=http://127.0.0.1:8009 } },
     [pscustomobject]@{ Name = 'Vue 3 PrimeVue Frontend'; Port = 5175; Directory = "$projectRoot\frontend"; Command = { npm run dev -- --host 127.0.0.1 } }
 )
 
