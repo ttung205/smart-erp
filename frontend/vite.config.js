@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
   const notificationTarget = env.VITE_NOTIFICATION_SERVICE_URL || 'http://127.0.0.1:8006'
   const eofficeTarget = env.VITE_EOFFICE_SERVICE_URL || 'http://127.0.0.1:8007'
   const financeTarget = env.VITE_FINANCE_SERVICE_URL || 'http://127.0.0.1:8008'
+  const chatTarget = env.VITE_CHAT_SERVICE_URL || 'http://127.0.0.1:8009'
 
   return {
     plugins: [
@@ -60,6 +61,11 @@ export default defineConfig(({ mode }) => {
           target: financeTarget,
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api\/v1\/finance/, '/api')
+        },
+        '/api/v1/chat': {
+          target: chatTarget,
+          changeOrigin: true,
+          ws: true
         }
       }
     }
