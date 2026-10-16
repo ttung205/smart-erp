@@ -5,8 +5,9 @@
  * identity-service lỗi thì ném lỗi để message được retry, không âm thầm bỏ thông báo.
  */
 export class RecipientResolver {
-  constructor({ identityUrl, cacheTtlMs, fetchImpl = fetch }) {
+  constructor({ identityUrl, internalServiceKey, cacheTtlMs, fetchImpl = fetch }) {
     this.identityUrl = identityUrl;
+    this.internalServiceKey = internalServiceKey;
     this.cacheTtlMs = cacheTtlMs;
     this.fetch = fetchImpl;
     this.cache = new Map();
@@ -27,7 +28,9 @@ export class RecipientResolver {
     if (cached && cached.expiresAt > Date.now()) return cached.ids;
 
     const url = `${this.identityUrl}/api/users/by-permission?permissions=${encodeURIComponent(key)}`;
-    const response = await this.fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(5000) });
+    // Consumer chạy nền, không có token người dùng nên xác thực với identity bằng khóa nội bộ
+    const headers = { Accept: 'application/json', 'X-Internal-Service-Key': this.internalServiceKey };
+    const response = await this.fetch(url, { headers, signal: AbortSignal.timeout(5000) });
     if (!response.ok) {
       throw new Error(`identity-service trả về ${response.status} khi tra người nhận theo quyền [${key}]`);
     }

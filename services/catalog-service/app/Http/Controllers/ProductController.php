@@ -9,25 +9,54 @@ use App\Messaging\RabbitMqPublisher;
 
 class ProductController extends Controller
 {
-    private function hasSignedRole(Request $request, array $allowed): bool
-    {
-        $token = $request->bearerToken();
-        if (!$token || count($parts = explode('.', $token)) !== 3) return false;
-        [$header, $payload, $signature] = $parts;
-        $expected = rtrim(strtr(base64_encode(hash_hmac('sha256', "$header.$payload", env('JWT_SECRET', 'smart_erp_super_secure_jwt_secret_key_2026'), true)), '+/', '-_'), '=');
-        if (!hash_equals($expected, $signature)) return false;
-        $claims = json_decode(base64_decode(strtr($payload, '-_', '+/')), true);
-        return is_array($claims) && ($claims['exp'] ?? 0) > time() && count(array_intersect($allowed, $claims['roles'] ?? [])) > 0;
-    }
-
     private function canSeeCost(Request $request): bool
     {
-        return $this->hasSignedRole($request, ['SUPER_ADMIN', 'PURCHASE', 'PURCHASE_MANAGER', 'FINANCE_ACCOUNTING', 'FINANCE_ACCOUNTING_MANAGER']);
+        return $this->actor($request)->hasAnyRole('SUPER_ADMIN', 'PURCHASE', 'PURCHASE_MANAGER', 'FINANCE_ACCOUNTING', 'FINANCE_ACCOUNTING_MANAGER');
+    }
+
+    // Ghi lịch sử khi gross/cost price thay đổi ($old = bản ghi trước khi sửa, null nếu tạo mới)
+    private function recordPriceChange(Request $request, int $productId, ?object $old, float $newGross, ?float $newCost, string $source, ?string $reference = null): void
+    {
+        $oldGross = $old ? (float) $old->gross_price : null;
+        $oldCost = $old && isset($old->cost_price) ? (float) $old->cost_price : null;
+        $costChanged = $newCost !== null && abs(($oldCost ?? 0) - $newCost) >= 0.005;
+        if ($old && abs($oldGross - $newGross) < 0.005 && !$costChanged) return;
+        $actor = $this->actor($request);
+        DB::table('product_price_histories')->insert([
+            'product_id' => $productId,
+            'old_gross_price' => $oldGross,
+            'new_gross_price' => $newGross,
+            'old_cost_price' => $oldCost,
+            'new_cost_price' => $newCost ?? $oldCost,
+            'source' => $source,
+            'reference' => $reference,
+            'changed_by' => $actor?->id,
+            'changed_by_name' => $actor?->name,
+            'created_at' => now(),
+        ]);
+    }
+
+    public function priceHistory(Request $request)
+    {
+        $sku = trim($request->input('sku', ''));
+        $productId = $request->input('product_id');
+        $product = $productId ? DB::table('products')->where('id', $productId)->first() : ($sku !== '' ? DB::table('products')->where('sku', $sku)->first() : null);
+        if (!$product) {
+            return response()->json(['success' => false, 'error' => ['code' => 'PRODUCT_NOT_FOUND', 'message' => 'Không tìm thấy sản phẩm.']], 404);
+        }
+        $histories = DB::table('product_price_histories')->where('product_id', $product->id)->orderByDesc('id')->get();
+        if (!$this->canSeeCost($request)) {
+            $histories->each(function ($h) { unset($h->old_cost_price, $h->new_cost_price); });
+        }
+        return response()->json(['success' => true, 'data' => [
+            'product' => ['id' => $product->id, 'sku' => $product->sku, 'designation' => $product->designation, 'gross_price' => $product->gross_price],
+            'histories' => $histories,
+        ]]);
     }
     public function applyInquiryResult(Request $request)
     {
-        $key = env('INTERNAL_SERVICE_KEY', 'smart_erp_internal_2026');
-        if (!hash_equals($key, (string) $request->header('X-Internal-Service-Key')) || !$this->hasSignedRole($request, ['SUPER_ADMIN', 'PURCHASE', 'PURCHASE_MANAGER'])) {
+        // Khóa nội bộ đã được middleware internal kiểm tra; ở đây chỉ còn kiểm tra người thao tác bên purchase
+        if (!$this->actor($request)->hasAnyRole('SUPER_ADMIN', 'PURCHASE', 'PURCHASE_MANAGER')) {
             return response()->json(['success' => false, 'error' => ['message' => 'Forbidden']], 403);
         }
         $data = $request->validate([
@@ -44,8 +73,9 @@ class ProductController extends Controller
             'vat' => 'required|numeric|between:0,100',
             'tax' => 'required|numeric|between:0,100',
             'price_index' => 'required|numeric|gt:0',
+            'reference' => 'nullable|string|max:100',
         ]);
-        return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data, $request) {
             $brand = DB::table('brands')->where('id', $data['brand_id'])->first();
             if (!$brand) return response()->json(['success' => false, 'error' => ['message' => 'Brand không tồn tại']], 422);
             $sku = trim($data['sku'] ?? '') ?: 'IQP-' . $data['inquiry_item_id'];
@@ -59,12 +89,15 @@ class ProductController extends Controller
                 'com' => $data['com'] ?? null, 'unit' => $data['unit'] ?? 'Cái', 'spec' => $data['spec'] ?? null,
                 'cost_price' => $data['buying_price'], 'gross_price' => $gross, 'status' => 'ACTIVE', 'updated_at' => now()];
             $existing = DB::table('products')->where('sku', $sku)->first();
-            if ($existing) DB::table('products')->where('id', $existing->id)->update($changes);
-            else {
+            if ($existing) {
+                DB::table('products')->where('id', $existing->id)->update($changes);
+                $this->recordPriceChange($request, $existing->id, $existing, $gross, (float) $data['buying_price'], 'INQUIRY', $data['reference'] ?? null);
+            } else {
                 $changes['sku'] = $sku;
                 $changes['min_stock'] = 0;
                 $changes['created_at'] = now();
                 $existing = (object) ['id' => DB::table('products')->insertGetId($changes)];
+                $this->recordPriceChange($request, $existing->id, null, $gross, (float) $data['buying_price'], 'INQUIRY', $data['reference'] ?? null);
             }
             return response()->json(['success' => true, 'data' => ['id' => $existing->id, 'sku' => $sku, 'gross_price' => $gross]]);
         });
@@ -189,6 +222,7 @@ class ProductController extends Controller
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        $this->recordPriceChange($request, $id, null, $grossPrice, (float) $request->input('cost_price', 0), 'CREATE');
 
         $publisher->publishProductCreated([
             'product_id' => $id,
@@ -240,6 +274,7 @@ class ProductController extends Controller
         if ($request->has('sku')) $updateData['sku'] = trim($request->input('sku'));
 
         DB::table('products')->where('id', $id)->update($updateData);
+        $this->recordPriceChange($request, (int) $id, $p, $updateData['gross_price'], null, 'MANUAL');
 
         return response()->json(['success' => true, 'data' => ['id' => $id]]);
     }
@@ -331,9 +366,11 @@ class ProductController extends Controller
 
                 if ($exists) {
                     DB::table('products')->where('sku', $sku)->update($data);
+                    $this->recordPriceChange($request, $exists->id, $exists, $grossPrice, null, 'IMPORT');
                 } else {
                     $data['created_at'] = now();
-                    DB::table('products')->insert($data);
+                    $newId = DB::table('products')->insertGetId($data);
+                    $this->recordPriceChange($request, $newId, null, $grossPrice, null, 'IMPORT');
                 }
 
                 $importedCount++;

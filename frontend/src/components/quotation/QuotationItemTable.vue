@@ -196,9 +196,8 @@
           :label="getSelectedCount(items) > 0 ? `Set hàng loạt (${getSelectedCount(items)})` : 'Set hàng loạt'"
           icon="pi pi-bolt"
           size="small"
-          severity="secondary"
           outlined
-          class="!text-xs !py-1 !px-2.5 rounded-[6px] !border-indigo-300 !text-indigo-700 hover:!bg-indigo-50 font-medium"
+          :class="ITEM_TABLE_ACTION_CLASS"
           title="Thiết lập hàng loạt Chiết khấu %, VAT %, Lead Time, QTY, COM, UNIT cho các mặt hàng"
           @click="openBulkEditDialog(items)"
         />
@@ -209,9 +208,8 @@
             :label="getSelectedCount(items) > 0 ? `Đổi trạng thái (${getSelectedCount(items)})` : 'Đổi trạng thái'"
             icon="pi pi-sliders-h"
             size="small"
-            severity="warn"
             outlined
-            class="!text-xs !py-1 !px-2.5 rounded-[6px] !border-amber-500 !text-amber-700 hover:!bg-amber-50 font-medium"
+            :class="ITEM_TABLE_ACTION_CLASS"
             @click="openStatusDialog(items)"
           />
 
@@ -220,7 +218,8 @@
             label="Tạo đơn bán (SO)"
             icon="pi pi-shopping-cart"
             size="small"
-            class="!bg-indigo-600 hover:!bg-indigo-700 !text-white !border-indigo-600 !text-xs !py-1 !px-3 rounded-[6px] font-semibold shadow-sm"
+            outlined
+            :class="ITEM_TABLE_ACTION_CLASS"
             @click="handleCreateOrderAction(items)"
           />
         </template>
@@ -316,6 +315,7 @@ import Badge from 'primevue/badge';
 import ItemDataTable from '../common/ItemDataTable.vue';
 import QuotationBulkEditDialog from './QuotationBulkEditDialog.vue';
 import { formatCurrency } from '../../utils/format';
+import { ITEM_TABLE_ACTION_CLASS } from '../../constants/itemTable.constant';
 
 const props = defineProps({
   modelValue: {

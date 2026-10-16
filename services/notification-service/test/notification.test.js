@@ -155,6 +155,24 @@ describe('NotificationService', () => {
   });
 });
 
+describe('RecipientResolver', () => {
+  it('xác thực với identity-service bằng khóa nội bộ', async () => {
+    const requests = [];
+    const resolver = new RecipientResolver({
+      identityUrl: 'http://identity',
+      internalServiceKey: 'test-internal-key',
+      cacheTtlMs: 60000,
+      fetchImpl: async (url, options) => {
+        requests.push(options.headers);
+        return { ok: true, json: async () => ({ data: [{ id: 7 }] }) };
+      },
+    });
+
+    assert.deepEqual(await resolver.resolve({ permissions: ['quotation.approve'] }), [7]);
+    assert.equal(requests[0]['X-Internal-Service-Key'], 'test-internal-key');
+  });
+});
+
 describe('Inbox API', () => {
   async function withServer(fn) {
     const server = createServer(createApp({ repository, publisher: { toUser: (...args) => pushes.push(args) }, jwtSecret: SECRET }));

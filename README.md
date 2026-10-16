@@ -80,7 +80,8 @@ Hạ tầng (Docker Compose): **RabbitMQ 3.13** (message broker), **NGINX** (API
 | Consumer lỗi tạm thời | **Retry queue** có TTL, quá số lần thì chuyển sang **Dead Letter Exchange** `erp.dlx` | `notification-service`, `definitions.json` |
 | Định tuyến message | **Topic exchange** `erp.events`, routing key dạng `<service>.<aggregate>.<action>` | `infrastructure/rabbitmq/definitions.json` |
 | Hợp đồng dữ liệu giữa các service | **Envelope chuẩn** (tương thích CloudEvents): `event_id`, `event_type`, `correlation_id`, `producer`, `payload` | `docs/contracts/events-spec.md` |
-| Xác thực không tập trung | **JWT HS256** do identity cấp; các service tự kiểm tra chữ ký bằng secret dùng chung, không cần gọi lại identity | middleware `AuthenticateJwt` mỗi service |
+| Xác thực không tập trung | **JWT HS256** do identity cấp (`JwtIssuer`); mọi service kiểm tra cùng một bộ luật (alg, chữ ký, `iss`, `sub`, `exp`) bằng secret dùng chung, không cần gọi lại identity | `app/Auth/JwtVerifier` (PHP), `IAccessTokenValidator` → `HmacJwtTokenValidator` (.NET), `auth/jwt.js` (Node) |
+| Service gọi nhau không có token người dùng | **Internal service key**: header `X-Internal-Service-Key`, chỉ được đọc; gateway xóa header này từ client | identity (`user_or_service`), catalog (`internal`), eoffice, notification, purchase |
 | Truy vết request xuyên service | **Correlation ID** sinh ở gateway, đi theo request và được ghi vào event | `gateway/nginx.conf`, envelope |
 | Đồng thời khi giữ chỗ tồn kho | **Atomic reservation**, kiểm tra và trừ tồn trong một thao tác | `inventory-service` |
 | Thông báo thời gian thực | **Socket.IO** chia room theo `user:{id}`; DB là nguồn sự thật, socket chỉ để báo có thay đổi | `notification-service`, `frontend` |
@@ -151,7 +152,7 @@ cd smart-erp
 - chạy `composer install` / `dotnet build` / `npm install`;
 - tạo database SQLite và seed dữ liệu mẫu.
 
-> Mọi service phải dùng **cùng một `JWT_SECRET`**. Các file `.env.example` đã có sẵn giá trị dùng cho môi trường dev.
+> Mọi service phải dùng **cùng một `JWT_SECRET`** và **cùng một `INTERNAL_SERVICE_KEY`** (.NET: `Jwt:Secret`, `Services:InternalKey`). Các file `.env.example` / `appsettings.json` đã có sẵn giá trị dùng cho môi trường dev; khi triển khai phải thay bằng giá trị riêng. Code không còn giá trị mặc định: thiếu cấu hình thì service báo lỗi thay vì chạy với secret công khai.
 
 ### 5.3. Khởi động
 

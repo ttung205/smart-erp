@@ -37,6 +37,8 @@ public class ItemInquiryRequestItem
     public string? Spec { get; set; }
     public long? SelectedInquiryItemId { get; set; }
     public decimal? GrossPrice { get; set; }
+    // Gross price của SKU trong catalog tại thời điểm lập/sửa yêu cầu
+    public decimal? CatalogGrossPrice { get; set; }
 }
 
 public class ItemInquiryAttachment

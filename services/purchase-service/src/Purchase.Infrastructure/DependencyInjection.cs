@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Purchase.Application.Interfaces;
 using Purchase.Infrastructure.Messaging;
 using Purchase.Infrastructure.Persistence;
+using Purchase.Infrastructure.Security;
 using Purchase.Infrastructure.Services;
 
 namespace Purchase.Infrastructure;
@@ -35,6 +36,7 @@ public static class DependencyInjection
 
         // 3. Transactional Outbox Pattern
         services.AddScoped<IOutboxService, OutboxService>();
+        services.AddSingleton<IAccessTokenValidator, HmacJwtTokenValidator>();
 
         // 4. RabbitMQ Broker Connection & Outbox Relay Background Worker
         services.AddSingleton<RabbitMqConnection>();

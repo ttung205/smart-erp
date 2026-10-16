@@ -2,12 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Auth\JwtIssuer;
+use App\Auth\UserAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+    public function __construct(private readonly JwtIssuer $issuer, private readonly UserAccess $access) {}
+
     public function health()
     {
         return response()->json([
@@ -42,44 +46,22 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $roles = DB::table('roles')
-            ->join('user_roles', 'roles.id', '=', 'user_roles.role_id')
-            ->where('user_roles.user_id', $user->id)
-            ->pluck('code')
-            ->all();
-
-        $permissions = DB::table('permissions')
-            ->join('role_permissions', 'permissions.id', '=', 'role_permissions.permission_id')
-            ->join('user_roles', 'role_permissions.role_id', '=', 'user_roles.role_id')
-            ->where('user_roles.user_id', $user->id)
-            ->distinct()
-            ->pluck('code')
-            ->all();
-
-        // Generate JWT
-        $header = rtrim(strtr(base64_encode(json_encode(['typ' => 'JWT', 'alg' => 'HS256'])), '+/', '-_'), '=');
-        $payload = rtrim(strtr(base64_encode(json_encode([
-            'iss' => 'identity-service',
-            'sub' => (string) $user->id,
+        $roles = $this->access->roles($user->id);
+        $permissions = $this->access->permissions($user->id);
+        $token = $this->issuer->issue((string) $user->id, [
             'name' => $user->name,
             'email' => $user->email,
             'department_id' => $user->department_id ? (int) $user->department_id : null,
             'roles' => $roles,
             'permissions' => $permissions,
-            'iat' => time(),
-            'exp' => time() + 86400,
-        ])), '+/', '-_'), '=');
-
-        $secret = env('JWT_SECRET', 'smart_erp_super_secure_jwt_secret_key_2026');
-        $sig = rtrim(strtr(base64_encode(hash_hmac('sha256', "{$header}.{$payload}", $secret, true)), '+/', '-_'), '=');
-        $token = "{$header}.{$payload}.{$sig}";
+        ]);
 
         return response()->json([
             'success' => true,
             'data' => [
                 'token' => $token,
                 'token_type' => 'Bearer',
-                'expires_in' => 86400,
+                'expires_in' => $this->issuer->ttl(),
                 'user' => [
                     'id' => $user->id,
                     'name' => $user->name,
@@ -91,27 +73,12 @@ class AuthController extends Controller
         ]);
     }
 
+    /** Thông tin mới nhất của người đang đăng nhập; token đã được middleware jwt kiểm tra. */
     public function me(Request $request)
     {
-        $auth = $request->header('Authorization', '');
-        if (!preg_match('/Bearer\s(\S+)/i', $auth, $m)) {
-            return response()->json(['success' => false, 'error' => ['code' => 'UNAUTHENTICATED']], 401);
-        }
-
-        $parts = explode('.', $m[1]);
-        if (count($parts) !== 3) {
-            return response()->json(['success' => false, 'error' => ['code' => 'TOKEN_INVALID']], 401);
-        }
-
-        $payload = json_decode(base64_decode(strtr($parts[1], '-_', '+/')), true);
-        if (!$payload || (!isset($payload['sub']) && !isset($payload['id']))) {
-            return response()->json(['success' => false, 'error' => ['code' => 'TOKEN_INVALID']], 401);
-        }
-
-        $userId = $payload['sub'] ?? ($payload['id'] ?? null);
         $user = DB::table('users')
             ->leftJoin('departments', 'users.department_id', '=', 'departments.id')
-            ->where('users.id', $userId)
+            ->where('users.id', $request->attributes->get('actor')->id)
             ->where('users.is_active', 1)
             ->select('users.id', 'users.name', 'users.email', 'users.department_id', 'departments.name as department_name')
             ->first();
@@ -119,20 +86,6 @@ class AuthController extends Controller
         if (!$user) {
             return response()->json(['success' => false, 'error' => ['code' => 'USER_NOT_FOUND']], 404);
         }
-
-        $roles = DB::table('roles')
-            ->join('user_roles', 'roles.id', '=', 'user_roles.role_id')
-            ->where('user_roles.user_id', $user->id)
-            ->pluck('code')
-            ->all();
-
-        $permissions = DB::table('permissions')
-            ->join('role_permissions', 'permissions.id', '=', 'role_permissions.permission_id')
-            ->join('user_roles', 'role_permissions.role_id', '=', 'user_roles.role_id')
-            ->where('user_roles.user_id', $user->id)
-            ->distinct()
-            ->pluck('code')
-            ->all();
 
         return response()->json([
             'success' => true,
@@ -143,8 +96,8 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'department_id' => $user->department_id,
                 'department' => $user->department_name,
-                'roles' => $roles,
-                'permissions' => $permissions,
+                'roles' => $this->access->roles($user->id),
+                'permissions' => $this->access->permissions($user->id),
             ]
         ]);
     }

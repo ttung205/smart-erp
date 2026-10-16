@@ -1,5 +1,6 @@
 using Inventory.Application.Interfaces;
 using Inventory.Infrastructure.Persistence;
+using Inventory.Infrastructure.Security;
 using Inventory.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -29,6 +30,7 @@ public static class DependencyInjection
 
         services.AddScoped<IInventoryStockManager, InventoryStockManager>();
         services.AddScoped<IOutboxService, OutboxService>();
+        services.AddSingleton<IAccessTokenValidator, HmacJwtTokenValidator>();
         services.AddScoped<IEventConsumerHandler, EventConsumerHandler>();
 
         // RabbitMQ Connection & Background Workers

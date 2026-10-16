@@ -100,6 +100,9 @@ class LeaveRequestWorkflowTest extends TestCase
         $this->assertSame(self::EMPLOYEE, $approved['payload']['requester_id']);
         $this->assertSame('Đồng ý', $approved['payload']['comment']);
         $this->assertSame(self::MANAGER, $approved['payload']['actor']['id']);
+
+        // Gọi identity-service không có token người dùng nên phải kèm khóa nội bộ
+        Http::assertSent(fn ($request) => $request->hasHeader('X-Internal-Service-Key', 'phpunit-internal-key'));
     }
 
     public function test_reject_requires_comment_and_releases_balance(): void

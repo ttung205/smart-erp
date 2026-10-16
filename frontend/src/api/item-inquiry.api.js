@@ -12,6 +12,7 @@ export const itemInquiryApi = {
   submit: (id) => apiClient(`${root}/requests/${id}/submit`, { method: 'POST' }),
   close: (id) => apiClient(`${root}/requests/${id}/close`, { method: 'POST' }),
   upload: (id, file) => { const body = new FormData(); body.append('file', file); return apiClient(`${root}/requests/${id}/attachments`, { method: 'POST', body }); },
+  deleteAttachment: (id, attachmentId) => apiClient(`${root}/requests/${id}/attachments/${attachmentId}`, { method: 'DELETE' }),
   download: async (id, attachment) => {
     const response = await fetch(`${root}/requests/${id}/attachments/${attachment.id}`, { headers: { Authorization: `Bearer ${storage.getToken()}` } });
     if (!response.ok) throw new Error('Không tải được tệp.');

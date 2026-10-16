@@ -87,12 +87,17 @@
       </div>
 
       <!-- 4. Tài liệu đính kèm -->
-      <InquiryRequestAttachments
-        :attachments="request.attachments || []"
-        :uploadable="!isPurchase && canCreate && request.status === 'DRAFT'"
-        :uploading="busy"
-        @upload="uploadAttachment"
-        @download="downloadAttachment"
+      <FormAttachmentUpload
+        :model-value="request.attachments || []"
+        title="Tài Liệu Đính Kèm Yêu Cầu Hỏi Hàng"
+        subtitle="Bản vẽ, thông số kỹ thuật hoặc yêu cầu của khách hàng"
+        accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx"
+        :max-file-size="10485760"
+        :readonly="!(!isPurchase && canCreate && request.status === 'DRAFT')"
+        :upload-handler="uploadAttachments"
+        :remove-handler="removeAttachment"
+        :download-handler="downloadAttachment"
+        @update:model-value="request.attachments = $event"
       />
     </template>
   </div>
@@ -107,7 +112,7 @@ import Tag from 'primevue/tag';
 import PageHeader from '../../components/common/PageHeader.vue';
 import InquiryRequestInfoPanel from '../../components/inquiry-request/InquiryRequestInfoPanel.vue';
 import InquiryRequestItemTable from '../../components/inquiry-request/InquiryRequestItemTable.vue';
-import InquiryRequestAttachments from '../../components/inquiry-request/InquiryRequestAttachments.vue';
+import FormAttachmentUpload from '../../components/common/FormAttachmentUpload.vue';
 import { itemInquiryApi } from '../../api/item-inquiry.api';
 import { identityApi } from '../../api/identity.api';
 import { storage } from '../../utils/storage';
@@ -159,7 +164,13 @@ const runAction = async (action, message) => {
 const selectResult = ({ itemId, inquiryItemId }) =>
   runAction(() => itemInquiryApi.select(request.value.id, itemId, inquiryItemId), 'Đã chốt báo giá và cập nhật Product.');
 
-const uploadAttachment = file => runAction(() => itemInquiryApi.upload(request.value.id, file), 'Đã tải tài liệu.');
+const uploadAttachments = async files => {
+  const uploaded = [];
+  for (const file of files) uploaded.push((await itemInquiryApi.upload(request.value.id, file)).data);
+  return uploaded;
+};
+
+const removeAttachment = attachment => itemInquiryApi.deleteAttachment(request.value.id, attachment.id);
 
 const downloadAttachment = async attachment => {
   try {

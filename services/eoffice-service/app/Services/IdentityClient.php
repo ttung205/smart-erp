@@ -49,7 +49,9 @@ class IdentityClient
     private function get(string $path, string $notFound = 'Không đọc được dữ liệu từ identity-service.'): array
     {
         try {
-            $response = Http::baseUrl((string) config('services.identity.url'))->acceptJson()->timeout(5)->get($path);
+            $response = Http::baseUrl((string) config('services.identity.url'))
+                ->withHeaders(['X-Internal-Service-Key' => (string) config('services.internal.key')])
+                ->acceptJson()->timeout(5)->get($path);
         } catch (ConnectionException) {
             throw ValidationException::withMessages(['identity' => 'Không kết nối được identity-service.']);
         }

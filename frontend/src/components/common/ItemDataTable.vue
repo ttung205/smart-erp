@@ -49,7 +49,8 @@
           :label="addRowLabel"
           icon="pi pi-plus"
           size="small"
-          class="!bg-emerald-600 hover:!bg-emerald-700 !text-white !border-emerald-600 !text-xs !py-1 !px-2.5 rounded-[6px]"
+          outlined
+          :class="ITEM_TABLE_ACTION_CLASS"
           @click="addNewEmptyRow"
         />
 
@@ -59,9 +60,8 @@
           label="Tìm & Thêm"
           icon="pi pi-search"
           size="small"
-          severity="info"
           outlined
-          class="!text-xs !py-1 !px-2.5 rounded-[6px] !border-sky-500 !text-sky-600 hover:!bg-sky-50"
+          :class="ITEM_TABLE_ACTION_CLASS"
           @click="openSearchDialog"
         />
 
@@ -74,9 +74,8 @@
           label="Cài đặt cột"
           icon="pi pi-cog"
           size="small"
-          severity="secondary"
-          text
-          class="!text-xs !py-1 !px-2 rounded-[6px] !text-slate-600 hover:!bg-slate-100"
+          outlined
+          :class="ITEM_TABLE_ACTION_CLASS"
           @click="showColumnConfig = true"
         />
 
@@ -86,9 +85,8 @@
           icon="pi pi-file-excel"
           label="Xuất Excel"
           size="small"
-          severity="secondary"
-          text
-          class="!text-xs !py-1 !px-2 rounded-[6px] !text-emerald-700 hover:!bg-emerald-50"
+          outlined
+          :class="ITEM_TABLE_ACTION_CLASS"
           @click="exportToExcel"
         />
       </div>
@@ -415,6 +413,7 @@ import { catalogApi } from '../../api/catalog.api';
 import { inventoryApi } from '../../api/inventory.api';
 import { FALLBACK_CATALOG_PRODUCTS, getProductOrigin } from '../../constants/catalogProducts.constant';
 import { formatCurrency } from '../../utils/format';
+import { ITEM_TABLE_ACTION_CLASS } from '../../constants/itemTable.constant';
 
 const props = defineProps({
   modelValue: {
@@ -470,6 +469,11 @@ const props = defineProps({
     default: 'Thêm sản phẩm'
   },
   createEmptyRow: {
+    type: Function,
+    default: null
+  },
+  // Map sản phẩm catalog -> dòng item riêng của từng nghiệp vụ (mặc định: dòng báo giá)
+  catalogItemMapper: {
     type: Function,
     default: null
   }
@@ -556,7 +560,8 @@ watch(
           quantity: qty,
           unit_price: price,
           selling_price: price,
-          gross_price: Number(it.gross_price || price),
+          // Giữ null khi chưa có giá (vd: item hỏi hàng chưa có kết quả) thay vì hiển thị 0
+          gross_price: it.gross_price == null && !price ? null : Number(it.gross_price || price),
           discount_percent: disc,
           discount: disc,
           vat_percent: vat,
@@ -755,6 +760,7 @@ const loadCatalogProducts = async () => {
           sku: p.sku,
           designation: p.designation || '',
           brand: p.brand || '',
+          category: p.category || '',
           description: p.name || p.description || '',
           name: p.name || p.description || '',
           gross_price: Number(p.gross_price) || Number(p.price) || 0,
@@ -796,6 +802,15 @@ const openSearchDialog = async () => {
 };
 
 const confirmAddCatalogItems = () => {
+  if (props.catalogItemMapper) {
+    // Bỏ các dòng còn trống trước khi thêm sản phẩm chọn từ catalog
+    const filledRows = items.value.filter((it) => it.sku || it.designation || it.item_description);
+    items.value = [...filledRows, ...selectedCatalogItems.value.map((prod) => props.catalogItemMapper(prod))];
+    notifyChange();
+    showCatalogSearchDialog.value = false;
+    return;
+  }
+
   selectedCatalogItems.value.forEach((prod) => {
     const prodOrigin = prod.origin || prod.com || getProductOrigin(prod.sku || prod.id);
     const lastItem = items.value[items.value.length - 1];
@@ -947,6 +962,7 @@ defineExpose({
   summary,
   notifyChange,
   addNewEmptyRow,
+  openSearchDialog,
   getAvailableStock
 });
 </script>

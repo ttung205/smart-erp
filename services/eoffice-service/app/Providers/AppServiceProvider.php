@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Auth\JwtVerifier;
 use App\Models\LeaveRequest;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
@@ -13,7 +14,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(JwtVerifier::class, fn () => new JwtVerifier((string) config('services.identity.jwt_secret')));
     }
 
     /**

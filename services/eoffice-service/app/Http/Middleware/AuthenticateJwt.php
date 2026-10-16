@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Auth\InvalidTokenException;
+use App\Auth\JwtVerifier;
 use Closure;
 use Illuminate\Http\Request;
 use stdClass;
@@ -9,44 +11,34 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AuthenticateJwt
 {
-    /**
-     * Handle an incoming request.
-     *
-     * @param  Closure(Request): (Response)  $next
-     */
+    public function __construct(private readonly JwtVerifier $verifier) {}
+
     public function handle(Request $request, Closure $next): Response
     {
-        $authorization = $request->header('Authorization', '');
-        if (! preg_match('/^Bearer\s+(\S+)$/i', $authorization, $matches)) {
-            return response()->json(['success' => false, 'error' => ['code' => 'AUTH_TOKEN_MISSING']], 401);
+        $token = $request->bearerToken();
+        if (! $token) {
+            return $this->unauthenticated('AUTH_TOKEN_MISSING', 'Vui lòng đăng nhập để tiếp tục.');
         }
-        $parts = explode('.', $matches[1]);
-        if (count($parts) !== 3) {
-            return response()->json(['success' => false, 'error' => ['code' => 'AUTH_TOKEN_INVALID']], 401);
-        }
-        [$encodedHeader, $encodedPayload, $encodedSignature] = $parts;
-        $decode = static function (string $value): ?array {
-            $value .= str_repeat('=', (4 - strlen($value) % 4) % 4);
-            $decoded = base64_decode(strtr($value, '-_', '+/'), true);
-            $data = $decoded === false ? null : json_decode($decoded, true);
 
-            return is_array($data) ? $data : null;
-        };
-        $header = $decode($encodedHeader);
-        $payload = $decode($encodedPayload);
-        $secret = (string) config('services.identity.jwt_secret');
-        $expected = rtrim(strtr(base64_encode(hash_hmac('sha256', "{$encodedHeader}.{$encodedPayload}", $secret, true)), '+/', '-_'), '=');
-        if (($header['alg'] ?? null) !== 'HS256' || ! $payload || ! hash_equals($expected, $encodedSignature) || ($payload['iss'] ?? null) !== 'identity-service' || (int) ($payload['exp'] ?? 0) <= time()) {
-            return response()->json(['success' => false, 'error' => ['code' => 'AUTH_TOKEN_INVALID']], 401);
+        try {
+            $claims = $this->verifier->verify($token);
+        } catch (InvalidTokenException $e) {
+            return $this->unauthenticated($e->errorCode, $e->getMessage());
         }
+
         $actor = new stdClass;
-        $actor->id = (int) $payload['sub'];
-        $actor->name = (string) ($payload['name'] ?? $payload['email'] ?? 'Người dùng');
-        $actor->department_id = isset($payload['department_id']) ? (int) $payload['department_id'] : null;
-        $actor->roles = array_values((array) ($payload['roles'] ?? []));
-        $actor->permissions = array_values((array) ($payload['permissions'] ?? []));
+        $actor->id = (int) $claims['sub'];
+        $actor->name = (string) ($claims['name'] ?? $claims['email'] ?? 'Người dùng');
+        $actor->department_id = isset($claims['department_id']) ? (int) $claims['department_id'] : null;
+        $actor->roles = array_values((array) ($claims['roles'] ?? []));
+        $actor->permissions = array_values((array) ($claims['permissions'] ?? []));
         $request->attributes->set('actor', $actor);
 
         return $next($request);
+    }
+
+    private function unauthenticated(string $code, string $message): Response
+    {
+        return response()->json(['success' => false, 'error' => ['code' => $code, 'message' => $message]], 401);
     }
 }

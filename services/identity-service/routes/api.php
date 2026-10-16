@@ -7,21 +7,30 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\PermissionController;
 
-// 1. Health check & Authentication
+// 1. Health check & Authentication (công khai)
 Route::get('/health', [AuthController::class, 'health']);
 Route::post('/login', [AuthController::class, 'login']);
-Route::get('/me', [AuthController::class, 'me']);
+Route::get('/me', [AuthController::class, 'me'])->middleware('jwt');
 
-// 2. Departments (Phòng ban)
-Route::apiResource('departments', DepartmentController::class);
+// 2. Đọc dữ liệu tổ chức: người dùng đã đăng nhập hoặc service nội bộ
+Route::middleware('user_or_service')->group(function () {
+    Route::get('/users/by-permission', [UserController::class, 'byPermission']);
+    Route::apiResource('departments', DepartmentController::class)->only(['index', 'show']);
+    Route::apiResource('users', UserController::class)->only(['index', 'show']);
+    Route::apiResource('roles', RoleController::class)->only(['index', 'show']);
+    Route::apiResource('permissions', PermissionController::class)->only(['index', 'show']);
+});
 
-// 3. Users (Nhân viên)
-Route::get('/users/by-permission', [UserController::class, 'byPermission']);
-Route::apiResource('users', UserController::class);
-
-// 4. Roles (Vai trò)
-Route::put('/roles/{id}/permissions', [RoleController::class, 'updatePermissions']);
-Route::apiResource('roles', RoleController::class);
-
-// 5. Permissions (Quyền hạn)
-Route::apiResource('permissions', PermissionController::class);
+// 3. Quản trị: chỉ người dùng có quyền tương ứng
+Route::middleware('jwt')->group(function () {
+    Route::apiResource('departments', DepartmentController::class)->except(['index', 'show'])
+        ->middleware('permission:department.manage');
+    Route::apiResource('users', UserController::class)->except(['index', 'show'])
+        ->middleware('permission:employee.manage,users.manage');
+    Route::put('/roles/{id}/permissions', [RoleController::class, 'updatePermissions'])
+        ->middleware('permission:role.manage');
+    Route::apiResource('roles', RoleController::class)->except(['index', 'show'])
+        ->middleware('permission:role.manage');
+    Route::apiResource('permissions', PermissionController::class)->except(['index', 'show'])
+        ->middleware('permission:permission.manage');
+});

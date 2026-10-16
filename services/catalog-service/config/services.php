@@ -43,6 +43,12 @@ return [
     'identity' => [
         'url' => rtrim(env('IDENTITY_SERVICE_URL', 'http://127.0.0.1:8001'), '/'),
         'timeout' => (int) env('IDENTITY_SERVICE_TIMEOUT', 3),
+        // Không có giá trị mặc định: thiếu JWT_SECRET thì service báo lỗi cấu hình thay vì âm thầm dùng secret công khai
+        'jwt_secret' => env('JWT_SECRET'),
+    ],
+
+    'internal' => [
+        'key' => env('INTERNAL_SERVICE_KEY'),
     ],
 
     'inventory' => [

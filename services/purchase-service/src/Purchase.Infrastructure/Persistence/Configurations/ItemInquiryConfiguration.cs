@@ -29,6 +29,7 @@ public class ItemInquiryRequestItemConfiguration : IEntityTypeConfiguration<Item
         b.HasKey(x => x.Id);
         b.Property(x => x.Quantity).HasPrecision(18, 3);
         b.Property(x => x.GrossPrice).HasPrecision(18, 2);
+        b.Property(x => x.CatalogGrossPrice).HasPrecision(18, 2);
     }
 }
 

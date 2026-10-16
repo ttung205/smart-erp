@@ -15,7 +15,7 @@ class BrandController extends Controller
             ->groupBy('brands.id', 'brands.name', 'brands.price_index', 'brands.created_at')
             ->orderBy('brands.name')
             ->get();
-        if (!$this->hasRole($request, ['SUPER_ADMIN', 'PURCHASE', 'PURCHASE_MANAGER'])) {
+        if (!$this->canSeePriceIndex($request)) {
             foreach ($brands as $brand) unset($brand->price_index);
         }
         return response()->json(['success' => true, 'data' => $brands]);
@@ -24,23 +24,16 @@ class BrandController extends Controller
     public function show(Request $request, $id)
     {
         $brand = DB::table('brands')->where('id', $id)->first();
-        if ($brand && !$this->hasRole($request, ['SUPER_ADMIN', 'PURCHASE', 'PURCHASE_MANAGER'])) unset($brand->price_index);
+        if ($brand && !$this->canSeePriceIndex($request)) unset($brand->price_index);
         return $brand ? response()->json(['success' => true, 'data' => $brand]) : response()->json(['success' => false], 404);
     }
 
-    private function hasRole(Request $request, array $allowed): bool
+    private function canSeePriceIndex(Request $request): bool
     {
-        $token = $request->bearerToken();
-        if (!$token || count($parts = explode('.', $token)) !== 3) return false;
-        [$header, $payload, $signature] = $parts;
-        $secret = env('JWT_SECRET', 'smart_erp_super_secure_jwt_secret_key_2026');
-        $expected = rtrim(strtr(base64_encode(hash_hmac('sha256', "$header.$payload", $secret, true)), '+/', '-_'), '=');
-        if (!hash_equals($expected, $signature)) return false;
-        $claims = json_decode(base64_decode(strtr($payload, '-_', '+/')), true);
-        return is_array($claims) && ($claims['exp'] ?? 0) > time() && count(array_intersect($allowed, $claims['roles'] ?? [])) > 0;
+        return $this->actor($request)->hasAnyRole('SUPER_ADMIN', 'PURCHASE', 'PURCHASE_MANAGER');
     }
 
-    private function isSuperAdmin(Request $request): bool { return $this->hasRole($request, ['SUPER_ADMIN']); }
+    private function isSuperAdmin(Request $request): bool { return $this->actor($request)->hasAnyRole('SUPER_ADMIN'); }
 
     public function store(Request $request)
     {

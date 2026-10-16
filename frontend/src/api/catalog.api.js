@@ -13,6 +13,11 @@ export const catalogApi = {
     return apiClient(`/api/v1/catalog/products${qs ? '?' + qs : ''}`);
   },
 
+  // Lịch sử thay đổi gross price theo SKU
+  getProductPriceHistory(sku) {
+    return apiClient(`/api/v1/catalog/products/price-history?sku=${encodeURIComponent(sku)}`);
+  },
+
   getProductById(id) {
     return apiClient(`/api/v1/catalog/products/${id}`);
   },

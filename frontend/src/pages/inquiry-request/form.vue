@@ -33,16 +33,19 @@
       <InquiryRequestInfoForm v-model="form" :customers="customers" :users="users" />
 
       <!-- 3. Item yêu cầu -->
-      <div class="flex flex-col gap-1">
-        <div class="flex items-center justify-between px-1">
-          <span class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
-            <i class="pi pi-box text-sky-600 text-xs"></i>
-            Item yêu cầu ({{ form.items.length }})
-          </span>
-          <Button label="Thêm item" icon="pi pi-plus" size="small" text class="!rounded-[6px] !text-xs" @click="addItem" />
-        </div>
-        <InquiryRequestItemTable v-model="form.items" />
-      </div>
+      <InquiryRequestItemTable v-model="form.items" />
+
+      <!-- 4. Tài liệu đính kèm (yêu cầu mới: lưu tạm, tải lên sau khi lưu nháp) -->
+      <FormAttachmentUpload
+        v-model="attachments"
+        title="Tài Liệu Đính Kèm Yêu Cầu Hỏi Hàng"
+        subtitle="Bản vẽ, thông số kỹ thuật hoặc yêu cầu của khách hàng gửi kèm cho phòng mua hàng"
+        accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx"
+        :max-file-size="10485760"
+        :upload-handler="uploadAttachments"
+        :remove-handler="removeAttachment"
+        :download-handler="downloadAttachment"
+      />
     </template>
   </div>
 </template>
@@ -53,6 +56,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import Button from 'primevue/button';
 import PageHeader from '../../components/common/PageHeader.vue';
+import FormAttachmentUpload from '../../components/common/FormAttachmentUpload.vue';
 import InquiryRequestInfoForm from '../../components/inquiry-request/InquiryRequestInfoForm.vue';
 import InquiryRequestItemTable from '../../components/inquiry-request/InquiryRequestItemTable.vue';
 import { itemInquiryApi } from '../../api/item-inquiry.api';
@@ -73,8 +77,29 @@ const customers = ref([]);
 const users = ref([]);
 
 const form = ref({ customer_id: null, assignee_id: null, watcher_id: null, due_date: '', description: '', items: [createBlankRequestItem()] });
+const attachments = ref([]);
 
-const addItem = () => { form.value.items = [...form.value.items, createBlankRequestItem()]; };
+// Yêu cầu đã có id thì tải lên ngay; yêu cầu mới giữ File lại để tải lên sau khi lưu
+const uploadAttachments = async files => {
+  if (!isEditMode.value) return files.map(file => ({ id: null, file_name: file.name, size: file.size, uploaded_at: 'Chờ lưu nháp', _file: file }));
+  const uploaded = [];
+  for (const file of files) uploaded.push((await itemInquiryApi.upload(requestId.value, file)).data);
+  return uploaded;
+};
+
+const removeAttachment = async attachment => {
+  if (attachment.id) await itemInquiryApi.deleteAttachment(requestId.value, attachment.id);
+};
+
+const downloadAttachment = async attachment => {
+  if (attachment.id) return itemInquiryApi.download(requestId.value, attachment);
+  const url = URL.createObjectURL(attachment._file);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = attachment.file_name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
 
 const validate = () => {
   if (!form.value.customer_id || !form.value.assignee_id) return 'Chọn khách hàng và nhân viên phụ trách.';
@@ -97,6 +122,14 @@ const saveRequest = async () => {
     };
     const response = isEditMode.value ? await itemInquiryApi.update(requestId.value, payload) : await itemInquiryApi.create(payload);
     toast.add({ severity: 'success', summary: 'Đã lưu', detail: 'Đã lưu yêu cầu hỏi hàng nháp.', life: 3000 });
+    // Yêu cầu đã tạo xong: lỗi tải tệp chỉ cảnh báo để không tạo trùng yêu cầu khi lưu lại
+    for (const attachment of attachments.value.filter(item => item._file)) {
+      try {
+        await itemInquiryApi.upload(response.data.id, attachment._file);
+      } catch (e) {
+        toast.add({ severity: 'warn', summary: `Chưa tải được ${attachment.file_name}`, detail: e.message, life: 5000 });
+      }
+    }
     await router.push(`/sale/item-inquiries/${response.data.id}`);
   } catch (e) {
     toast.add({ severity: 'error', summary: 'Lỗi', detail: e.message, life: 4000 });
@@ -121,6 +154,7 @@ const loadRequest = async () => {
     description: detail.description || '',
     items: detail.items.map(item => ({ ...item }))
   };
+  attachments.value = detail.attachments || [];
 };
 
 onMounted(async () => {

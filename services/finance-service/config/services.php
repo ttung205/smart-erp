@@ -3,7 +3,8 @@
 return [
 
     'identity' => [
-        'jwt_secret' => env('JWT_SECRET', 'smart_erp_super_secure_jwt_secret_key_2026'),
+        // Không có giá trị mặc định: thiếu JWT_SECRET thì service báo lỗi cấu hình thay vì âm thầm dùng secret công khai
+        'jwt_secret' => env('JWT_SECRET'),
     ],
 
     /*

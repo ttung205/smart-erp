@@ -32,6 +32,7 @@
     <!-- PrimeVue FileUpload Component (Advanced Mode - Always 3 Buttons) -->
     <div class="space-y-3">
       <FileUpload
+        v-if="!readonly"
         ref="fileUploadRef"
         name="attachments[]"
         mode="advanced"
@@ -215,7 +216,8 @@
 
       <!-- Notice when no files uploaded yet -->
       <div v-else-if="!stagedFiles.length" class="py-2.5 px-3 bg-slate-50 border border-dashed border-slate-200 rounded-[6px] flex items-center justify-between text-xs text-slate-400">
-        <span>Chưa có tệp đính kèm nào. Nhấn <strong>"Chọn tệp"</strong> ở trên để tải lên tài liệu.</span>
+        <span v-if="readonly">Chưa có tệp đính kèm nào.</span>
+        <span v-else>Chưa có tệp đính kèm nào. Nhấn <strong>"Chọn tệp"</strong> ở trên để tải lên tài liệu.</span>
       </div>
     </div>
 
@@ -297,6 +299,20 @@ const props = defineProps({
   multiple: {
     type: Boolean,
     default: true
+  },
+  // Các hàm xử lý tệp cho module không dùng API đính kèm của sales (mặc định: salesApi)
+  // uploadHandler(files) => danh sách attachment; removeHandler(item); downloadHandler(item)
+  uploadHandler: {
+    type: Function,
+    default: null
+  },
+  removeHandler: {
+    type: Function,
+    default: null
+  },
+  downloadHandler: {
+    type: Function,
+    default: null
   }
 });
 
@@ -414,34 +430,7 @@ const onCustomUpload = async (event) => {
 
   uploading.value = true;
   try {
-    const formData = new FormData();
-    files.forEach((file) => {
-      formData.append('files[]', file);
-    });
-
-    const secType = props.sectionType === 'order' ? 'sales_order' : props.sectionType;
-    formData.append('attachable_type', secType);
-
-    if (props.recordId && props.recordId !== 'create') {
-      formData.append('attachable_id', props.recordId);
-    }
-
-    const res = await salesApi.uploadAttachments(formData);
-    const data = res?.data || res;
-    const uploadedList = Array.isArray(data) ? data : [data];
-
-    const formatted = uploadedList.map((item) => ({
-      id: item.id,
-      name: item.file_name,
-      file_name: item.file_name,
-      size: item.file_size,
-      file_size: item.file_size,
-      file_path: item.file_path,
-      file_url: item.file_url || item.url,
-      mime_type: item.mime_type,
-      uploaded_at: item.uploaded_at || new Date().toLocaleString('vi-VN'),
-      status: 'UPLOADED'
-    }));
+    const formatted = props.uploadHandler ? await props.uploadHandler(files) : await uploadToSales(files);
 
     const updated = [...(attachments.value || []), ...formatted];
     emit('update:modelValue', updated);
@@ -472,10 +461,45 @@ const onCustomUpload = async (event) => {
   }
 };
 
+const uploadToSales = async (files) => {
+  const formData = new FormData();
+  files.forEach((file) => {
+    formData.append('files[]', file);
+  });
+
+  const secType = props.sectionType === 'order' ? 'sales_order' : props.sectionType;
+  formData.append('attachable_type', secType);
+
+  if (props.recordId && props.recordId !== 'create') {
+    formData.append('attachable_id', props.recordId);
+  }
+
+  const res = await salesApi.uploadAttachments(formData);
+  const data = res?.data || res;
+  const uploadedList = Array.isArray(data) ? data : [data];
+
+  const formatted = uploadedList.map((item) => ({
+    id: item.id,
+    name: item.file_name,
+    file_name: item.file_name,
+    size: item.file_size,
+    file_size: item.file_size,
+    file_path: item.file_path,
+    file_url: item.file_url || item.url,
+    mime_type: item.mime_type,
+    uploaded_at: item.uploaded_at || new Date().toLocaleString('vi-VN'),
+    status: 'UPLOADED'
+  }));
+
+  return formatted;
+};
+
 // Remove already uploaded attachment
 const removeAttachment = async (index, item) => {
   try {
-    if (item.id) {
+    if (props.removeHandler) {
+      await props.removeHandler(item);
+    } else if (item.id) {
       await salesApi.deleteAttachment(item.id).catch((e) => {
         console.warn('Lỗi xóa trên server:', e);
       });
@@ -494,12 +518,15 @@ const removeAttachment = async (index, item) => {
     });
   } catch (e) {
     console.error('Lỗi khi xóa tệp:', e);
+    toast.add({ severity: 'error', summary: 'Lỗi', detail: e?.message || 'Không xóa được tệp.', life: 4000 });
   }
 };
 
 // Download file directly
 const downloadFileDirectly = async (item) => {
-  if (item.id) {
+  if (props.downloadHandler) {
+    await props.downloadHandler(item);
+  } else if (item.id) {
     const blob = await salesApi.downloadAttachment(item.id);
     const downloadUrl = URL.createObjectURL(blob);
     const link = document.createElement('a');

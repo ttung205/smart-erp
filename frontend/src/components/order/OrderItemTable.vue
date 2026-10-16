@@ -209,9 +209,8 @@
           label="Hẹn ngày hàng loạt"
           icon="pi pi-calendar-plus"
           size="small"
-          severity="secondary"
           outlined
-          class="!text-xs !py-1 !px-2.5 rounded-[6px] !border-sky-300 !text-sky-700 hover:!bg-sky-50"
+          :class="ITEM_TABLE_ACTION_CLASS"
           title="Áp dụng một ngày hẹn giao chung cho tất cả mặt hàng trong đơn hàng này"
           @click="openBulkDateDialog(items)"
         />
@@ -268,6 +267,7 @@ import Dialog from 'primevue/dialog';
 import DatePicker from 'primevue/datepicker';
 import ItemDataTable from '../common/ItemDataTable.vue';
 import { formatCurrency, formatDate } from '../../utils/format';
+import { ITEM_TABLE_ACTION_CLASS } from '../../constants/itemTable.constant';
 
 const props = defineProps({
   modelValue: {

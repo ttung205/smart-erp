@@ -23,6 +23,7 @@ public class ItemInquiriesController(PurchaseDbContext db, IOutboxService outbox
     private IActionResult Forbidden() => StatusCode(403, new { success = false, error = new { message = "Không có quyền thực hiện thao tác này." } });
     private static IActionResult Bad(string message) => new BadRequestObjectResult(new { success = false, error = new { message } });
     private string Base(string name, string fallback) => (config[$"Services:{name}"] ?? fallback).TrimEnd('/');
+    private string InternalKey() => config["Services:InternalKey"] is { Length: > 0 } key ? key : throw new InvalidOperationException("Services:InternalKey chưa được cấu hình.");
     private HttpClient Client() { var client = clients.CreateClient(); client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Request.Headers.Authorization.ToString().Replace("Bearer ", "", StringComparison.OrdinalIgnoreCase)); return client; }
     private static object OkData(object data) => new { success = true, data };
     private static string Code(string source) => new string(source.Where(ch => char.IsLetterOrDigit(ch) || ch == '-').Select(char.ToUpperInvariant).ToArray()).Trim('-');
@@ -43,11 +44,25 @@ public class ItemInquiriesController(PurchaseDbContext db, IOutboxService outbox
         return doc.RootElement.TryGetProperty("data", out var data) ? data.Clone() : null;
     }
 
-    private async Task<(JsonElement? Product, string? Error)> ApplyProduct(SupplierInquiryItem item, CancellationToken ct)
+    // Lưu gross price hiện tại của catalog theo SKU để sale thấy giá lúc hỏi hàng
+    private async Task SnapshotCatalogPrices(List<ItemInquiryRequestItem> items, CancellationToken ct)
     {
-        var payload = JsonSerializer.Serialize(new { request_item_id = item.RequestItemId, inquiry_item_id = item.Id, sku = item.Sku, designation = item.Designation, description = item.ItemDescription, brand_id = item.BrandId, category = item.Category, com = item.Com, unit = item.Unit, spec = item.Spec, buying_price = item.BuyingPrice, vat = item.Vat, tax = item.Tax, price_index = item.PriceIndex, gross_price = item.GrossPrice });
+        foreach (var group in items.Where(x => !string.IsNullOrWhiteSpace(x.Sku)).GroupBy(x => x.Sku!, StringComparer.OrdinalIgnoreCase))
+        {
+            var products = await CatalogGet($"products?search={Uri.EscapeDataString(group.Key)}", ct);
+            if (products is not { ValueKind: JsonValueKind.Array }) continue;
+            var product = products.Value.EnumerateArray().FirstOrDefault(p => string.Equals(p.GetProperty("sku").GetString(), group.Key, StringComparison.OrdinalIgnoreCase));
+            if (product.ValueKind == JsonValueKind.Undefined || !product.TryGetProperty("gross_price", out var gross) || gross.ValueKind == JsonValueKind.Null) continue;
+            var price = gross.ValueKind == JsonValueKind.String ? decimal.Parse(gross.GetString()!, System.Globalization.CultureInfo.InvariantCulture) : gross.GetDecimal();
+            foreach (var item in group) item.CatalogGrossPrice = price;
+        }
+    }
+
+    private async Task<(JsonElement? Product, string? Error)> ApplyProduct(SupplierInquiryItem item, string reference, CancellationToken ct)
+    {
+        var payload = JsonSerializer.Serialize(new { reference, request_item_id = item.RequestItemId, inquiry_item_id = item.Id, sku = item.Sku, designation = item.Designation, description = item.ItemDescription, brand_id = item.BrandId, category = item.Category, com = item.Com, unit = item.Unit, spec = item.Spec, buying_price = item.BuyingPrice, vat = item.Vat, tax = item.Tax, price_index = item.PriceIndex, gross_price = item.GrossPrice });
         var client = Client();
-        client.DefaultRequestHeaders.Add("X-Internal-Service-Key", config["Services:InternalKey"] ?? "smart_erp_internal_2026");
+        client.DefaultRequestHeaders.Add("X-Internal-Service-Key", InternalKey());
         var response = await client.PostAsync($"{Base("Catalog", "http://localhost:8002")}/api/products/apply-inquiry-result", new StringContent(payload, Encoding.UTF8, "application/json"), ct);
         var body = await response.Content.ReadAsStringAsync(ct);
         if (!response.IsSuccessStatusCode) return (null, body);
@@ -128,6 +143,7 @@ public class ItemInquiriesController(PurchaseDbContext db, IOutboxService outbox
         var name = customer.Value.GetProperty("name").GetString() ?? "";
         var r = new ItemInquiryRequest { Code = await UniqueCode(code, true, ct), CustomerId = input.CustomerId, CustomerCode = code, CustomerName = name, RequestedBy = UserId, AssigneeId = input.AssigneeId, WatcherId = input.WatcherId, DueDate = input.DueDate, Description = input.Description,
             Items = input.Items.Select(x => new ItemInquiryRequestItem { Sku = x.Sku?.Trim(), Designation = x.Designation.Trim(), ItemDescription = x.ItemDescription, Brand = x.Brand, Category = x.Category, Com = x.Com, Unit = x.Unit, Quantity = x.Quantity, LeadTime = x.LeadTime, Note = x.Note, Spec = x.Spec }).ToList() };
+        await SnapshotCatalogPrices(r.Items, ct);
         db.ItemInquiryRequests.Add(r);
         await db.SaveChangesAsync(ct);
         return CreatedAtAction(nameof(RequestById), new { id = r.Id }, OkData(RequestView(r)));
@@ -145,6 +161,7 @@ public class ItemInquiriesController(PurchaseDbContext db, IOutboxService outbox
         r.AssigneeId = input.AssigneeId; r.WatcherId = input.WatcherId; r.DueDate = input.DueDate; r.Description = input.Description; r.UpdatedAt = DateTime.UtcNow;
         db.ItemInquiryRequestItems.RemoveRange(r.Items);
         r.Items = input.Items.Select(x => new ItemInquiryRequestItem { Sku = x.Sku?.Trim(), Designation = x.Designation.Trim(), ItemDescription = x.ItemDescription, Brand = x.Brand, Category = x.Category, Com = x.Com, Unit = x.Unit, Quantity = x.Quantity, LeadTime = x.LeadTime, Note = x.Note, Spec = x.Spec }).ToList();
+        await SnapshotCatalogPrices(r.Items, ct);
         await db.SaveChangesAsync(ct);
         return Ok(OkData(RequestView(r)));
     }
@@ -206,6 +223,21 @@ public class ItemInquiriesController(PurchaseDbContext db, IOutboxService outbox
         var path = Path.Combine(env.ContentRootPath, "inquiry-attachments", a.StorageName);
         if (!System.IO.File.Exists(path)) return NotFound();
         return PhysicalFile(path, a.ContentType, a.FileName);
+    }
+
+    [HttpDelete("requests/{id:long}/attachments/{attachmentId:long}")]
+    public async Task<IActionResult> DeleteAttachment(long id, long attachmentId, CancellationToken ct)
+    {
+        var r = await FindRequest(id, ct);
+        if (r == null) return NotFound();
+        if (r.Status != "DRAFT" || (r.RequestedBy != UserId && !Admin)) return Forbidden();
+        var a = r.Attachments.FirstOrDefault(x => x.Id == attachmentId);
+        if (a == null) return NotFound();
+        db.ItemInquiryAttachments.Remove(a);
+        await db.SaveChangesAsync(ct);
+        var path = Path.Combine(env.ContentRootPath, "inquiry-attachments", a.StorageName);
+        if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
+        return Ok(OkData(new { a.Id }));
     }
 
     public record InquiryInput(long SupplierId, List<InquiryItemInput> Items, List<long>? AttachmentIds);
@@ -385,7 +417,7 @@ public class ItemInquiriesController(PurchaseDbContext db, IOutboxService outbox
             var requestItem = request.Items.FirstOrDefault(x => x.Id == item.RequestItemId);
             if (requestItem == null) return Bad("Item hỏi hàng không thuộc yêu cầu.");
             if (requestItem.SelectedInquiryItemId.HasValue || (wasCompleted && requestItem.GrossPrice.HasValue)) continue;
-            var (product, error) = await ApplyProduct(item, ct);
+            var (product, error) = await ApplyProduct(item, i.Code, ct);
             if (product == null) return StatusCode(502, new { success = false, error = new { message = $"Chưa cập nhật được Product cho SKU {item.Sku}.", detail = error } });
             requestItem.Sku = product.Value.GetProperty("sku").GetString();
             requestItem.GrossPrice = product.Value.GetProperty("gross_price").GetDecimal();
@@ -414,9 +446,9 @@ public class ItemInquiriesController(PurchaseDbContext db, IOutboxService outbox
         var selected = await db.SupplierInquiryItems.Join(db.SupplierInquiries, x => x.InquiryId, i => i.Id, (x, i) => new { Item = x, Inquiry = i }).FirstOrDefaultAsync(x => x.Item.Id == input.InquiryItemId && x.Item.RequestItemId == itemId && x.Inquiry.RequestId == id && x.Inquiry.Status == "COMPLETED", ct);
         if (selected == null) return Bad("Kết quả không thuộc item hoặc phiếu hỏi hàng chưa hoàn thành.");
         var x = selected.Item;
-        var payload = JsonSerializer.Serialize(new { request_item_id = itemId, inquiry_item_id = x.Id, sku = x.Sku, designation = x.Designation, description = x.ItemDescription, brand_id = x.BrandId, category = x.Category, com = x.Com, unit = x.Unit, spec = x.Spec, buying_price = x.BuyingPrice, vat = x.Vat, tax = x.Tax, price_index = x.PriceIndex, gross_price = x.GrossPrice });
+        var payload = JsonSerializer.Serialize(new { reference = selected.Inquiry.Code, request_item_id = itemId, inquiry_item_id = x.Id, sku = x.Sku, designation = x.Designation, description = x.ItemDescription, brand_id = x.BrandId, category = x.Category, com = x.Com, unit = x.Unit, spec = x.Spec, buying_price = x.BuyingPrice, vat = x.Vat, tax = x.Tax, price_index = x.PriceIndex, gross_price = x.GrossPrice });
         var client = Client();
-        client.DefaultRequestHeaders.Add("X-Internal-Service-Key", config["Services:InternalKey"] ?? "smart_erp_internal_2026");
+        client.DefaultRequestHeaders.Add("X-Internal-Service-Key", InternalKey());
         var response = await client.PostAsync($"{Base("Catalog", "http://localhost:8002")}/api/products/apply-inquiry-result", new StringContent(payload, Encoding.UTF8, "application/json"), ct);
         if (!response.IsSuccessStatusCode) return StatusCode(502, new { success = false, error = new { message = "Catalog chưa cập nhật được Product.", detail = await response.Content.ReadAsStringAsync(ct) } });
         using var productResult = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));

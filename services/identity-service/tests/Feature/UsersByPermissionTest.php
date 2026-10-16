@@ -11,6 +11,13 @@ class UsersByPermissionTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // notification-service gọi endpoint này bằng khóa nội bộ, không có token người dùng
+        $this->withHeader('X-Internal-Service-Key', 'phpunit-internal-key');
+    }
+
     public function test_returns_active_users_holding_the_permission_or_module_manage(): void
     {
         $this->seed(IdentitySeeder::class);

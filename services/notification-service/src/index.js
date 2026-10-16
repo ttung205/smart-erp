@@ -14,6 +14,9 @@ import { createRealtime } from './realtime/socket.js';
 if (!config.jwtSecret) {
   console.warn('[Notification Service] Chưa cấu hình JWT_SECRET: API hộp thư và socket sẽ từ chối mọi kết nối.');
 }
+if (!config.internalServiceKey) {
+  console.warn('[Notification Service] Chưa cấu hình INTERNAL_SERVICE_KEY: identity-service sẽ từ chối tra người nhận theo quyền.');
+}
 
 const db = openDatabase(config.dbPath);
 const repository = new NotificationRepository(db);
@@ -42,7 +45,11 @@ realtime = createRealtime(server, { jwtSecret: config.jwtSecret });
 const notificationService = new NotificationService({
   db,
   repository,
-  resolver: new RecipientResolver({ identityUrl: config.identityUrl, cacheTtlMs: config.recipientCacheTtlMs }),
+  resolver: new RecipientResolver({
+    identityUrl: config.identityUrl,
+    internalServiceKey: config.internalServiceKey,
+    cacheTtlMs: config.recipientCacheTtlMs,
+  }),
   rules,
   publisher,
 });

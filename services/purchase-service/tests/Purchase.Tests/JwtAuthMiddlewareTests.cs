@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Purchase.Api.Middlewares;
 using Purchase.Application.Common.Models;
+using Purchase.Infrastructure.Security;
 using Xunit;
 
 namespace Purchase.Tests;
@@ -29,6 +30,8 @@ public class JwtAuthMiddlewareTests
             .Build();
     }
 
+    private static HmacJwtTokenValidator CreateValidator() => new(CreateConfiguration());
+
     private static string GenerateJwt(
         string sub = "1",
         string name = "Admin User",
@@ -36,24 +39,27 @@ public class JwtAuthMiddlewareTests
         string[]? roles = null,
         string[]? perms = null,
         long? exp = null,
-        string secret = TestSecret)
+        string secret = TestSecret,
+        string issuer = "identity-service",
+        bool includeExp = true)
     {
         roles ??= new[] { "ADMIN", "PURCHASE_MANAGER" };
         perms ??= new[] { "po:create", "po:approve" };
         exp ??= DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds();
 
         var headerJson = JsonSerializer.Serialize(new { typ = "JWT", alg = "HS256" });
-        var payloadJson = JsonSerializer.Serialize(new
+        var claims = new Dictionary<string, object>
         {
-            iss = "identity-service",
-            sub = sub,
-            name = name,
-            email = email,
-            roles = roles,
-            permissions = perms,
-            iat = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-            exp = exp.Value
-        });
+            ["iss"] = issuer,
+            ["sub"] = sub,
+            ["name"] = name,
+            ["email"] = email,
+            ["roles"] = roles,
+            ["permissions"] = perms,
+            ["iat"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+        };
+        if (includeExp) claims["exp"] = exp.Value;
+        var payloadJson = JsonSerializer.Serialize(claims);
 
         var headerB64 = Base64Url(Encoding.UTF8.GetBytes(headerJson));
         var payloadB64 = Base64Url(Encoding.UTF8.GetBytes(payloadJson));
@@ -86,7 +92,7 @@ public class JwtAuthMiddlewareTests
         var context = new DefaultHttpContext();
         context.Request.Path = "/api/v1/purchase/health";
 
-        await middleware.InvokeAsync(context);
+        await middleware.InvokeAsync(context, CreateValidator());
 
         Assert.True(isNextCalled);
     }
@@ -106,7 +112,7 @@ public class JwtAuthMiddlewareTests
         context.Request.Path = "/api/v1/purchase/orders";
         context.Response.Body = new MemoryStream();
 
-        await middleware.InvokeAsync(context);
+        await middleware.InvokeAsync(context, CreateValidator());
 
         Assert.False(isNextCalled);
         Assert.Equal((int)HttpStatusCode.Unauthorized, context.Response.StatusCode);
@@ -138,7 +144,7 @@ public class JwtAuthMiddlewareTests
         var tokenWithWrongSecret = GenerateJwt(secret: "wrong_secret_key_1234567890");
         context.Request.Headers["Authorization"] = $"Bearer {tokenWithWrongSecret}";
 
-        await middleware.InvokeAsync(context);
+        await middleware.InvokeAsync(context, CreateValidator());
 
         Assert.False(isNextCalled);
         Assert.Equal((int)HttpStatusCode.Unauthorized, context.Response.StatusCode);
@@ -168,7 +174,7 @@ public class JwtAuthMiddlewareTests
         var expiredToken = GenerateJwt(exp: DateTimeOffset.UtcNow.AddMinutes(-10).ToUnixTimeSeconds());
         context.Request.Headers["Authorization"] = $"Bearer {expiredToken}";
 
-        await middleware.InvokeAsync(context);
+        await middleware.InvokeAsync(context, CreateValidator());
 
         Assert.False(isNextCalled);
         Assert.Equal((int)HttpStatusCode.Unauthorized, context.Response.StatusCode);
@@ -196,12 +202,56 @@ public class JwtAuthMiddlewareTests
         var validToken = GenerateJwt(sub: "99", name: "Trưởng phòng Mua hàng");
         context.Request.Headers["Authorization"] = $"Bearer {validToken}";
 
-        await middleware.InvokeAsync(context);
+        await middleware.InvokeAsync(context, CreateValidator());
 
         Assert.True(isNextCalled);
         Assert.Equal("99", context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
         Assert.Equal("Trưởng phòng Mua hàng", context.User.FindFirst(ClaimTypes.Name)?.Value);
         Assert.Equal("99", context.Items["UserId"]);
         Assert.True(context.User.IsInRole("PURCHASE_MANAGER"));
+    }
+
+    private static async Task<string?> RejectedErrorCode(string token)
+    {
+        var isNextCalled = false;
+        var middleware = new JwtAuthMiddleware(_ => { isNextCalled = true; return Task.CompletedTask; }, NullLogger<JwtAuthMiddleware>.Instance, CreateConfiguration());
+        var context = new DefaultHttpContext();
+        context.Request.Path = "/api/v1/purchase/orders";
+        context.Request.Headers["Authorization"] = $"Bearer {token}";
+        context.Response.Body = new MemoryStream();
+
+        await middleware.InvokeAsync(context, CreateValidator());
+
+        Assert.False(isNextCalled);
+        Assert.Equal((int)HttpStatusCode.Unauthorized, context.Response.StatusCode);
+        context.Response.Body.Seek(0, SeekOrigin.Begin);
+        var envelope = await JsonSerializer.DeserializeAsync<ApiEnvelope<object>>(context.Response.Body, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
+        return envelope?.Error?.Code;
+    }
+
+    [Fact]
+    public async Task InvokeAsync_TokenFromOtherIssuer_ShouldReturn401InvalidToken()
+    {
+        Assert.Equal("INVALID_TOKEN", await RejectedErrorCode(GenerateJwt(issuer: "someone-else")));
+    }
+
+    [Fact]
+    public async Task InvokeAsync_TokenWithoutExp_ShouldBeRejected()
+    {
+        Assert.Equal("TOKEN_EXPIRED", await RejectedErrorCode(GenerateJwt(includeExp: false)));
+    }
+
+    [Fact]
+    public async Task InvokeAsync_UnsupportedAlgorithm_ShouldReturn401InvalidToken()
+    {
+        var parts = GenerateJwt().Split('.');
+        var noneHeader = Base64Url(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { typ = "JWT", alg = "none" })));
+        Assert.Equal("INVALID_TOKEN", await RejectedErrorCode($"{noneHeader}.{parts[1]}.{parts[2]}"));
+    }
+
+    [Fact]
+    public void Validator_WithoutConfiguredSecret_ShouldFailFast()
+    {
+        Assert.Throws<InvalidOperationException>(() => new HmacJwtTokenValidator(CreateConfiguration(secret: null)));
     }
 }
