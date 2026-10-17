@@ -72,11 +72,13 @@
           </div>
           <iframe
             v-else-if="previewUrl"
+            :key="previewUrl"
             :src="previewUrl"
+            title="Xem trước báo giá PDF"
             class="w-full h-[520px] border-none"
-          ></iframe>
+          />
           <div v-else class="py-12 text-slate-400 text-center">
-            Không thể tải bản xem trước PDF
+            {{ previewError || 'Không thể tải bản xem trước PDF' }}
           </div>
         </div>
       </div>
@@ -86,7 +88,7 @@
         <div class="flex items-center justify-between w-full pt-2">
           <div class="text-[11px] text-slate-500 flex items-center gap-1.5">
             <i class="pi pi-shield text-emerald-600"></i>
-            <span>File PDF được tạo tự động theo chuẩn nhận diện thương hiệu Thanh Tùng</span>
+            <span>File PDF được tạo theo thông tin tại trang Công ty</span>
           </div>
 
           <div class="flex items-center gap-2">
@@ -182,6 +184,7 @@ const showSendEmailDialog = ref(false);
 
 const loadingPreview = ref(false);
 const previewUrl = ref('');
+const previewError = ref('');
 const currentPdfBase64 = ref('');
 
 const cleanupPreviewUrl = () => {
@@ -194,6 +197,7 @@ const cleanupPreviewUrl = () => {
 const refreshPreview = async () => {
   if (!props.quotation) return;
   loadingPreview.value = true;
+  previewError.value = '';
   cleanupPreviewUrl();
 
   try {
@@ -213,6 +217,7 @@ const refreshPreview = async () => {
     currentPdfBase64.value = base64;
   } catch (err) {
     console.error('Lỗi tạo PDF preview:', err);
+    previewError.value = err.message || 'Không thể tạo PDF.';
   } finally {
     loadingPreview.value = false;
   }

@@ -39,6 +39,7 @@
 
       <!-- 3. Clean Floating Communication Hub (AI Assistant + Realtime Chat) -->
       <CommunicationHub :current-user="currentUser" />
+      <AiAssistantWidget :current-user="currentUser" />
     </div>
   </div>
 </template>
@@ -54,6 +55,7 @@ import LoginPage from './pages/auth/LoginPage.vue';
 import AppSidebar from './components/layout/AppSidebar.vue';
 import AppTopbar from './components/layout/AppTopbar.vue';
 import CommunicationHub from './components/common/CommunicationHub.vue';
+import AiAssistantWidget from './components/ai/AiAssistantWidget.vue';
 
 import { authApi } from './api/auth.api';
 import { catalogApi } from './api/catalog.api';

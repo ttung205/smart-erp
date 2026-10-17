@@ -1,8 +1,11 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { saveAs } from 'file-saver';
-import { getCompanyConfig, getSavedQuotationTerms } from '../config/companyConfig';
+import FileSaver from 'file-saver';
+import { loadCompanyConfig, getSavedQuotationTerms } from '../config/companyConfig';
+import { getJsPdfImageFormatFromUrl, loadImageAsDataUrl } from './salesDocuments/sampleSupport';
 import { formatDate, formatNumber } from './format';
+
+const saveAs = FileSaver.saveAs || FileSaver;
 
 const ROBOTO_REGULAR_URL = 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Me5WZLCzYlKw.ttf';
 const ROBOTO_BOLD_URL = 'https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlvAw.ttf';
@@ -63,10 +66,12 @@ export async function createQuotationPdfDoc(quotation, options = {}) {
   const {
     orientation = 'portrait',
     columns = defaultPdfColumns.filter(c => c.selected),
-    company = getCompanyConfig(),
+    company: suppliedCompany = null,
     terms = getSavedQuotationTerms(),
     currentUser = null
   } = options;
+  const company = suppliedCompany || await loadCompanyConfig({ refresh: true });
+  if (!company.name) throw new Error('Chưa thiết lập tên công ty. Vui lòng cập nhật tại trang Công ty.');
 
   const normalizedOrientation = orientation === 'landscape' ? 'landscape' : 'portrait';
   const doc = new jsPDF({
@@ -124,7 +129,19 @@ export async function createQuotationPdfDoc(quotation, options = {}) {
   // 1. HEADER CÔNG TY (Chuẩn 100% QuotationPDF.js)
   // ==========================================
   const headerTop = cursorY;
-  const companyInfoX = margin;
+  const logo = await loadImageAsDataUrl(company.logoUrl);
+  let logoWidth = 0;
+  let logoHeight = 0;
+  if (logo) {
+    const size = doc.getImageProperties(logo);
+    const desiredHeight = orientation === 'landscape' ? 90 : 80;
+    const maxWidth = orientation === 'landscape' ? 140 : 120;
+    const aspectRatio = size.width / size.height;
+    logoHeight = desiredHeight;
+    logoWidth = Math.min(maxWidth, Math.max(48, logoHeight * aspectRatio));
+    doc.addImage(logo, getJsPdfImageFormatFromUrl(company.logoUrl, logo), margin, headerTop, logoWidth, logoHeight);
+  }
+  const companyInfoX = margin + logoWidth + (orientation === 'landscape' ? 10 : 8);
   let infoY = headerTop + (orientation === 'landscape' ? 26 : 23);
 
   // Tên công ty
@@ -132,7 +149,7 @@ export async function createQuotationPdfDoc(quotation, options = {}) {
   doc.setFont(baseFont, 'bold');
   doc.setFontSize(companyNameFontSize);
   doc.setTextColor(...primaryBlue);
-  doc.text(company.name || 'CÔNG TY TNHH THƯƠNG MẠI & KỸ THUẬT THANH TÙNG', companyInfoX, infoY, { align: 'left', maxWidth: 999 });
+  doc.text(company.name, companyInfoX, infoY, { align: 'left', maxWidth: 999 });
 
   infoY += orientation === 'landscape' ? 15 : 14;
 
@@ -254,7 +271,12 @@ export async function createQuotationPdfDoc(quotation, options = {}) {
   doc.setTextColor(...primaryBlue);
   doc.text(websiteValue, emailWebsiteStartX, infoY, { maxWidth: 999 });
 
-  cursorY = infoY + (orientation === 'landscape' ? 38 : 34);
+  doc.setTextColor(0, 0, 0);
+  cursorY = Math.max(
+    headerTop + logoHeight + (orientation === 'landscape' ? 22 : 20),
+    logo ? 0 : infoY + 12
+  );
+  cursorY += orientation === 'landscape' ? 18 : 15;
 
   // ==========================================
   // 2. TIÊU ĐỀ BÁO GIÁ
@@ -475,7 +497,7 @@ export async function createQuotationPdfDoc(quotation, options = {}) {
   // ==========================================
   // 4. LỜI CẢM ƠN MỞ ĐẦU (size 9)
   // ==========================================
-  const disclaimer = `${company.name || 'CÔNG TY TNHH THƯƠNG MẠI & KỸ THUẬT THANH TÙNG'} gửi lời cảm ơn sự tin tưởng và luôn đồng hành của Quý Khách hàng đối với Công Ty Chúng Tôi. Chúng tôi xin gửi tới Quý Công Ty bản báo giá các sản phẩm, kèm theo các điều kiện thương mại cụ thể của gói hàng.`;
+  const disclaimer = `${company.name || 'Công ty chúng tôi'} gửi lời cảm ơn sự tin tưởng và luôn đồng hành của Quý Khách hàng đối với Công Ty Chúng Tôi. Chúng tôi xin gửi tới Quý Công Ty bản báo giá các sản phẩm, kèm theo các điều kiện thương mại cụ thể của gói hàng.`;
   addParagraph(disclaimer, { size: 9 });
   cursorY += 15;
 
@@ -690,7 +712,7 @@ export async function createQuotationPdfDoc(quotation, options = {}) {
     { label: 'Địa điểm giao hàng:', value: 'Tại Kho Quý Công ty.' },
     { label: 'Thời gian cấp hàng:', value: 'Theo Báo giá, tính từ thời điểm đặt hàng.' },
     { label: 'Báo giá có giá trị:', value: '30 ngày.' },
-    { label: 'Lưu ý:', value: `Kiểm tra mô tả, ký hiệu hàng hóa trước khi xác nhận đặt hàng. Hàng hóa khi đã giao nhận, ${company.shortName || 'Thanh Tùng'} không đổi trả lại hàng hóa.` },
+    { label: 'Lưu ý:', value: `Kiểm tra mô tả, ký hiệu hàng hóa trước khi xác nhận đặt hàng. Hàng hóa khi đã giao nhận, ${company.shortName || 'chúng tôi'} không đổi trả lại hàng hóa.` },
     { label: 'Chất lượng:', value: 'Hàng mới 100%, Chất lượng hàng hóa và Bảo hành 12 tháng theo tiêu chuẩn nhà sản xuất.' },
     { label: 'Cam kết:', value: 'Chúng tôi cam kết rằng các sản phẩm chúng tôi cung cấp là sản phẩm chính hãng 100%. Nếu bị phát hiện là hàng giả, hàng nhái, chúng tôi sẽ bồi thường gấp 10 lần giá trị hàng hóa bị phát hiện.' }
   ];
@@ -711,7 +733,7 @@ export async function createQuotationPdfDoc(quotation, options = {}) {
   }));
 
   // Bank Info
-  const bankAcc = terms.bankAccount || company.bankAccounts?.[0] || {};
+  const bankAcc = company.bankAccounts?.[0] || {};
   const preparedBankLines = [];
   if (bankAcc.accountNumber || bankAcc.beneficiary) {
     rightNotes.push({ label: 'Thông tin chuyển khoản:', text: '', isBankHeader: true });

@@ -159,18 +159,19 @@
             <div class="space-y-1">
               <div>
                 <span class="text-slate-500">Đơn vị nhận:</span>
-                <strong class="ml-1 text-slate-800">{{ localTerms.bankAccount?.beneficiary || 'Công Ty Thanh Tùng' }}</strong>
+                <strong class="ml-1 text-slate-800">{{ companyBank.beneficiary || '—' }}</strong>
               </div>
               <div class="flex items-center gap-2">
                 <div>
                   <span class="text-slate-500">Số tài khoản:</span>
-                  <strong class="ml-1 text-indigo-700 font-mono">{{ localTerms.bankAccount?.accountNumber || '22028888888' }}</strong>
+                  <strong class="ml-1 text-sky-700 font-mono">{{ companyBank.accountNumber || '—' }}</strong>
                 </div>
               </div>
               <div>
                 <span class="text-slate-500">Ngân hàng:</span>
-                <span class="ml-1 text-slate-800">{{ localTerms.bankAccount?.bankName || 'BIDV' }}</span>
+                <span class="ml-1 text-slate-800">{{ companyBank.bankName || '—' }}</span>
               </div>
+              <router-link to="/company" class="text-sky-700 text-xs">Chỉnh sửa thông tin này tại trang Công ty</router-link>
             </div>
           </div>
         </div>
@@ -226,7 +227,8 @@ import {
   getSavedQuotationTerms,
   saveQuotationTerms,
   getSavedTermsTemplates,
-  saveTermsTemplates
+  saveTermsTemplates,
+  loadCompanyConfig
 } from '../../config/companyConfig';
 
 const props = defineProps({
@@ -246,6 +248,7 @@ const localTerms = ref(JSON.parse(JSON.stringify(defaultQuotationTerms)));
 const templates = ref([]);
 const selectedTemplate = ref(null);
 const newTemplateName = ref('');
+const companyBank = ref({});
 
 const loadData = () => {
   templates.value = getSavedTermsTemplates();
@@ -254,6 +257,7 @@ const loadData = () => {
   } else {
     localTerms.value = getSavedQuotationTerms();
   }
+  loadCompanyConfig({ refresh: true }).then(company => { companyBank.value = company.bankAccounts?.[0] || {}; }).catch(() => { companyBank.value = {}; });
 };
 
 watch(

@@ -7,6 +7,13 @@ export const menuCategories = [
         path: '/intro',
         label: 'Giới thiệu',
         icon: 'pi pi-home'
+      },
+      {
+        id: 'ai-assistant',
+        path: '/ai',
+        label: 'Trợ lý AI',
+        icon: 'pi pi-sparkles',
+        permission: 'ai.use'
       }
     ]
   },
@@ -351,6 +358,7 @@ export const menuCategories = [
         icon: 'pi pi-sitemap',
         isFolder: true,
         children: [
+          { id: 'company', path: '/company', label: 'Công ty', icon: 'pi pi-building-columns' },
           {
             id: 'department',
             path: '/department',

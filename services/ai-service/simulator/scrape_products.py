@@ -180,19 +180,54 @@ def brand_pages(page: str, slug: str) -> list[str]:
     return sorted(f"/{slug}-{b}" for b in found if b in BRAND_SLUGS)
 
 
-MODEL_RE = re.compile(r"^(?=.*\d)(?=.*[A-Z])[A-Z0-9][A-Z0-9\-/.()+]{3,}$")
+UNIT_RE = re.compile(r"^\d+([.,]\d+)?(W|KW|L|LIT|LÍT|HP|KG|CV|BTU|V|P|S|M|MM|CM|INCH|M²|M2)\+?$", re.IGNORECASE)
 
 
-def extract_model(name: str, url: str) -> str:
+def _is_model_token(tok: str) -> bool:
+    tok = tok.strip("()+,")
+    if len(tok) < 4 or UNIT_RE.match(tok):
+        return False
+    digits = sum(ch.isdigit() for ch in tok)
+    letters = sum(ch.isalpha() for ch in tok)
+    if letters == 0:
+        return digits >= 5                       # mã số thuần (vd Atlantic 833057)
+    return digits >= 2 and tok.upper() == tok    # model viết hoa, có số: NR-BX471GPKV, KG20IH10N
+
+
+def extract_model(name: str, url: str, brand: str | None = None) -> str:
+    """Mã model của hãng trong tên sản phẩm; bỏ qua token đơn vị (2500W, 4.5P, 280L...)."""
     tokens = name.split()
-    # Model thường nằm cuối tên, có thể gồm 2 token (vd. "GR-RF611WI-PGV(22)-XK")
-    for tok in reversed(tokens):
-        if MODEL_RE.match(tok):
-            return tok
-    return url.rsplit("/", 1)[-1].upper()
+    if brand:
+        lowered = [t.lower() for t in tokens]
+        first = brand.split()[0].lower()
+        if first in lowered:
+            tokens = tokens[lowered.index(first) + len(brand.split()):]
+    candidates = [t.strip("()+,") for t in tokens if _is_model_token(t)]
+    if candidates:
+        with_dash = [c for c in candidates if "-" in c]
+        return (with_dash or candidates)[0]
+    slug = url.rstrip("/").rsplit("/", 1)[-1]
+    if brand:
+        slug = re.sub(rf"^.*?{re.escape(re.sub(r'[^a-z0-9]+', '-', brand.lower()))}-", "", slug)
+    parts = slug.upper().split("-")
+    while len(parts) > 1 and UNIT_RE.match(parts[0]):
+        parts.pop(0)
+    return "-".join(parts)
 
 
-def parse_detail(page: str) -> dict | None:
+def _props(items) -> dict[str, str]:
+    props: dict[str, str] = {}
+    for p in items or []:
+        name, value = p.get("name"), p.get("value")
+        if name and value and name not in props:
+            props[name] = str(value).replace("|", ", ")
+    return props
+
+
+def parse_detail(page: str, url: str | None = None) -> dict | None:
+    """Đọc JSON-LD trang chi tiết. Một trang có thể gom nhiều biến thể (vd 1 HP / 1.5 HP / 2 HP):
+    chọn biến thể có URL trùng sản phẩm đang xét, không lấy mặc định biến thể đầu."""
+    path = (url or "").replace(BASE, "").split("?")[0]
     for raw in LD_JSON_RE.findall(page):
         try:
             data = json.loads(raw)
@@ -200,21 +235,18 @@ def parse_detail(page: str) -> dict | None:
             continue
         if data.get("@type") not in ("ProductGroup", "Product"):
             continue
-        props: dict[str, str] = {}
-        for p in data.get("additionalProperty") or []:
-            name, value = p.get("name"), p.get("value")
-            if name and value and name not in props:
-                props[name] = str(value).replace("|", ", ")
         variants = data.get("hasVariant") or [data]
-        v0 = variants[0]
-        offers = v0.get("offers") or {}
-        rating = data.get("aggregateRating") or {}
+        matched = [v for v in variants if (v.get("url") or "").replace(BASE, "").split("?")[0] == path]
+        variant = (matched or variants)[0]
+        props = {**_props(data.get("additionalProperty")), **_props(variant.get("additionalProperty"))}
+        offers = variant.get("offers") or {}
+        rating = variant.get("aggregateRating") or data.get("aggregateRating") or {}
         brand = data.get("brand")
         if isinstance(brand, list):
             brand = brand[0] if brand else None
         return {
-            "variant_name": v0.get("name") or data.get("name"),
-            "product_code": v0.get("sku"),
+            "variant_name": variant.get("name") or data.get("name"),
+            "product_code": variant.get("sku"),
             "brand": brand.get("name") if isinstance(brand, dict) else brand,
             "dmx_category": data.get("category"),
             "list_price_detail": offers.get("price"),
@@ -225,6 +257,30 @@ def parse_detail(page: str) -> dict | None:
             "specs": props,
         }
     return None
+
+
+def reparse_from_cache() -> None:
+    """Dựng lại products_raw.json từ HTML đã cache (không tải mạng) sau khi sửa bộ đọc trang chi tiết."""
+    products = json.loads(OUT_FILE.read_text(encoding="utf-8"))
+    fixed, missing = 0, 0
+    for p in products:
+        page = fetch_cached(p["source_url"])
+        detail = parse_detail(page, p["source_url"]) if page else None
+        if not detail:
+            missing += 1
+            continue
+        name = detail.pop("variant_name") or p["name"]
+        fixed += name != p["name"]
+        sale_price = p.get("price") or detail.get("list_price_detail")
+        p.update({**detail, "name": name, "model": extract_model(name, p["source_url"], detail.get("brand")),
+                  "price": sale_price, "list_price": max(sale_price or 0, detail.get("list_price_detail") or 0)})
+    OUT_FILE.write_text(json.dumps(products, ensure_ascii=False, indent=1), encoding="utf-8")
+    log(f"Đọc lại {len(products)} sản phẩm từ cache: {fixed} sản phẩm đổi tên đúng biến thể, {missing} không có cache")
+
+
+def fetch_cached(url: str) -> str | None:
+    cached = CACHE_DIR / f"{hashlib.sha1(url.encode()).hexdigest()}.html"
+    return cached.read_text(encoding="utf-8") if cached.exists() else None
 
 
 def collect_listings() -> dict[str, list[dict]]:
@@ -266,7 +322,7 @@ def build_product(slug: str, cat_name: str, url: str, card: dict, detail: dict) 
         "dmx_slug": slug,
         "category": cat_name,
         "name": name,
-        "model": extract_model(name, url),
+        "model": extract_model(name, url, detail.get("brand")),
         **detail,
         "price": card.get("price") or detail.get("list_price_detail"),
         "list_price": max(card.get("list_price") or 0, detail.get("list_price_detail") or 0),
@@ -290,7 +346,7 @@ def fill_from_sitemap() -> None:
         found = []
         for url in candidates:
             page = fetch(url)
-            detail = parse_detail(page) if page else None
+            detail = parse_detail(page, url) if page else None
             if detail and detail.get("list_price_detail"):
                 found.append(build_product(slug, cat_name, url, {}, detail))
         found.sort(key=lambda p: p["rating_count"], reverse=True)
@@ -304,7 +360,12 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--list-only", action="store_true")
     parser.add_argument("--fill", action="store_true", help="bù danh mục thiếu từ sitemap")
+    parser.add_argument("--reparse", action="store_true", help="đọc lại products_raw.json từ cache HTML")
     args = parser.parse_args()
+
+    if args.reparse:
+        reparse_from_cache()
+        return
 
     if args.fill:
         fill_from_sitemap()
@@ -332,7 +393,7 @@ def main() -> None:
     products = []
     for i, (slug, cat_name, card) in enumerate(selected, 1):
         page = fetch(card["url"])
-        detail = parse_detail(page) if page else None
+        detail = parse_detail(page, card["url"]) if page else None
         if not detail:
             log(f"  - bỏ qua {card['url']} (không đọc được chi tiết)")
             continue

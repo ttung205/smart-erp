@@ -226,7 +226,7 @@
       v-model:visible="showPreviewModal"
       modal
       :header="previewTitle"
-      :style="{ width: '50vw', maxWidth: '700px' }"
+      :style="{ width: previewPdfUrl ? '90vw' : '50vw', maxWidth: previewPdfUrl ? '1200px' : '700px' }"
     >
       <div class="flex flex-col items-center justify-center p-4">
         <img
@@ -235,7 +235,19 @@
           :alt="previewTitle"
           class="max-h-[60vh] max-w-full rounded-[6px] object-contain shadow-sm border border-slate-200"
         />
+        <iframe
+          v-else-if="previewPdfUrl"
+          :key="previewPdfUrl"
+          :src="previewPdfUrl"
+          :title="previewTitle"
+          class="w-full h-[75vh] border-0 bg-white"
+        />
+        <div v-else-if="previewLoading" class="py-8 text-sm text-slate-500">
+          <i class="pi pi-spin pi-spinner mr-2" />
+          Đang tải bản xem trước PDF...
+        </div>
         <div v-else class="text-center py-8 space-y-3">
+          <p v-if="previewError" class="text-xs text-red-600">{{ previewError }}</p>
           <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-600">
             <i class="pi pi-file text-2xl"></i>
           </div>
@@ -255,7 +267,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import FileUpload from 'primevue/fileupload';
 import Button from 'primevue/button';
 import Badge from 'primevue/badge';
@@ -329,7 +341,27 @@ const uploading = ref(false);
 const showPreviewModal = ref(false);
 const previewTitle = ref('');
 const previewImageUrl = ref('');
+const previewPdfUrl = ref('');
+const previewLoading = ref(false);
+const previewError = ref('');
 const activePreviewItem = ref(null);
+let previewSequence = 0;
+
+const clearPdfPreview = () => {
+  if (previewPdfUrl.value.startsWith('blob:')) URL.revokeObjectURL(previewPdfUrl.value);
+  previewPdfUrl.value = '';
+};
+
+watch(showPreviewModal, (open) => {
+  if (!open) {
+    previewSequence += 1;
+    clearPdfPreview();
+  }
+});
+onBeforeUnmount(() => {
+  previewSequence += 1;
+  clearPdfPreview();
+});
 
 const attachments = computed({
   get: () => props.modelValue || [],
@@ -546,16 +578,36 @@ const downloadFileDirectly = async (item) => {
 };
 
 // Preview or download modal
-const handlePreviewOrDownload = (item) => {
+const handlePreviewOrDownload = async (item) => {
+  const sequence = ++previewSequence;
+  clearPdfPreview();
+  previewLoading.value = false;
+  previewError.value = '';
   activePreviewItem.value = item;
   previewTitle.value = item.name || item.file_name;
   const isImg = (item.mime_type && item.mime_type.startsWith('image/')) || /\.(png|jpg|jpeg|webp|gif)$/i.test(item.name || item.file_name);
+  const isPdf = item.mime_type === 'application/pdf' || /\.pdf$/i.test(item.name || item.file_name || '');
   if (isImg && (item.file_url || item.url)) {
     previewImageUrl.value = item.file_url || item.url;
   } else {
     previewImageUrl.value = '';
   }
   showPreviewModal.value = true;
+  if (!isPdf) return;
+  previewLoading.value = true;
+  try {
+    if (item.id && !props.downloadHandler) {
+      const blob = await salesApi.downloadAttachment(item.id);
+      if (sequence !== previewSequence) return;
+      previewPdfUrl.value = URL.createObjectURL(blob);
+    } else if (item.file_url || item.url) {
+      previewPdfUrl.value = item.file_url || item.url;
+    }
+  } catch (error) {
+    if (sequence === previewSequence) previewError.value = error?.message || 'Không thể xem trước PDF.';
+  } finally {
+    if (sequence === previewSequence) previewLoading.value = false;
+  }
 };
 
 const triggerSimulatedDownload = () => {

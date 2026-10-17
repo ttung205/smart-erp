@@ -26,6 +26,8 @@
 
       <!-- Action Buttons -->
       <div class="flex items-center gap-2.5">
+        <Button v-if="isEditMode" label="Bộ chứng từ PDF" icon="pi pi-file-pdf" size="small"
+          severity="info" outlined class="rounded-[6px]" @click="showSalesDocuments = true" />
         <!-- Nút Đồng bộ / Kích hoạt Giữ Chỗ Tồn Kho (Khi đang ở chế độ xem chứng từ) -->
         <Button v-if="isEditMode && canManageInvoice && form.accounting_status !== 'POSTED'" label="Đồng Bộ Giữ Chỗ Kho" icon="pi pi-lock"
           size="small" severity="help" outlined class="!text-xs !py-2 !px-3 rounded-[6px] !font-semibold"
@@ -198,6 +200,7 @@
       subtitle="Đính kèm biên bản bàn giao (POD), phiếu xuất kho có chữ ký, hóa đơn VAT điện tử hoặc chứng chỉ xuất xưởng (CO/CQ)"
       section-type="invoice"
     />
+    <SalesDocumentsDialog v-model:visible="showSalesDocuments" :invoice-id="route.params.id" />
   </div>
 </template>
 
@@ -213,6 +216,7 @@ import Textarea from 'primevue/textarea';
 import Select from 'primevue/select';
 import InvoiceItemTable from '../../components/invoice/InvoiceItemTable.vue';
 import FormAttachmentUpload from '../../components/common/FormAttachmentUpload.vue';
+import SalesDocumentsDialog from '../../components/invoice/SalesDocumentsDialog.vue';
 
 import { salesApi } from '../../api/sales.api';
 import { inventoryApi } from '../../api/inventory.api';
@@ -233,6 +237,7 @@ const toast = useToast();
 
 const isEditMode = computed(() => !!route.params.id && route.params.id !== 'create');
 const saving = ref(false);
+const showSalesDocuments = ref(false);
 const syncingReserve = ref(false);
 const stockMap = ref({});
 

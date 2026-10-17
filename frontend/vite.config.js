@@ -14,6 +14,7 @@ export default defineConfig(({ mode }) => {
   const eofficeTarget = env.VITE_EOFFICE_SERVICE_URL || 'http://127.0.0.1:8007'
   const financeTarget = env.VITE_FINANCE_SERVICE_URL || 'http://127.0.0.1:8008'
   const chatTarget = env.VITE_CHAT_SERVICE_URL || 'http://127.0.0.1:8009'
+  const aiTarget = env.VITE_AI_SERVICE_URL || 'http://127.0.0.1:8010'
 
   return {
     plugins: [
@@ -66,6 +67,10 @@ export default defineConfig(({ mode }) => {
           target: chatTarget,
           changeOrigin: true,
           ws: true
+        },
+        '/api/v1/ai': {
+          target: aiTarget,
+          changeOrigin: true
         }
       }
     }

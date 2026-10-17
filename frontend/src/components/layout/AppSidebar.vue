@@ -127,24 +127,6 @@
       </template>
     </nav>
 
-    <!-- Sidebar Footer -->
-    <div
-      class="border-t border-slate-200"
-      :class="isCollapsed ? 'py-3 flex justify-center' : 'p-3'"
-    >
-      <div v-if="!isCollapsed" class="flex flex-col gap-0.5">
-        <span class="text-[11px] text-slate-400">Kiến trúc hệ thống</span>
-        <span class="text-[11px] font-semibold text-slate-700">{{ appConfig.architecture }}</span>
-      </div>
-      <div
-        v-else
-        class="flex items-center justify-center cursor-help text-slate-400 hover:text-slate-600"
-        v-tooltip.right="'Kiến trúc: Database-per-Service & Outbox'"
-      >
-        <i class="pi pi-server text-base"></i>
-      </div>
-    </div>
-
     <!-- Flyout menu con khi sidebar thu gọn (teleport ra body để không bị overflow của nav cắt) -->
     <Teleport to="body">
       <div

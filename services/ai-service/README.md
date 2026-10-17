@@ -2,6 +2,37 @@
 
 Nền tảng cho AI agent ra quyết định trong ERP (phân tích bán hàng, tồn kho → đề xuất mua hàng, liên hệ NCC...).
 
+## Trợ lý AI (`app/`)
+
+Chatbot nội bộ chỉ-đọc, hiển thị dạng widget nổi trên mọi trang (quyền `ai.use`).
+
+```
+Widget (Vue) ──JWT──► ai-service :8010 /api/v1/ai/chat
+                        ├─ Groq (openai/gpt-oss-120b, tool calling)
+                        └─ 10 tool SQL trên kho phân tích data/analytics.db
+                             (đồng bộ 5 phút/lần từ DB các service, chỉ đọc)
+```
+
+- **Phân quyền**: ai-service tự kiểm tra JWT (HS256, secret chung). Mỗi tool yêu cầu quyền nghiệp vụ
+  (`order.view`/`report.view`, `inventory.view`, `purchase.view`, `finance.view`, `catalog.view`...);
+  người hỏi chỉ được cấp tool mình có quyền, gọi vượt quyền bị từ chối.
+- **Số liệu do SQL tính**, đã định dạng sẵn (tỷ/triệu); LLM chỉ chọn tool và diễn giải.
+- Hội thoại + nhật ký gọi tool lưu ở `data/assistant.db`.
+
+```bash
+cp .env.example .env        # điền JWT_SECRET (trùng identity) và GROQ_API_KEY (https://console.groq.com/keys)
+.venv/Scripts/python -m uvicorn app.main:app --port 8010
+```
+
+| Endpoint | Mô tả |
+|---|---|
+| `POST /api/v1/ai/chat` | `{message, conversation_id?}` → `{conversation_id, answer, tools_used, as_of}` |
+| `GET /api/v1/ai/conversations` | Lịch sử hội thoại của người dùng |
+| `GET/DELETE /api/v1/ai/conversations/{id}` | Xem / xóa một hội thoại |
+| `POST /api/v1/ai/sync` | Đồng bộ kho phân tích ngay (Super Admin) |
+
+## Bộ mô phỏng dữ liệu
+
 Bước đầu tiên là **bộ mô phỏng dữ liệu** (`simulator/`): sinh 1 năm hoạt động (01/10/2025 → 30/09/2026)
 của một nhà phân phối thiết bị gia dụng, nhất quán giữa tất cả service, để agent có dữ liệu sát thực tế
 để đọc và phân tích.

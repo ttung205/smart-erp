@@ -27,6 +27,13 @@ $services = @(
     [pscustomobject]@{ Name = 'EOffice Service'; Port = 8007; Directory = "$projectRoot\services\eoffice-service"; Command = { php artisan serve --host=127.0.0.1 --port=8007 } },
     [pscustomobject]@{ Name = 'Finance Service'; Port = 8008; Directory = "$projectRoot\services\finance-service"; Command = { php artisan serve --host=127.0.0.1 --port=8008 } },
     [pscustomobject]@{ Name = 'Chat Service (.NET 10)'; Port = 8009; Directory = "$projectRoot\services\chat-service\src\Chat.Api"; Command = { dotnet run --urls=http://127.0.0.1:8009 } },
+    [pscustomobject]@{ Name = 'AI Service (Python)'; Port = 8010; Directory = "$projectRoot\services\ai-service"; Command = {
+        if (-not (Test-Path '.venv\Scripts\python.exe')) {
+            python -m venv .venv
+            & .venv\Scripts\python.exe -m pip install -r requirements.txt
+        }
+        & .venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8010
+    } },
     [pscustomobject]@{ Name = 'Vue 3 PrimeVue Frontend'; Port = 5175; Directory = "$projectRoot\frontend"; Command = { npm run dev -- --host 127.0.0.1 } }
 )
 
@@ -64,14 +71,18 @@ if ($RunPort) {
     return
 }
 
+# Frontend mo tab cuoi cung (sau service va worker)
+$frontendPort = 5175
 $pendingServices = @()
+$pendingFrontend = @()
 foreach ($service in $services) {
     if (Test-PortInUse $service.Port) {
         Write-Host " [OK] $($service.Name) da chay tai cong $($service.Port) - bo qua khoi dong trung." -ForegroundColor DarkYellow
         continue
     }
 
-    $pendingServices += [pscustomobject]@{ Name = $service.Name; Title = "$($service.Name) :$($service.Port)"; LaunchArgs = @('-RunPort', "$($service.Port)") }
+    $tab = [pscustomobject]@{ Name = $service.Name; Title = "$($service.Name) :$($service.Port)"; LaunchArgs = @('-RunPort', "$($service.Port)") }
+    if ($service.Port -eq $frontendPort) { $pendingFrontend += $tab } else { $pendingServices += $tab }
 }
 
 foreach ($worker in $workers) {
@@ -82,6 +93,7 @@ foreach ($worker in $workers) {
 
     $pendingServices += [pscustomobject]@{ Name = $worker.Name; Title = $worker.Name; LaunchArgs = @('-RunWorker', $worker.Key) }
 }
+$pendingServices += $pendingFrontend
 
 if ($pendingServices.Count -gt 0) {
     $windowsTerminal = Get-Command wt.exe -ErrorAction SilentlyContinue
@@ -134,6 +146,8 @@ Write-Host " - Sales Service        : http://127.0.0.1:8005" -ForegroundColor Gr
 Write-Host " - Notification Service : http://127.0.0.1:8006" -ForegroundColor Gray
 Write-Host " - EOffice Service      : http://127.0.0.1:8007" -ForegroundColor Gray
 Write-Host " - Finance Service      : http://127.0.0.1:8008" -ForegroundColor Gray
+Write-Host " - Chat Service         : http://127.0.0.1:8009" -ForegroundColor Gray
+Write-Host " - AI Service           : http://127.0.0.1:8010 (Swagger: http://127.0.0.1:8010/docs)" -ForegroundColor Gray
 Write-Host " - Frontend Web UI      : http://localhost:5175" -ForegroundColor Cyan
 Write-Host " - Mailpit Email UI     : http://localhost:8025" -ForegroundColor Cyan
 Write-Host "`nHay mo trinh duyet truy cap: http://localhost:5175" -ForegroundColor Yellow

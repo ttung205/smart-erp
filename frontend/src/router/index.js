@@ -11,6 +11,8 @@ import DepartmentsPage from '../pages/identity/DepartmentsPage.vue';
 import UsersPage from '../pages/identity/UsersPage.vue';
 import RolesPage from '../pages/identity/RolesPage.vue';
 import PermissionsPage from '../pages/identity/PermissionsPage.vue';
+import CompanyPage from '../pages/company/index.vue';
+import CompanyFormPage from '../pages/company/form.vue';
 import ProductPage from '../pages/product/index.vue';
 import BrandPage from '../pages/brand/index.vue';
 import CategoryPage from '../pages/category/index.vue';
@@ -20,6 +22,7 @@ import SupplierPage from '../pages/supplier/index.vue';
 import InventoryView from '../pages/inventory/InventoryView.vue';
 import ServiceStatusPage from '../pages/system/ServiceStatusPage.vue';
 import ChatPage from '../pages/chat/index.vue';
+import AiAssistantPage from '../pages/ai/index.vue';
 
 // Sales sub-pages
 import QuotationPage from '../pages/quotation/index.vue';
@@ -102,6 +105,16 @@ export const routes = [
   {
     path: '/dashboard',
     redirect: '/intro'
+  },
+  {
+    path: '/ai/:id(\\d+)?',
+    name: 'ai-assistant',
+    component: AiAssistantPage,
+    meta: {
+      requiresAuth: true,
+      permission: 'ai.use',
+      title: 'Trợ Lý AI'
+    }
   },
   {
     path: '/chat/:id(\\d+)?',
@@ -709,6 +722,8 @@ export const routes = [
       title: 'Trạng Thái Dịch Vụ'
     }
   },
+  { path: '/company', name: 'company', component: CompanyPage, meta: { requiresAuth: true, title: 'Thông tin công ty' } },
+  { path: '/company/edit', name: 'company-edit', component: CompanyFormPage, meta: { requiresAuth: true, permission: 'company.manage', title: 'Chỉnh sửa công ty' } },
   {
     path: '/status',
     redirect: '/service-status'

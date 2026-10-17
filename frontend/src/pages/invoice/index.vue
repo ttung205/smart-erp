@@ -136,6 +136,9 @@
               v-tooltip.bottom="'Xem / Chỉnh sửa chứng từ'"
               @click="$router.push(`/invoice/${data.id}`)"
             />
+            <Button icon="pi pi-file-pdf" outlined size="small" severity="info"
+              class="!w-7 !h-7 !p-0 rounded-[6px]" v-tooltip.bottom="'Xem bộ chứng từ PDF'"
+              @click="selectedInvoiceId = data.id; showSalesDocuments = true" />
 
             <!-- Nút: Gửi xuống kho (nếu chưa gửi) -->
             <Button
@@ -153,6 +156,7 @@
         </template>
       </Column>
     </CommonDataTable>
+    <SalesDocumentsDialog v-model:visible="showSalesDocuments" :invoice-id="selectedInvoiceId" />
   </div>
 </template>
 
@@ -169,6 +173,7 @@ import Button from 'primevue/button';
 import Badge from 'primevue/badge';
 import PageHeader from '../../components/common/PageHeader.vue';
 import CommonDataTable from '../../components/common/CommonDataTable.vue';
+import SalesDocumentsDialog from '../../components/invoice/SalesDocumentsDialog.vue';
 
 import { salesApi } from '../../api/sales.api';
 import { formatCurrency, formatDate } from '../../utils/format';
@@ -180,6 +185,8 @@ const toast = useToast();
 const canManageInvoice = computed(() => hasPermission('invoice.manage', props.currentUser));
 
 const invoices = ref([]);
+const showSalesDocuments = ref(false);
+const selectedInvoiceId = ref(null);
 const loading = ref(false);
 const searchQuery = ref('');
 const warehouseStatusFilter = ref(null);

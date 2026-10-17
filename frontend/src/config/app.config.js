@@ -2,11 +2,6 @@ export const appConfig = {
   appName: 'Smart ERP',
   architecture: 'Microservices & Database-per-Service',
   eventRelay: 'Transactional Outbox & RabbitMQ',
-  company: {
-    name: 'Smart Enterprise Solution JSC',
-    taxId: '0102030405',
-    hotline: '1900-6868'
-  },
   services: {
     identity: {
       name: 'Identity Service',

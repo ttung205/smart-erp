@@ -5,6 +5,7 @@ import json
 import hashlib
 import math
 import random
+import re
 import sqlite3
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
@@ -12,7 +13,8 @@ from pathlib import Path
 
 from . import config as C
 from .models import Contact, Customer, Product, Staff, Supplier
-from .people import People, slugify
+from .people import People, slugify, strip_accents
+from .scrape_products import extract_model
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
@@ -168,6 +170,7 @@ class MasterData:
             return sup
 
         seen_sku: set[str] = set()
+        seen_url: set[str] = set()
         start_at = datetime.combine(C.START_DATE, time(7, 0))
         for item in raw:
             price = item.get("list_price") or item.get("price")
@@ -175,16 +178,15 @@ class MasterData:
                 continue
             brand = item.get("brand") or "Khác"
             origin = item.get("origin") or "Trung Quốc"
-            base_sku = item["model"].upper()
-            sku = base_sku[:50]
-            if len(base_sku) > 50 or sku in seen_sku:
-                digest = hashlib.sha1(item["source_url"].encode()).hexdigest().upper()
-                sku = f"{base_sku[:41]}-{digest[:8]}"
-                suffix = 1
-                while sku in seen_sku:
-                    tag = f"-{digest[:6]}{suffix:02d}"
-                    sku = f"{base_sku[:50 - len(tag)]}{tag}"
-                    suffix += 1
+            if item["source_url"] in seen_url:          # cùng một sản phẩm cào từ 2 nguồn
+                continue
+            seen_url.add(item["source_url"])
+            item["model"] = extract_model(item["name"], item["source_url"], brand)
+            # Quy ước SKU của công ty: designation + "-" + 3 ký tự đầu của hãng (XU3333 + SHARP -> XU3333-SHA)
+            brand_code = re.sub(r"[^A-Z0-9]", "", strip_accents(brand).upper())[:3]
+            sku = f"{item['model'].upper()[:50 - len(brand_code) - 1]}-{brand_code}"
+            if sku in seen_sku:                          # cùng model cùng hãng = cùng một sản phẩm
+                continue
             seen_sku.add(sku)
             sup = supplier_for(brand, origin)
             launch = None

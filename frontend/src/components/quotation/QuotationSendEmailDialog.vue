@@ -119,7 +119,7 @@ import Tag from 'primevue/tag';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
 import { notificationApi } from '../../api/notification.api';
-import { getCompanyConfig } from '../../config/companyConfig';
+import { getCompanyConfig, loadCompanyConfig } from '../../config/companyConfig';
 
 const props = defineProps({
   visible: {
@@ -145,7 +145,7 @@ const emit = defineEmits(['update:visible', 'sent']);
 const toast = useToast();
 const sending = ref(false);
 
-const company = getCompanyConfig();
+let company = getCompanyConfig();
 
 const form = reactive({
   to: '',
@@ -168,8 +168,8 @@ const initFormData = () => {
   const targetEmail = q.customer_email || q.contact_email || q.email || '';
 
   form.to = targetEmail;
-  form.cc = 'sales@thanhtung.vn';
-  form.subject = `[${company.shortName || 'Thanh Tùng'}] Báo giá thương mại #${quoteNo} - ${custName}`;
+  form.cc = company.email || '';
+  form.subject = `[${company.shortName || company.name || 'Công ty'}] Báo giá thương mại #${quoteNo} - ${custName}`;
   form.body = `Kính gửi: ${contactName} - ${custName},\n\n` +
     `${company.name} xin trân trọng gửi tới Quý Công ty bản báo giá chi tiết #${quoteNo} đính kèm theo thư này.\n\n` +
     `Quý khách vui lòng xem xét các điều kiện thương mại, thời gian giao hàng và danh mục sản phẩm chi tiết trong file PDF đính kèm.\n` +
@@ -183,8 +183,11 @@ const initFormData = () => {
 
 watch(
   () => props.visible,
-  (val) => {
-    if (val) initFormData();
+  async (val) => {
+    if (val) {
+      try { company = await loadCompanyConfig({ refresh: true }); } catch { company = getCompanyConfig(); }
+      initFormData();
+    }
   }
 );
 

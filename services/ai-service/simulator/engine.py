@@ -584,7 +584,7 @@ class Simulation:
             po_lines.append(POLine(self.n.id("po_item"), prl.product, prl.qty, cost,
                                    0.0 if supplier.kind == "import" else float(prl.product.vat), pr_line=prl))
         lead = self.rng.randint(*supplier.lead_days)
-        expected = po_day + timedelta(days=sum(supplier.lead_days) // 2)
+        expected = po_day + timedelta(days=supplier.lead_days[1])   # NCC hẹn theo lead time tối đa
         po = PurchaseOrder(self.n.id("po"), f"PO-{po_day.strftime('%Y%m')}-{self.n.next('PO' + po_day.strftime('%Y%m')):04d}",
                            supplier, po_day, po_at, buyer, manager, self.later(po_at, 15, 240), expected,
                            supplier.currency, rate, po_lines, pr,
