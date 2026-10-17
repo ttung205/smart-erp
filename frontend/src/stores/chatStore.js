@@ -8,6 +8,9 @@ import { parseJwt } from '../utils/jwt';
 const TYPING_TTL_MS = 4000;
 const TYPING_THROTTLE_MS = 3000;
 const SOUND_KEY = 'chat.sound';
+// Thử lại vô hạn, giãn dần tới 30s: không bao giờ bỏ cuộc rồi kẹt ở "Mất kết nối"
+const RETRY_DELAYS_MS = [0, 1000, 2000, 5000, 10000, 30000];
+const retryDelay = (attempt) => RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)];
 
 export const REACTIONS = ['❤️', '👍', '😄', '😮', '😢', '😡'];
 export const RECALL_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -31,6 +34,8 @@ export const useChatStore = defineStore('chat', () => {
 
   let connection = null;
   let startedToken = '';
+  let retryTimer = null;
+  let retryAttempt = 0;
   let lastTypingSentAt = 0;
 
   // ---------- Getter ----------
@@ -75,23 +80,40 @@ export const useChatStore = defineStore('chat', () => {
 
   async function init() {
     const token = storage.getToken();
-    if (!token) return;
-    if (startedToken === token) return;
-    await stop();
+    if (!token || startedToken === token) return;
+    // Gán ngay trước mọi await: onMounted và watch currentUser gọi init() gần như đồng thời,
+    // trước đây cả hai cùng lọt qua và mở 2 kết nối hub (kết nối mồ côi làm presence/sự kiện chập chờn)
+    const previousToken = startedToken;
     startedToken = token;
+    if (previousToken) {
+      await disconnect();
+      resetState();
+    }
     meId.value = Number(parseJwt(token)?.sub || 0);
 
+    // Mở realtime song song với tải dữ liệu, không chờ REST xong mới kết nối
+    connect();
     await Promise.allSettled([fetchConversations(), fetchPreferences(), fetchOnline()]);
-    await connect();
   }
 
   async function stop() {
     startedToken = '';
+    await disconnect();
+    resetState();
+  }
+
+  async function disconnect() {
+    clearTimeout(retryTimer);
+    retryTimer = null;
+    retryAttempt = 0;
     if (connection) {
       const old = connection;
       connection = null;
       await old.stop().catch(() => {});
     }
+  }
+
+  function resetState() {
     conversations.value = [];
     Object.keys(messages).forEach((k) => delete messages[k]);
     Object.keys(pins).forEach((k) => delete pins[k]);
@@ -99,37 +121,79 @@ export const useChatStore = defineStore('chat', () => {
     connectionState.value = 'disconnected';
   }
 
-  async function connect() {
-    connection = new signalR.HubConnectionBuilder()
-      .withUrl(chatApi.hubUrl, { accessTokenFactory: () => storage.getToken() })
-      .withAutomaticReconnect([0, 2000, 5000, 10000, 20000, 30000])
+  function buildConnection() {
+    const conn = new signalR.HubConnectionBuilder()
+      .withUrl(chatApi.hubUrl, {
+        accessTokenFactory: () => storage.getToken(),
+        // Gateway/Vite đều proxy WebSocket: bỏ vòng negotiate và không rơi xuống long polling
+        transport: signalR.HttpTransportType.WebSockets,
+        skipNegotiation: true
+      })
+      .withAutomaticReconnect({ nextRetryDelayInMilliseconds: ({ previousRetryCount }) => retryDelay(previousRetryCount) })
       .configureLogging(signalR.LogLevel.Warning)
       .build();
 
-    connection.on('conversation.upserted', ({ conversation }) => upsertConversation(conversation));
-    connection.on('conversation.removed', ({ conversation_id }) => removeConversation(conversation_id));
-    connection.on('message.created', ({ message }) => onMessageCreated(message));
-    connection.on('message.updated', ({ message }) => onMessageUpdated(message));
-    connection.on('message.hidden', ({ conversation_id, message_id }) => removeMessage(conversation_id, message_id));
-    connection.on('read.updated', onReadUpdated);
-    connection.on('typing', onTyping);
-    connection.on('presence', ({ user_id, online: isUp }) => setOnline(user_id, isUp));
+    conn.on('conversation.upserted', ({ conversation }) => upsertConversation(conversation));
+    conn.on('conversation.removed', ({ conversation_id }) => removeConversation(conversation_id));
+    conn.on('message.created', ({ message }) => onMessageCreated(message));
+    conn.on('message.updated', ({ message }) => onMessageUpdated(message));
+    conn.on('message.hidden', ({ conversation_id, message_id }) => removeMessage(conversation_id, message_id));
+    conn.on('read.updated', onReadUpdated);
+    conn.on('typing', onTyping);
+    conn.on('presence', ({ user_id, online: isUp }) => setOnline(user_id, isUp));
 
-    connection.onreconnecting(() => (connectionState.value = 'reconnecting'));
-    connection.onreconnected(async () => {
+    // Bỏ qua sự kiện của kết nối cũ đã bị thay thế (đổi tài khoản / đăng xuất)
+    conn.onreconnecting(() => conn === connection && (connectionState.value = 'reconnecting'));
+    conn.onreconnected(async () => {
+      if (conn !== connection) return;
       connectionState.value = 'connected';
       await resync();
     });
-    connection.onclose(() => (connectionState.value = 'disconnected'));
+    conn.onclose(() => {
+      if (conn !== connection) return;
+      connectionState.value = 'disconnected';
+      scheduleRetry();
+    });
+    return conn;
+  }
+
+  async function connect() {
+    clearTimeout(retryTimer);
+    retryTimer = null;
+    if (!startedToken) return;
+    if (!connection) connection = buildConnection();
+    const conn = connection;
+    if (conn.state !== signalR.HubConnectionState.Disconnected) return;
 
     try {
       connectionState.value = 'connecting';
-      await connection.start();
+      await conn.start();
+      if (conn !== connection) return;
       connectionState.value = 'connected';
+      // Kết nối lại sau một lần hỏng: tải bù những gì đã lỡ trong lúc mất kết nối
+      if (retryAttempt > 0) resync();
+      retryAttempt = 0;
     } catch (e) {
+      if (conn !== connection) return;
       connectionState.value = 'disconnected';
-      console.warn('Không kết nối được chat realtime:', e);
+      console.warn('Không kết nối được chat realtime, sẽ thử lại:', e);
+      scheduleRetry();
     }
+  }
+
+  /** Lần start đầu thất bại hoặc auto-reconnect bị đóng hẳn: tự thử lại thay vì kẹt ở "Mất kết nối". */
+  function scheduleRetry() {
+    if (!startedToken || retryTimer) return;
+    retryTimer = setTimeout(connect, retryDelay(++retryAttempt));
+  }
+
+  // Mạng có lại hoặc quay lại tab: kết nối ngay, không chờ hết lượt backoff
+  if (typeof window !== 'undefined') {
+    const reconnectNow = () => {
+      if (startedToken && connectionState.value === 'disconnected') connect();
+    };
+    window.addEventListener('online', reconnectNow);
+    document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && reconnectNow());
   }
 
   /** Sau khi mất kết nối: tải lại danh sách và tải bù tin mới của các hội thoại đã mở. */

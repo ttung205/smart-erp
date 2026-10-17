@@ -178,8 +178,24 @@ public static class DbInitializer
         foreach (var sql in tables) await context.Database.ExecuteSqlRawAsync(sql);
 
         // Cột thêm sau cho bảng đã tồn tại
-        try { await context.Database.ExecuteSqlRawAsync($"ALTER TABLE item_inquiry_request_items ADD COLUMN catalog_gross_price {real} NULL"); }
-        catch (Exception ex) when (ex.Message.Contains("duplicate", StringComparison.OrdinalIgnoreCase)) { }
+        var addedColumns = new (string Table, string Column, string Definition)[]
+        {
+            ("item_inquiry_request_items", "catalog_gross_price", $"{real} NULL"),
+            ("purchase_order_items", "origin", "VARCHAR(100) NULL DEFAULT 'Việt Nam'"),
+            ("purchase_requisition_items", "origin", "VARCHAR(100) NULL DEFAULT 'Việt Nam'")
+        };
+        foreach (var (table, column, definition) in addedColumns)
+        {
+            // Kiểm tra trước để không sinh log lỗi "duplicate column" mỗi lần khởi động
+            var exists = mysql
+                ? await context.Database.SqlQueryRaw<int>(
+                    "SELECT COUNT(*) AS Value FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = {0} AND column_name = {1}",
+                    table, column).SingleAsync() > 0
+                : await context.Database.SqlQueryRaw<int>(
+                    "SELECT COUNT(*) AS Value FROM pragma_table_info({0}) WHERE name = {1}",
+                    table, column).SingleAsync() > 0;
+            if (!exists) await context.Database.ExecuteSqlRawAsync($"ALTER TABLE {table} ADD COLUMN {column} {definition}");
+        }
     }
 
     private static async Task EnsurePurchaseReturnTablesAsync(PurchaseDbContext context)
