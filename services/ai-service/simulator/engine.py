@@ -115,7 +115,8 @@ class Simulation:
         return C.SEASONALITY.get(category, C.DEFAULT_SEASONALITY)[d.month - 1]
 
     def tet_factor(self, d: date) -> float:
-        days = (C.TET_DATE - d).days
+        tet_date = date(2025, 1, 29) if d < date(2025, 7, 1) else C.TET_DATE
+        days = (tet_date - d).days
         if 8 <= days <= 35:
             return 1.35
         if 4 <= days <= 7:
@@ -576,7 +577,7 @@ class Simulation:
 
         po_day = d if urgent else add_workdays(d, self.rng.randint(0, 1))
         po_at = max(self.at(po_day, 9, 16), self.later(pr.approved_at, 20, 120))
-        rate = C.USD_VND[(po_day.year, po_day.month)] if supplier.currency == "USD" else 1.0
+        rate = C.USD_VND.get((po_day.year, po_day.month), 25_500) if supplier.currency == "USD" else 1.0
         po_lines = []
         for prl in pr.lines:
             cost = prl.product.cost_price / rate

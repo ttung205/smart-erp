@@ -8,16 +8,24 @@ from datetime import date
 
 SEED = 20251001
 
-START_DATE = date(2025, 10, 1)   # ngày bắt đầu ghi nhận trên ERP (có số dư đầu kỳ)
+START_DATE = date(2024, 10, 1)   # 2 năm dữ liệu (01/10/2024 -> 30/09/2026)
 END_DATE = date(2026, 9, 30)     # ngày cuối cùng có chứng từ
 
 # --- Lịch làm việc ---------------------------------------------------------
 TET_DATE = date(2026, 2, 17)     # Mùng 1 Tết Bính Ngọ
 # Ngày nghỉ (không phát sinh chứng từ)
 HOLIDAYS = {
+    # 2025
+    date(2025, 1, 1),
+    *[date(2025, 1, d) for d in range(25, 32)],   # nghỉ Tết Ất Tỵ 2025
+    *[date(2025, 2, d) for d in range(1, 3)],
+    date(2025, 4, 7),                            # Giỗ Tổ 2025
+    date(2025, 4, 30), date(2025, 5, 1),
+    date(2025, 9, 1), date(2025, 9, 2),
+    # 2026
     date(2026, 1, 1),
-    *[date(2026, 2, d) for d in range(14, 23)],   # nghỉ Tết 14/2 - 22/2
-    date(2026, 4, 26),                           # Giỗ Tổ (10/3 âm lịch)
+    *[date(2026, 2, d) for d in range(14, 23)],   # nghỉ Tết Bính Ngọ 2026
+    date(2026, 4, 26),                           # Giỗ Tổ 2026
     date(2026, 4, 30), date(2026, 5, 1),
     date(2026, 9, 1), date(2026, 9, 2),
 }
@@ -27,10 +35,10 @@ SATURDAY_FACTOR = 0.5            # thứ 7 làm nửa ngày
 # --- Khách hàng -----------------------------------------------------------
 # customer_type trong catalog: Retail / Dealer / Distributor / Project / Business
 CUSTOMER_MIX = {
-    "Dealer": 320,
-    "Distributor": 18,
-    "Project / Business": 45,
-    "Retail": 1800,
+    "Dealer": 650,
+    "Distributor": 35,
+    "Project / Business": 90,
+    "Retail": 2800,
 }
 CUSTOMER_PREFIX = {"Retail": "RE", "Dealer": "DE", "Distributor": "DI", "Project / Business": "PR"}
 
@@ -89,7 +97,14 @@ VAT_BY_CATEGORY = {"Điều hòa": 10}
 # Giá mua từ hãng = giá niêm yết × hệ số (hãng chiết khấu cho nhà phân phối)
 COST_RATIO_RANGE = (0.68, 0.78)
 USD_VND = {  # tỷ giá bán USD tham khảo theo tháng (VCB), dùng cho PO nhập khẩu
+    # 2024
+    (2024, 10): 25_100, (2024, 11): 25_150, (2024, 12): 25_200,
+    # 2025
+    (2025, 1): 25_300, (2025, 2): 25_350, (2025, 3): 25_400,
+    (2025, 4): 25_450, (2025, 5): 25_500, (2025, 6): 25_600,
+    (2025, 7): 25_800, (2025, 8): 26_100, (2025, 9): 26_200,
     (2025, 10): 26_350, (2025, 11): 26_390, (2025, 12): 26_420,
+    # 2026
     (2026, 1): 26_300, (2026, 2): 26_250, (2026, 3): 26_280,
     (2026, 4): 26_330, (2026, 5): 26_360, (2026, 6): 26_400,
     (2026, 7): 26_420, (2026, 8): 26_380, (2026, 9): 26_350,
@@ -131,6 +146,12 @@ REGION_CATEGORY_FACTOR = {
 
 # Dịp khuyến mãi bán lẻ làm tăng đơn khách lẻ trong khoảng ngày
 RETAIL_EVENTS = [
+    # 2024
+    (date(2024, 11, 9), date(2024, 11, 12), 1.8),    # 11.11
+    (date(2024, 11, 26), date(2024, 11, 30), 1.6),   # Black Friday
+    (date(2024, 12, 10), date(2024, 12, 13), 1.5),   # 12.12
+    (date(2025, 6, 4), date(2025, 6, 7), 1.4),       # 6.6
+    # 2025-2026
     (date(2025, 11, 9), date(2025, 11, 12), 1.8),    # 11.11
     (date(2025, 11, 26), date(2025, 11, 30), 1.6),   # Black Friday
     (date(2025, 12, 10), date(2025, 12, 13), 1.5),   # 12.12

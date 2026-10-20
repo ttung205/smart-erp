@@ -19,7 +19,11 @@ public record ConversationDto(
     int UnreadCount,
     bool Muted,
     DateTime? PinnedAt,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string? SubjectType = null,
+    long? SubjectId = null,
+    string? SubjectCode = null,
+    string? SubjectTitle = null);
 
 public record SenderDto(long Id, string Name);
 

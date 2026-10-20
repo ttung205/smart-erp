@@ -1,0 +1,33 @@
+﻿id,code,name,supplier_type,supplier_group,payment_terms,email,phone,status
+1,NCC-001,"Guangdong Midea Environment Appliances Mfg. Co., Ltd.",MANUFACTURER,Điện lạnh - Điện tử,T/T 60 ngày,sales@guangdong-midea-environm.example,+74 45 1520 3457,ACTIVE
+2,NCC-002,Công ty TNHH Toshiba Lifestyle Việt Nam,MANUFACTURER,Điện lạnh - Điện tử,Net 30,sales@toshiba-lifestyle-viet-n.example,028 3686 4325,ACTIVE
+3,NCC-003,Công ty CP Tập đoàn Nagakawa,MANUFACTURER,Điện lạnh - Điện tử,Net 45,sales@tap-doan-nagakawa.example,0225 3935 4396,ACTIVE
+4,NCC-004,Công ty CP Casper Việt Nam,MANUFACTURER,Điện lạnh - Điện tử,Net 30,sales@casper-viet-nam.example,024 3314 7098,ACTIVE
+5,NCC-005,Công ty CP Daikin Air Conditioning Việt Nam,MANUFACTURER,Điện lạnh - Điện tử,Net 30,sales@daikin-air-conditioning-.example,0238 3344 5792,ACTIVE
+6,NCC-006,Công ty TNHH Điện máy Aqua Việt Nam,MANUFACTURER,Điện lạnh - Điện tử,Net 30,sales@dien-may-aqua-viet-nam.example,0238 3088 3291,ACTIVE
+7,NCC-007,Công ty TNHH Panasonic Việt Nam,MANUFACTURER,Gia dụng,Net 30,sales@panasonic-viet-nam.example,0236 3200 4573,ACTIVE
+8,NCC-008,Công ty TNHH Điện tử Samsung Vina,MANUFACTURER,Điện lạnh - Điện tử,Net 45,sales@dien-tu-samsung-vina.example,0292 3612 9904,ACTIVE
+9,NCC-009,Công ty TNHH LG Electronics Việt Nam,MANUFACTURER,Điện lạnh - Điện tử,Net 30,sales@lg-electronics-viet-nam.example,0225 3491 5036,ACTIVE
+10,NCC-010,"Hisense International Co., Ltd.",MANUFACTURER,Gia dụng,T/T 60 ngày,sales@hisense-international-co.example,+85 35 4108 4352,ACTIVE
+11,NCC-011,Công ty CP Tập đoàn Sunhouse,MANUFACTURER,Gia dụng,Net 45,sales@tap-doan-sunhouse.example,0225 3028 4969,ACTIVE
+12,NCC-012,Công ty CP Điện lạnh Hòa Phát,MANUFACTURER,Gia dụng,Net 30,sales@dien-lanh-hoa-phat.example,0292 3609 1625,ACTIVE
+13,NCC-013,Haier Overseas Electric Appliances Corp. Ltd.,MANUFACTURER,Gia dụng,T/T 60 ngày,sales@haier-overseas-electric-.example,+71 44 8047 5979,ACTIVE
+14,NCC-014,Công ty CP Phân phối Thiết bị Gia dụng Toàn Cầu,TRADING,Gia dụng,Net 30,sales@phan-phoi-thiet-bi-gia-d.example,0237 3945 2002,ACTIVE
+15,NCC-015,Công ty TNHH Sharp Electronics Việt Nam,MANUFACTURER,Điện lạnh - Điện tử,Net 30,sales@sharp-electronics-viet-n.example,024 3720 6041,ACTIVE
+16,NCC-016,Gree Electric Appliances Inc. of Zhuhai,MANUFACTURER,Điện lạnh - Điện tử,T/T 60 ngày,sales@gree-electric-appliances.example,+81 91 4918 8860,ACTIVE
+17,NCC-017,Công ty CP Tập đoàn Kangaroo,MANUFACTURER,Gia dụng,Net 30,sales@tap-doan-kangaroo.example,0292 3788 9520,ACTIVE
+18,NCC-018,Hitachi Global Life Solutions (Thailand) Ltd.,MANUFACTURER,Gia dụng,T/T 60 ngày,sales@hitachi-global-life-solu.example,+67 45 6643 4742,ACTIVE
+19,NCC-019,Công ty CP Thế Giới Số (Digiworld),TRADING,Gia dụng,Net 45,sales@the-gioi-so-digiworld.example,0237 3963 7967,ACTIVE
+20,NCC-020,Công ty TNHH Electrolux Việt Nam,MANUFACTURER,Gia dụng,Net 30,sales@electrolux-viet-nam.example,0236 3135 1119,ACTIVE
+21,NCC-021,Công ty TNHH Xuất nhập khẩu Gia dụng Hưng Thịnh,TRADING,Gia dụng,Net 30,sales@xuat-nhap-khau-gia-dung-.example,0238 3155 4844,ACTIVE
+22,NCC-022,Công ty TNHH Ariston Thermo Việt Nam,MANUFACTURER,Gia dụng,Net 30,sales@ariston-thermo-viet-nam.example,028 3711 3434,ACTIVE
+23,NCC-023,Công ty CP Tập đoàn Tân Á Đại Thành,MANUFACTURER,Gia dụng,Net 45,sales@tap-doan-tan-a-dai-thanh.example,0237 3965 5419,ACTIVE
+24,NCC-024,Công ty TNHH Ferroli Asean,MANUFACTURER,Gia dụng,Net 30,sales@ferroli-asean.example,0236 3585 6857,ACTIVE
+25,NCC-025,SEB Asia Ltd.,TRADING,Gia dụng,T/T 60 ngày,sales@seb-asia-ltd.example,+78 46 2790 2733,ACTIVE
+26,NCC-026,"Cuckoo Electronics Co., Ltd.",MANUFACTURER,Gia dụng,T/T 60 ngày,sales@cuckoo-electronics-co-lt.example,+68 44 7847 8053,ACTIVE
+27,NCC-027,Versuni Singapore Pte. Ltd.,TRADING,Gia dụng,T/T 60 ngày,sales@versuni-singapore-pte-lt.example,+76 25 8828 2700,ACTIVE
+28,NCC-028,BSH Hausgeräte GmbH,MANUFACTURER,Gia dụng,T/T 60 ngày,sales@bsh-hausgerate-gmbh.example,+72 66 1993 7352,ACTIVE
+29,NCC-029,Công ty TNHH Lock&Lock HN,MANUFACTURER,Gia dụng,Net 45,sales@lock-lock-hn.example,0236 3721 8675,ACTIVE
+30,NCC-030,Công ty TNHH Mitsubishi Electric Việt Nam,MANUFACTURER,Gia dụng,Net 30,sales@mitsubishi-electric-viet.example,0292 3529 5153,ACTIVE
+31,NCC-031,Công ty CP Karofi Việt Nam,MANUFACTURER,Gia dụng,Net 30,sales@karofi-viet-nam.example,0225 3870 3862,ACTIVE
+32,NCC-032,Công ty TNHH Beko Việt Nam,TRADING,Gia dụng,Net 45,sales@beko-viet-nam.example,0237 3562 9066,ACTIVE

@@ -154,6 +154,15 @@
           @click="$emit('update:visible', false)" />
 
         <div class="flex gap-2">
+          <Button
+            label="Trao Đổi Nội Bộ"
+            icon="pi pi-comments"
+            size="small"
+            outlined
+            severity="help"
+            class="rounded-[6px]"
+            @click="showWorkChat = true"
+          />
           <Button v-if="order?.status === 'APPROVED'" label="Lập Yêu Cầu Giao Hàng" icon="pi pi-truck" size="small"
             class="!bg-emerald-600 hover:!bg-emerald-700 !text-white !border-emerald-600 rounded-[6px]"
             @click="triggerCreateDelivery" />
@@ -161,15 +170,29 @@
       </div>
     </template>
   </Dialog>
+
+  <!-- Khung trao đổi nội bộ về đơn hàng này -->
+  <WorkThreadDrawer
+    v-if="order"
+    v-model:visible="showWorkChat"
+    subject-type="Sale"
+    :subject-id="order.id"
+    :subject-code="order.order_number || order.customer_order_number || order.id"
+    :subject-title="order.customer_name || order.customer?.name"
+  />
 </template>
 
 <script setup>
+import { ref } from 'vue';
 import Dialog from 'primevue/dialog';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Button from 'primevue/button';
 import Badge from 'primevue/badge';
+import WorkThreadDrawer from '../chat/WorkThreadDrawer.vue';
 import { formatCurrency, formatDate } from '../../utils/format';
+
+const showWorkChat = ref(false);
 
 const props = defineProps({
   visible: {

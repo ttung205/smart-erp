@@ -11,6 +11,13 @@ export const chatApi = {
   conversation: (id) => unwrap(apiClient(`${root}/conversations/${id}`)),
   unreadCount: () => unwrap(apiClient(`${root}/conversations/unread-count`)),
   openDirect: (userId) => unwrap(apiClient(`${root}/conversations/direct`, json('POST', { user_id: userId }))),
+  openWorkThread: (subjectType, subjectId, subjectCode = null, subjectTitle = null) =>
+    unwrap(apiClient(`${root}/conversations/work`, json('POST', {
+      subject_type: subjectType,
+      subject_id: subjectId,
+      subject_code: subjectCode,
+      subject_title: subjectTitle
+    }))),
   createGroup: (title, userIds) => unwrap(apiClient(`${root}/conversations/group`, json('POST', { title, user_ids: userIds }))),
   markRead: (id, messageId) => unwrap(apiClient(`${root}/conversations/${id}/read`, json('POST', { message_id: messageId }))),
   markAllRead: () => unwrap(apiClient(`${root}/conversations/read-all`, json('POST'))),

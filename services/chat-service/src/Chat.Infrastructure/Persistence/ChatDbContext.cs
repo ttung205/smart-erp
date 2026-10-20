@@ -42,8 +42,12 @@ public class ChatDbContext(DbContextOptions<ChatDbContext> options) : DbContext(
             e.Property(x => x.DirectKey).HasMaxLength(50);
             e.Property(x => x.AvatarPath).HasMaxLength(300);
             e.Property(x => x.AvatarContentType).HasMaxLength(100);
+            e.Property(x => x.SubjectType).HasMaxLength(50);
+            e.Property(x => x.SubjectCode).HasMaxLength(100);
+            e.Property(x => x.SubjectTitle).HasMaxLength(255);
             // Mỗi cặp người dùng chỉ có một hội thoại 1-1 (NULL với nhóm nên không bị trùng)
             e.HasIndex(x => x.DirectKey).IsUnique();
+            e.HasIndex(x => new { x.SubjectType, x.SubjectId });
             e.HasIndex(x => x.LastMessageAt);
             e.HasMany(x => x.Members).WithOne(x => x.Conversation).HasForeignKey(x => x.ConversationId).OnDelete(DeleteBehavior.Cascade);
             e.HasMany(x => x.Messages).WithOne(x => x.Conversation).HasForeignKey(x => x.ConversationId).OnDelete(DeleteBehavior.Cascade);

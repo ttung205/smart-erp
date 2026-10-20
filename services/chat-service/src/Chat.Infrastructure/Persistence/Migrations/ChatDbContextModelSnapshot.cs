@@ -142,6 +142,21 @@ namespace Chat.Infrastructure.Persistence.Migrations
                     b.Property<long?>("LastMessageId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("SubjectCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("SubjectId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SubjectTitle")
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SubjectType")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Title")
                         .HasMaxLength(120)
                         .HasColumnType("TEXT");
@@ -160,6 +175,8 @@ namespace Chat.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.HasIndex("LastMessageAt");
+
+                    b.HasIndex("SubjectType", "SubjectId");
 
                     b.ToTable("conversations", (string)null);
                 });

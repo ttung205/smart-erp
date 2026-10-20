@@ -3,7 +3,8 @@ namespace Chat.Domain.Enums;
 public enum ConversationType
 {
     Direct = 1,
-    Group = 2
+    Group = 2,
+    Work = 3
 }
 
 /// <summary>Vai trò trong nhóm: 1 trưởng nhóm, nhiều phó nhóm. Hội thoại 1-1 chỉ có Member.</summary>

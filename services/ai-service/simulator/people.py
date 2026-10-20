@@ -118,10 +118,14 @@ class People:
                                   f"Lô {self.rng.choice('ABCDE')}{self.rng.randint(1, 30)}"])
         return f"{number} {street}, {ward}, {province}"
 
-    # --- doanh nghiệp ------------------------------------------------------
     def _unique(self, make) -> str:
-        for _ in range(200):
+        for _ in range(500):
             name = make()
+            if name not in self._used_names:
+                self._used_names.add(name)
+                return name
+        for _ in range(200):
+            name = f"{make()} {self.rng.randint(1, 999)}"
             if name not in self._used_names:
                 self._used_names.add(name)
                 return name
@@ -130,16 +134,24 @@ class People:
     def dealer_name(self, province: str) -> str:
         place = province.replace("Thành phố ", "").replace("Tỉnh ", "")
         forms = [
-            lambda h: f"Điện máy {h}",
-            lambda h: f"Cửa hàng Điện máy {h}",
-            lambda h: f"Siêu thị Điện máy {h}",
-            lambda h: f"Gia dụng {h}",
-            lambda h: f"Công ty TNHH Thương mại {h}",
-            lambda h: f"Công ty TNHH Điện máy {h} {place}",
-            lambda h: f"Hộ kinh doanh Điện lạnh {h}",
-            lambda h: f"Công ty CP Thương mại Điện máy {h}",
+            lambda h, p: f"Điện máy {h} {p}",
+            lambda h, p: f"Điện máy {h}",
+            lambda h, p: f"Cửa hàng Điện máy {h} {p}",
+            lambda h, p: f"Cửa hàng Điện máy {h}",
+            lambda h, p: f"Siêu thị Điện máy {h} {p}",
+            lambda h, p: f"Siêu thị Điện máy {h}",
+            lambda h, p: f"Gia dụng {h} {p}",
+            lambda h, p: f"Gia dụng {h}",
+            lambda h, p: f"Công ty TNHH Thương mại {h}",
+            lambda h, p: f"Công ty TNHH Điện máy {h} {p}",
+            lambda h, p: f"Hộ kinh doanh Điện lạnh {h} {p}",
+            lambda h, p: f"Hộ kinh doanh Điện máy {h}",
+            lambda h, p: f"Công ty CP Thương mại Điện máy {h}",
+            lambda h, p: f"Công ty CP Thương mại Điện máy {h} {p}",
+            lambda h, p: f"Điện máy - Điện lạnh {h} {p}",
+            lambda h, p: f"Trung tâm Điện máy {h} {p}",
         ]
-        return self._unique(lambda: self.rng.choice(forms)(self.rng.choice(HIEU)))
+        return self._unique(lambda: self.rng.choice(forms)(self.rng.choice(HIEU), place))
 
     def distributor_name(self, province: str) -> str:
         place = province.replace("Thành phố ", "").replace("Tỉnh ", "")
