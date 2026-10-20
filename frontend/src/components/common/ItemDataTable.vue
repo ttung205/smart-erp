@@ -273,7 +273,7 @@
           <IconField class="flex-1">
             <InputIcon class="pi pi-search" />
             <InputText
-              v-model="catalogSearchQuery"
+              v-model="catalogSearchInput"
               placeholder="Nhập mã SKU, tên quy cách hoặc mô tả mặt hàng..."
               class="w-full text-xs rounded-[6px]"
               autofocus
@@ -284,13 +284,17 @@
           </span>
         </div>
 
-        <div class="border border-slate-200 rounded-[6px] overflow-hidden max-h-[420px] overflow-y-auto">
+        <div class="border border-slate-200 rounded-[6px] overflow-hidden">
+          <!-- Virtual scroll: chỉ render các dòng đang nhìn thấy, danh mục hàng nghìn mã vẫn mượt -->
           <DataTable
             :value="filteredCatalogProducts"
             v-model:selection="selectedCatalogItems"
             dataKey="id"
             class="clean-datatable"
-            responsiveLayout="scroll"
+            scrollable
+            scrollHeight="420px"
+            :virtualScrollerOptions="{ itemSize: 41 }"
+            :loading="catalogLoading"
           >
             <Column selectionMode="multiple" headerStyle="width: 3rem" class="text-center"></Column>
             <Column field="sku" header="Mã SKU" style="width: 150px">
@@ -400,7 +404,7 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, watch, onMounted } from 'vue';
+import { ref, shallowRef, computed, reactive, watch, onMounted, onBeforeUnmount } from 'vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Button from 'primevue/button';
@@ -409,8 +413,7 @@ import InputNumber from 'primevue/inputnumber';
 import Dialog from 'primevue/dialog';
 import IconField from 'primevue/iconfield';
 import * as XLSX from 'xlsx';
-import { catalogApi } from '../../api/catalog.api';
-import { inventoryApi } from '../../api/inventory.api';
+import { getCatalogProducts, getStockRows } from '../../utils/catalogLookup';
 import { FALLBACK_CATALOG_PRODUCTS, getProductOrigin } from '../../constants/catalogProducts.constant';
 import { formatCurrency } from '../../utils/format';
 import { ITEM_TABLE_ACTION_CLASS } from '../../constants/itemTable.constant';
@@ -689,15 +692,27 @@ const removeItemRow = (idx) => {
 
 // Catalog search & import
 const showCatalogSearchDialog = ref(false);
+const catalogSearchInput = ref('');
 const catalogSearchQuery = ref('');
-const catalogProducts = ref([]);
+// shallowRef: danh sách chỉ đọc, không cần biến hàng nghìn object thành reactive proxy
+const catalogProducts = shallowRef([]);
 const selectedCatalogItems = ref([]);
+const catalogLoading = ref(false);
+
+// Lọc sau khi ngừng gõ thay vì lọc lại toàn bộ danh mục ở mỗi phím
+let searchDebounce = null;
+watch(catalogSearchInput, (value) => {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(() => (catalogSearchQuery.value = value), 200);
+});
+onBeforeUnmount(() => clearTimeout(searchDebounce));
 
 const loadInventoryStocks = async () => {
   try {
-    if (catalogProducts.value.length === 0) {
-      await loadCatalogProducts();
-    }
+    const [, stocks] = await Promise.all([
+      catalogProducts.value.length === 0 ? loadCatalogProducts() : null,
+      getStockRows()
+    ]);
     const pidToSkuMap = new Map();
     const skuToPidMap = new Map();
     catalogProducts.value.forEach((p) => {
@@ -709,8 +724,6 @@ const loadInventoryStocks = async () => {
       }
     });
 
-    const res = await inventoryApi.getStocks({ pageSize: 1000 });
-    const stocks = res.data || [];
     const bySku = new Map();
     const byPid = new Map();
 
@@ -751,11 +764,14 @@ const loadInventoryStocks = async () => {
 
 const loadCatalogProducts = async () => {
   try {
-    const res = await catalogApi.getProducts();
-    if (res && res.data) {
-      catalogProducts.value = res.data.map((p) => {
+    const products = await getCatalogProducts();
+    if (products.length) {
+      catalogProducts.value = products.map((p) => {
         const orig = p.com || p.origin || getProductOrigin(p.sku || p.id);
+        const description = p.name || p.description || '';
         return {
+          // Chuỗi tìm kiếm tính sẵn một lần, không lowercase lại 4 trường mỗi lần lọc
+          _search: [p.sku, p.designation, p.brand, description].filter(Boolean).join(' ').toLowerCase(),
           id: p.id,
           sku: p.sku,
           designation: p.designation || '',
@@ -780,25 +796,27 @@ const loadCatalogProducts = async () => {
 };
 
 const filteredCatalogProducts = computed(() => {
-  if (!catalogSearchQuery.value) return catalogProducts.value;
   const q = catalogSearchQuery.value.toLowerCase().trim();
-  return catalogProducts.value.filter(
-    (p) =>
-      p.sku.toLowerCase().includes(q) ||
-      (p.designation && p.designation.toLowerCase().includes(q)) ||
-      (p.brand && p.brand.toLowerCase().includes(q)) ||
-      (p.description && p.description.toLowerCase().includes(q))
+  if (!q) return catalogProducts.value;
+  return catalogProducts.value.filter((p) =>
+    p._search !== undefined
+      ? p._search.includes(q)
+      : [p.sku, p.designation, p.brand, p.description].some((v) => v && v.toLowerCase().includes(q))
   );
 });
 
 const openSearchDialog = async () => {
-  if (catalogProducts.value.length === 0) {
-    await loadCatalogProducts();
-  }
-  await loadInventoryStocks();
+  // Mở dialog ngay, dữ liệu tải nền (thường đã có sẵn trong cache từ lúc mount)
   selectedCatalogItems.value = [];
+  catalogSearchInput.value = '';
   catalogSearchQuery.value = '';
   showCatalogSearchDialog.value = true;
+  catalogLoading.value = catalogProducts.value.length === 0;
+  try {
+    await loadInventoryStocks();
+  } finally {
+    catalogLoading.value = false;
+  }
 };
 
 const confirmAddCatalogItems = () => {
@@ -948,7 +966,7 @@ const exportToExcel = () => {
 };
 
 onMounted(async () => {
-  await loadCatalogProducts();
+  // loadInventoryStocks tự tải danh mục song song với tồn kho
   await loadInventoryStocks();
   if (items.value.length > 0) {
     items.value.forEach((it) => {
