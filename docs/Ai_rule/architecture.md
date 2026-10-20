@@ -277,7 +277,7 @@ Cập nhật: 2026-10-20. Đánh dấu ✅ khi xong.
 | 1 | ✅ | ~~`sales-service` có connection `catalog`/`identity` đọc thẳng DB~~ | Đã xong 2026-10-20: snapshot vào chứng từ + `CatalogClient`/`PartnerClient`/`IdentityClient` (`app/Infrastructure/Clients`), dữ liệu cũ điền bằng `php artisan sales:backfill-reference-snapshots` |
 | 2 | 🔴 | `ai-service` ETL đọc file SQLite của mọi service | Giữ cho demo; lộ trình chuyển sang consume event/export API (§11) |
 | 3 | ✅ | ~~Giữ hàng từng dòng, không nguyên tử; đọc-rồi-ghi gây mất cập nhật khi đồng thời; thiếu hàng trả 500; saga `SalesOrderCreated` là code chết~~ | Đã xong 2026-10-20: sales gọi `reserve/batch` một lần/chứng từ; Inventory giữ cả lô trong 1 transaction bằng UPDATE có điều kiện, idempotent, thiếu hàng trả 409; gỡ consumer `SalesOrderCreated` (§8) |
-| 4 | 🔴 | `catalog-service` publish RabbitMQ thẳng trong controller, có bảng `outbox_events` nhưng không dùng | Chuyển sang outbox + relay (§7.3) |
+| 4 | ✅ | ~~`catalog-service` publish RabbitMQ thẳng trong controller; thư viện AMQP chưa cài nên `ProductCreated` chưa từng được gửi; import Excel và kết quả hỏi hàng không phát event~~ | Đã xong 2026-10-20: cả 3 đường tạo sản phẩm ghi `ProductCreated` qua outbox trong cùng transaction; relay `php artisan outbox:relay` (có trong `start_dev`) |
 | 5 | 🟠 | Customer/Supplier nằm trong catalog | Tách `partner-service` (§2.1); trước đó các service khác chỉ gọi qua API, không đọc DB |
 | 6 | 🟠 | `ItemInquiriesController` (purchase) chứa logic + gọi `DbContext` + HTTP hardcode `localhost` | Chuyển logic vào Application, HTTP vào typed client ở Infrastructure (§3, §6) |
 | 7 | 🟠 | Gọi REST nội bộ thiếu timeout/retry, URL mặc định hardcode | Áp §6 |

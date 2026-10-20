@@ -175,7 +175,7 @@ Master data mặc định được service khác lấy qua **REST lúc tạo ch�
 
 | Event | Routing Key | Producer | Consumer thật | Trạng thái |
 | :--- | :--- | :--- | :--- | :--- |
-| `ProductCreated` | `catalog.product.created` | catalog-service | inventory-service (khởi tạo dòng tồn/min_stock), ai-service (analytics) | Đang có — **phải chuyển sang outbox** |
+| `ProductCreated` | `catalog.product.created` | catalog-service (tạo tay, import Excel, kết quả hỏi hàng — qua outbox) | inventory-service (khởi tạo dòng tồn = 0 tại mọi kho đang hoạt động) | Đang dùng |
 | `ProductUpdated` / `ProductDeactivated` | `catalog.product.updated\|deactivated` | catalog-service | inventory (min_stock), ai-service | Kế hoạch |
 | `UserDeactivated` | `identity.user.deactivated` | identity-service | chat (gỡ khỏi nhóm), eoffice (chuyển người duyệt đang chờ), notification (ngừng gửi) | Kế hoạch |
 | `UserCreated` | `identity.user.created` | identity-service | eoffice (khởi tạo quỹ 12 ngày phép) | Chỉ thêm khi eoffice cần khởi tạo tự động |
