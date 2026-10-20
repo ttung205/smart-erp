@@ -12,12 +12,18 @@ use App\Http\Controllers\SupplierController;
 // 1. Health check (công khai)
 Route::get('/health', [HealthController::class, 'check']);
 
+// Route đọc dùng chung cho frontend (JWT) và service khác (X-Internal-Service-Key), vd. sales-service snapshot vào chứng từ
+Route::middleware('user_or_service')->group(function () {
+    Route::get('/products', [ProductController::class, 'index']);
+    Route::get('/customers', [CustomerController::class, 'index']);
+    Route::get('/customers/{id}', [CustomerController::class, 'show']);
+});
+
 Route::middleware('jwt')->group(function () {
     // 2. Products (CRUD & Import Excel)
     Route::post('/products/import', [ProductController::class, 'import'])->middleware('permission:catalog.create');
     Route::post('/products/apply-inquiry-result', [ProductController::class, 'applyInquiryResult'])->middleware('internal');
     Route::get('/products/price-history', [ProductController::class, 'priceHistory']);
-    Route::get('/products', [ProductController::class, 'index']);
     Route::get('/products/{product}', [ProductController::class, 'show']);
     Route::post('/products', [ProductController::class, 'store'])->middleware('permission:catalog.create');
     Route::match(['put', 'patch'], '/products/{product}', [ProductController::class, 'update'])->middleware('permission:catalog.edit');
@@ -37,8 +43,6 @@ Route::middleware('jwt')->group(function () {
     Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->middleware('permission:catalog.manage');
 
     // 5. Customers & Contacts (chưa có quyền ghi riêng nên dùng quyền của màn hình khách hàng)
-    Route::get('/customers', [CustomerController::class, 'index']);
-    Route::get('/customers/{id}', [CustomerController::class, 'show']);
     Route::middleware('permission:customer.view')->group(function () {
         Route::post('/customers', [CustomerController::class, 'store']);
         Route::put('/customers/{id}', [CustomerController::class, 'update']);

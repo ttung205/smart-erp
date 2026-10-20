@@ -9,6 +9,15 @@ use App\Messaging\RabbitMqPublisher;
 
 class ProductController extends Controller
 {
+    /** @return list<string> Tham số dạng "1,2,3" hoặc mảng ids[]=1&ids[]=2 */
+    private static function listParam(Request $request, string $key): array
+    {
+        $value = $request->input($key);
+        $items = is_array($value) ? $value : explode(',', (string) $value);
+
+        return array_values(array_filter(array_map('trim', $items), fn ($v) => $v !== ''));
+    }
+
     private function canSeeCost(Request $request): bool
     {
         return $this->actor($request)->hasAnyRole('SUPER_ADMIN', 'PURCHASE', 'PURCHASE_MANAGER', 'FINANCE_ACCOUNTING', 'FINANCE_ACCOUNTING_MANAGER');
@@ -130,8 +139,19 @@ class ProductController extends Controller
                 'products.status',
                 'products.created_at',
                 'products.updated_at'
-            )
-            ->where('products.status', 'ACTIVE');
+            );
+
+        // Tra cứu batch theo ids/skus (service khác snapshot chứng từ cũ) lấy cả sản phẩm đã ngừng bán
+        $ids = self::listParam($request, 'ids');
+        $skus = self::listParam($request, 'skus');
+        if ($ids || $skus) {
+            $query->where(function ($q) use ($ids, $skus) {
+                if ($ids) $q->whereIn('products.id', array_map('intval', $ids));
+                if ($skus) $q->orWhereIn('products.sku', $skus);
+            });
+        } else {
+            $query->where('products.status', 'ACTIVE');
+        }
 
         if ($search) {
             $query->where(function ($q) use ($search) {

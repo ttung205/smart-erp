@@ -8,9 +8,15 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $users = $this->userQuery()->orderBy('users.id')->get();
+        $query = $this->userQuery()->orderBy('users.id');
+        // Batch lookup cho service khác: ?ids=1,2,3
+        if ($request->filled('ids')) {
+            $ids = is_array($request->input('ids')) ? $request->input('ids') : explode(',', (string) $request->input('ids'));
+            $query->whereIn('users.id', array_map('intval', $ids));
+        }
+        $users = $query->get();
 
         $userRoles = DB::table('user_roles')
             ->join('roles', 'user_roles.role_id', '=', 'roles.id')
