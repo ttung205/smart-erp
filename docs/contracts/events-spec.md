@@ -33,77 +33,22 @@ Mọi message được bắn lên Message Broker (RabbitMQ) **bắt buộc** ph�
 - **`producer`** *(string, required)*: Tên của microservice phát sinh sự kiện (ví dụ: `sales-service`).
 - **`payload`** *(object, required)*: Dữ liệu nghiệp vụ thuần túy.
 
+### Quy ước chung
+- **Routing key**: `<service>.<aggregate>.<event>` viết thường, ví dụ `sales.order.approved`, `catalog.product.updated`.
+- **Ghi qua Transactional Outbox** khi event phát sinh từ thay đổi DB — cấm publish thẳng trong controller ([architecture.md §7.3](../Ai_rule/architecture.md#73-transactional-outbox--bắt-buộc-khi-event-sinh-ra-từ-thay-đổi-db)).
+- **Consumer idempotent** theo `event_id` (`processed_events`), không giả định thứ tự.
+- **Versioning**: thêm trường → giữ `version`; thay đổi phá vỡ → tăng `version` và phát song song bản cũ/mới trong giai đoạn chuyển đổi.
+- **Chỉ đăng ký event mới vào tài liệu này khi đã có consumer thật.** Mỗi event phải ghi rõ consumer và lý do consumer cần nó.
+
 ---
 
 ## 2. Danh Sách Domain Events Chi Tiết
 
-### 2.1. Nhóm Bán Hàng & Giữ Kho (Sales & Inventory Saga)
+### 2.1. Giữ hàng cho chứng từ bán hàng — KHÔNG dùng event
 
-#### Event: `SalesOrderCreated`
-- **Routing Key:** `sales.order.created`
-- **Producer:** `sales-service`
-- **Consumer chính:** `inventory-service` (Kích hoạt kiểm tra và thực hiện Atomic Reservation).
-- **Payload Schema:**
-```json
-{
-  "order_id": "SO-202609-0001",
-  "customer_id": 105,
-  "order_date": "2026-09-10",
-  "total_amount": 35000000.0,
-  "items": [
-    {
-      "product_id": 201,
-      "warehouse_id": 1,
-      "quantity": 5,
-      "gross_price": 7000000.0,
-      "discount_percent": 0.0,
-      "unit_price": 7000000.0,
-      "subtotal": 35000000.0
-    }
-  ]
-}
-```
+Giữ hàng xảy ra khi tạo **chứng từ bán hàng** và đi qua **REST đồng bộ** `POST /api/v1/inventory/stocks/reserve/batch` (người lập chứng từ cần biết ngay đủ hàng hay không). Hợp đồng chi tiết: [architecture.md §8](../Ai_rule/architecture.md#8-luồng-bán-hàng--giữ-kho).
 
-#### Event: `StockReserved`
-- **Routing Key:** `inventory.stock.reserved`
-- **Producer:** `inventory-service`
-- **Consumer chính:** `sales-service` (Cập nhật trạng thái SO từ `PENDING_RESERVATION` sang `CONFIRMED`).
-- **Payload Schema:**
-```json
-{
-  "order_id": "SO-202609-0001",
-  "reserved_at": "2026-09-10T13:50:01.000Z",
-  "reservations": [
-    {
-      "product_id": 201,
-      "warehouse_id": 1,
-      "quantity_reserved": 5,
-      "remaining_available": 45
-    }
-  ]
-}
-```
-
-#### Event: `StockReservationFailed`
-- **Routing Key:** `inventory.stock.reservation_failed`
-- **Producer:** `inventory-service`
-- **Consumer chính:** `sales-service` (Saga bồi hoàn: Cập nhật SO sang `REJECTED_OUT_OF_STOCK`).
-- **Payload Schema:**
-```json
-{
-  "order_id": "SO-202609-0001",
-  "failed_at": "2026-09-10T13:50:01.000Z",
-  "reason": "INSUFFICIENT_STOCK",
-  "failed_items": [
-    {
-      "product_id": 201,
-      "warehouse_id": 1,
-      "requested_quantity": 50,
-      "available_quantity": 20
-    }
-  ]
-}
-```
+Các event `SalesOrderCreated` / `StockReserved` / `StockReservationFailed` trong bản thiết kế ban đầu **không được dùng** và đã gỡ khỏi inventory-service (2026-10-20).
 
 ---
 
@@ -159,7 +104,7 @@ Mọi message được bắn lên Message Broker (RabbitMQ) **bắt buộc** ph�
 #### Event: `GoodsIssued`
 - **Routing Key:** `inventory.goods.issued`
 - **Producer:** `inventory-service`
-- **Consumer chính:** `sales-service` (Cập nhật Delivery & tính toán Fulfillment Rate $\le 100\%$).
+- **Consumer chính:** chưa có service xử lý nghiệp vụ (chỉ queue analytics nhận qua binding `*.*.*`). Phát sau khi kho ghi sổ xuất chứng từ bán hàng.
 - **Payload Schema:**
 ```json
 {
@@ -221,4 +166,18 @@ Mọi payload đều có `actor: { id, name }` — người thực hiện hành 
 }
 ```
 
-> ⚠️ Binding `sales.order.*` của `erp.inventory.events` cũng nhận `sales.order.submitted|approved|rejected`; inventory-service bỏ qua các `event_type` không xử lý.
+
+---
+
+### 2.5. Nhóm Master Data (Catalog / Identity / Partner)
+
+Master data mặc định được service khác lấy qua **REST lúc tạo chứng từ rồi snapshot** ([architecture.md §5](../Ai_rule/architecture.md#5-chia-sẻ-dữ-liệu-qua-ranh-giới-service)) — **không** cần event. Event master data chỉ tồn tại khi có service phải *phản ứng* với thay đổi:
+
+| Event | Routing Key | Producer | Consumer thật | Trạng thái |
+| :--- | :--- | :--- | :--- | :--- |
+| `ProductCreated` | `catalog.product.created` | catalog-service | inventory-service (khởi tạo dòng tồn/min_stock), ai-service (analytics) | Đang có — **phải chuyển sang outbox** |
+| `ProductUpdated` / `ProductDeactivated` | `catalog.product.updated\|deactivated` | catalog-service | inventory (min_stock), ai-service | Kế hoạch |
+| `UserDeactivated` | `identity.user.deactivated` | identity-service | chat (gỡ khỏi nhóm), eoffice (chuyển người duyệt đang chờ), notification (ngừng gửi) | Kế hoạch |
+| `UserCreated` | `identity.user.created` | identity-service | eoffice (khởi tạo quỹ 12 ngày phép) | Chỉ thêm khi eoffice cần khởi tạo tự động |
+
+Không phát `UserUpdated` hàng loạt chỉ để các service đồng bộ tên người dùng — tên người thực hiện được snapshot vào chứng từ tại thời điểm thao tác.
