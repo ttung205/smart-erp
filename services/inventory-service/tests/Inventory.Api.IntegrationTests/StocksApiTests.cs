@@ -141,8 +141,7 @@ public class StocksApiTests : IClassFixture<WebApplicationFactory<Program>>
             ReferenceDoc = "PO-API-RECEIPT-001",
             WarehouseId = 1,
             ProductId = 1,
-            Quantity = 10,
-            MinStock = 5
+            Quantity = 10
         };
 
         var response = await _client.PostAsJsonAsync("/api/v1/inventory/stocks/receive", request, _jsonOptions);

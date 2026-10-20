@@ -106,6 +106,14 @@ public class ReleaseStockRequest
     public int Quantity { get; set; }
 }
 
+/// <summary>Nhả toàn bộ hàng đã giữ cho một chứng từ bán hàng (hủy chứng từ).</summary>
+public class ReleaseDocumentRequest
+{
+    [Required(ErrorMessage = "Mã chứng từ (order_id) không được để trống.")]
+    [JsonPropertyName("order_id")]
+    public string OrderId { get; set; } = string.Empty;
+}
+
 public class ReceiveStockRequest
 {
     [Required(ErrorMessage = "Mã chứng từ (reference_doc) không được để trống.")]

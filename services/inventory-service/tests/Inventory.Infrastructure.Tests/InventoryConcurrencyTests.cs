@@ -77,7 +77,8 @@ public class InventoryConcurrencyTests : IDisposable
         // 1. Arrange: Nạp kho ban đầu
         using (var setupContext = new InventoryDbContext(_dbOptions))
         {
-            setupContext.InventoryStocks.Add(new InventoryStock(productId, warehouseId, initialOnHand));
+            setupContext.InventoryStocks.Add(new InventoryStock(warehouseId, productId, initialOnHand));
+            setupContext.InventoryStockReservations.Add(new InventoryStockReservation(warehouseId, productId, initialOnHand));
             await setupContext.SaveChangesAsync();
         }
 
@@ -125,24 +126,21 @@ public class InventoryConcurrencyTests : IDisposable
         // Kiểm tra số dư cuối cùng trong Database
         using (var verifyContext = new InventoryDbContext(_dbOptions))
         {
-            var finalStock = await verifyContext.InventoryStocks
-                .AsNoTracking()
-                .FirstAsync(s => s.ProductId == productId && s.WarehouseId == warehouseId);
+            var onHand = await verifyContext.InventoryStocks.AsNoTracking()
+                .Where(s => s.ProductId == productId && s.WarehouseId == warehouseId).Select(s => s.Quantity).FirstAsync();
+            var available = await verifyContext.InventoryStockReservations.AsNoTracking()
+                .Where(r => r.ProductId == productId && r.WarehouseId == warehouseId).Select(r => r.Quantity).FirstAsync();
 
-            Assert.Equal(initialOnHand, finalStock.QuantityOnHand); // 15
-            Assert.Equal(requestedQty, finalStock.QuantityReserved); // 10
-            Assert.Equal(5, finalStock.Available); // 15 - 10 = 5
+            Assert.Equal(initialOnHand, onHand); // giữ chỗ không đụng tồn thực tế
+            Assert.Equal(5, available); // 15 - 10 = 5, tuyệt đối không âm
 
-            // Bất biến: Available tuyệt đối không âm
-            Assert.True(finalStock.Available >= 0, "LỖI OBERSELLING: Tồn khả dụng bị âm!");
-
-            // Kiểm tra số lượng phiếu giữ chỗ thực tế
-            var reservations = await verifyContext.StockReservations
-                .Where(r => r.ProductId == productId)
+            // Sổ cái giữ chỗ chỉ có đúng 1 dòng của đơn thắng
+            var ledger = await verifyContext.InventoryStockReservationTransactions
+                .Where(t => t.ProductId == productId)
                 .ToListAsync();
 
-            Assert.Single(reservations);
-            Assert.Equal(requestedQty, reservations[0].Quantity);
+            Assert.Single(ledger);
+            Assert.Equal(-requestedQty, ledger[0].QuantityDelta);
         }
     }
 
@@ -152,8 +150,8 @@ public class InventoryConcurrencyTests : IDisposable
         // -------------------------------------------------------------
         // GIẢ LẬP KỊCH BẢN CHẶNG 6.2 (ROADMAP):
         // 2 Transaction xin giữ hàng chéo nhau [A, B] và [B, A] song song.
-        // Nhờ Resource Lock Ordering (.ToDeterministicLockOrder()), cả hai đều được
-        // chuẩn hóa thứ tự khóa [A, B] trước khi thực thi -> Hoàn thành không deadlock.
+        // BatchReserveStockAsync sắp xếp dòng theo (kho, sản phẩm), nên cả hai đều
+        // khóa theo thứ tự [A, B] -> Hoàn thành không deadlock.
         // -------------------------------------------------------------
 
         const long prodA = 801;
@@ -163,8 +161,11 @@ public class InventoryConcurrencyTests : IDisposable
         // 1. Arrange: Nạp kho ban đầu 100 món cho cả 2 sản phẩm
         using (var setupContext = new InventoryDbContext(_dbOptions))
         {
-            setupContext.InventoryStocks.Add(new InventoryStock(prodA, warehouseId, 100));
-            setupContext.InventoryStocks.Add(new InventoryStock(prodB, warehouseId, 100));
+            foreach (var product in new[] { prodA, prodB })
+            {
+                setupContext.InventoryStocks.Add(new InventoryStock(warehouseId, product, 100));
+                setupContext.InventoryStockReservations.Add(new InventoryStockReservation(warehouseId, product, 100));
+            }
             await setupContext.SaveChangesAsync();
         }
 
@@ -215,16 +216,11 @@ public class InventoryConcurrencyTests : IDisposable
         // Kiểm tra số dư cuối cùng
         using (var verifyContext = new InventoryDbContext(_dbOptions))
         {
-            var stockA = await verifyContext.InventoryStocks.AsNoTracking().FirstAsync(s => s.ProductId == prodA);
-            var stockB = await verifyContext.InventoryStocks.AsNoTracking().FirstAsync(s => s.ProductId == prodB);
+            var availableA = await verifyContext.InventoryStockReservations.AsNoTracking().Where(r => r.ProductId == prodA).Select(r => r.Quantity).FirstAsync();
+            var availableB = await verifyContext.InventoryStockReservations.AsNoTracking().Where(r => r.ProductId == prodB).Select(r => r.Quantity).FirstAsync();
 
-            // Prod A: 10 (từ Tx1) + 5 (từ Tx2) = 15 reserved
-            Assert.Equal(15, stockA.QuantityReserved);
-            Assert.Equal(85, stockA.Available);
-
-            // Prod B: 20 (từ Tx1) + 15 (từ Tx2) = 35 reserved
-            Assert.Equal(35, stockB.QuantityReserved);
-            Assert.Equal(65, stockB.Available);
+            Assert.Equal(85, availableA); // 100 - 10 (Tx1) - 5 (Tx2)
+            Assert.Equal(65, availableB); // 100 - 20 (Tx1) - 15 (Tx2)
         }
     }
 }

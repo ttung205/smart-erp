@@ -9,8 +9,14 @@ using Xunit;
 
 namespace Inventory.Infrastructure.Tests;
 
+/// <summary>
+/// Mô hình 2 tầng: inventory_stocks (tồn thực tế) và inventory_stocks_reservation (tồn khả dụng).
+/// Giữ chỗ trừ tồn khả dụng; xuất kho trừ tồn thực tế.
+/// </summary>
 public class InventoryStockManagerTests : IDisposable
 {
+    private const long Warehouse = 1;
+
     private readonly SqliteConnection _connection;
     private readonly InventoryDbContext _context;
     private readonly InventoryStockManager _manager;
@@ -20,22 +26,10 @@ public class InventoryStockManagerTests : IDisposable
         _connection = new SqliteConnection("DataSource=:memory:");
         _connection.Open();
 
-        var options = new DbContextOptionsBuilder<InventoryDbContext>()
-            .UseSqlite(_connection)
-            .Options;
-
+        var options = new DbContextOptionsBuilder<InventoryDbContext>().UseSqlite(_connection).Options;
         _context = new InventoryDbContext(options);
         _context.Database.EnsureCreated();
-
-        // Seed Warehouse
-        _context.Warehouses.Add(new Warehouse
-        {
-            Id = 1,
-            Code = "WH-HN-01",
-            Name = "Kho Tổng Hà Nội",
-            Location = "Hà Nội",
-            IsActive = true
-        });
+        _context.Warehouses.Add(new Warehouse { Id = Warehouse, Code = "WH-HN-01", Name = "Kho Tổng Hà Nội", Location = "Hà Nội", IsActive = true });
         _context.SaveChanges();
 
         _manager = new InventoryStockManager(_context);
@@ -47,212 +41,173 @@ public class InventoryStockManagerTests : IDisposable
         _connection.Dispose();
     }
 
-    [Fact]
-    public async Task ReserveStock_ShouldUpdateReserved_And_CreateStockMovement()
+    private async Task SeedAsync(long productId, int onHand, int available)
     {
-        // Arrange: Sản phẩm có OnHand = 50, Reserved = 0
-        _context.InventoryStocks.Add(new InventoryStock(productId: 201, warehouseId: 1, initialOnHand: 50));
+        _context.InventoryStocks.Add(new InventoryStock(Warehouse, productId, onHand));
+        _context.InventoryStockReservations.Add(new InventoryStockReservation(Warehouse, productId, available));
         await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+    }
 
-        var command = new ReserveStockCommand(
-            OrderId: "SO-2026-0001",
-            WarehouseId: 1,
-            ProductId: 201,
-            Quantity: 15,
-            UserId: 99
-        );
+    private Task<int> AvailableAsync(long productId) =>
+        _context.InventoryStockReservations.AsNoTracking().Where(r => r.ProductId == productId).Select(r => r.Quantity).FirstAsync();
 
-        // Act
-        var result = await _manager.ReserveStockAsync(command);
+    private Task<int> OnHandAsync(long productId) =>
+        _context.InventoryStocks.AsNoTracking().Where(s => s.ProductId == productId).Select(s => s.Quantity).FirstAsync();
 
-        // Assert
-        Assert.Equal(50, result.QuantityOnHand);
-        Assert.Equal(15, result.QuantityReserved);
-        Assert.Equal(35, result.Available);
-        Assert.Equal("SO_RESERVE", result.OperationType);
+    [Fact]
+    public async Task Reserve_DecreasesAvailable_AndWritesLedger()
+    {
+        await SeedAsync(201, onHand: 50, available: 50);
 
-        // Kiểm tra Sổ cái bất biến (Immutable Ledger)
-        var movement = await _context.StockMovements
-            .FirstOrDefaultAsync(m => m.ProductId == 201 && m.WarehouseId == 1 && m.MovementType == "SO_RESERVE");
+        var result = await _manager.ReserveStockAsync(new ReserveStockCommand("INV-2026-000001", Warehouse, 201, 15, UserId: 99));
 
-        Assert.NotNull(movement);
-        Assert.Equal(15, movement.QuantityDelta);
-        Assert.Equal(50, movement.BalanceOnHandAfter);
-        Assert.Equal(15, movement.BalanceReservedAfter);
-        Assert.Equal("SO-2026-0001", movement.ReferenceDoc);
+        Assert.Equal(35, result.QuantityReserved); // số dư khả dụng sau giữ
+        Assert.Equal(-15, result.QuantityDelta);
+        Assert.Equal(35, await AvailableAsync(201));
+        Assert.Equal(50, await OnHandAsync(201)); // giữ chỗ không đụng tồn thực tế
+
+        var ledger = await _context.InventoryStockReservationTransactions.AsNoTracking().SingleAsync(t => t.ProductId == 201);
+        Assert.Equal("SALES_ORDER", ledger.DocumentType);
+        Assert.Equal("INV-2026-000001", ledger.DocumentId);
+        Assert.Equal(50, ledger.BalanceBefore);
+        Assert.Equal(35, ledger.BalanceAfter);
+        Assert.Equal(99, ledger.CreatedBy);
     }
 
     [Fact]
-    public async Task ReserveStock_ZeroOverselling_ShouldThrowInsufficientStockException_WhenRequestExceedsAvailable()
+    public async Task Reserve_MoreThanAvailable_ThrowsInsufficientStock_AndChangesNothing()
     {
-        // Arrange: Có 10 món
-        _context.InventoryStocks.Add(new InventoryStock(productId: 202, warehouseId: 1, initialOnHand: 10));
-        await _context.SaveChangesAsync();
+        await SeedAsync(202, onHand: 10, available: 10);
 
-        var command = new ReserveStockCommand(
-            OrderId: "SO-2026-0002",
-            WarehouseId: 1,
-            ProductId: 202,
-            Quantity: 15 // Đòi 15 khi chỉ có 10
-        );
+        var ex = await Assert.ThrowsAsync<InsufficientStockException>(
+            () => _manager.ReserveStockAsync(new ReserveStockCommand("INV-2", Warehouse, 202, 15)));
 
-        // Act & Assert
-        var ex = await Assert.ThrowsAsync<InsufficientStockException>(() => _manager.ReserveStockAsync(command));
         Assert.Equal("INSUFFICIENT_STOCK", ex.ErrorCode);
         Assert.Equal(15, ex.RequestedQuantity);
         Assert.Equal(10, ex.AvailableQuantity);
-
-        // Đảm bảo số tồn trong DB không bị thay đổi (Zero Overselling & Không rò rỉ trạng thái)
-        var stock = await _context.InventoryStocks.AsNoTracking().FirstAsync(s => s.ProductId == 202);
-        Assert.Equal(10, stock.QuantityOnHand);
-        Assert.Equal(0, stock.QuantityReserved);
+        Assert.Equal(10, await AvailableAsync(202));
+        Assert.Empty(await _context.InventoryStockReservationTransactions.AsNoTracking().ToListAsync());
     }
 
     [Fact]
-    public async Task BatchReserveStock_ShouldRollbackAll_WhenAnyItemFails()
+    public async Task BatchReserve_RollsBackWholeDocument_WhenAnyLineIsShort()
     {
-        // Arrange: SP 301 có 20, SP 302 chỉ có 5
-        _context.InventoryStocks.Add(new InventoryStock(productId: 301, warehouseId: 1, initialOnHand: 20));
-        _context.InventoryStocks.Add(new InventoryStock(productId: 302, warehouseId: 1, initialOnHand: 5));
-        await _context.SaveChangesAsync();
+        await SeedAsync(301, onHand: 20, available: 20);
+        await SeedAsync(302, onHand: 5, available: 5);
 
-        var batchCmd = new BatchReserveStockCommand(
-            OrderId: "SO-BATCH-001",
-            Items: new List<ReserveStockItem>
-            {
-                new(WarehouseId: 1, ProductId: 301, Quantity: 10), // Đủ
-                new(WarehouseId: 1, ProductId: 302, Quantity: 15)  // Thiếu (cần 15 mà chỉ có 5)
-            }
-        );
+        await Assert.ThrowsAsync<InsufficientStockException>(() => _manager.BatchReserveStockAsync(new BatchReserveStockCommand(
+            "INV-BATCH-1",
+            new List<ReserveStockItem> { new(Warehouse, 301, 10), new(Warehouse, 302, 15) })));
 
-        // Act & Assert: Phải ném ngoại lệ và ROLLBACK toàn bộ
-        await Assert.ThrowsAsync<InsufficientStockException>(() => _manager.BatchReserveStockAsync(batchCmd));
-
-        // Kiểm tra tính nguyên tử (Atomicity): SP 301 KHÔNG ĐƯỢC PHÉP giữ chỗ khi cả lô thất bại
-        var stock301 = await _context.InventoryStocks.AsNoTracking().FirstAsync(s => s.ProductId == 301);
-        Assert.Equal(0, stock301.QuantityReserved);
-        Assert.Equal(20, stock301.Available);
-
-        var movements = await _context.StockMovements.Where(m => m.ReferenceDoc == "SO-BATCH-001").ToListAsync();
-        Assert.Empty(movements);
+        Assert.Equal(20, await AvailableAsync(301)); // dòng đủ hàng cũng không được giữ
+        Assert.Equal(5, await AvailableAsync(302));
+        Assert.Empty(await _context.InventoryStockReservationTransactions.AsNoTracking().Where(t => t.DocumentId == "INV-BATCH-1").ToListAsync());
     }
 
     [Fact]
-    public async Task ReleaseStock_ShouldDecreaseReserved_And_LogStockMovement()
+    public async Task BatchReserve_MergesLinesOfSameProduct()
     {
-        // Arrange
-        var stock = new InventoryStock(productId: 401, warehouseId: 1, initialOnHand: 50);
-        stock.Reserve(20);
-        _context.InventoryStocks.Add(stock);
+        await SeedAsync(303, onHand: 10, available: 10);
 
-        _context.StockReservations.Add(new StockReservation
-        {
-            OrderId = "SO-401",
-            WarehouseId = 1,
-            ProductId = 401,
-            Quantity = 20,
-            Status = "ACTIVE"
-        });
-        await _context.SaveChangesAsync();
+        var results = await _manager.BatchReserveStockAsync(new BatchReserveStockCommand(
+            "INV-MERGE", new List<ReserveStockItem> { new(Warehouse, 303, 3), new(Warehouse, 303, 4) }));
 
-        var releaseCmd = new ReleaseStockCommand(
-            OrderId: "SO-401",
-            WarehouseId: 1,
-            ProductId: 401,
-            Quantity: 10
-        );
-
-        // Act
-        var result = await _manager.ReleaseStockAsync(releaseCmd);
-
-        // Assert
-        Assert.Equal(50, result.QuantityOnHand);
-        Assert.Equal(10, result.QuantityReserved);
-        Assert.Equal(40, result.Available);
-
-        var movement = await _context.StockMovements
-            .FirstOrDefaultAsync(m => m.ProductId == 401 && m.MovementType == "SO_RELEASE");
-
-        Assert.NotNull(movement);
-        Assert.Equal(-10, movement.QuantityDelta);
-        Assert.Equal(10, movement.BalanceReservedAfter);
+        Assert.Single(results);
+        Assert.Equal(-7, results[0].QuantityDelta);
+        Assert.Equal(3, await AvailableAsync(303));
     }
 
     [Fact]
-    public async Task ReceiveStock_ShouldIncreaseOnHand_And_LogMovement()
+    public async Task BatchReserve_IsIdempotent_AndCompletesPartiallyReservedDocument()
     {
-        // Arrange: Hàng mới nhập kho lần đầu
-        var receiveCmd = new ReceiveStockCommand(
-            ReferenceDoc: "PO-2026-0088",
-            WarehouseId: 1,
-            ProductId: 501,
-            Quantity: 100,
-            MinStock: 20
-        );
+        await SeedAsync(401, onHand: 50, available: 50);
+        await SeedAsync(402, onHand: 50, available: 50);
+        // Chứng từ cũ đã giữ được dòng 401 (giữ từng dòng trước đây), dòng 402 thất bại
+        await _manager.ReserveStockAsync(new ReserveStockCommand("INV-RETRY", Warehouse, 401, 10));
 
-        // Act
-        var result = await _manager.ReceiveStockAsync(receiveCmd);
+        var command = new BatchReserveStockCommand("INV-RETRY", new List<ReserveStockItem> { new(Warehouse, 401, 10), new(Warehouse, 402, 20) });
+        await _manager.BatchReserveStockAsync(command);
+        await _manager.BatchReserveStockAsync(command); // gọi lại lần nữa
 
-        // Assert
+        Assert.Equal(40, await AvailableAsync(401)); // chỉ trừ một lần
+        Assert.Equal(30, await AvailableAsync(402));
+        Assert.Equal(2, await _context.InventoryStockReservationTransactions.CountAsync(t => t.DocumentId == "INV-RETRY"));
+    }
+
+    [Fact]
+    public async Task Reserve_SameDocumentWithDifferentQuantity_IsRejected()
+    {
+        await SeedAsync(403, onHand: 50, available: 50);
+        await _manager.ReserveStockAsync(new ReserveStockCommand("INV-DIFF", Warehouse, 403, 10));
+
+        var ex = await Assert.ThrowsAsync<InvalidStockOperationException>(
+            () => _manager.ReserveStockAsync(new ReserveStockCommand("INV-DIFF", Warehouse, 403, 12)));
+
+        Assert.Equal("DOCUMENT_ALREADY_POSTED", ex.ErrorCode);
+        Assert.Equal(40, await AvailableAsync(403));
+    }
+
+    [Fact]
+    public async Task SecondDocument_CannotReserve_WhenFirstTookTheStock_UntilFirstIsCancelled()
+    {
+        // Kho còn 3; hai yêu cầu giao mỗi cái 2
+        await SeedAsync(450, onHand: 3, available: 3);
+        await _manager.ReserveStockAsync(new ReserveStockCommand("INV-A", Warehouse, 450, 2));
+
+        var ex = await Assert.ThrowsAsync<InsufficientStockException>(
+            () => _manager.ReserveStockAsync(new ReserveStockCommand("INV-B", Warehouse, 450, 2)));
+        Assert.Equal(1, ex.AvailableQuantity);
+
+        // Hủy chứng từ A → nhả đúng 2, gọi lại không nhả thêm
+        await _manager.ReleaseDocumentReservationAsync("INV-A");
+        await _manager.ReleaseDocumentReservationAsync("INV-A");
+        Assert.Equal(3, await AvailableAsync(450));
+
+        await _manager.ReserveStockAsync(new ReserveStockCommand("INV-B", Warehouse, 450, 2));
+        Assert.Equal(1, await AvailableAsync(450));
+    }
+
+    [Fact]
+    public async Task ReleaseDocument_WithoutReservation_DoesNothing()
+    {
+        Assert.Empty(await _manager.ReleaseDocumentReservationAsync("INV-NEVER-RESERVED"));
+    }
+
+    [Fact]
+    public async Task Release_IncreasesAvailable()
+    {
+        await SeedAsync(501, onHand: 50, available: 30);
+
+        var result = await _manager.ReleaseStockAsync(new ReleaseStockCommand("INV-501", Warehouse, 501, 10));
+
+        Assert.Equal(40, result.QuantityReserved);
+        Assert.Equal(40, await AvailableAsync(501));
+    }
+
+    [Fact]
+    public async Task Receive_IncreasesOnHandAndAvailable_ForNewProduct()
+    {
+        var result = await _manager.ReceiveStockAsync(new ReceiveStockCommand("PO-2026-0088", Warehouse, 601, 100, MinStock: 0));
+
         Assert.Equal(100, result.QuantityOnHand);
-        Assert.Equal(0, result.QuantityReserved);
-        Assert.Equal(100, result.Available);
-
-        var stockInDb = await _context.InventoryStocks.AsNoTracking().FirstAsync(s => s.ProductId == 501);
-        Assert.Equal(100, stockInDb.QuantityOnHand);
-        Assert.Equal(20, stockInDb.MinStock);
-
-        var movement = await _context.StockMovements
-            .FirstOrDefaultAsync(m => m.ProductId == 501 && m.MovementType == "PO_RECEIPT");
-        Assert.NotNull(movement);
-        Assert.Equal(100, movement.QuantityDelta);
-        Assert.Equal(100, movement.BalanceOnHandAfter);
+        Assert.Equal(100, await OnHandAsync(601));
+        Assert.Equal(100, await AvailableAsync(601));
     }
 
     [Fact]
-    public async Task IssueStock_ShouldDecreaseOnHandAndReserved_And_LogMovement()
+    public async Task Issue_DecreasesOnHand_AndRejectsShortage()
     {
-        // Arrange: Có 40 món đã giữ 15 món cho SO-601
-        var stock = new InventoryStock(productId: 601, warehouseId: 1, initialOnHand: 40);
-        stock.Reserve(15);
-        _context.InventoryStocks.Add(stock);
+        await SeedAsync(701, onHand: 40, available: 25); // 15 đã giữ
 
-        _context.StockReservations.Add(new StockReservation
-        {
-            OrderId = "SO-601",
-            WarehouseId = 1,
-            ProductId = 601,
-            Quantity = 15,
-            Status = "ACTIVE"
-        });
-        await _context.SaveChangesAsync();
+        var result = await _manager.IssueStockAsync(new IssueStockCommand("INV-701:1", Warehouse, 701, 15, "SO-701"));
 
-        var issueCmd = new IssueStockCommand(
-            ReferenceDoc: "GI-2026-001",
-            WarehouseId: 1,
-            ProductId: 601,
-            Quantity: 15,
-            OrderId: "SO-601"
-        );
-
-        // Act
-        var result = await _manager.IssueStockAsync(issueCmd);
-
-        // Assert
         Assert.Equal(25, result.QuantityOnHand);
-        Assert.Equal(0, result.QuantityReserved);
-        Assert.Equal(25, result.Available);
+        Assert.Equal(25, await OnHandAsync(701));
+        Assert.Equal(25, await AvailableAsync(701)); // khả dụng đã trừ lúc giữ chỗ
 
-        // Kiểm tra reservation được chuyển thành FULFILLED
-        var reservation = await _context.StockReservations.FirstAsync(r => r.OrderId == "SO-601");
-        Assert.Equal("FULFILLED", reservation.Status);
-
-        // Kiểm tra thẻ kho ghi nhận xuất hàng
-        var movement = await _context.StockMovements
-            .FirstOrDefaultAsync(m => m.ProductId == 601 && m.MovementType == "SO_ISSUE");
-        Assert.NotNull(movement);
-        Assert.Equal(-15, movement.QuantityDelta);
-        Assert.Equal(25, movement.BalanceOnHandAfter);
-        Assert.Equal(0, movement.BalanceReservedAfter);
+        await Assert.ThrowsAsync<InsufficientStockException>(
+            () => _manager.IssueStockAsync(new IssueStockCommand("INV-701:2", Warehouse, 701, 26, "SO-701")));
+        Assert.Equal(25, await OnHandAsync(701));
     }
 }

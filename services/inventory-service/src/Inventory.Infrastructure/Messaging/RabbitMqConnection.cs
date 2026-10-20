@@ -67,7 +67,9 @@ public class RabbitMqConnection : IDisposable
                     arguments: null);
 
                 // Bind queue với các routing key cần nghe
-                channel.QueueBind(queue: InventoryQueueName, exchange: ExchangeName, routingKey: "sales.order.*");
+                // Giữ hàng cho chứng từ bán hàng đi qua REST (reserve/batch), inventory không nghe sales.order.* nữa;
+                // gỡ binding cũ còn sót trên broker đã chạy trước đây (unbind binding không tồn tại không lỗi)
+                channel.QueueUnbind(queue: InventoryQueueName, exchange: ExchangeName, routingKey: "sales.order.*");
                 channel.QueueBind(queue: InventoryQueueName, exchange: ExchangeName, routingKey: "purchase.goods.*");
                 channel.QueueBind(queue: InventoryQueueName, exchange: ExchangeName, routingKey: "catalog.product.*");
 

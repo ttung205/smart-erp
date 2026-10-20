@@ -12,6 +12,7 @@ public interface IInventoryStockManager
     Task<StockOperationResult> ReserveStockAsync(ReserveStockCommand command, CancellationToken ct = default);
     Task<IReadOnlyList<StockOperationResult>> BatchReserveStockAsync(BatchReserveStockCommand command, CancellationToken ct = default);
     Task<StockOperationResult> ReleaseStockAsync(ReleaseStockCommand command, CancellationToken ct = default);
+    Task<IReadOnlyList<StockOperationResult>> ReleaseDocumentReservationAsync(string documentId, long? userId = null, CancellationToken ct = default);
     Task<StockOperationResult> IssueStockAsync(IssueStockCommand command, CancellationToken ct = default);
     Task<InventoryStock?> GetPhysicalStockAsync(long productId, long warehouseId, CancellationToken ct = default);
     Task<InventoryStockReservation?> GetReservationStockAsync(long productId, long warehouseId, CancellationToken ct = default);
