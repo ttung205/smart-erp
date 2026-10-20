@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Support\IdentityUserResolver;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -57,45 +56,5 @@ class SaleReturnRequest extends Model
     public function attachments()
     {
         return $this->hasMany(SalesAttachment::class, 'attachable_id')->where('attachable_type', 'sale_return_request');
-    }
-
-    public function getCreatedByNameAttribute(?string $value): string
-    {
-        return IdentityUserResolver::name($this->created_by_id, $value);
-    }
-
-    public function getInspectionStartedByNameAttribute(?string $value): string
-    {
-        return IdentityUserResolver::name($this->inspection_started_by_id, $value);
-    }
-
-    public function getInspectedByNameAttribute(?string $value): string
-    {
-        return IdentityUserResolver::name($this->inspected_by_id, $value);
-    }
-
-    public function getTechnicalReceivedByNameAttribute(?string $value): string
-    {
-        return IdentityUserResolver::name($this->technical_received_by_id, $value);
-    }
-
-    public function getMainRequestedByNameAttribute(?string $value): string
-    {
-        return IdentityUserResolver::name($this->main_requested_by_id, $value);
-    }
-
-    public function getMainApprovedByNameAttribute(?string $value): string
-    {
-        return IdentityUserResolver::name($this->main_approved_by_id, $value);
-    }
-
-    public function getMainRejectedByNameAttribute(?string $value): string
-    {
-        return IdentityUserResolver::name($this->main_rejected_by_id, $value);
-    }
-
-    public function getPostedByNameAttribute(?string $value): string
-    {
-        return IdentityUserResolver::name($this->posted_by_id, $value);
     }
 }

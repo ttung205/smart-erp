@@ -13,13 +13,25 @@ class SalesOrder extends Model
         'customer_order_number',
         'quotation_id',
         'customer_id',
+        'customer_code',
+        'customer_name',
+        'customer_tax_code',
+        'customer_address',
+        'customer_phone',
+        'customer_email',
         'contact_id',
+        'contact_name',
+        'contact_phone',
+        'contact_email',
         'order_date',
         'currency',
         'exchange_rate',
         'created_by',
+        'created_by_name',
         'assigned_to',
+        'assigned_to_name',
         'approved_by',
+        'approved_by_name',
         'approved_at',
         'subtotal',
         'vat_total',
@@ -29,14 +41,14 @@ class SalesOrder extends Model
         'shipping_address',
     ];
 
+    // customer/contact/creator/assignee/approver: object dựng từ snapshot, giữ nguyên hình dạng JSON cũ cho frontend
     protected $appends = [
-        'customer_name',
-        'customer_code',
-        'contact_name',
         'quotation_number',
-        'created_by_name',
-        'assigned_to_name',
-        'approved_by_name',
+        'customer',
+        'contact',
+        'creator',
+        'assignee',
+        'approver',
     ];
 
     public function items()
@@ -54,45 +66,39 @@ class SalesOrder extends Model
         return $this->belongsTo(Quotation::class, 'quotation_id');
     }
 
-    public function customer()
+    public function getCustomerAttribute(): array
     {
-        return $this->belongsTo(Customer::class, 'customer_id');
+        return [
+            'id' => $this->customer_id,
+            'code' => $this->customer_code,
+            'name' => $this->customer_name,
+            'tax_code' => $this->customer_tax_code,
+            'address' => $this->customer_address,
+            'phone' => $this->customer_phone,
+            'email' => $this->customer_email,
+        ];
     }
 
-    public function contact()
+    public function getContactAttribute(): ?array
     {
-        return $this->belongsTo(CustomerContact::class, 'contact_id');
+        return $this->contact_id
+            ? ['id' => $this->contact_id, 'name' => $this->contact_name, 'phone' => $this->contact_phone, 'email' => $this->contact_email]
+            : null;
     }
 
-    public function creator()
+    public function getCreatorAttribute(): ?array
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->created_by ? ['id' => (int) $this->created_by, 'name' => $this->created_by_name] : null;
     }
 
-    public function assignee()
+    public function getAssigneeAttribute(): ?array
     {
-        return $this->belongsTo(User::class, 'assigned_to');
+        return $this->assigned_to ? ['id' => (int) $this->assigned_to, 'name' => $this->assigned_to_name] : null;
     }
 
-    public function approver()
+    public function getApproverAttribute(): ?array
     {
-        return $this->belongsTo(User::class, 'approved_by');
-    }
-
-    // Accessors for seamless backward compatibility and UI display
-    public function getCustomerNameAttribute()
-    {
-        return $this->customer?->name ?? '';
-    }
-
-    public function getCustomerCodeAttribute()
-    {
-        return $this->customer?->code ?? '';
-    }
-
-    public function getContactNameAttribute()
-    {
-        return $this->contact?->name ?? '';
+        return $this->approved_by ? ['id' => (int) $this->approved_by, 'name' => $this->approved_by_name] : null;
     }
 
     public function getQuotationNumberAttribute()
@@ -100,18 +106,18 @@ class SalesOrder extends Model
         return $this->quotation?->quotation_number ?? '';
     }
 
-    public function getCreatedByNameAttribute()
+    public function getCreatedByNameAttribute(): string
     {
-        return $this->creator?->name ?? (string)$this->created_by;
+        return $this->attributes['created_by_name'] ?? (string) $this->created_by;
     }
 
-    public function getAssignedToNameAttribute()
+    public function getAssignedToNameAttribute(): string
     {
-        return $this->assignee?->name ?? (string)$this->assigned_to;
+        return $this->attributes['assigned_to_name'] ?? (string) $this->assigned_to;
     }
 
-    public function getApprovedByNameAttribute()
+    public function getApprovedByNameAttribute(): string
     {
-        return $this->approver?->name ?? (string)$this->approved_by;
+        return $this->attributes['approved_by_name'] ?? (string) $this->approved_by;
     }
 }

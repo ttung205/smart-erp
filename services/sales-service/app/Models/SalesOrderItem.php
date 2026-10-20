@@ -14,6 +14,11 @@ class SalesOrderItem extends Model
         'product_id',
         'sku',
         'product_name',
+        'designation',
+        'brand',
+        'description',
+        'com',
+        'unit',
         'delivery_date',
         'quantity',
         'delivered_quantity',
@@ -27,11 +32,6 @@ class SalesOrderItem extends Model
     ];
 
     protected $appends = [
-        'designation',
-        'brand',
-        'description',
-        'com',
-        'unit',
         'unit_price',
     ];
 
@@ -45,20 +45,9 @@ class SalesOrderItem extends Model
         return $this->belongsTo(QuotationItem::class, 'quotation_item_id');
     }
 
-    public function product()
-    {
-        return $this->belongsTo(Product::class, 'product_id');
-    }
-
     public function deliveryRequestItems()
     {
         return $this->hasMany(DeliveryRequestItem::class, 'order_item_id');
-    }
-
-    public function getGrossPriceAttribute()
-    {
-        $val = (float)($this->attributes['gross_price'] ?? 0);
-        return $val > 0 ? $val : (float)($this->product?->gross_price ?? 0);
     }
 
     public function getUnitPriceAttribute()
@@ -66,29 +55,18 @@ class SalesOrderItem extends Model
         return (float)($this->selling_price ?? 0);
     }
 
-    // Dynamic Accessors tải trực tiếp từ Catalog Product qua SKU
-    public function getDesignationAttribute()
+    public function getDescriptionAttribute(): string
     {
-        return $this->product?->designation ?? '';
+        return $this->attributes['description'] ?? $this->product_name ?? '';
     }
 
-    public function getBrandAttribute()
+    public function getComAttribute(): string
     {
-        return $this->product?->brand?->name ?? '';
+        return $this->attributes['com'] ?? 'Việt Nam';
     }
 
-    public function getDescriptionAttribute()
+    public function getUnitAttribute(): string
     {
-        return $this->product?->description ?? $this->product_name ?? '';
-    }
-
-    public function getComAttribute()
-    {
-        return $this->product?->com ?? 'Việt Nam';
-    }
-
-    public function getUnitAttribute()
-    {
-        return $this->product?->unit ?? 'Cái';
+        return $this->attributes['unit'] ?? 'Cái';
     }
 }

@@ -59,7 +59,7 @@ class VatInvoiceController extends Controller
      */
     public function index(Request $request)
     {
-        $query = VatInvoice::with(['items', 'customer', 'salesInvoice', 'adjustment.originalInvoice'])->where('status', 'ISSUED')->orderBy('id', 'desc');
+        $query = VatInvoice::with(['items', 'salesInvoice', 'adjustment.originalInvoice'])->where('status', 'ISSUED')->orderBy('id', 'desc');
 
         if ($request->filled('search')) {
             $s = trim($request->input('search'));
@@ -96,7 +96,7 @@ class VatInvoiceController extends Controller
      */
     public function getUnbilledItems(Request $request)
     {
-        $query = RevenueReportItem::with(['invoice', 'customer', 'product'])
+        $query = RevenueReportItem::with(['invoice', 'order'])
             ->where('account_code', '1312')
             ->where('remaining_invoice_quantity', '>', 0)
             ->orderBy('id', 'desc');
@@ -144,13 +144,14 @@ class VatInvoiceController extends Controller
             $salesInvoiceId = $request->input('sales_invoice_id');
             $salesInvoice = null;
             if ($salesInvoiceId) {
-                $salesInvoice = Invoice::with(['deliveryRequest.order.customer'])->find($salesInvoiceId);
+                $salesInvoice = Invoice::with(['deliveryRequest.order'])->find($salesInvoiceId);
             }
 
-            $customer = $salesInvoice?->deliveryRequest?->order?->customer;
-            $customerName = $request->input('customer_name') ?: ($customer?->name ?: $salesInvoice?->customer_name);
-            $customerTaxCode = $request->input('customer_tax_code') ?: ($customer?->tax_code ?: '');
-            $customerAddress = $request->input('customer_address') ?: ($customer?->address ?: $salesInvoice?->shipping_address);
+            // Thông tin khách hàng lấy từ snapshot trên đơn bán hàng
+            $order = $salesInvoice?->deliveryRequest?->order;
+            $customerName = $request->input('customer_name') ?: ($order?->customer_name ?: $salesInvoice?->customer_name);
+            $customerTaxCode = $request->input('customer_tax_code') ?: ($order?->customer_tax_code ?: '');
+            $customerAddress = $request->input('customer_address') ?: ($order?->customer_address ?: $salesInvoice?->shipping_address);
             $orderNumber = $salesInvoice?->deliveryRequest?->customer_order_number ?: ($salesInvoice?->deliveryRequest?->order_number ?: '');
 
             $series = trim($request->input('invoice_series', '1C'.now()->format('y').'TBB'));
@@ -163,7 +164,7 @@ class VatInvoiceController extends Controller
                 'sales_invoice_number' => $salesInvoice?->invoice_number,
                 'order_id' => $salesInvoice?->deliveryRequest?->order_id,
                 'order_number' => $orderNumber,
-                'customer_id' => $request->input('customer_id') ?: $customer?->id,
+                'customer_id' => $request->input('customer_id') ?: $order?->customer_id,
                 'customer_name' => $customerName,
                 'customer_tax_code' => $customerTaxCode,
                 'customer_address' => $customerAddress,
@@ -242,7 +243,7 @@ class VatInvoiceController extends Controller
             return response()->json([
                 'success' => true,
                 'finance_synced' => $financeSynced,
-                'data' => $vatInvoice->load('items', 'customer'),
+                'data' => $vatInvoice->load('items'),
                 'message' => $financeSynced
                     ? "Lập hóa đơn VAT {$vatInvoice->invoice_number} thành công và đã ghi nhận công nợ."
                     : "Đã lập hóa đơn VAT {$vatInvoice->invoice_number}, nhưng chưa đồng bộ công nợ. Hãy dùng nút đồng bộ trên Sổ cái.",
@@ -266,7 +267,7 @@ class VatInvoiceController extends Controller
      */
     public function show($id)
     {
-        $inv = VatInvoice::with(['items', 'customer', 'salesInvoice', 'adjustment.originalInvoice'])->find($id);
+        $inv = VatInvoice::with(['items', 'salesInvoice', 'adjustment.originalInvoice'])->find($id);
         if (! $inv) {
             return response()->json(['success' => false, 'message' => 'Không tìm thấy hóa đơn VAT'], 404);
         }

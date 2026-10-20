@@ -28,6 +28,8 @@ class SalesWorkflow
             'PARTIAL' => ['DELIVERED'],
             'DELIVERED' => [],
             'REJECTED' => [],
+            // Hủy chứng từ bán hàng đóng yêu cầu giao (InvoiceController::cancel), không chuyển tay
+            'CANCELLED' => [],
         ],
     ];
 

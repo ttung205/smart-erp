@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Support\IdentityUserResolver;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -27,10 +26,5 @@ class SaleReturn extends Model
     public function vatInvoiceAdjustments()
     {
         return $this->hasMany(VatInvoiceAdjustment::class);
-    }
-
-    public function getCreatedByNameAttribute(?string $value): string
-    {
-        return IdentityUserResolver::name($this->created_by_id, $value);
     }
 }

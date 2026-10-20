@@ -12,6 +12,10 @@ class QuotationItem extends Model
         'quotation_id',
         'product_id',
         'sku',
+        'designation',
+        'brand',
+        'com',
+        'unit',
         'description',
         'quantity',
         'gross_price',
@@ -36,10 +40,6 @@ class QuotationItem extends Model
 
     protected $appends = [
         'is_won',
-        'designation',
-        'brand',
-        'com',
-        'unit',
     ];
 
     public function quotation()
@@ -47,39 +47,18 @@ class QuotationItem extends Model
         return $this->belongsTo(Quotation::class, 'quotation_id');
     }
 
-    public function product()
-    {
-        return $this->belongsTo(Product::class, 'product_id');
-    }
-
-    public function getGrossPriceAttribute()
-    {
-        $val = (float)($this->attributes['gross_price'] ?? 0);
-        return $val > 0 ? $val : (float)($this->product?->gross_price ?? 0);
-    }
-
     public function getIsWonAttribute()
     {
         return ($this->status === 'WIN' || $this->status === 'WON' || (float)$this->won_quantity > 0);
     }
 
-    public function getDesignationAttribute()
+    public function getComAttribute(): string
     {
-        return $this->product?->designation ?? '';
+        return $this->attributes['com'] ?? 'Việt Nam';
     }
 
-    public function getBrandAttribute()
+    public function getUnitAttribute(): string
     {
-        return $this->product?->brand?->name ?? '';
-    }
-
-    public function getComAttribute()
-    {
-        return $this->product?->com ?? 'Việt Nam';
-    }
-
-    public function getUnitAttribute()
-    {
-        return $this->product?->unit ?? 'Cái';
+        return $this->attributes['unit'] ?? 'Cái';
     }
 }

@@ -37,6 +37,10 @@ class Invoice extends Model
         'inventory_issue_status',
         'inventory_issue_error',
         'inventory_issued_at',
+        'cancelled_at',
+        'cancelled_by_id',
+        'cancelled_by_name',
+        'cancel_reason',
     ];
 
     protected $casts = [
@@ -44,6 +48,7 @@ class Invoice extends Model
         'total_amount' => 'float',
         'inventory_reserved_at' => 'datetime',
         'inventory_issued_at' => 'datetime',
+        'cancelled_at' => 'datetime',
     ];
 
     protected $appends = [
@@ -136,12 +141,12 @@ class Invoice extends Model
 
     public function getPickerNameAttribute()
     {
-        return $this->warehouseDispatch?->picker?->name ?: ($this->warehouseDispatch?->picker_name ?: ($this->attributes['picker_name'] ?? null));
+        return $this->warehouseDispatch?->picker_name ?: ($this->attributes['picker_name'] ?? null);
     }
 
     public function getPackerNameAttribute()
     {
-        return $this->warehouseDispatch?->packer?->name ?: ($this->warehouseDispatch?->packer_name ?: ($this->attributes['packer_name'] ?? null));
+        return $this->warehouseDispatch?->packer_name ?: ($this->attributes['packer_name'] ?? null);
     }
 
     public function getShippingMethodAttribute()

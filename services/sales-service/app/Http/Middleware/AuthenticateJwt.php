@@ -4,7 +4,6 @@ namespace App\Http\Middleware;
 
 use App\Auth\InvalidTokenException;
 use App\Auth\JwtVerifier;
-use App\Support\IdentityUserResolver;
 use Closure;
 use Illuminate\Http\Request;
 use stdClass;
@@ -29,7 +28,7 @@ class AuthenticateJwt
 
         $actor = new stdClass;
         $actor->id = (int) $claims['sub'];
-        $actor->name = IdentityUserResolver::name($actor->id, (string) ($claims['name'] ?? ''));
+        $actor->name = (string) ($claims['name'] ?? '');
         $actor->email = (string) ($claims['email'] ?? '');
         $actor->roles = array_values(array_filter((array) ($claims['roles'] ?? []), 'is_string'));
         $actor->permissions = array_values(array_filter((array) ($claims['permissions'] ?? []), 'is_string'));

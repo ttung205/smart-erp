@@ -419,7 +419,7 @@ const loadRequests = async () => {
     const res = await salesApi.getInvoices();
     const allInvs = res.data || [];
     requests.value = allInvs
-      .filter((inv) => inv.warehouse_status && inv.warehouse_status !== 'PENDING_WAREHOUSE')
+      .filter((inv) => inv.warehouse_status && !['PENDING_WAREHOUSE', 'CANCELLED'].includes(inv.warehouse_status))
       .map((inv) => {
         const totalQty = (inv.items || []).reduce((sum, it) => sum + Number(it.quantity || 0), 0);
         return {

@@ -12,7 +12,7 @@ class SaleReportController extends Controller
      */
     public function index(Request $request)
     {
-        $query = SaleReportItem::with(['order', 'product', 'customer', 'salesperson'])->orderBy('id', 'desc');
+        $query = SaleReportItem::with(['order'])->orderBy('id', 'desc');
 
         if ($request->filled('order_id')) {
             $query->where('order_id', $request->input('order_id'));
@@ -48,11 +48,12 @@ class SaleReportController extends Controller
                 $q->where('order_number', 'like', "%{$search}%")
                     ->orWhere('sku', 'like', "%{$search}%")
                     ->orWhere('product_name', 'like', "%{$search}%")
-                    ->orWhereHas('customer', function ($cq) use ($search) {
-                        $cq->where('name', 'like', "%{$search}%")->orWhere('code', 'like', "%{$search}%");
-                    })
-                    ->orWhereHas('salesperson', function ($sq) use ($search) {
-                        $sq->where('name', 'like', "%{$search}%");
+                    // Tên khách hàng / người phụ trách: tìm theo snapshot trên đơn hàng
+                    ->orWhereHas('order', function ($oq) use ($search) {
+                        $oq->where('customer_name', 'like', "%{$search}%")
+                            ->orWhere('customer_code', 'like', "%{$search}%")
+                            ->orWhere('created_by_name', 'like', "%{$search}%")
+                            ->orWhere('assigned_to_name', 'like', "%{$search}%");
                     });
             });
         }
@@ -93,7 +94,7 @@ class SaleReportController extends Controller
      */
     public function show($id)
     {
-        $item = SaleReportItem::with(['order', 'product', 'customer', 'salesperson'])->find($id);
+        $item = SaleReportItem::with(['order'])->find($id);
         if (! $item) {
             return response()->json(['success' => false, 'message' => 'Không tìm thấy dòng báo cáo'], 404);
         }

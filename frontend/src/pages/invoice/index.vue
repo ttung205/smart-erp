@@ -152,11 +152,24 @@
               @click="sendToWarehouse(data)"
             />
 
+            <!-- Nút: Hủy chứng từ (chưa xuất kho) -->
+            <Button
+              v-if="canCancel(data)"
+              icon="pi pi-times"
+              outlined
+              size="small"
+              severity="danger"
+              class="!w-7 !h-7 !p-0 rounded-[6px]"
+              v-tooltip.bottom="'Hủy chứng từ, nhả hàng đã giữ'"
+              @click="invoiceToCancel = data; showCancelDialog = true"
+            />
+
           </div>
         </template>
       </Column>
     </CommonDataTable>
     <SalesDocumentsDialog v-model:visible="showSalesDocuments" :invoice-id="selectedInvoiceId" />
+    <CancelInvoiceDialog v-model:visible="showCancelDialog" :invoice="invoiceToCancel" @done="loadInvoices" />
   </div>
 </template>
 
@@ -174,6 +187,7 @@ import Badge from 'primevue/badge';
 import PageHeader from '../../components/common/PageHeader.vue';
 import CommonDataTable from '../../components/common/CommonDataTable.vue';
 import SalesDocumentsDialog from '../../components/invoice/SalesDocumentsDialog.vue';
+import CancelInvoiceDialog from '../../components/invoice/CancelInvoiceDialog.vue';
 
 import { salesApi } from '../../api/sales.api';
 import { formatCurrency, formatDate } from '../../utils/format';
@@ -187,6 +201,12 @@ const canManageInvoice = computed(() => hasPermission('invoice.manage', props.cu
 const invoices = ref([]);
 const showSalesDocuments = ref(false);
 const selectedInvoiceId = ref(null);
+const showCancelDialog = ref(false);
+const invoiceToCancel = ref(null);
+// Chỉ hủy được chứng từ chưa xuất kho / chưa ghi sổ
+const canCancel = (inv) => canManageInvoice.value
+  && !['DELIVERED', 'CANCELLED'].includes(inv.warehouse_status)
+  && inv.accounting_status !== 'POSTED';
 const loading = ref(false);
 const searchQuery = ref('');
 const warehouseStatusFilter = ref(null);
@@ -210,7 +230,8 @@ const statusOptions = [
   { label: 'Đang soạn', value: 'PICKING' },
   { label: 'Đã đóng gói', value: 'PACKED' },
   { label: 'Đang giao', value: 'DISPATCHED' },
-  { label: 'Đã xuất kho', value: 'DELIVERED' }
+  { label: 'Đã xuất kho', value: 'DELIVERED' },
+  { label: 'Đã hủy', value: 'CANCELLED' }
 ];
 
 const getWarehouseStatusMeta = (st) => {
@@ -221,7 +242,8 @@ const getWarehouseStatusMeta = (st) => {
     PICKING: { label: 'Đang soạn', severity: 'warn' },
     PACKED: { label: 'Đã đóng gói', severity: 'secondary' },
     DISPATCHED: { label: 'Đang giao', severity: 'warn' },
-    DELIVERED: { label: 'Đã xuất kho', severity: 'success' }
+    DELIVERED: { label: 'Đã xuất kho', severity: 'success' },
+    CANCELLED: { label: 'Đã hủy', severity: 'danger' }
   };
   return map[st] || { label: st || 'Chờ gửi kho', severity: 'secondary' };
 };

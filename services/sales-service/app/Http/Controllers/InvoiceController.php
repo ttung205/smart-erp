@@ -2,16 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\StockReservationFailedException;
 use App\Http\Requests\StoreInvoiceRequest;
+use App\Infrastructure\Clients\CatalogClient;
+use App\Infrastructure\Clients\DependencyUnavailableException;
+use App\Infrastructure\Clients\IdentityClient;
 use App\Models\DeliveryRequest;
 use App\Models\DeliveryRequestItem;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
-use App\Models\Product;
 use App\Models\SalesAttachment;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
-use App\Models\User;
 use App\Models\WarehouseDispatch;
 use App\Services\RevenueReportService;
 use App\Services\SaleReportService;
@@ -25,17 +27,18 @@ use Illuminate\Support\Facades\Log;
 
 class InvoiceController extends Controller
 {
+    public function __construct(
+        private readonly CatalogClient $catalog,
+        private readonly IdentityClient $identity,
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
         $invoices = Invoice::with([
             'items.orderItem',
-            'deliveryRequest.order.customer',
-            'deliveryRequest.order.creator',
+            'deliveryRequest.order',
             'deliveryRequest.items',
-            'warehouseDispatch.picker',
-            'warehouseDispatch.packer',
-            'warehouseDispatch.shipper',
-            'warehouseDispatch.postedBy',
+            'warehouseDispatch',
         ])->orderByDesc('id')->paginate(min(max($request->integer('per_page', 50), 1), 200));
 
         return response()->json([
@@ -79,164 +82,171 @@ class InvoiceController extends Controller
         $warehouseName = $request->input('warehouse_name') ?: ($dr?->warehouse_name ?: 'Kho Tổng Miền Bắc (Hà Nội)');
         $warehouseId = $dr?->warehouse_id ?: $this->resolveWarehouseId($warehouseName);
 
-        $inv = DB::transaction(function () use ($request, $drId, $drNumber, $dr, $order, $currency, $exchangeRate, $createdBy, $sendImmediately) {
-            $invNumber = $request->input('invoice_number') ?: DocumentNumberGenerator::next(
-                'invoice-'.now()->format('Y'),
-                'INV-'.now()->format('Y').'-',
-                6
-            );
-            $inv = Invoice::create([
-                'invoice_number' => $invNumber,
-                'delivery_request_id' => $drId,
-                'delivery_request_number' => $drNumber ?: $dr?->request_number,
-                'invoice_date' => $request->input('invoice_date', now()->format('Y-m-d')),
-                'currency' => $currency,
-                'exchange_rate' => $exchangeRate,
-                'created_by' => $createdBy,
-                'payment_terms' => $request->input('payment_terms', 'Công nợ 30 ngày'),
-                'total_amount' => (float) $request->input('total_amount', 0),
-                'notes' => $request->input('notes'),
-                'warehouse_status' => $sendImmediately ? 'SENT_TO_WAREHOUSE' : 'PENDING_WAREHOUSE',
-                'accounting_status' => 'UNPOSTED',
-            ]);
-
-            $itemsData = $request->input('items', []);
-            $calculatedTotal = 0;
-
-            foreach ($itemsData as $it) {
-                $productId = $it['product_id'] ?? null;
-                $sku = $it['sku'] ?? $it['product_sku'] ?? '';
-                $orderItemId = $it['order_item_id'] ?? null;
-                $drItemId = $it['delivery_request_item_id'] ?? null;
-                $drItem = null;
-
-                if ($orderItemId && $order) {
-                    $orderItem = $order->items->firstWhere('id', $orderItemId);
-                    if ($orderItem) {
-                        $productId = $productId ?: $orderItem->product_id;
-                        $sku = $sku ?: $orderItem->sku;
-                    }
-                }
-
-                if ($drItemId && $dr) {
-                    $drItem = $dr->items->firstWhere('id', $drItemId);
-                    if ($drItem) {
-                        $productId = $productId ?: $drItem->product_id;
-                        $sku = $sku ?: $drItem->sku;
-                        $orderItemId = $orderItemId ?: $drItem->order_item_id;
-                    }
-                }
-
-                if (! $drItemId || ! isset($drItem) || ! $drItem) {
-                    abort(422, 'Mặt hàng không thuộc yêu cầu giao hàng đã chọn.');
-                }
-
-                if ($orderItemId !== $drItem->order_item_id) {
-                    abort(422, 'Mặt hàng đơn bán không khớp với yêu cầu giao hàng.');
-                }
-
-                if (! $drItemId && $dr) {
-                    $matchDrItem = null;
-                    if ($productId) {
-                        $matchDrItem = $dr->items->firstWhere('product_id', $productId);
-                    }
-                    if (! $matchDrItem && $sku) {
-                        $matchDrItem = $dr->items->firstWhere('sku', $sku);
-                    }
-                    $drItemId = $matchDrItem?->id;
-                    if (! $orderItemId) {
-                        $orderItemId = $matchDrItem?->order_item_id;
-                    }
-                    if (! $productId && $matchDrItem) {
-                        $productId = $matchDrItem->product_id;
-                    }
-                }
-
-                if (! $orderItemId && $order) {
-                    $matchSoItem = null;
-                    if ($productId) {
-                        $matchSoItem = $order->items->firstWhere('product_id', $productId);
-                    }
-                    if (! $matchSoItem && $sku) {
-                        $matchSoItem = $order->items->firstWhere('sku', $sku);
-                    }
-                    $orderItemId = $matchSoItem?->id;
-                    if (! $productId && $matchSoItem) {
-                        $productId = $matchSoItem->product_id;
-                    }
-                }
-
-                if (! $productId && ! empty($sku)) {
-                    $productId = Product::where('sku', $sku)->value('id');
-                }
-
-                $requestedQty = (float) ($it['requested_quantity'] ?? $it['request_quantity'] ?? 0);
-                if ($requestedQty <= 0 && $drItemId) {
-                    $drIt = $dr?->items->firstWhere('id', $drItemId);
-                    $requestedQty = (float) ($drIt?->quantity ?? 0);
-                }
-
-                $qty = (float) ($it['quantity'] ?? $requestedQty ?: 1);
-                $remainingQty = max(0, (float) $drItem->quantity - (float) $drItem->delivered_quantity);
-                if ($qty > $remainingQty) {
-                    abort(422, "Số lượng chứng từ của SKU {$sku} vượt quá số lượng còn phải giao {$remainingQty}.");
-                }
-                $unitPrice = (float) ($it['unit_price'] ?? $it['price'] ?? 0);
-                $calculatedTotal += ($qty * $unitPrice);
-
-                InvoiceItem::create([
-                    'invoice_id' => $inv->id,
-                    'order_item_id' => $orderItemId,
-                    'delivery_request_item_id' => $drItemId,
-                    'product_id' => $productId,
-                    'sku' => $sku,
-                    'product_name' => $it['product_name'] ?? $it['designation'] ?? $sku,
-                    'description' => $it['description'] ?? null,
-                    'requested_quantity' => $requestedQty,
-                    'quantity' => $qty,
-                    'unit_price' => $unitPrice,
+        $reservation = null;
+        $reservedNumber = null;
+        try {
+            $inv = DB::transaction(function () use ($request, $drId, $drNumber, $dr, $order, $currency, $exchangeRate, $createdBy, $sendImmediately, $warehouseId, &$reservation, &$reservedNumber) {
+                $invNumber = $request->input('invoice_number') ?: DocumentNumberGenerator::next(
+                    'invoice-'.now()->format('Y'),
+                    'INV-'.now()->format('Y').'-',
+                    6
+                );
+                $inv = Invoice::create([
+                    'invoice_number' => $invNumber,
+                    'delivery_request_id' => $drId,
+                    'delivery_request_number' => $drNumber ?: $dr?->request_number,
+                    'invoice_date' => $request->input('invoice_date', now()->format('Y-m-d')),
+                    'currency' => $currency,
+                    'exchange_rate' => $exchangeRate,
+                    'created_by' => $createdBy,
+                    'payment_terms' => $request->input('payment_terms', 'Công nợ 30 ngày'),
+                    'total_amount' => (float) $request->input('total_amount', 0),
+                    'notes' => $request->input('notes'),
+                    'warehouse_status' => $sendImmediately ? 'SENT_TO_WAREHOUSE' : 'PENDING_WAREHOUSE',
+                    'accounting_status' => 'UNPOSTED',
                 ]);
-            }
 
-            $inv->update(['total_amount' => $calculatedTotal]);
+                $itemsData = $request->input('items', []);
+                $calculatedTotal = 0;
 
-            if ($dr) {
-                $dr->update(['status' => 'INVOICED']);
-            }
+                foreach ($itemsData as $it) {
+                    $productId = $it['product_id'] ?? null;
+                    $sku = $it['sku'] ?? $it['product_sku'] ?? '';
+                    $orderItemId = $it['order_item_id'] ?? null;
+                    $drItemId = $it['delivery_request_item_id'] ?? null;
+                    $drItem = null;
 
-            // Liên kết tệp đính kèm nếu có
-            if ($request->has('attachment_ids')) {
-                SalesAttachment::whereIn('id', (array) $request->input('attachment_ids'))
-                    ->whereNull('attachable_id')
-                    ->where('uploaded_by', $request->attributes->get('actor')->name)
-                    ->update([
-                        'attachable_id' => $inv->id,
-                        'attachable_type' => 'invoice',
+                    if ($orderItemId && $order) {
+                        $orderItem = $order->items->firstWhere('id', $orderItemId);
+                        if ($orderItem) {
+                            $productId = $productId ?: $orderItem->product_id;
+                            $sku = $sku ?: $orderItem->sku;
+                        }
+                    }
+
+                    if ($drItemId && $dr) {
+                        $drItem = $dr->items->firstWhere('id', $drItemId);
+                        if ($drItem) {
+                            $productId = $productId ?: $drItem->product_id;
+                            $sku = $sku ?: $drItem->sku;
+                            $orderItemId = $orderItemId ?: $drItem->order_item_id;
+                        }
+                    }
+
+                    if (! $drItemId || ! isset($drItem) || ! $drItem) {
+                        abort(422, 'Mặt hàng không thuộc yêu cầu giao hàng đã chọn.');
+                    }
+
+                    if ($orderItemId !== $drItem->order_item_id) {
+                        abort(422, 'Mặt hàng đơn bán không khớp với yêu cầu giao hàng.');
+                    }
+
+                    if (! $drItemId && $dr) {
+                        $matchDrItem = null;
+                        if ($productId) {
+                            $matchDrItem = $dr->items->firstWhere('product_id', $productId);
+                        }
+                        if (! $matchDrItem && $sku) {
+                            $matchDrItem = $dr->items->firstWhere('sku', $sku);
+                        }
+                        $drItemId = $matchDrItem?->id;
+                        if (! $orderItemId) {
+                            $orderItemId = $matchDrItem?->order_item_id;
+                        }
+                        if (! $productId && $matchDrItem) {
+                            $productId = $matchDrItem->product_id;
+                        }
+                    }
+
+                    if (! $orderItemId && $order) {
+                        $matchSoItem = null;
+                        if ($productId) {
+                            $matchSoItem = $order->items->firstWhere('product_id', $productId);
+                        }
+                        if (! $matchSoItem && $sku) {
+                            $matchSoItem = $order->items->firstWhere('sku', $sku);
+                        }
+                        $orderItemId = $matchSoItem?->id;
+                        if (! $productId && $matchSoItem) {
+                            $productId = $matchSoItem->product_id;
+                        }
+                    }
+
+                    if (! $productId) {
+                        $productId = $this->productIdForSku($sku);
+                    }
+
+                    $requestedQty = (float) ($it['requested_quantity'] ?? $it['request_quantity'] ?? 0);
+                    if ($requestedQty <= 0 && $drItemId) {
+                        $drIt = $dr?->items->firstWhere('id', $drItemId);
+                        $requestedQty = (float) ($drIt?->quantity ?? 0);
+                    }
+
+                    $qty = (float) ($it['quantity'] ?? $requestedQty ?: 1);
+                    $remainingQty = max(0, (float) $drItem->quantity - (float) $drItem->delivered_quantity);
+                    if ($qty > $remainingQty) {
+                        abort(422, "Số lượng chứng từ của SKU {$sku} vượt quá số lượng còn phải giao {$remainingQty}.");
+                    }
+                    $unitPrice = (float) ($it['unit_price'] ?? $it['price'] ?? 0);
+                    $calculatedTotal += ($qty * $unitPrice);
+
+                    InvoiceItem::create([
+                        'invoice_id' => $inv->id,
+                        'order_item_id' => $orderItemId,
+                        'delivery_request_item_id' => $drItemId,
+                        'product_id' => $productId,
+                        'sku' => $sku,
+                        'product_name' => $it['product_name'] ?? $it['designation'] ?? $sku,
+                        'description' => $it['description'] ?? null,
+                        'requested_quantity' => $requestedQty,
+                        'quantity' => $qty,
+                        'unit_price' => $unitPrice,
                     ]);
+                }
+
+                $inv->update(['total_amount' => $calculatedTotal]);
+
+                if ($dr) {
+                    $dr->update(['status' => 'INVOICED']);
+                }
+
+                // Liên kết tệp đính kèm nếu có
+                if ($request->has('attachment_ids')) {
+                    SalesAttachment::whereIn('id', (array) $request->input('attachment_ids'))
+                        ->whereNull('attachable_id')
+                        ->where('uploaded_by', $request->attributes->get('actor')->name)
+                        ->update([
+                            'attachable_id' => $inv->id,
+                            'attachable_type' => 'invoice',
+                        ]);
+                }
+
+                // Nghiệp vụ: giữ hàng ngay khi lập chứng từ (architecture.md §8).
+                // Không giữ được (thiếu hàng, Inventory lỗi) → rollback, chứng từ không được tạo.
+                $reservation = $this->reserveStockForInvoice($inv, $warehouseId, $request->bearerToken());
+                if (! $reservation['reserved']) {
+                    throw new StockReservationFailedException($reservation['error']);
+                }
+                $reservedNumber = $inv->invoice_number;
+                $this->applyReservationResult($inv, $warehouseId, $reservation);
+
+                return $inv;
+            });
+        } catch (StockReservationFailedException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            // Đã giữ hàng nhưng lưu chứng từ thất bại → nhả lại để hàng không bị treo
+            if ($reservedNumber) {
+                $this->releaseStockForInvoice($reservedNumber, $request->bearerToken());
             }
-
-            return $inv;
-        });
-
-        // Tự động giữ chỗ tồn kho (Reserve Stock) cho chứng từ bán hàng
-        $reservationResult = $this->reserveStockForInvoice($inv, $warehouseId, $request->bearerToken());
-        $reservationSucceeded = count($reservationResult) === $inv->items()->count()
-            && collect($reservationResult)->every(fn (array $result): bool => $result['success'] === true);
-        $hasReservedItems = collect($reservationResult)->contains(fn (array $result): bool => $result['success'] === true);
-        $inv->update([
-            'inventory_warehouse_id' => $warehouseId,
-            'inventory_reservation_status' => $reservationSucceeded ? 'RESERVED' : ($hasReservedItems ? 'PARTIAL' : 'FAILED'),
-            'inventory_reservation_error' => $reservationSucceeded ? null : json_encode($reservationResult, JSON_UNESCAPED_UNICODE),
-            'inventory_reserved_at' => $reservationSucceeded ? now() : null,
-        ]);
+            throw $e;
+        }
 
         return response()->json([
             'success' => true,
-            'data' => $inv->load('items', 'deliveryRequest.order.customer', 'attachments'),
-            'reservation' => $reservationResult,
-            'message' => $reservationSucceeded
-                ? "Đã tạo chứng từ {$inv->invoice_number} và giữ chỗ tồn kho thành công."
-                : "Đã tạo chứng từ {$inv->invoice_number}, nhưng giữ chỗ tồn kho thất bại. Vui lòng kiểm tra và thử đồng bộ lại.",
+            'data' => $inv->load('items', 'deliveryRequest.order', 'attachments'),
+            'reservation' => $reservation,
+            'message' => "Đã tạo chứng từ {$inv->invoice_number} và giữ hàng tại kho thành công.",
         ], 201);
     }
 
@@ -244,8 +254,7 @@ class InvoiceController extends Controller
     {
         $inv = Invoice::with([
             'items.orderItem',
-            'deliveryRequest.order.customer',
-            'deliveryRequest.order.creator',
+            'deliveryRequest.order',
             'deliveryRequest.items',
             'attachments',
         ])->where('id', $id)->orWhere('invoice_number', $id)->first();
@@ -266,6 +275,9 @@ class InvoiceController extends Controller
         if (! $inv) {
             return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND']], 404);
         }
+        if ($inv->warehouse_status === 'CANCELLED') {
+            return $this->cancelledResponse($inv);
+        }
 
         if ($inv->inventory_reservation_status === 'RESERVED') {
             return response()->json([
@@ -275,38 +287,23 @@ class InvoiceController extends Controller
                 'message' => 'Chứng từ đã được giữ chỗ tồn kho trước đó.',
             ]);
         }
-        if ($inv->inventory_reservation_status === 'PARTIAL') {
-            return response()->json([
-                'success' => false,
-                'error' => [
-                    'code' => 'PARTIAL_RESERVATION_REQUIRES_RECONCILIATION',
-                    'message' => 'Một phần hàng đã được giữ chỗ. Cần đối soát Inventory trước khi thử lại để tránh giữ chỗ hai lần.',
-                ],
-            ], 409);
-        }
 
         $warehouseName = $request->input('warehouse_name') ?: ($inv->deliveryRequest?->warehouse_name ?: 'Kho Tổng Miền Bắc (Hà Nội)');
         $warehouseId = $inv->inventory_warehouse_id ?: ($inv->deliveryRequest?->warehouse_id ?: $this->resolveWarehouseId($warehouseName));
 
-        $result = $this->reserveStockForInvoice($inv, $warehouseId, $request->bearerToken());
-        $succeeded = count($result) === $inv->items()->count()
-            && collect($result)->every(fn (array $item): bool => $item['success'] === true);
-        $hasReservedItems = collect($result)->contains(fn (array $item): bool => $item['success'] === true);
-        $inv->update([
-            'inventory_warehouse_id' => $warehouseId,
-            'inventory_reservation_status' => $succeeded ? 'RESERVED' : ($hasReservedItems ? 'PARTIAL' : 'FAILED'),
-            'inventory_reservation_error' => $succeeded ? null : json_encode($result, JSON_UNESCAPED_UNICODE),
-            'inventory_reserved_at' => $succeeded ? now() : null,
-        ]);
+        $reservation = $this->reserveStockForInvoice($inv, $warehouseId, $request->bearerToken());
+        $this->applyReservationResult($inv, $warehouseId, $reservation);
+        $succeeded = $reservation['reserved'];
 
         return response()->json([
             'success' => $succeeded,
             'data' => $inv,
-            'reservation' => $result,
+            'reservation' => $reservation,
+            'error' => $reservation['error'],
             'message' => $succeeded
                 ? "Đã đồng bộ giữ chỗ tồn kho cho chứng từ {$inv->invoice_number} thành công."
-                : 'Không thể giữ chỗ đầy đủ tại Inventory Service.',
-        ], $succeeded ? 200 : 502);
+                : ($reservation['error']['message'] ?? 'Không thể giữ chỗ tại Inventory Service.'),
+        ], $succeeded ? 200 : StockReservationFailedException::status($reservation['error']['code'] ?? null));
     }
 
     /**
@@ -317,6 +314,9 @@ class InvoiceController extends Controller
         $inv = Invoice::where('id', $id)->orWhere('invoice_number', $id)->first();
         if (! $inv) {
             return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND']], 404);
+        }
+        if ($inv->warehouse_status === 'CANCELLED') {
+            return $this->cancelledResponse($inv);
         }
         if ($inv->inventory_reservation_status !== 'RESERVED') {
             return response()->json([
@@ -365,7 +365,7 @@ class InvoiceController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $inv->fresh(['warehouseDispatch.picker', 'warehouseDispatch.packer', 'warehouseDispatch.shipper']),
+            'data' => $inv->fresh(['warehouseDispatch']),
             'message' => "Đã gửi chứng từ {$inv->invoice_number} xuống phòng Logistics thành công.",
         ]);
     }
@@ -379,24 +379,27 @@ class InvoiceController extends Controller
         if (! $inv) {
             return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND']], 404);
         }
+        if ($inv->warehouse_status === 'CANCELLED') {
+            return $this->cancelledResponse($inv);
+        }
 
         $pickerId = $request->input('picker_id') ?: null;
         $pickerName = $request->input('picker_name') ?: null;
         if ($pickerId && ! $pickerName) {
-            $pickerName = User::find($pickerId)?->name;
+            $pickerName = $this->identity->name((int) $pickerId);
         }
 
         $packerId = $request->input('packer_id') ?: null;
         $packerName = $request->input('packer_name') ?: null;
         if ($packerId && ! $packerName) {
-            $packerName = User::find($packerId)?->name;
+            $packerName = $this->identity->name((int) $packerId);
         }
 
         $shippingMethod = $request->input('shipping_method', 'CUSTOMER_PICKUP');
         $shipperId = $request->input('shipper_id') ?: null;
         $shipperName = $request->input('shipper_name') ?: null;
         if ($shippingMethod === 'WAREHOUSE_DELIVERY' && $shipperId && ! $shipperName) {
-            $shipperName = User::find($shipperId)?->name;
+            $shipperName = $this->identity->name((int) $shipperId);
         }
 
         $shippingNote = $request->input('shipping_note');
@@ -445,7 +448,7 @@ class InvoiceController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $inv->fresh(['warehouseDispatch.picker', 'warehouseDispatch.packer', 'warehouseDispatch.shipper']),
+            'data' => $inv->fresh(['warehouseDispatch']),
             'message' => 'Cập nhật tiến độ điều phối kho thành công.',
         ]);
     }
@@ -466,6 +469,9 @@ class InvoiceController extends Controller
 
         if (! $inv) {
             return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND']], 404);
+        }
+        if ($inv->warehouse_status === 'CANCELLED') {
+            return $this->cancelledResponse($inv);
         }
 
         if ($inv->accounting_status === 'POSTED' || $inv->inventory_issue_status === 'ISSUED') {
@@ -645,11 +651,71 @@ class InvoiceController extends Controller
         ]);
     }
 
+    /**
+     * Hủy chứng từ bán hàng chưa xuất kho:
+     * - nhả toàn bộ hàng đã giữ ở Inventory (làm trước; Inventory lỗi thì chưa đổi gì, hủy lại được),
+     * - phần còn phải giao của yêu cầu giao về 0 và đóng yêu cầu → số lượng chưa giao của đơn bán tăng lại,
+     *   có thể lập yêu cầu giao mới.
+     */
+    public function cancel(Request $request, $id): JsonResponse
+    {
+        $validated = $request->validate(['reason' => ['required', 'string', 'max:1000']]);
+        $inv = Invoice::with(['deliveryRequest.items'])->where('id', $id)->orWhere('invoice_number', $id)->first();
+        if (! $inv) {
+            return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND']], 404);
+        }
+        if ($inv->warehouse_status === 'CANCELLED') {
+            return response()->json(['success' => true, 'data' => $inv, 'message' => "Chứng từ {$inv->invoice_number} đã được hủy trước đó."]);
+        }
+        if ($inv->inventory_issue_status === 'ISSUED' || $inv->accounting_status === 'POSTED' || $inv->warehouse_status === 'DELIVERED') {
+            return response()->json([
+                'success' => false,
+                'error' => ['code' => 'INVOICE_ALREADY_ISSUED', 'message' => 'Chứng từ đã xuất kho, không thể hủy. Hãy lập yêu cầu trả hàng.'],
+            ], 409);
+        }
+
+        $release = $this->releaseStockForInvoice($inv->invoice_number, $request->bearerToken());
+        if (! $release['released']) {
+            throw new StockReservationFailedException($release['error']);
+        }
+
+        $actor = $request->attributes->get('actor');
+        DB::transaction(function () use ($inv, $actor, $validated): void {
+            $inv->update([
+                'warehouse_status' => 'CANCELLED',
+                'inventory_reservation_status' => 'RELEASED',
+                'cancelled_at' => now(),
+                'cancelled_by_id' => $actor->id,
+                'cancelled_by_name' => $actor->name,
+                'cancel_reason' => $validated['reason'],
+            ]);
+            WarehouseDispatch::where('invoice_id', $inv->id)->update(['status' => 'CANCELLED']);
+
+            $dr = $inv->deliveryRequest;
+            if ($dr) {
+                foreach ($dr->items as $drItem) {
+                    // Phần chưa giao về 0: trả lại cho "số lượng chưa giao" của dòng đơn bán
+                    $drItem->update(['quantity' => (float) $drItem->delivered_quantity]);
+                }
+                $dr->update(['status' => $dr->items->sum('delivered_quantity') > 0 ? 'DELIVERED' : 'CANCELLED']);
+            }
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $inv->fresh(['items', 'deliveryRequest.items']),
+            'message' => "Đã hủy chứng từ {$inv->invoice_number} và nhả hàng đã giữ tại kho.",
+        ]);
+    }
+
     public function updateWarehouseStatus(Request $request, $id)
     {
         $inv = Invoice::where('id', $id)->orWhere('invoice_number', $id)->first();
         if (! $inv) {
             return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND']], 404);
+        }
+        if ($inv->warehouse_status === 'CANCELLED') {
+            return $this->cancelledResponse($inv);
         }
 
         $validated = $request->validate([
@@ -691,66 +757,109 @@ class InvoiceController extends Controller
     }
 
     /**
-     * Gửi yêu cầu giữ chỗ (Reserve) tới Inventory Service
+     * Giữ chỗ cả chứng từ bằng MỘT lần gọi Inventory (POST /stocks/reserve/batch): đủ hàng cho mọi dòng
+     * mới giữ, thiếu một dòng thì Inventory rollback, không giữ dòng nào. Gọi lại an toàn: Inventory bỏ qua
+     * dòng đã giữ theo mã chứng từ (kể cả chứng từ PARTIAL từ cách giữ từng dòng trước đây).
+     *
+     * @return array{reserved: bool, items: list<array<string, mixed>>, error: array<string, mixed>|null}
      */
     protected function reserveStockForInvoice(Invoice $inv, int $warehouseId, ?string $token = null): array
     {
-        $results = [];
-        $items = $inv->items ?: [];
-        $inventoryUrl = config('services.inventory.url', 'http://127.0.0.1:8004');
-        $timeout = config('services.inventory.timeout', 3);
+        $items = [];
+        $unresolved = [];
+        foreach ($inv->items as $item) {
+            $productId = $item->product_id ?: $item->orderItem?->product_id ?: $item->deliveryRequestItem?->product_id
+                ?: $this->productIdForSku($item->sku);
+            $quantity = (int) round((float) $item->quantity);
+            if (! $productId || $quantity <= 0) {
+                $unresolved[] = $item->sku ?: "#{$item->id}";
 
-        foreach ($items as $item) {
-            $productId = $item->product_id ?: $item->orderItem?->product_id ?: $item->deliveryRequestItem?->product_id;
-            if (! $productId && ! empty($item->sku)) {
-                $productId = Product::where('sku', $item->sku)->value('id');
+                continue;
             }
-
-            if (! $productId && ! empty($item->sku)) {
-                // Thử tìm trong bảng products
-                $prod = DB::table('products')->where('sku', $item->sku)->first();
-                $productId = $prod?->id;
-            }
-
-            if ($productId && (float) $item->quantity > 0) {
-                try {
-                    // Inventory Service yêu cầu JWT: chuyển tiếp token của người dùng đang thao tác
-                    $response = Http::withToken((string) $token)->acceptJson()->timeout($timeout)->post("{$inventoryUrl}/api/v1/inventory/stocks/reserve", [
-                        'order_id' => $inv->invoice_number,
-                        'warehouse_id' => $warehouseId,
-                        'product_id' => (int) $productId,
-                        'quantity' => (float) $item->quantity,
-                    ]);
-
-                    $results[] = [
-                        'sku' => $item->sku,
-                        'product_id' => $productId,
-                        'quantity' => (float) $item->quantity,
-                        'success' => $response->successful(),
-                        'status_code' => $response->status(),
-                    ];
-                } catch (\Throwable $e) {
-                    Log::warning("[InvoiceController] Lỗi gọi Inventory Service Reserve ({$inventoryUrl}): ".$e->getMessage());
-                    $results[] = [
-                        'sku' => $item->sku,
-                        'product_id' => $productId,
-                        'quantity' => (float) $item->quantity,
-                        'success' => false,
-                        'error' => 'Inventory Service khong san sang.',
-                    ];
-                }
-            } else {
-                $results[] = [
-                    'sku' => $item->sku,
-                    'product_id' => $productId,
-                    'quantity' => (float) $item->quantity,
-                    'success' => false,
-                    'error' => 'Không xác định được sản phẩm hoặc số lượng giữ chỗ không hợp lệ.',
-                ];
-            }
+            $items[] = ['sku' => $item->sku, 'warehouse_id' => $warehouseId, 'product_id' => (int) $productId, 'quantity' => $quantity];
         }
 
-        return $results;
+        if ($unresolved !== []) {
+            return ['reserved' => false, 'items' => $items, 'error' => [
+                'code' => 'PRODUCT_UNRESOLVED',
+                'message' => 'Không xác định được sản phẩm hoặc số lượng của: '.implode(', ', $unresolved),
+            ]];
+        }
+
+        $inventoryUrl = config('services.inventory.url', 'http://127.0.0.1:8004');
+        try {
+            // Inventory Service yêu cầu JWT: chuyển tiếp token của người dùng đang thao tác
+            $response = Http::withToken((string) $token)->acceptJson()
+                ->timeout(config('services.inventory.timeout', 3))
+                ->post("{$inventoryUrl}/api/v1/inventory/stocks/reserve/batch", [
+                    'order_id' => $inv->invoice_number,
+                    'items' => array_map(fn (array $i): array => array_diff_key($i, ['sku' => true]), $items),
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning("[InvoiceController] Lỗi gọi Inventory Service reserve/batch ({$inventoryUrl}): ".$e->getMessage());
+
+            return ['reserved' => false, 'items' => $items, 'error' => [
+                'code' => 'DEPENDENCY_UNAVAILABLE',
+                'message' => 'Inventory Service không phản hồi, vui lòng đồng bộ giữ chỗ lại sau.',
+            ]];
+        }
+
+        if ($response->successful()) {
+            return ['reserved' => true, 'items' => $items, 'error' => null];
+        }
+
+        $error = $response->json('error') ?? ['code' => 'INVENTORY_ERROR', 'message' => "Inventory Service trả về HTTP {$response->status()}."];
+        if (($error['code'] ?? null) === 'INSUFFICIENT_STOCK' && isset($error['details']['product_id'])) {
+            $sku = collect($items)->firstWhere('product_id', (int) $error['details']['product_id'])['sku'] ?? "#{$error['details']['product_id']}";
+            $error['message'] = "Không đủ hàng để lập chứng từ: SKU {$sku} cần {$error['details']['requested']}, kho chỉ còn {$error['details']['available']} khả dụng.";
+        }
+
+        return ['reserved' => false, 'items' => $items, 'error' => $error];
+    }
+
+    /**
+     * Nhả toàn bộ hàng đã giữ cho chứng từ (POST /stocks/release/document). Idempotent phía Inventory.
+     *
+     * @return array{released: bool, error: array<string, mixed>|null}
+     */
+    protected function releaseStockForInvoice(string $invoiceNumber, ?string $token = null): array
+    {
+        $inventoryUrl = config('services.inventory.url', 'http://127.0.0.1:8004');
+        try {
+            $response = Http::withToken((string) $token)->acceptJson()
+                ->timeout(config('services.inventory.timeout', 3))
+                ->post("{$inventoryUrl}/api/v1/inventory/stocks/release/document", ['order_id' => $invoiceNumber]);
+        } catch (\Throwable $e) {
+            Log::warning("[InvoiceController] Lỗi gọi Inventory Service release/document ({$inventoryUrl}): ".$e->getMessage());
+
+            return ['released' => false, 'error' => [
+                'code' => 'DEPENDENCY_UNAVAILABLE',
+                'message' => 'Inventory Service không phản hồi, chưa nhả được hàng. Vui lòng thử hủy lại sau.',
+            ]];
+        }
+
+        return $response->successful()
+            ? ['released' => true, 'error' => null]
+            : ['released' => false, 'error' => $response->json('error') ?? ['code' => 'INVENTORY_ERROR', 'message' => "Inventory Service trả về HTTP {$response->status()}."]];
+    }
+
+    private function cancelledResponse(Invoice $inv): JsonResponse
+    {
+        return response()->json([
+            'success' => false,
+            'error' => ['code' => 'INVOICE_CANCELLED', 'message' => "Chứng từ {$inv->invoice_number} đã bị hủy."],
+        ], 409);
+    }
+
+    /** @param  array{reserved: bool, error: array<string, mixed>|null}  $reservation */
+    private function applyReservationResult(Invoice $inv, int $warehouseId, array $reservation): void
+    {
+        $inv->update([
+            'inventory_warehouse_id' => $warehouseId,
+            'inventory_reservation_status' => $reservation['reserved'] ? 'RESERVED' : 'FAILED',
+            'inventory_reservation_error' => $reservation['error'] ? json_encode($reservation['error'], JSON_UNESCAPED_UNICODE) : null,
+            'inventory_reserved_at' => $reservation['reserved'] ? now() : null,
+        ]);
     }
 
     /**
@@ -766,13 +875,8 @@ class InvoiceController extends Controller
 
         foreach ($items as $item) {
             $productId = $item->product_id ?: $item->orderItem?->product_id ?: $item->deliveryRequestItem?->product_id;
-            if (! $productId && ! empty($item->sku)) {
-                $productId = Product::where('sku', $item->sku)->value('id');
-            }
-
-            if (! $productId && ! empty($item->sku)) {
-                $prod = DB::table('products')->where('sku', $item->sku)->first();
-                $productId = $prod?->id;
+            if (! $productId) {
+                $productId = $this->productIdForSku($item->sku);
             }
 
             if ($productId && (float) $item->quantity > 0) {
@@ -815,5 +919,19 @@ class InvoiceController extends Controller
         }
 
         return $results;
+    }
+
+    /** Dòng cũ chưa lưu product_id: tra catalog theo SKU; catalog không phản hồi thì coi như chưa xác định được. */
+    private function productIdForSku(?string $sku): ?int
+    {
+        if (empty($sku)) {
+            return null;
+        }
+
+        try {
+            return $this->catalog->productsBySkus([$sku])[mb_strtoupper($sku)]['id'] ?? null;
+        } catch (DependencyUnavailableException) {
+            return null;
+        }
     }
 }

@@ -2,13 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Customer;
-use App\Models\Product;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
 use App\Models\SalesAttachment;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
+use App\Services\ReferenceSnapshot;
 use App\Support\DocumentDate;
 use App\Support\DocumentNumberGenerator;
 use App\Support\Outbox;
@@ -19,6 +18,8 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class QuotationController extends Controller
 {
+    public function __construct(private readonly ReferenceSnapshot $snapshots) {}
+
     public function index(Request $request)
     {
         $search = trim($request->input('search', ''));
@@ -93,24 +94,26 @@ class QuotationController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'customer_id' => ['required', 'integer', 'exists:catalog.customers,id'],
+            'customer_id' => ['required', 'integer'],
             // Form báo giá không có ô ngày: bỏ trống thì lấy ngày tạo (hôm nay)
             'quotation_date' => DocumentDate::rules(),
             'exchange_rate' => ['nullable', 'numeric', 'gt:0'],
             'items' => ['required', 'array', 'min:1'],
-            'items.*.product_id' => ['required', 'integer', 'exists:catalog.products,id'],
+            'items.*.product_id' => ['required', 'integer'],
             'items.*.sku' => ['required', 'string', 'max:100'],
             'items.*.quantity' => ['required', 'numeric', 'gt:0'],
             'items.*.selling_price' => ['required', 'numeric', 'gte:0'],
             'items.*.vat_percent' => ['nullable', 'numeric', 'between:0,100'],
         ]);
-        $customer = Customer::findOrFail($request->integer('customer_id'));
-        $customerName = $customer->name;
+        // Lấy & snapshot dữ liệu khách hàng/sản phẩm trước khi mở transaction (không gọi HTTP trong transaction)
+        $items = $request->input('items', []);
+        $customer = $this->snapshots->customer($request->integer('customer_id'), $request->input('contact_id'));
+        $products = $this->snapshots->products($items);
 
         DB::beginTransaction();
         try {
             // Quy định số báo giá: QT-mã khách hàng-ddmmyy (trùng trong ngày thêm -A, -B...)
-            $qNumber = DocumentNumberGenerator::forCustomer(Quotation::class, 'quotation_number', 'QT', $customer->code);
+            $qNumber = DocumentNumberGenerator::forCustomer(Quotation::class, 'quotation_number', 'QT', $customer['customer_code']);
 
             // Nếu người dùng chủ động truyền số báo giá tùy chỉnh hợp lệ (khác auto placeholder)
             $customNumber = trim($request->input('quotation_number', ''));
@@ -118,7 +121,6 @@ class QuotationController extends Controller
                 $qNumber = $customNumber;
             }
 
-            $items = $request->input('items', []);
             $subtotal = collect($items)->sum(fn (array $item): float => (float) $item['quantity'] * (float) $item['selling_price']);
             $vatTotal = collect($items)->sum(fn (array $item): float => round((float) $item['quantity'] * (float) $item['selling_price'] * ((float) ($item['vat_percent'] ?? 10) / 100), 2));
             $actor = $request->attributes->get('actor');
@@ -126,8 +128,8 @@ class QuotationController extends Controller
             $quotation = Quotation::create([
                 'quotation_number' => $qNumber,
                 'customer_id' => $request->input('customer_id'),
-                'customer_name' => $customerName,
                 'contact_id' => $request->input('contact_id'),
+                ...$customer,
                 'quotation_date' => DocumentDate::normalize($request->input('quotation_date'), now()->toDateString()),
                 'currency' => $request->input('currency', 'VND'),
                 'exchange_rate' => (float) $request->input('exchange_rate', 1.0),
@@ -141,26 +143,19 @@ class QuotationController extends Controller
                 'notes' => $request->input('notes'),
             ]);
 
-            foreach ($items as $it) {
-                $prodId = $it['product_id'] ?? null;
-                $prod = null;
-                if ($prodId) {
-                    $prod = Product::find($prodId);
-                } elseif (! empty($it['sku'])) {
-                    $prod = Product::where('sku', $it['sku'])->first();
-                    $prodId = $prod?->id;
-                }
-
+            foreach ($items as $key => $it) {
+                $prod = $products[$key];
                 $grossPrice = (float) ($it['gross_price'] ?? 0);
                 if ($grossPrice <= 0 && $prod) {
-                    $grossPrice = (float) ($prod->gross_price ?? 0);
+                    $grossPrice = (float) ($prod['gross_price'] ?? 0);
                 }
 
                 QuotationItem::create([
                     'quotation_id' => $quotation->id,
-                    'product_id' => $prodId,
-                    'sku' => $it['sku'] ?? $prod?->sku ?? 'UNKNOWN',
-                    'description' => $it['description'] ?? $prod?->description ?? null,
+                    'product_id' => $prod['id'] ?? null,
+                    'sku' => $it['sku'] ?? $prod['sku'] ?? 'UNKNOWN',
+                    ...ReferenceSnapshot::productColumns($prod),
+                    'description' => $it['description'] ?? $prod['description'] ?? null,
                     'quantity' => (float) ($it['quantity'] ?? 1),
                     'gross_price' => $grossPrice,
                     'discount_percent' => (float) ($it['discount_percent'] ?? 0),
@@ -210,10 +205,10 @@ class QuotationController extends Controller
         }
 
         $request->validate([
-            'customer_id' => ['sometimes', 'required', 'integer', 'exists:catalog.customers,id'],
+            'customer_id' => ['sometimes', 'required', 'integer'],
             'exchange_rate' => ['sometimes', 'numeric', 'gt:0'],
             'items' => ['sometimes', 'array', 'min:1'],
-            'items.*.product_id' => ['required_with:items', 'integer', 'exists:catalog.products,id'],
+            'items.*.product_id' => ['required_with:items', 'integer'],
             'items.*.sku' => ['required_with:items', 'string', 'max:100'],
             'items.*.quantity' => ['required_with:items', 'numeric', 'gt:0'],
             'items.*.selling_price' => ['required_with:items', 'numeric', 'gte:0'],
@@ -228,17 +223,22 @@ class QuotationController extends Controller
             $vatTotal = collect($items)->sum(fn (array $item): float => round((float) $item['quantity'] * (float) $item['selling_price'] * ((float) ($item['vat_percent'] ?? 10) / 100), 2));
         }
 
-        $customerName = $q->customer_name;
-        if ($request->filled('customer_id')) {
-            $customerName = Customer::findOrFail($request->integer('customer_id'))->name;
+        // Đổi khách hàng / người liên hệ thì chụp lại snapshot
+        $customer = [];
+        if ($request->filled('customer_id') || $request->has('contact_id')) {
+            $customer = $this->snapshots->customer(
+                (int) $request->input('customer_id', $q->customer_id),
+                $request->input('contact_id', $q->contact_id),
+            );
         }
+        $products = is_array($items) ? $this->snapshots->products($items) : [];
 
         DB::beginTransaction();
         try {
             $q->update([
                 'customer_id' => $request->input('customer_id', $q->customer_id),
-                'customer_name' => $customerName,
                 'contact_id' => $request->input('contact_id', $q->contact_id),
+                ...$customer,
                 'currency' => $request->input('currency', $q->currency),
                 'exchange_rate' => (float) $request->input('exchange_rate', $q->exchange_rate),
                 'assigned_to' => $request->input('assigned_to', $q->assigned_to),
@@ -263,26 +263,19 @@ class QuotationController extends Controller
 
             if (is_array($items)) {
                 QuotationItem::where('quotation_id', $q->id)->delete();
-                foreach ($items as $it) {
-                    $prodId = $it['product_id'] ?? null;
-                    $prod = null;
-                    if ($prodId) {
-                        $prod = Product::find($prodId);
-                    } elseif (! empty($it['sku'])) {
-                        $prod = Product::where('sku', $it['sku'])->first();
-                        $prodId = $prod?->id;
-                    }
-
+                foreach ($items as $key => $it) {
+                    $prod = $products[$key];
                     $grossPrice = (float) ($it['gross_price'] ?? 0);
                     if ($grossPrice <= 0 && $prod) {
-                        $grossPrice = (float) ($prod->gross_price ?? 0);
+                        $grossPrice = (float) ($prod['gross_price'] ?? 0);
                     }
 
                     QuotationItem::create([
                         'quotation_id' => $q->id,
-                        'product_id' => $prodId,
-                        'sku' => $it['sku'] ?? $prod?->sku ?? 'UNKNOWN',
-                        'description' => $it['description'] ?? $prod?->description ?? null,
+                        'product_id' => $prod['id'] ?? null,
+                        'sku' => $it['sku'] ?? $prod['sku'] ?? 'UNKNOWN',
+                        ...ReferenceSnapshot::productColumns($prod),
+                        'description' => $it['description'] ?? $prod['description'] ?? null,
                         'quantity' => (float) ($it['quantity'] ?? 1),
                         'gross_price' => $grossPrice,
                         'discount_percent' => (float) ($it['discount_percent'] ?? 0),
@@ -403,6 +396,10 @@ class QuotationController extends Controller
             return response()->json(['success' => true, 'data' => $existingOrder->load('items'), 'message' => 'Báo giá đã được chuyển thành đơn bán hàng trước đó.']);
         }
 
+        $actor = $request->attributes->get('actor');
+        $assigneeId = is_numeric($q->assigned_to) ? (int) $q->assigned_to : $actor->id;
+        $assigneeName = $assigneeId === $actor->id ? $actor->name : $this->snapshots->userName($assigneeId);
+
         DB::beginTransaction();
         try {
             $q = Quotation::with('items')->lockForUpdate()->findOrFail($q->id);
@@ -446,8 +443,7 @@ class QuotationController extends Controller
             });
 
             // Đơn sinh từ báo giá theo cùng quy định với đơn lập tay: OD-mã khách hàng-ddmmyy
-            $soNumber = DocumentNumberGenerator::forCustomer(SalesOrder::class, 'order_number', 'OD', Customer::find($q->customer_id)?->code);
-            $actor = $request->attributes->get('actor');
+            $soNumber = DocumentNumberGenerator::forCustomer(SalesOrder::class, 'order_number', 'OD', $q->customer_code);
 
             $so = SalesOrder::create([
                 'order_number' => $soNumber,
@@ -455,11 +451,17 @@ class QuotationController extends Controller
                 'quotation_id' => $q->id,
                 'customer_id' => $q->customer_id,
                 'contact_id' => $q->contact_id,
+                ...$q->only([
+                    'customer_code', 'customer_name', 'customer_tax_code', 'customer_address', 'customer_phone', 'customer_email',
+                    'contact_name', 'contact_phone', 'contact_email',
+                ]),
                 'order_date' => now()->toDateString(),
                 'currency' => $q->currency ?? 'VND',
                 'exchange_rate' => (float) ($q->exchange_rate ?? 1.0),
                 'created_by' => $actor->id,
-                'assigned_to' => is_numeric($q->assigned_to) ? (int) $q->assigned_to : $actor->id,
+                'created_by_name' => $actor->name,
+                'assigned_to' => $assigneeId,
+                'assigned_to_name' => $assigneeName,
                 'subtotal' => $subtotal,
                 'vat_total' => $vatTotal,
                 'total_amount' => $subtotal + $vatTotal,
@@ -468,41 +470,28 @@ class QuotationController extends Controller
             ]);
 
             foreach ($wonItems as $it) {
-                $qItemId = is_object($it) ? $it->id : ($it['id'] ?? $it['quotation_item_id'] ?? null);
-                $prodId = is_object($it) ? $it->product_id : ($it['product_id'] ?? null);
-                $sku = is_object($it) ? $it->sku : ($it['sku'] ?? $it['product_sku'] ?? '');
-
-                $prod = null;
-                if ($prodId) {
-                    $prod = Product::find($prodId);
-                } elseif (! empty($sku)) {
-                    $prod = Product::where('sku', $sku)->first();
-                    $prodId = $prod?->id;
-                }
-
-                $grossPrice = (float) (is_object($it) ? $it->gross_price : ($it['gross_price'] ?? 0));
-                if ($grossPrice <= 0 && $prod) {
-                    $grossPrice = (float) ($prod->gross_price ?? 0);
-                }
-
-                $qty = (float) (is_object($it) ? ($it->won_quantity ?: $it->quantity) : ($it['won_quantity'] ?? $it['quantity'] ?? 1));
-                $sellingPrice = (float) (is_object($it) ? $it->selling_price : ($it['selling_price'] ?? $it['unit_price'] ?? 0));
-                $lineSubtotal = $qty * $sellingPrice;
+                $qty = (float) ($it->won_quantity ?: $it->quantity);
+                $sellingPrice = (float) $it->selling_price;
 
                 SalesOrderItem::create([
                     'order_id' => $so->id,
-                    'quotation_item_id' => $qItemId,
-                    'product_id' => $prodId,
-                    'sku' => $sku ?: ($prod?->sku ?? 'UNKNOWN'),
-                    'product_name' => (is_object($it) ? ($it->designation ?: $it->description) : ($it['designation'] ?? $it['description'] ?? $it['product_name'] ?? '')) ?: ($prod?->designation ?? 'Sản phẩm'),
-                    'delivery_date' => is_object($it) ? ($it->delivery_date ?? null) : ($it['delivery_date'] ?? $it['expected_delivery_date'] ?? null),
+                    'quotation_item_id' => $it->id,
+                    'product_id' => $it->product_id,
+                    'sku' => $it->sku ?: 'UNKNOWN',
+                    'product_name' => ($it->designation ?: $it->description) ?: 'Sản phẩm',
+                    'designation' => $it->designation,
+                    'brand' => $it->brand,
+                    'description' => $it->description,
+                    'com' => $it->getRawOriginal('com'),
+                    'unit' => $it->getRawOriginal('unit'),
+                    'delivery_date' => $it->delivery_date ?? null,
                     'quantity' => $qty,
-                    'gross_price' => $grossPrice,
-                    'discount_percent' => (float) (is_object($it) ? $it->discount_percent : ($it['discount_percent'] ?? 0)),
+                    'gross_price' => (float) $it->gross_price,
+                    'discount_percent' => (float) $it->discount_percent,
                     'selling_price' => $sellingPrice,
-                    'vat_percent' => (float) (is_object($it) ? $it->vat_percent : ($it['vat_percent'] ?? 10)),
-                    'lead_time' => (is_object($it) ? $it->lead_time : ($it['lead_time'] ?? '')) ?: 'Có sẵn',
-                    'subtotal' => $lineSubtotal,
+                    'vat_percent' => (float) $it->vat_percent,
+                    'lead_time' => $it->lead_time ?: 'Có sẵn',
+                    'subtotal' => $qty * $sellingPrice,
                     'status' => 'WIN',
                 ]);
             }
@@ -513,7 +502,7 @@ class QuotationController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $so->load(['items.product', 'customer']),
+                'data' => $so->load('items'),
                 'message' => "Đã sinh Đơn Bán Hàng {$so->order_number} thành công từ Item Win.",
             ], 201);
         } catch (HttpExceptionInterface $e) {

@@ -12,7 +12,15 @@ class Quotation extends Model
         'quotation_number',
         'customer_id',
         'customer_name',
+        'customer_code',
+        'customer_tax_code',
+        'customer_address',
+        'customer_phone',
+        'customer_email',
         'contact_id',
+        'contact_name',
+        'contact_phone',
+        'contact_email',
         'quotation_date',
         'currency',
         'exchange_rate',
@@ -28,9 +36,10 @@ class Quotation extends Model
         'notes',
     ];
 
+    // customer/contact: object dựng từ snapshot, giữ nguyên hình dạng JSON cũ cho frontend (in PDF báo giá)
     protected $appends = [
-        'customer_code',
-        'contact_name',
+        'customer',
+        'contact',
     ];
 
     public function items()
@@ -43,24 +52,24 @@ class Quotation extends Model
         return $this->hasMany(SalesAttachment::class, 'attachable_id')->where('attachable_type', 'quotation');
     }
 
-    public function customer()
+    public function getCustomerAttribute(): array
     {
-        return $this->belongsTo(Customer::class, 'customer_id');
+        return [
+            'id' => $this->customer_id,
+            'code' => $this->customer_code,
+            'name' => $this->customer_name,
+            'tax_code' => $this->customer_tax_code,
+            'address' => $this->customer_address,
+            'phone' => $this->customer_phone,
+            'email' => $this->customer_email,
+            'contact_name' => $this->contact_name,
+        ];
     }
 
-    public function contact()
+    public function getContactAttribute(): ?array
     {
-        return $this->belongsTo(CustomerContact::class, 'contact_id');
-    }
-
-    // Dynamic Accessors từ Catalog Service
-    public function getCustomerCodeAttribute()
-    {
-        return $this->customer?->code ?? '';
-    }
-
-    public function getContactNameAttribute()
-    {
-        return $this->contact?->name ?? '';
+        return $this->contact_id
+            ? ['id' => $this->contact_id, 'name' => $this->contact_name, 'phone' => $this->contact_phone, 'email' => $this->contact_email]
+            : null;
     }
 }

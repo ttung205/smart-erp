@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\InspectSaleReturnRequest;
 use App\Http\Requests\StoreSaleReturnRequest;
-use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\SaleReturnRequest;
@@ -40,7 +39,7 @@ class SaleReturnRequestController extends Controller
 
     public function eligibleInvoices(Request $request): JsonResponse
     {
-        $query = Invoice::with(['items.orderItem', 'items.product.brand', 'deliveryRequest.order.customer'])
+        $query = Invoice::with(['items.orderItem', 'deliveryRequest.order'])
             ->where('warehouse_status', 'DELIVERED')
             ->where('accounting_status', 'POSTED')
             ->latest('id');
@@ -67,7 +66,7 @@ class SaleReturnRequestController extends Controller
             return [
                 'id' => $invoice->id, 'invoice_number' => $invoice->invoice_number,
                 'invoice_date' => $invoice->invoice_date, 'customer_id' => $invoice->customer_id,
-                'customer_code' => $invoice->deliveryRequest?->order?->customer?->code,
+                'customer_code' => $invoice->deliveryRequest?->order?->customer_code,
                 'customer_name' => $invoice->customer_name, 'items' => $items,
             ];
         })->filter(fn (array $invoice): bool => $invoice['items']->isNotEmpty())->values();
@@ -80,7 +79,7 @@ class SaleReturnRequestController extends Controller
         $validated = $request->validated();
         $actor = $request->attributes->get('actor');
         $returnRequest = DB::transaction(function () use ($validated, $actor): SaleReturnRequest {
-            $invoices = Invoice::with(['deliveryRequest.order.customer', 'items.orderItem', 'items.product.brand'])
+            $invoices = Invoice::with(['deliveryRequest.order', 'items.orderItem'])
                 ->whereIn('id', $validated['invoice_ids'])->lockForUpdate()->get();
             if ($invoices->count() !== count($validated['invoice_ids'])) {
                 throw ValidationException::withMessages(['invoice_ids' => 'Có chứng từ không tồn tại.']);
@@ -92,21 +91,22 @@ class SaleReturnRequestController extends Controller
             if ($customerIds->count() !== 1 || ($validated['customer_id'] ?? null) && $customerIds->first() !== (int) $validated['customer_id']) {
                 throw ValidationException::withMessages(['invoice_ids' => 'Các chứng từ phải thuộc cùng một khách hàng.']);
             }
-            $customer = Customer::find($customerIds->first());
-            if (! $customer) {
+            // Khách hàng lấy từ snapshot trên đơn bán hàng của chứng từ
+            $order = $invoices->first()->deliveryRequest?->order;
+            if (! $order) {
                 throw ValidationException::withMessages(['customer_id' => 'Không tìm thấy khách hàng của chứng từ.']);
             }
-            $invoiceItems = InvoiceItem::with(['orderItem', 'product.brand'])
+            $invoiceItems = InvoiceItem::with(['orderItem'])
                 ->whereIn('invoice_id', $invoices->pluck('id'))->whereIn('id', collect($validated['items'])->pluck('invoice_item_id'))
                 ->lockForUpdate()->get()->keyBy('id');
             if ($invoiceItems->count() !== count($validated['items'])) {
                 throw ValidationException::withMessages(['items' => 'Có mặt hàng không thuộc các chứng từ đã chọn.']);
             }
 
-            $requestNumber = $this->nextRequestNumber((string) $customer->code);
+            $requestNumber = $this->nextRequestNumber((string) $order->customer_code);
             $returnRequest = SaleReturnRequest::create([
-                'request_number' => $requestNumber, 'customer_id' => $customer->id,
-                'customer_code' => $customer->code, 'customer_name' => $customer->name,
+                'request_number' => $requestNumber, 'customer_id' => $order->customer_id,
+                'customer_code' => $order->customer_code, 'customer_name' => $order->customer_name,
                 'reason' => $validated['reason'], 'notes' => $validated['notes'] ?? null,
                 'status' => SaleReturnRequest::PENDING_INSPECTION,
                 'created_by_id' => $actor->id, 'created_by_name' => $actor->name, 'total_amount' => 0,

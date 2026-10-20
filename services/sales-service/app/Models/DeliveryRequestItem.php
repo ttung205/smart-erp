@@ -34,11 +34,6 @@ class DeliveryRequestItem extends Model
         return $this->belongsTo(SalesOrderItem::class, 'order_item_id');
     }
 
-    public function product()
-    {
-        return $this->belongsTo(Product::class, 'product_id');
-    }
-
     // Dynamic Accessors truy xuất trực tiếp từ SalesOrderItem qua order_item_id
     public function getDeliveryDateAttribute()
     {
@@ -57,7 +52,7 @@ class DeliveryRequestItem extends Model
 
     public function getProductNameAttribute()
     {
-        return $this->product?->designation ?? $this->orderItem?->product_name ?? $this->sku;
+        return $this->orderItem?->designation ?: ($this->orderItem?->product_name ?: $this->sku);
     }
 
     public function getOrderedQuantityAttribute()

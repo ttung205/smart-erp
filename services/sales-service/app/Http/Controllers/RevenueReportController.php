@@ -12,7 +12,7 @@ class RevenueReportController extends Controller
      */
     public function index(Request $request)
     {
-        $query = RevenueReportItem::with(['invoice', 'vatInvoice', 'product', 'customer', 'salesperson'])->orderBy('id', 'desc');
+        $query = RevenueReportItem::with(['invoice', 'vatInvoice', 'order'])->orderBy('id', 'desc');
 
         if ($request->filled('account_code')) {
             $query->where('account_code', $request->input('account_code'));
@@ -54,8 +54,8 @@ class RevenueReportController extends Controller
                     ->orWhere('order_number', 'like', "%{$s}%")
                     ->orWhere('sku', 'like', "%{$s}%")
                     ->orWhere('product_name', 'like', "%{$s}%")
-                    ->orWhereHas('customer', function ($cq) use ($s) {
-                        $cq->where('name', 'like', "%{$s}%");
+                    ->orWhereHas('order', function ($oq) use ($s) {
+                        $oq->where('customer_name', 'like', "%{$s}%");
                     });
             });
         }
@@ -100,7 +100,7 @@ class RevenueReportController extends Controller
      */
     public function show($id)
     {
-        $item = RevenueReportItem::with(['invoice', 'vatInvoice', 'product', 'customer', 'salesperson'])->find($id);
+        $item = RevenueReportItem::with(['invoice', 'vatInvoice', 'order'])->find($id);
         if (! $item) {
             return response()->json(['success' => false, 'message' => 'Không tìm thấy dòng báo cáo doanh thu'], 404);
         }
