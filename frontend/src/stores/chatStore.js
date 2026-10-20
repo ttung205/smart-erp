@@ -56,6 +56,7 @@ export const useChatStore = defineStore('chat', () => {
   function conversationName(conv) {
     if (!conv) return '';
     if (conv.type === 'group') return conv.title || 'Nhóm chat';
+    if (conv.type === 'work') return conv.title || `${conv.subject_type || 'Chứng từ'} #${conv.subject_code || conv.subject_id}`;
     const partner = partnerOf(conv);
     return partner ? displayName(partner.user_id, partner.name) : 'Hội thoại';
   }
@@ -484,6 +485,10 @@ export const useChatStore = defineStore('chat', () => {
     return upsertConversation(await chatApi.createGroup(title, userIds)).id;
   }
 
+  async function openWorkThread(subjectType, subjectId, subjectCode = null, subjectTitle = null) {
+    return upsertConversation(await chatApi.openWorkThread(subjectType, subjectId, subjectCode, subjectTitle)).id;
+  }
+
   const rename = async (id, title) => upsertConversation(await chatApi.rename(id, title));
   const setAvatar = async (id, file) => upsertConversation(await chatApi.setAvatar(id, file));
   const removeAvatar = async (id) => upsertConversation(await chatApi.removeAvatar(id));
@@ -573,7 +578,7 @@ export const useChatStore = defineStore('chat', () => {
     partnerOf, displayName, conversationName, memberName, isOnline, typingNames, typingUsers,
     init, stop, fetchConversations, openConversation, loadOlder, ensureMessageLoaded, markRead, markAllRead,
     send, edit, recall, react, setMessagePinned, forward, hide,
-    openDirect, createGroup, rename, setAvatar, removeAvatar, addMembers, removeMember, setRole, transferOwner, leave, dissolve,
+    openDirect, openWorkThread, createGroup, rename, setAvatar, removeAvatar, addMembers, removeMember, setRole, transferOwner, leave, dissolve,
     setPinned, setMuted, setAlias, sendTyping, setSoundEnabled
   };
 });

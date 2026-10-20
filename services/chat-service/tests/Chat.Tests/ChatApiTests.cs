@@ -239,4 +239,28 @@ public class ChatApiTests(ChatApiFactory factory) : IClassFixture<ChatApiFactory
         var createdAt = JsonDocument.Parse(raw).RootElement.GetProperty("data").GetProperty("data")[0].GetProperty("created_at").GetString();
         Assert.EndsWith("Z", createdAt);
     }
+
+    [Fact]
+    public async Task Work_thread_is_created_or_reused_and_adds_participant()
+    {
+        var input = new { subject_type = "Sale", subject_id = 1024, subject_code = "SO-2026-001", subject_title = "Đơn bán hàng thiết bị" };
+        var res1 = await (await factory.As(1).PostJson($"{Base}/conversations/work", input)).DataAsync();
+        var convId = res1.GetProperty("id").GetInt64();
+        Assert.Equal("work", res1.GetProperty("type").GetString());
+        Assert.Equal("Sale", res1.GetProperty("subject_type").GetString());
+        Assert.Equal(1024, res1.GetProperty("subject_id").GetInt64());
+        Assert.Equal("SO-2026-001", res1.GetProperty("subject_code").GetString());
+
+        // User 2 mở cùng chứng từ -> Tái sử dụng cùng hội thoại và tự thêm User 2 làm member
+        var res2 = await (await factory.As(2).PostJson($"{Base}/conversations/work", input)).DataAsync();
+        Assert.Equal(convId, res2.GetProperty("id").GetInt64());
+        var members = res2.GetProperty("members").EnumerateArray().Select(m => m.GetProperty("user_id").GetInt64()).ToList();
+        Assert.Contains(1, members);
+        Assert.Contains(2, members);
+
+        // Gửi tin nhắn thảo luận chứng từ
+        var msgId = await Send(1, convId, "Nhờ kho kiểm tra hàng trước 15h");
+        var messages = await Messages(2, convId);
+        Assert.Contains(messages, m => m.GetProperty("id").GetInt64() == msgId);
+    }
 }

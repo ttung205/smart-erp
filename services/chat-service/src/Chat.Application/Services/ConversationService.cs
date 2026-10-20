@@ -130,6 +130,65 @@ public class ConversationService(
         return await BuildDtoAsync(conversation, conversation.Members.First(m => m.UserId == Me.Id), ct);
     }
 
+    /// <summary>Tìm hoặc tạo luồng thảo luận gắn với chứng từ ERP (Work Thread). Thêm người mở vào làm thành viên.</summary>
+    public async Task<ConversationDto> OpenWorkThreadAsync(string? subjectType, long subjectId, string? subjectCode, string? subjectTitle, CancellationToken ct)
+    {
+        subjectType = subjectType?.Trim();
+        if (string.IsNullOrEmpty(subjectType)) throw ChatException.Invalid("Loại chứng từ bắt buộc.");
+        if (subjectId <= 0) throw ChatException.Invalid("ID chứng từ không hợp lệ.");
+
+        subjectCode = subjectCode?.Trim();
+        subjectTitle = subjectTitle?.Trim();
+
+        var conversation = await Db.Conversations.Include(c => c.Members)
+            .FirstOrDefaultAsync(c => c.Type == ConversationType.Work && c.SubjectType == subjectType && c.SubjectId == subjectId, ct);
+
+        if (conversation == null)
+        {
+            var title = !string.IsNullOrEmpty(subjectCode)
+                ? $"{subjectType} #{subjectCode}"
+                : $"{subjectType} #{subjectId}";
+
+            conversation = new Conversation
+            {
+                Type = ConversationType.Work,
+                SubjectType = subjectType,
+                SubjectId = subjectId,
+                SubjectCode = subjectCode,
+                SubjectTitle = subjectTitle,
+                Title = title,
+                CreatedBy = Me.Id
+            };
+            conversation.Members.Add(new ConversationMember
+            {
+                UserId = Me.Id,
+                UserName = Me.Name,
+                Role = MemberRole.Owner
+            });
+            Db.Conversations.Add(conversation);
+            await Db.SaveChangesAsync(ct);
+        }
+        else
+        {
+            var existingMember = conversation.Members.FirstOrDefault(m => m.UserId == Me.Id);
+            if (existingMember == null)
+            {
+                existingMember = new ConversationMember
+                {
+                    ConversationId = conversation.Id,
+                    UserId = Me.Id,
+                    UserName = Me.Name,
+                    Role = MemberRole.Member
+                };
+                conversation.Members.Add(existingMember);
+                Db.ConversationMembers.Add(existingMember);
+                await Db.SaveChangesAsync(ct);
+            }
+        }
+
+        return await BuildDtoAsync(conversation, conversation.Members.First(m => m.UserId == Me.Id), ct);
+    }
+
     public async Task<ConversationDto> CreateGroupAsync(string? title, IReadOnlyCollection<long> userIds, CancellationToken ct)
     {
         title = title?.Trim();

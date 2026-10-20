@@ -116,8 +116,15 @@ public abstract class ChatServiceBase(
             .Select(m => new MemberDto(m.UserId, NameOf(m.UserId, m.UserName), RoleName(m.Role), m.LastReadMessageId,
                 _users == null || !_users.TryGetValue(m.UserId, out var u) || u.IsActive))
             .ToList();
-        return new ConversationDto(c.Id, c.Type == ConversationType.Group ? "group" : "direct", c.Title, AvatarUrl(c),
-            RoleName(viewer.Role), members, Preview(last), c.LastMessageAt, unread, viewer.Muted, viewer.PinnedAt, c.CreatedAt);
+        var typeStr = c.Type switch
+        {
+            ConversationType.Group => "group",
+            ConversationType.Work => "work",
+            _ => "direct"
+        };
+        return new ConversationDto(c.Id, typeStr, c.Title, AvatarUrl(c),
+            RoleName(viewer.Role), members, Preview(last), c.LastMessageAt, unread, viewer.Muted, viewer.PinnedAt, c.CreatedAt,
+            c.SubjectType, c.SubjectId, c.SubjectCode, c.SubjectTitle);
     }
 
     protected MessageDto ToMessageDto(ChatMessage m)

@@ -133,6 +133,16 @@
               v-tooltip.bottom="'Xem nhanh chi tiết đơn'"
               @click="openViewOrder(data)"
             />
+            <!-- Trao đổi nội bộ -->
+            <Button
+              icon="pi pi-comments"
+              outlined
+              size="small"
+              severity="help"
+              class="!w-7 !h-7 !p-0 rounded-[6px]"
+              v-tooltip.bottom="'Trao đổi nội bộ về đơn này'"
+              @click="openWorkChat(data)"
+            />
             <!-- Chỉnh sửa trang riêng -->
             <Button
               icon="pi pi-pencil"
@@ -207,6 +217,16 @@
       :order="selectedOrder"
       @create-delivery-request="handleCreateDelivery"
     />
+
+    <!-- Khung Trao đổi nội bộ về Đơn bán hàng -->
+    <WorkThreadDrawer
+      v-if="workChatOrder"
+      v-model:visible="showWorkChat"
+      subject-type="Sale"
+      :subject-id="workChatOrder.id"
+      :subject-code="workChatOrder.order_number || workChatOrder.id"
+      :subject-title="workChatOrder.customer_name"
+    />
   </div>
 </template>
 
@@ -228,6 +248,7 @@ import CommonDataTable from '../../components/common/CommonDataTable.vue';
 
 import OrderDetailDialog from '../../components/order/OrderDetailDialog.vue';
 import CreateDeliveryDialog from '../../components/order/OrderDeliveryDialog.vue';
+import WorkThreadDrawer from '../../components/chat/WorkThreadDrawer.vue';
 import { salesApi } from '../../api/sales.api';
 import { formatCurrency, formatDate } from '../../utils/format';
 import { isSuperAdmin, hasPermission } from '../../utils/rbac';
@@ -250,6 +271,14 @@ const statusFilter = ref(null);
 const showViewDialog = ref(false);
 const showDeliveryDialog = ref(false);
 const selectedOrder = ref(null);
+
+const showWorkChat = ref(false);
+const workChatOrder = ref(null);
+
+function openWorkChat(order) {
+  workChatOrder.value = order;
+  showWorkChat.value = true;
+}
 
 // Cấu hình các cột cho CommonDataTable (đồng bộ với các trang danh sách khác)
 const tableColumns = [

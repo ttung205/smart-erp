@@ -13,6 +13,7 @@ public class ConversationsController(ConversationService conversations, MessageS
     private const long MaxMessageRequestBytes = 210L * 1024 * 1024;
 
     public record DirectInput(long UserId);
+    public record WorkInput(string SubjectType, long SubjectId, string? SubjectCode, string? SubjectTitle);
     public record GroupInput(string? Title, List<long>? UserIds);
     public record TitleInput(string? Title);
     public record UserIdsInput(List<long>? UserIds);
@@ -38,6 +39,10 @@ public class ConversationsController(ConversationService conversations, MessageS
     [HttpPost("direct")]
     public async Task<IActionResult> OpenDirect([FromBody] DirectInput input, CancellationToken ct) =>
         Data(await conversations.OpenDirectAsync(input.UserId, ct));
+
+    [HttpPost("work")]
+    public async Task<IActionResult> OpenWorkThread([FromBody] WorkInput input, CancellationToken ct) =>
+        Data(await conversations.OpenWorkThreadAsync(input.SubjectType, input.SubjectId, input.SubjectCode, input.SubjectTitle, ct));
 
     [HttpPost("group")]
     public async Task<IActionResult> CreateGroup([FromBody] GroupInput input, CancellationToken ct) =>
