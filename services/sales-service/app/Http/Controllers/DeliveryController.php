@@ -21,7 +21,7 @@ class DeliveryController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $deliveries = DeliveryRequest::with(['items.orderItem', 'order.creator', 'order.customer'])
+        $deliveries = DeliveryRequest::with(['items.orderItem', 'order'])
             ->orderByDesc('id')
             ->paginate(min(max($request->integer('per_page', 50), 1), 200));
 
@@ -63,7 +63,7 @@ class DeliveryController extends Controller
                 'warehouse_id' => (int) $warehouse['id'],
                 'warehouse_name' => (string) ($warehouse['name'] ?? $request->string('warehouse_name')->toString()),
                 'shipping_address' => $request->string('shipping_address')->toString(),
-                'contact_phone' => $request->input('contact_phone') ?: $order->contact?->phone,
+                'contact_phone' => $request->input('contact_phone') ?: $order->contact_phone,
                 'request_date' => now()->toDateString(),
                 'expected_delivery_date' => $request->input('expected_delivery_date'),
                 'status' => 'PENDING',
@@ -99,7 +99,7 @@ class DeliveryController extends Controller
             return $delivery;
         });
 
-        return response()->json(['success' => true, 'data' => $delivery->load(['items.orderItem', 'items.product'])], 201);
+        return response()->json(['success' => true, 'data' => $delivery->load(['items.orderItem'])], 201);
     }
 
     public function updateStatus(UpdateStatusRequest $request, int|string $id): JsonResponse

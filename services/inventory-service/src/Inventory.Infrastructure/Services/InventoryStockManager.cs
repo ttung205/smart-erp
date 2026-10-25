@@ -2,6 +2,8 @@ using Inventory.Application.Common;
 using Inventory.Application.Common.Commands;
 using Inventory.Application.Interfaces;
 using Inventory.Domain.Entities;
+using Inventory.Domain.Exceptions;
+using Inventory.Domain.Extensions;
 using Inventory.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,9 +12,17 @@ namespace Inventory.Infrastructure.Services;
 /// <summary>
 /// Quản lý biến động 2 tầng tồn kho: Tồn kho thực tế (Physical) và Tồn kho khả dụng (Reservation).
 /// Tự động cập nhật số dư và ghi sổ cái giao dịch bất biến tương ứng.
+///
+/// Mọi thay đổi số dư dùng câu UPDATE nguyên tử có điều kiện (quantity = quantity + delta WHERE quantity + delta >= 0),
+/// không đọc lên bộ nhớ rồi ghi lại, nên hai thao tác đồng thời không ghi đè lẫn nhau và không bao giờ âm kho.
+/// Idempotent theo (document_type, document_id, warehouse_id, product_id): gọi lại cùng chứng từ không ghi sổ hai lần.
 /// </summary>
 public class InventoryStockManager : IInventoryStockManager
 {
+    // Giữ nguyên "SALES_ORDER" để chứng từ đã giữ chỗ trước đây vẫn được nhận ra khi gọi lại (idempotent)
+    private const string ReserveDocumentType = "SALES_ORDER";
+    private const string ReleaseDocumentType = "CANCEL_ORDER";
+
     private readonly InventoryDbContext _context;
 
     public InventoryStockManager(InventoryDbContext context)
@@ -28,95 +38,10 @@ public class InventoryStockManager : IInventoryStockManager
         ArgumentNullException.ThrowIfNull(command);
 
         await using var tx = await _context.Database.BeginTransactionAsync(ct);
-
-        var existingTransaction = await _context.InventoryStockTransactions
-            .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.DocumentType == command.DocumentType
-                && t.DocumentId == command.DocumentId
-                && t.WarehouseId == command.WarehouseId
-                && t.ProductId == command.ProductId, ct);
-
-        if (existingTransaction != null)
-        {
-            if (existingTransaction.QuantityDelta != command.QuantityDelta)
-            {
-                throw new InvalidOperationException(
-                    $"Chung tu {command.DocumentId} da duoc ghi so voi so luong khac.");
-            }
-
-            return new StockOperationResult
-            {
-                WarehouseId = existingTransaction.WarehouseId,
-                ProductId = existingTransaction.ProductId,
-                QuantityOnHand = existingTransaction.BalanceAfter,
-                OperationType = existingTransaction.DocumentType,
-                QuantityDelta = existingTransaction.QuantityDelta,
-                ReferenceDoc = existingTransaction.DocumentId,
-                MovementId = existingTransaction.Id,
-                Timestamp = existingTransaction.CreatedAt
-            };
-        }
-
-        var stock = await _context.InventoryStocks
-            .FirstOrDefaultAsync(s => s.WarehouseId == command.WarehouseId && s.ProductId == command.ProductId, ct);
-
-        if (stock == null)
-        {
-            stock = new InventoryStock
-            {
-                WarehouseId = command.WarehouseId,
-                ProductId = command.ProductId,
-                Quantity = 0,
-                Origin = !string.IsNullOrWhiteSpace(command.Origin) ? command.Origin : "Việt Nam",
-                UpdatedAt = DateTime.UtcNow
-            };
-            _context.InventoryStocks.Add(stock);
-            await _context.SaveChangesAsync(ct);
-        }
-        else if (!string.IsNullOrWhiteSpace(command.Origin))
-        {
-            stock.Origin = command.Origin;
-        }
-
-        if (command.QuantityDelta < 0 && (stock.Quantity + command.QuantityDelta) < 0)
-        {
-            throw new InvalidOperationException(
-                $"Tồn kho thực tế không đủ! Hiện có {stock.Quantity}, yêu cầu xuất {-command.QuantityDelta} (Sản phẩm ID {command.ProductId}, Kho ID {command.WarehouseId}).");
-        }
-
-        var balanceBefore = stock.Quantity;
-        stock.Quantity += command.QuantityDelta;
-        stock.UpdatedAt = DateTime.UtcNow;
-
-        var transaction = new InventoryStockTransaction
-        {
-            WarehouseId = command.WarehouseId,
-            ProductId = command.ProductId,
-            DocumentType = command.DocumentType,
-            DocumentId = command.DocumentId,
-            BalanceBefore = balanceBefore,
-            QuantityDelta = command.QuantityDelta,
-            BalanceAfter = stock.Quantity,
-            Notes = command.Notes,
-            CreatedBy = command.CreatedBy,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _context.InventoryStockTransactions.Add(transaction);
-        await _context.SaveChangesAsync(ct);
+        var result = await ApplyPhysicalDeltaAsync(command, ct);
         await tx.CommitAsync(ct);
 
-        return new StockOperationResult
-        {
-            WarehouseId = command.WarehouseId,
-            ProductId = command.ProductId,
-            QuantityOnHand = stock.Quantity,
-            OperationType = command.DocumentType,
-            QuantityDelta = command.QuantityDelta,
-            ReferenceDoc = command.DocumentId,
-            MovementId = transaction.Id,
-            Timestamp = DateTime.UtcNow
-        };
+        return result;
     }
 
     /// <summary>
@@ -127,90 +52,10 @@ public class InventoryStockManager : IInventoryStockManager
         ArgumentNullException.ThrowIfNull(command);
 
         await using var tx = await _context.Database.BeginTransactionAsync(ct);
-
-        var existingTransaction = await _context.InventoryStockReservationTransactions
-            .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.DocumentType == command.DocumentType
-                && t.DocumentId == command.DocumentId
-                && t.WarehouseId == command.WarehouseId
-                && t.ProductId == command.ProductId, ct);
-
-        if (existingTransaction != null)
-        {
-            if (existingTransaction.QuantityDelta != command.QuantityDelta)
-            {
-                throw new InvalidOperationException(
-                    $"Chung tu {command.DocumentId} da duoc ghi so ton kha dung voi so luong khac.");
-            }
-
-            return new StockOperationResult
-            {
-                WarehouseId = existingTransaction.WarehouseId,
-                ProductId = existingTransaction.ProductId,
-                QuantityReserved = existingTransaction.BalanceAfter,
-                OperationType = existingTransaction.DocumentType,
-                QuantityDelta = existingTransaction.QuantityDelta,
-                ReferenceDoc = existingTransaction.DocumentId,
-                MovementId = existingTransaction.Id,
-                Timestamp = existingTransaction.CreatedAt
-            };
-        }
-
-        var res = await _context.InventoryStockReservations
-            .FirstOrDefaultAsync(r => r.WarehouseId == command.WarehouseId && r.ProductId == command.ProductId, ct);
-
-        if (res == null)
-        {
-            res = new InventoryStockReservation
-            {
-                WarehouseId = command.WarehouseId,
-                ProductId = command.ProductId,
-                Quantity = 0,
-                UpdatedAt = DateTime.UtcNow
-            };
-            _context.InventoryStockReservations.Add(res);
-            await _context.SaveChangesAsync(ct);
-        }
-
-        if (command.QuantityDelta < 0 && (res.Quantity + command.QuantityDelta) < 0)
-        {
-            throw new InvalidOperationException(
-                $"Tồn kho khả dụng không đủ! Hiện có {res.Quantity}, yêu cầu trừ {-command.QuantityDelta} (Sản phẩm ID {command.ProductId}, Kho ID {command.WarehouseId}).");
-        }
-
-        var balanceBefore = res.Quantity;
-        res.Quantity += command.QuantityDelta;
-        res.UpdatedAt = DateTime.UtcNow;
-
-        var transaction = new InventoryStockReservationTransaction
-        {
-            WarehouseId = command.WarehouseId,
-            ProductId = command.ProductId,
-            DocumentType = command.DocumentType,
-            DocumentId = command.DocumentId,
-            BalanceBefore = balanceBefore,
-            QuantityDelta = command.QuantityDelta,
-            BalanceAfter = res.Quantity,
-            Notes = command.Notes,
-            CreatedBy = command.CreatedBy,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _context.InventoryStockReservationTransactions.Add(transaction);
-        await _context.SaveChangesAsync(ct);
+        var result = await ApplyReservationDeltaAsync(command, ct);
         await tx.CommitAsync(ct);
 
-        return new StockOperationResult
-        {
-            WarehouseId = command.WarehouseId,
-            ProductId = command.ProductId,
-            QuantityReserved = res.Quantity,
-            OperationType = command.DocumentType,
-            QuantityDelta = command.QuantityDelta,
-            ReferenceDoc = command.DocumentId,
-            MovementId = transaction.Id,
-            Timestamp = DateTime.UtcNow
-        };
+        return result;
     }
 
     /// <summary>
@@ -220,8 +65,9 @@ public class InventoryStockManager : IInventoryStockManager
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        // 1. Tăng tồn thực tế
-        var physicalResult = await ChangePhysicalStockAsync(new ChangeStockCommand(
+        await using var tx = await _context.Database.BeginTransactionAsync(ct);
+
+        var physicalResult = await ApplyPhysicalDeltaAsync(new ChangeStockCommand(
             command.WarehouseId,
             command.ProductId,
             command.Quantity,
@@ -230,8 +76,7 @@ public class InventoryStockManager : IInventoryStockManager
             "Nhập kho mua hàng (PO Receipt)"
         ), ct);
 
-        // 2. Tăng tồn khả dụng
-        await ChangeReservationStockAsync(new ChangeStockCommand(
+        await ApplyReservationDeltaAsync(new ChangeStockCommand(
             command.WarehouseId,
             command.ProductId,
             command.Quantity,
@@ -240,45 +85,64 @@ public class InventoryStockManager : IInventoryStockManager
             "Tăng tồn khả dụng từ đơn nhập kho"
         ), ct);
 
+        await tx.CommitAsync(ct);
         return physicalResult;
     }
 
     /// <summary>
-    /// Giữ chỗ khi tạo đơn hàng: Trừ tồn khả dụng.
+    /// Giữ chỗ một mặt hàng cho chứng từ bán hàng: Trừ tồn khả dụng.
     /// </summary>
     public async Task<StockOperationResult> ReserveStockAsync(ReserveStockCommand command, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        return await ChangeReservationStockAsync(new ChangeStockCommand(
-            command.WarehouseId,
-            command.ProductId,
-            -command.Quantity,
-            "SALES_ORDER",
+        var results = await BatchReserveStockAsync(new BatchReserveStockCommand(
             command.OrderId,
-            "Giữ chỗ đơn bán hàng"
+            new[] { new ReserveStockItem(command.WarehouseId, command.ProductId, command.Quantity) },
+            command.ExpiresAt,
+            command.UserId
         ), ct);
+
+        return results[0];
     }
 
     /// <summary>
-    /// Giữ chỗ hàng loạt.
+    /// Giữ chỗ cả chứng từ bán hàng trong MỘT transaction: đủ hàng cho mọi dòng mới giữ,
+    /// thiếu một dòng thì rollback toàn bộ (InsufficientStockException → 409).
+    /// Dòng trùng sản phẩm/kho được gộp; khóa theo thứ tự (kho, sản phẩm) để tránh deadlock.
+    /// Gọi lại cùng chứng từ: dòng đã giữ trước đó được bỏ qua, chỉ giữ phần còn thiếu.
     /// </summary>
     public async Task<IReadOnlyList<StockOperationResult>> BatchReserveStockAsync(BatchReserveStockCommand command, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        var results = new List<StockOperationResult>();
-        foreach (var item in command.Items)
+        var lines = command.Items
+            .GroupBy(i => (i.WarehouseId, i.ProductId))
+            .Select(g => new ReserveStockItem(g.Key.WarehouseId, g.Key.ProductId, g.Sum(i => i.Quantity)))
+            .ToDeterministicLockOrder();
+
+        if (lines.Count == 0 || lines.Any(l => l.Quantity <= 0))
         {
-            var res = await ReserveStockAsync(new ReserveStockCommand(
-                command.OrderId,
-                item.WarehouseId,
-                item.ProductId,
-                item.Quantity,
-                command.ExpiresAt
-            ), ct);
-            results.Add(res);
+            throw new InvalidStockOperationException("Số lượng giữ chỗ của mỗi mặt hàng phải lớn hơn 0.");
         }
+
+        await using var tx = await _context.Database.BeginTransactionAsync(ct);
+
+        var results = new List<StockOperationResult>(lines.Count);
+        foreach (var line in lines)
+        {
+            results.Add(await ApplyReservationDeltaAsync(new ChangeStockCommand(
+                line.WarehouseId,
+                line.ProductId,
+                -line.Quantity,
+                ReserveDocumentType,
+                command.OrderId,
+                "Giữ chỗ chứng từ bán hàng",
+                command.UserId
+            ), ct));
+        }
+
+        await tx.CommitAsync(ct);
         return results;
     }
 
@@ -293,10 +157,44 @@ public class InventoryStockManager : IInventoryStockManager
             command.WarehouseId,
             command.ProductId,
             +command.Quantity,
-            "CANCEL_ORDER",
+            ReleaseDocumentType,
             command.OrderId,
             "Hoàn trả tồn khả dụng do hủy đơn"
         ), ct);
+    }
+
+    /// <summary>
+    /// Hủy chứng từ bán hàng: nhả đúng số lượng đã giữ cho chứng từ (theo sổ cái giữ chỗ), trong một transaction.
+    /// Idempotent: gọi lại không cộng hai lần; chứng từ chưa giữ được gì thì không làm gì.
+    /// </summary>
+    public async Task<IReadOnlyList<StockOperationResult>> ReleaseDocumentReservationAsync(string documentId, long? userId = null, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(documentId);
+
+        var reserved = (await _context.InventoryStockReservationTransactions
+                .AsNoTracking()
+                .Where(t => t.DocumentType == ReserveDocumentType && t.DocumentId == documentId)
+                .ToListAsync(ct))
+            .ToDeterministicLockOrder(t => t.WarehouseId, t => t.ProductId);
+
+        await using var tx = await _context.Database.BeginTransactionAsync(ct);
+
+        var results = new List<StockOperationResult>(reserved.Count);
+        foreach (var line in reserved)
+        {
+            results.Add(await ApplyReservationDeltaAsync(new ChangeStockCommand(
+                line.WarehouseId,
+                line.ProductId,
+                -line.QuantityDelta,
+                ReleaseDocumentType,
+                documentId,
+                "Nhả giữ chỗ do hủy chứng từ bán hàng",
+                userId
+            ), ct));
+        }
+
+        await tx.CommitAsync(ct);
+        return results;
     }
 
     /// <summary>
@@ -328,5 +226,179 @@ public class InventoryStockManager : IInventoryStockManager
         return await _context.InventoryStockReservations
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.ProductId == productId && r.WarehouseId == warehouseId, ct);
+    }
+
+    /// <summary>Ghi biến động tồn thực tế trong transaction hiện có của caller.</summary>
+    private async Task<StockOperationResult> ApplyPhysicalDeltaAsync(ChangeStockCommand command, CancellationToken ct)
+    {
+        var existing = await _context.InventoryStockTransactions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.DocumentType == command.DocumentType
+                && t.DocumentId == command.DocumentId
+                && t.WarehouseId == command.WarehouseId
+                && t.ProductId == command.ProductId, ct);
+
+        if (existing != null)
+        {
+            EnsureSameDelta(command, existing.QuantityDelta);
+            return new StockOperationResult
+            {
+                WarehouseId = existing.WarehouseId,
+                ProductId = existing.ProductId,
+                QuantityOnHand = existing.BalanceAfter,
+                OperationType = existing.DocumentType,
+                QuantityDelta = existing.QuantityDelta,
+                ReferenceDoc = existing.DocumentId,
+                MovementId = existing.Id,
+                Timestamp = existing.CreatedAt
+            };
+        }
+
+        var stocks = _context.InventoryStocks
+            .Where(s => s.WarehouseId == command.WarehouseId && s.ProductId == command.ProductId);
+
+        if (!await stocks.AnyAsync(ct))
+        {
+            var stock = new InventoryStock(command.WarehouseId, command.ProductId, 0,
+                !string.IsNullOrWhiteSpace(command.Origin) ? command.Origin : "Việt Nam");
+            _context.InventoryStocks.Add(stock);
+            await _context.SaveChangesAsync(ct);
+            _context.Entry(stock).State = EntityState.Detached;
+        }
+        else if (!string.IsNullOrWhiteSpace(command.Origin))
+        {
+            await stocks.ExecuteUpdateAsync(s => s.SetProperty(x => x.Origin, command.Origin), ct);
+        }
+
+        var delta = command.QuantityDelta;
+        var now = DateTime.UtcNow;
+        var updated = await stocks
+            .Where(s => delta >= 0 || s.Quantity >= -delta)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.Quantity, x => x.Quantity + delta)
+                .SetProperty(x => x.UpdatedAt, now), ct);
+
+        var balanceAfter = await stocks.AsNoTracking().Select(s => s.Quantity).FirstAsync(ct);
+        if (updated == 0)
+        {
+            throw new InsufficientStockException(command.ProductId, command.WarehouseId, -delta, balanceAfter);
+        }
+
+        var ledger = new InventoryStockTransaction
+        {
+            WarehouseId = command.WarehouseId,
+            ProductId = command.ProductId,
+            DocumentType = command.DocumentType,
+            DocumentId = command.DocumentId,
+            BalanceBefore = balanceAfter - delta,
+            QuantityDelta = delta,
+            BalanceAfter = balanceAfter,
+            Notes = command.Notes,
+            CreatedBy = command.CreatedBy,
+            CreatedAt = now
+        };
+        _context.InventoryStockTransactions.Add(ledger);
+        await _context.SaveChangesAsync(ct);
+
+        return new StockOperationResult
+        {
+            WarehouseId = command.WarehouseId,
+            ProductId = command.ProductId,
+            QuantityOnHand = balanceAfter,
+            OperationType = command.DocumentType,
+            QuantityDelta = delta,
+            ReferenceDoc = command.DocumentId,
+            MovementId = ledger.Id,
+            Timestamp = now
+        };
+    }
+
+    /// <summary>Ghi biến động tồn khả dụng trong transaction hiện có của caller.</summary>
+    private async Task<StockOperationResult> ApplyReservationDeltaAsync(ChangeStockCommand command, CancellationToken ct)
+    {
+        var existing = await _context.InventoryStockReservationTransactions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.DocumentType == command.DocumentType
+                && t.DocumentId == command.DocumentId
+                && t.WarehouseId == command.WarehouseId
+                && t.ProductId == command.ProductId, ct);
+
+        if (existing != null)
+        {
+            EnsureSameDelta(command, existing.QuantityDelta);
+            return new StockOperationResult
+            {
+                WarehouseId = existing.WarehouseId,
+                ProductId = existing.ProductId,
+                QuantityReserved = existing.BalanceAfter,
+                OperationType = existing.DocumentType,
+                QuantityDelta = existing.QuantityDelta,
+                ReferenceDoc = existing.DocumentId,
+                MovementId = existing.Id,
+                Timestamp = existing.CreatedAt
+            };
+        }
+
+        var balances = _context.InventoryStockReservations
+            .Where(r => r.WarehouseId == command.WarehouseId && r.ProductId == command.ProductId);
+
+        if (!await balances.AnyAsync(ct))
+        {
+            var balance = new InventoryStockReservation(command.WarehouseId, command.ProductId, 0);
+            _context.InventoryStockReservations.Add(balance);
+            await _context.SaveChangesAsync(ct);
+            _context.Entry(balance).State = EntityState.Detached;
+        }
+
+        var delta = command.QuantityDelta;
+        var now = DateTime.UtcNow;
+        var updated = await balances
+            .Where(r => delta >= 0 || r.Quantity >= -delta)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.Quantity, x => x.Quantity + delta)
+                .SetProperty(x => x.UpdatedAt, now), ct);
+
+        var balanceAfter = await balances.AsNoTracking().Select(r => r.Quantity).FirstAsync(ct);
+        if (updated == 0)
+        {
+            throw new InsufficientStockException(command.ProductId, command.WarehouseId, -delta, balanceAfter);
+        }
+
+        var ledger = new InventoryStockReservationTransaction
+        {
+            WarehouseId = command.WarehouseId,
+            ProductId = command.ProductId,
+            DocumentType = command.DocumentType,
+            DocumentId = command.DocumentId,
+            BalanceBefore = balanceAfter - delta,
+            QuantityDelta = delta,
+            BalanceAfter = balanceAfter,
+            Notes = command.Notes,
+            CreatedBy = command.CreatedBy,
+            CreatedAt = now
+        };
+        _context.InventoryStockReservationTransactions.Add(ledger);
+        await _context.SaveChangesAsync(ct);
+
+        return new StockOperationResult
+        {
+            WarehouseId = command.WarehouseId,
+            ProductId = command.ProductId,
+            QuantityReserved = balanceAfter,
+            OperationType = command.DocumentType,
+            QuantityDelta = delta,
+            ReferenceDoc = command.DocumentId,
+            MovementId = ledger.Id,
+            Timestamp = now
+        };
+    }
+
+    private static void EnsureSameDelta(ChangeStockCommand command, int recordedDelta)
+    {
+        if (recordedDelta != command.QuantityDelta)
+        {
+            throw new InvalidStockOperationException("DOCUMENT_ALREADY_POSTED",
+                $"Chứng từ {command.DocumentId} đã được ghi sổ sản phẩm {command.ProductId} với số lượng {Math.Abs(recordedDelta)}, khác số lượng {Math.Abs(command.QuantityDelta)} yêu cầu.");
+        }
     }
 }

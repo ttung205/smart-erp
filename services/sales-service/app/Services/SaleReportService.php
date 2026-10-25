@@ -12,7 +12,7 @@ class SaleReportService
      */
     public static function syncOrderToReport(SalesOrder $order): void
     {
-        $order->loadMissing(['items', 'customer', 'creator', 'assignee']);
+        $order->loadMissing(['items']);
 
         $salespersonId = $order->assigned_to ?: $order->created_by;
 

@@ -1,0 +1,9 @@
+node_modules/
+.git/
+.env
+database/*.sqlite*
+database/*.db*
+test/
+.vscode/
+.idea/
+*.log

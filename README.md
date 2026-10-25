@@ -31,7 +31,7 @@ Hệ thống quản trị doanh nghiệp (bán hàng, mua hàng, kho, tài chín
                          └───────────────┬──────────────────────────┘
                                          │ JWT (HS256) trên mọi request
                                          ▼
-               ┌──────────── API Gateway: NGINX (:8000) ────────────┐
+               ┌───────────── API Gateway: Kong (:8000) ────────────┐
                │   /api/v1/<service>/* · X-Correlation-ID · CORS     │
                └──┬──────┬──────┬──────┬──────┬──────┬──────┬───────┘
                   ▼      ▼      ▼      ▼      ▼      ▼      ▼
@@ -69,7 +69,7 @@ Publish qua Transactional Outbox: purchase, inventory, sales, eoffice. Consume: 
 | `eoffice-service` | 8007 | Laravel 13 / PHP | Đơn nghỉ phép, luồng phê duyệt nội bộ |
 | `finance-service` | 8008 | Laravel 13 / PHP | Thu chi, công nợ, chứng từ kế toán |
 
-Hạ tầng (Docker Compose): **RabbitMQ 3.13** (message broker), **NGINX** (API gateway), **MySQL 8** (database khi triển khai), **Mailpit** (SMTP giả lập để test email).
+Hạ tầng (Docker Compose): **RabbitMQ 3.13** (message broker), **Kong OSS** DB-less (API gateway), **MySQL 8** (database khi triển khai), **Mailpit** (SMTP giả lập để test email).
 
 ## 3. Các cơ chế hệ phân tán
 
@@ -82,7 +82,7 @@ Hạ tầng (Docker Compose): **RabbitMQ 3.13** (message broker), **NGINX** (API
 | Hợp đồng dữ liệu giữa các service | **Envelope chuẩn** (tương thích CloudEvents): `event_id`, `event_type`, `correlation_id`, `producer`, `payload` | `docs/contracts/events-spec.md` |
 | Xác thực không tập trung | **JWT HS256** do identity cấp (`JwtIssuer`); mọi service kiểm tra cùng một bộ luật (alg, chữ ký, `iss`, `sub`, `exp`) bằng secret dùng chung, không cần gọi lại identity | `app/Auth/JwtVerifier` (PHP), `IAccessTokenValidator` → `HmacJwtTokenValidator` (.NET), `auth/jwt.js` (Node) |
 | Service gọi nhau không có token người dùng | **Internal service key**: header `X-Internal-Service-Key`, chỉ được đọc; gateway xóa header này từ client | identity (`user_or_service`), catalog (`internal`), eoffice, notification, purchase |
-| Truy vết request xuyên service | **Correlation ID** sinh ở gateway, đi theo request và được ghi vào event | `gateway/nginx.conf`, envelope |
+| Truy vết request xuyên service | **Correlation ID** sinh ở gateway, đi theo request và được ghi vào event | `infrastructure/kong/kong.yml`, envelope |
 | Đồng thời khi giữ chỗ tồn kho | **Atomic reservation**, kiểm tra và trừ tồn trong một thao tác | `inventory-service` |
 | Thông báo thời gian thực | **Socket.IO** chia room theo `user:{id}`; DB là nguồn sự thật, socket chỉ để báo có thay đổi | `notification-service`, `frontend` |
 | Hai relay cùng publish một event | **Single-instance lock** (`flock`) | `RelayOutboxEvents` |
@@ -175,7 +175,7 @@ Tiến trình nào đang chạy rồi sẽ được bỏ qua. Dùng `.\start_dev
 | http://localhost:8025 | Mailpit, xem email đã gửi |
 | http://127.0.0.1:8003/swagger · http://127.0.0.1:8004/swagger | Swagger của purchase / inventory |
 
-> Khi dev, frontend gọi thẳng các service qua Vite proxy (`frontend/vite.config.js`). NGINX gateway (`:8000`) được cấu hình cho môi trường container, nơi mỗi service chạy với hostname riêng.
+> Khi dev, frontend gọi thẳng các service qua Vite proxy (`frontend/vite.config.js`). Kong gateway (`:8000`) được cấu hình cho môi trường container, nơi mỗi service chạy với hostname riêng.
 
 ### 5.4. Chạy thủ công một service
 
@@ -239,8 +239,9 @@ cd frontend;                      npm run lint; npm run build
 
 ```text
 smart-erp/
-├── docker-compose.yml          # RabbitMQ, NGINX, MySQL, Mailpit
-├── gateway/nginx.conf          # API Gateway, Correlation ID, WebSocket
+├── docker-compose.yml          # RabbitMQ, Kong, MySQL, Mailpit
+├── infrastructure/kong/       # Declarative routes và gateway plugins
+├── gateway/nginx.conf          # Gateway cũ, dùng cho profile rollback
 ├── infrastructure/
 │   ├── mysql/init/             # Khởi tạo schema MySQL cho từng service
 │   └── rabbitmq/               # definitions.json: exchange, queue, binding, DLX

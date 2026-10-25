@@ -194,7 +194,10 @@ public static class DbInitializer
                 : await context.Database.SqlQueryRaw<int>(
                     "SELECT COUNT(*) AS Value FROM pragma_table_info({0}) WHERE name = {1}",
                     table, column).SingleAsync() > 0;
+            // The identifiers and definitions come only from the static allow-list above.
+#pragma warning disable EF1002
             if (!exists) await context.Database.ExecuteSqlRawAsync($"ALTER TABLE {table} ADD COLUMN {column} {definition}");
+#pragma warning restore EF1002
         }
     }
 

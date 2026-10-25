@@ -12,25 +12,27 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('company_profiles', function (Blueprint $table) {
-            $table->id();
-            $table->string('name', 255)->nullable();
-            $table->string('short_name', 100)->nullable();
-            $table->string('tax_code', 30)->nullable();
-            $table->string('address', 500)->nullable();
-            $table->string('office_address', 500)->nullable();
-            $table->string('tel', 50)->nullable();
-            $table->string('hotline', 50)->nullable();
-            $table->string('email', 255)->nullable();
-            $table->string('accounting_email', 255)->nullable();
-            $table->string('website', 255)->nullable();
-            $table->string('bank_account_number', 100)->nullable();
-            $table->string('bank_name', 255)->nullable();
-            $table->string('bank_branch', 255)->nullable();
-            $table->string('bank_beneficiary', 255)->nullable();
-            $table->string('logo_path', 500)->nullable();
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('company_profiles')) {
+            Schema::create('company_profiles', function (Blueprint $table) {
+                $table->id();
+                $table->string('name', 255)->nullable();
+                $table->string('short_name', 100)->nullable();
+                $table->string('tax_code', 30)->nullable();
+                $table->string('address', 500)->nullable();
+                $table->string('office_address', 500)->nullable();
+                $table->string('tel', 50)->nullable();
+                $table->string('hotline', 50)->nullable();
+                $table->string('email', 255)->nullable();
+                $table->string('accounting_email', 255)->nullable();
+                $table->string('website', 255)->nullable();
+                $table->string('bank_account_number', 100)->nullable();
+                $table->string('bank_name', 255)->nullable();
+                $table->string('bank_branch', 255)->nullable();
+                $table->string('bank_beneficiary', 255)->nullable();
+                $table->string('logo_path', 500)->nullable();
+                $table->timestamps();
+            });
+        }
 
         DB::table('permissions')->updateOrInsert(
             ['code' => 'company.manage'],

@@ -4,7 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
-use App\Models\Product;
 
 return new class extends Migration
 {
@@ -21,22 +20,7 @@ return new class extends Migration
             }
         });
 
-        // Đồng bộ product_id từ catalog products qua sku
-        try {
-            $qItems = DB::table('quotation_items')->get();
-            foreach ($qItems as $item) {
-                if (!empty($item->sku)) {
-                    $prod = Product::where('sku', $item->sku)->first();
-                    if ($prod) {
-                        DB::table('quotation_items')->where('id', $item->id)->update([
-                            'product_id' => $prod->id
-                        ]);
-                    }
-                }
-            }
-        } catch (\Throwable $e) {
-            // bỏ qua nếu catalog chưa có bản ghi khớp
-        }
+        // Bước đồng bộ product_id từ DB catalog (chạy một lần năm 2026-10) đã gỡ: sales không đọc DB service khác
 
         Schema::table('quotation_items', function (Blueprint $table) {
             if (Schema::hasColumn('quotation_items', 'gross_price')) {
@@ -61,12 +45,6 @@ return new class extends Migration
             $soItems = DB::table('sales_order_items')->get();
             foreach ($soItems as $item) {
                 $updates = [];
-                if (!empty($item->sku)) {
-                    $prod = Product::where('sku', $item->sku)->first();
-                    if ($prod) {
-                        $updates['product_id'] = $prod->id;
-                    }
-                }
 
                 // Tìm quotation_item_id từ sales_order -> quotation
                 $order = DB::table('sales_orders')->where('id', $item->order_id)->first();

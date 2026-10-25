@@ -35,6 +35,10 @@ class VatInvoice extends Model
         'adjustment_id',
     ];
 
+    protected $appends = [
+        'customer',
+    ];
+
     protected $casts = [
         'exchange_rate' => 'float',
         'subtotal' => 'float',
@@ -68,8 +72,14 @@ class VatInvoice extends Model
         return $this->belongsTo(SalesOrder::class, 'order_id');
     }
 
-    public function customer()
+    // Object khách hàng dựng từ snapshot trên hóa đơn, giữ hình dạng JSON cũ cho frontend
+    public function getCustomerAttribute(): array
     {
-        return $this->belongsTo(Customer::class, 'customer_id');
+        return [
+            'id' => $this->customer_id,
+            'name' => $this->customer_name,
+            'tax_code' => $this->customer_tax_code,
+            'address' => $this->customer_address,
+        ];
     }
 }

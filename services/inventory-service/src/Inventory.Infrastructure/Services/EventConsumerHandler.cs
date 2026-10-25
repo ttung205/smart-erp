@@ -10,7 +10,8 @@ using Microsoft.Extensions.Logging;
 namespace Inventory.Infrastructure.Services;
 
 /// <summary>
-/// Xử lý các sự kiện nghiệp vụ hướng sự kiện (Event-Driven Saga) với tính Idempotency và Atomic Invariants.
+/// Xử lý sự kiện từ purchase-service (GoodsReceived) và catalog-service (ProductCreated), idempotent theo event_id.
+/// Giữ hàng cho chứng từ bán hàng KHÔNG đi qua event: sales gọi REST POST /stocks/reserve/batch (architecture.md §8).
 /// </summary>
 public class EventConsumerHandler : IEventConsumerHandler
 {
@@ -30,117 +31,6 @@ public class EventConsumerHandler : IEventConsumerHandler
         _stockManager = stockManager ?? throw new ArgumentNullException(nameof(stockManager));
         _outboxService = outboxService ?? throw new ArgumentNullException(nameof(outboxService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    }
-
-    /// <inheritdoc />
-    public async Task HandleSalesOrderCreatedAsync(CloudEventEnvelope<SalesOrderCreatedPayload> envelope, CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(envelope);
-        var order = envelope.Payload;
-
-        _logger.LogInformation("[{CorrelationId}] Bắt đầu xử lý SalesOrderCreated cho đơn hàng {OrderId} (EventId: {EventId})",
-            envelope.CorrelationId, order.OrderId, envelope.EventId);
-
-        // 1. Idempotency Check: Kiểm tra sự kiện đã từng được xử lý hay chưa
-        var alreadyProcessed = await _context.ProcessedEvents
-            .AnyAsync(p => p.EventId == envelope.EventId && p.ConsumerName == ConsumerName, ct);
-
-        if (alreadyProcessed)
-        {
-            _logger.LogWarning("[{CorrelationId}] Sự kiện {EventId} đã được xử lý trước đó. Bỏ qua để đảm bảo Idempotency.",
-                envelope.CorrelationId, envelope.EventId);
-            return;
-        }
-
-        try
-        {
-            // 2. Chuyển đổi danh sách mặt hàng sang lệnh BatchReserve
-            var reserveItems = order.Items.Select(item => new ReserveStockItem(
-                WarehouseId: item.WarehouseId,
-                ProductId: item.ProductId,
-                Quantity: item.Quantity
-            )).ToList();
-
-            var batchCommand = new BatchReserveStockCommand(
-                OrderId: order.OrderId,
-                Items: reserveItems
-            );
-
-            // 3. Thực thi giữ kho nguyên tử & triệt tiêu Deadlock qua Resource Lock Ordering
-            var reserveResults = await _stockManager.BatchReserveStockAsync(batchCommand, ct);
-
-            // 4. Nếu thành công: Chuẩn bị payload StockReserved và ghi Outbox
-            var reservationDetails = reserveResults.Select(r => new StockReservationDetailPayload
-            {
-                ProductId = r.ProductId,
-                WarehouseId = r.WarehouseId,
-                QuantityReserved = r.QuantityDelta,
-                RemainingAvailable = r.Available
-            }).ToList();
-
-            var reservedPayload = new StockReservedPayload
-            {
-                OrderId = order.OrderId,
-                ReservedAt = DateTime.UtcNow,
-                Reservations = reservationDetails
-            };
-
-            await _outboxService.SaveEventAsync(
-                routingKey: "inventory.stock.reserved",
-                eventType: "StockReserved",
-                aggregateType: "SalesOrder",
-                aggregateId: order.OrderId,
-                payload: reservedPayload,
-                correlationId: envelope.CorrelationId,
-                ct: ct
-            );
-
-            _logger.LogInformation("[{CorrelationId}] Giữ kho THÀNH CÔNG cho đơn hàng {OrderId}. Đã ghi Outbox StockReserved.",
-                envelope.CorrelationId, order.OrderId);
-        }
-        catch (InsufficientStockException ex)
-        {
-            // 5. Nếu thất bại do thiếu tồn kho: Ghi Outbox StockReservationFailed (Saga Compensating Event)
-            _logger.LogWarning("[{CorrelationId}] Giữ kho THẤT BẠI cho đơn hàng {OrderId}: {Message}. Ghi Outbox StockReservationFailed.",
-                envelope.CorrelationId, order.OrderId, ex.Message);
-
-            var failedPayload = new StockReservationFailedPayload
-            {
-                OrderId = order.OrderId,
-                FailedAt = DateTime.UtcNow,
-                Reason = ex.ErrorCode,
-                FailedItems = new List<FailedStockItemPayload>
-                {
-                    new()
-                    {
-                        ProductId = ex.ProductId,
-                        WarehouseId = ex.WarehouseId,
-                        RequestedQuantity = ex.RequestedQuantity,
-                        AvailableQuantity = ex.AvailableQuantity
-                    }
-                }
-            };
-
-            await _outboxService.SaveEventAsync(
-                routingKey: "inventory.stock.reservation_failed",
-                eventType: "StockReservationFailed",
-                aggregateType: "SalesOrder",
-                aggregateId: order.OrderId,
-                payload: failedPayload,
-                correlationId: envelope.CorrelationId,
-                ct: ct
-            );
-        }
-
-        // 6. Ghi nhận đã xử lý sự kiện thành công vào bảng processed_events
-        _context.ProcessedEvents.Add(new ProcessedEvent
-        {
-            EventId = envelope.EventId,
-            ConsumerName = ConsumerName,
-            ProcessedAt = DateTime.UtcNow
-        });
-
-        await _context.SaveChangesAsync(ct);
     }
 
     /// <inheritdoc />

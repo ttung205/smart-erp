@@ -3,8 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
-use App\Models\Product;
 
 return new class extends Migration
 {
@@ -27,44 +25,8 @@ return new class extends Migration
             }
         });
 
-        // Cập nhật giá trị gross_price từ Product catalog cho các bản ghi hiện tại
-        try {
-            $qItems = DB::table('quotation_items')->get();
-            foreach ($qItems as $it) {
-                if ($it->gross_price <= 0) {
-                    $prod = null;
-                    if (!empty($it->product_id)) {
-                        $prod = Product::find($it->product_id);
-                    } elseif (!empty($it->sku)) {
-                        $prod = Product::where('sku', $it->sku)->first();
-                    }
-                    if ($prod && $prod->gross_price > 0) {
-                        DB::table('quotation_items')->where('id', $it->id)->update([
-                            'gross_price' => $prod->gross_price
-                        ]);
-                    }
-                }
-            }
-
-            $soItems = DB::table('sales_order_items')->get();
-            foreach ($soItems as $it) {
-                if ($it->gross_price <= 0) {
-                    $prod = null;
-                    if (!empty($it->product_id)) {
-                        $prod = Product::find($it->product_id);
-                    } elseif (!empty($it->sku)) {
-                        $prod = Product::where('sku', $it->sku)->first();
-                    }
-                    if ($prod && $prod->gross_price > 0) {
-                        DB::table('sales_order_items')->where('id', $it->id)->update([
-                            'gross_price' => $prod->gross_price
-                        ]);
-                    }
-                }
-            }
-        } catch (\Throwable $e) {
-            // pass
-        }
+        // Bước điền gross_price từ DB catalog (chạy một lần năm 2026-10) đã gỡ: sales không đọc DB service khác.
+        // Dòng còn thiếu giá được điền bởi: php artisan sales:backfill-reference-snapshots
     }
 
     /**

@@ -40,6 +40,7 @@ $services = @(
 # Worker nen khong mo cong: Outbox relay day domain event tu DB len RabbitMQ (thong bao, dong bo nghiep vu)
 # Chay artisan bang duong dan tuyet doi de nhan dien tien trinh dang chay theo tung service
 $workers = @(
+    [pscustomobject]@{ Name = 'Catalog Outbox Relay'; Key = 'catalog-outbox'; Directory = "$projectRoot\services\catalog-service"; Command = { php "$PWD\artisan" outbox:relay } },
     [pscustomobject]@{ Name = 'Sales Outbox Relay'; Key = 'sales-outbox'; Directory = "$projectRoot\services\sales-service"; Command = { php "$PWD\artisan" outbox:relay } },
     [pscustomobject]@{ Name = 'EOffice Outbox Relay'; Key = 'eoffice-outbox'; Directory = "$projectRoot\services\eoffice-service"; Command = { php "$PWD\artisan" outbox:relay } }
 )

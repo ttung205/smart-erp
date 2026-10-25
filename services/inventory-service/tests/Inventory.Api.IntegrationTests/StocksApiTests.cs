@@ -3,7 +3,9 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Inventory.Application.Common.Models;
 using Inventory.Application.DTOs;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using Xunit;
 
 namespace Inventory.Api.IntegrationTests;
@@ -15,7 +17,16 @@ public class StocksApiTests : IClassFixture<WebApplicationFactory<Program>>
 
     public StocksApiTests(WebApplicationFactory<Program> factory)
     {
-        _client = factory.CreateClient();
+        _client = factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureAppConfiguration((_, configuration) =>
+            {
+                configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Jwt:Enabled"] = "false"
+                });
+            });
+        }).CreateClient();
         _jsonOptions = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
@@ -108,8 +119,8 @@ public class StocksApiTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.NotNull(envelope);
         Assert.True(envelope.Success);
         Assert.NotNull(envelope.Data);
-        Assert.Equal("SO_RESERVE", envelope.Data.OperationType);
-        Assert.Equal(2, envelope.Data.QuantityDelta);
+        Assert.Equal("SALES_ORDER", envelope.Data.OperationType);
+        Assert.Equal(-2, envelope.Data.QuantityDelta);
     }
 
     [Fact]
@@ -141,8 +152,7 @@ public class StocksApiTests : IClassFixture<WebApplicationFactory<Program>>
             ReferenceDoc = "PO-API-RECEIPT-001",
             WarehouseId = 1,
             ProductId = 1,
-            Quantity = 10,
-            MinStock = 5
+            Quantity = 10
         };
 
         var response = await _client.PostAsJsonAsync("/api/v1/inventory/stocks/receive", request, _jsonOptions);
@@ -152,7 +162,7 @@ public class StocksApiTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.NotNull(envelope);
         Assert.True(envelope.Success);
         Assert.NotNull(envelope.Data);
-        Assert.Equal("PO_RECEIPT", envelope.Data.OperationType);
+        Assert.Equal("PURCHASE_RECEIPT", envelope.Data.OperationType);
         Assert.Equal(10, envelope.Data.QuantityDelta);
     }
 

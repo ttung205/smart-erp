@@ -2,7 +2,7 @@
 
 namespace App\Auth;
 
-/** Người dùng đang gọi API, dựng từ claims của JWT đã xác thực. */
+/** Bên đang gọi API: người dùng (từ JWT) hoặc một service nội bộ (từ X-Internal-Service-Key). */
 final class Actor
 {
     /**
@@ -15,6 +15,7 @@ final class Actor
         public readonly string $email,
         public readonly array $roles,
         public readonly array $permissions,
+        public readonly bool $isService = false,
     ) {}
 
     /** @param  array<string, mixed>  $claims */
@@ -27,6 +28,12 @@ final class Actor
             self::strings($claims['roles'] ?? []),
             self::strings($claims['permissions'] ?? []),
         );
+    }
+
+    /** Service nội bộ chỉ được đọc: không có role/permission nên mọi route cần quyền đều chặn. */
+    public static function internalService(): self
+    {
+        return new self(0, 'internal-service', '', [], [], true);
     }
 
     public function hasAnyRole(string ...$roles): bool

@@ -5,10 +5,19 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use App\Messaging\RabbitMqPublisher;
+use App\Support\ProductEvents;
 
 class ProductController extends Controller
 {
+    /** @return list<string> Tham số dạng "1,2,3" hoặc mảng ids[]=1&ids[]=2 */
+    private static function listParam(Request $request, string $key): array
+    {
+        $value = $request->input($key);
+        $items = is_array($value) ? $value : explode(',', (string) $value);
+
+        return array_values(array_filter(array_map('trim', $items), fn ($v) => $v !== ''));
+    }
+
     private function canSeeCost(Request $request): bool
     {
         return $this->actor($request)->hasAnyRole('SUPER_ADMIN', 'PURCHASE', 'PURCHASE_MANAGER', 'FINANCE_ACCOUNTING', 'FINANCE_ACCOUNTING_MANAGER');
@@ -98,6 +107,7 @@ class ProductController extends Controller
                 $changes['created_at'] = now();
                 $existing = (object) ['id' => DB::table('products')->insertGetId($changes)];
                 $this->recordPriceChange($request, $existing->id, null, $gross, (float) $data['buying_price'], 'INQUIRY', $data['reference'] ?? null);
+                ProductEvents::created($existing->id);
             }
             return response()->json(['success' => true, 'data' => ['id' => $existing->id, 'sku' => $sku, 'gross_price' => $gross]]);
         });
@@ -130,8 +140,19 @@ class ProductController extends Controller
                 'products.status',
                 'products.created_at',
                 'products.updated_at'
-            )
-            ->where('products.status', 'ACTIVE');
+            );
+
+        // Tra cứu batch theo ids/skus (service khác snapshot chứng từ cũ) lấy cả sản phẩm đã ngừng bán
+        $ids = self::listParam($request, 'ids');
+        $skus = self::listParam($request, 'skus');
+        if ($ids || $skus) {
+            $query->where(function ($q) use ($ids, $skus) {
+                if ($ids) $q->whereIn('products.id', array_map('intval', $ids));
+                if ($skus) $q->orWhereIn('products.sku', $skus);
+            });
+        } else {
+            $query->where('products.status', 'ACTIVE');
+        }
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -177,7 +198,7 @@ class ProductController extends Controller
         return response()->json(['success' => true, 'data' => $p]);
     }
 
-    public function store(Request $request, RabbitMqPublisher $publisher)
+    public function store(Request $request)
     {
         $sku = trim($request->input('sku', ''));
         $grossPrice = (float) $request->input('gross_price', 0);
@@ -206,34 +227,29 @@ class ProductController extends Controller
         $unit = $request->input('unit', 'Cái');
         $minStock = (int) $request->input('min_stock', 0);
 
-        $id = DB::table('products')->insertGetId([
-            'sku' => $sku,
-            'designation' => $designation,
-            'brand_id' => $brandId,
-            'category_id' => $categoryId,
-            'description' => $description,
-            'com' => $origin,
-            'unit' => $unit,
-            'gross_price' => $grossPrice,
-            'spec' => $request->input('spec'),
-            'cost_price' => (float) $request->input('cost_price', 0),
-            'min_stock' => $minStock,
-            'status' => 'ACTIVE',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        $this->recordPriceChange($request, $id, null, $grossPrice, (float) $request->input('cost_price', 0), 'CREATE');
+        // Sản phẩm + lịch sử giá + event ProductCreated trong cùng một transaction (transactional outbox)
+        $id = DB::transaction(function () use ($request, $sku, $designation, $brandId, $categoryId, $description, $origin, $unit, $grossPrice, $minStock) {
+            $id = DB::table('products')->insertGetId([
+                'sku' => $sku,
+                'designation' => $designation,
+                'brand_id' => $brandId,
+                'category_id' => $categoryId,
+                'description' => $description,
+                'com' => $origin,
+                'unit' => $unit,
+                'gross_price' => $grossPrice,
+                'spec' => $request->input('spec'),
+                'cost_price' => (float) $request->input('cost_price', 0),
+                'min_stock' => $minStock,
+                'status' => 'ACTIVE',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $this->recordPriceChange($request, $id, null, $grossPrice, (float) $request->input('cost_price', 0), 'CREATE');
+            ProductEvents::created($id);
 
-        $publisher->publishProductCreated([
-            'product_id' => $id,
-            'sku' => $sku,
-            'name' => $designation,
-            'origin' => $origin,
-            'unit' => $unit,
-            'gross_price' => $grossPrice,
-            'min_stock' => $minStock,
-        ]);
-        $publisher->close();
+            return $id;
+        });
 
         return response()->json(['success' => true, 'data' => ['id' => $id, 'sku' => $sku]], 201);
     }
@@ -371,6 +387,7 @@ class ProductController extends Controller
                     $data['created_at'] = now();
                     $newId = DB::table('products')->insertGetId($data);
                     $this->recordPriceChange($request, $newId, null, $grossPrice, null, 'IMPORT');
+                    ProductEvents::created($newId);
                 }
 
                 $importedCount++;

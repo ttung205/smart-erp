@@ -111,14 +111,6 @@ public class RabbitMqConsumerWorker : BackgroundService
 
         switch (eventType)
         {
-            case "SalesOrderCreated":
-                var salesOrderEvent = JsonSerializer.Deserialize<CloudEventEnvelope<SalesOrderCreatedPayload>>(messageBody, JsonOptions);
-                if (salesOrderEvent is not null)
-                {
-                    await handler.HandleSalesOrderCreatedAsync(salesOrderEvent, ct);
-                }
-                break;
-
             case "GoodsReceived":
                 var goodsReceivedEvent = JsonSerializer.Deserialize<CloudEventEnvelope<GoodsReceivedPayload>>(messageBody, JsonOptions);
                 if (goodsReceivedEvent is not null)

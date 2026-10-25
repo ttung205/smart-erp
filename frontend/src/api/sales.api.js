@@ -170,6 +170,13 @@ export const salesApi = {
     });
   },
 
+  cancelInvoice(id, reason) {
+    return apiClient(`/api/v1/sales/invoices/${id}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason })
+    });
+  },
+
   assignLogistics(id, data) {
     return apiClient(`/api/v1/sales/invoices/${id}/assign-logistics`, {
       method: 'PUT',

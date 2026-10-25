@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\AuthenticateJwt;
+use App\Http\Middleware\AuthenticateUserOrService;
 use App\Http\Middleware\RequireInternalService;
 use App\Http\Middleware\RequirePermission;
 use Illuminate\Foundation\Application;
@@ -19,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'jwt' => AuthenticateJwt::class,
             'permission' => RequirePermission::class,
             'internal' => RequireInternalService::class,
+            'user_or_service' => AuthenticateUserOrService::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

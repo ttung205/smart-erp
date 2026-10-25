@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class HealthController extends Controller
 {
@@ -16,7 +17,8 @@ class HealthController extends Controller
         try {
             DB::select('select 1');
             $databaseHealthy = true;
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
+            Log::warning('Sales database readiness check failed.', ['exception' => $exception]);
             $databaseHealthy = false;
         }
 
@@ -25,7 +27,8 @@ class HealthController extends Controller
             $inventoryHealthy = Http::timeout(config('services.inventory.timeout', 3))
                 ->get("{$inventoryUrl}/health")
                 ->successful();
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
+            Log::warning('Inventory readiness check failed.', ['exception' => $exception]);
             $inventoryHealthy = false;
         }
 

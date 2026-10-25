@@ -453,6 +453,37 @@ public class StocksController : ControllerBase
     }
 
     /// <summary>
+    /// Hủy chứng từ bán hàng: nhả toàn bộ hàng đã giữ cho chứng từ (idempotent).
+    /// </summary>
+    [HttpPost("release/document")]
+    public async Task<IActionResult> ReleaseDocument([FromBody] ReleaseDocumentRequest request, CancellationToken ct)
+    {
+        var results = await _stockManager.ReleaseDocumentReservationAsync(request.OrderId, ct: ct);
+
+        var responseDtos = results.Select(r => new StockOperationResponseDto
+        {
+            ProductId = r.ProductId,
+            WarehouseId = r.WarehouseId,
+            QuantityOnHand = r.QuantityOnHand,
+            QuantityReserved = r.QuantityReserved,
+            Available = r.Available,
+            OperationType = r.OperationType,
+            QuantityDelta = r.QuantityDelta,
+            ReferenceDoc = r.ReferenceDoc,
+            MovementId = r.MovementId,
+            Timestamp = r.Timestamp
+        }).ToList();
+
+        var meta = new ApiMeta
+        {
+            CorrelationId = GetCorrelationId(),
+            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+        };
+
+        return Ok(ApiEnvelope<List<StockOperationResponseDto>>.Ok(responseDtos, meta));
+    }
+
+    /// <summary>
     /// Phiếu nhập kho thực tế (Goods Receipt / Receive) từ đơn mua hàng PO.
     /// Tăng cả tồn thực tế và tồn khả dụng.
     /// </summary>

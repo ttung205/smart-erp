@@ -1,0 +1,114 @@
+_format_version: "3.0"
+_transform: true
+
+services:
+  - name: identity-service
+    url: http://identity-service:8001/api
+    routes:
+      - name: identity-api
+        paths: [/api/v1/auth]
+        strip_path: true
+
+  - name: catalog-service
+    url: http://catalog-service:8002/api
+    routes:
+      - name: catalog-api
+        paths: [/api/v1/catalog]
+        strip_path: true
+
+  - name: purchase-service
+    url: http://purchase-service:8003
+    routes:
+      - name: purchase-api
+        paths: [/api/v1/purchase]
+        strip_path: false
+
+  - name: inventory-service
+    url: http://inventory-service:8004
+    routes:
+      - name: inventory-api
+        paths: [/api/v1/inventory]
+        strip_path: false
+
+  - name: sales-service
+    url: http://sales-service:8005/api
+    routes:
+      - name: sales-api
+        paths: [/api/v1/sales]
+        strip_path: true
+
+  - name: notification-service
+    url: http://notification-service:8006
+    read_timeout: 3600000
+    write_timeout: 3600000
+    routes:
+      - name: notification-api
+        paths: [/api/v1/notifications]
+        strip_path: false
+
+  - name: eoffice-service
+    url: http://eoffice-service:8007/api
+    routes:
+      - name: eoffice-api
+        paths: [/api/v1/eoffice]
+        strip_path: true
+
+  - name: finance-service
+    url: http://finance-service:8008/api
+    routes:
+      - name: finance-api
+        paths: [/api/v1/finance]
+        strip_path: true
+
+  - name: chat-service
+    url: http://chat-service:8009
+    read_timeout: 3600000
+    write_timeout: 3600000
+    routes:
+      - name: chat-api
+        paths: [/api/v1/chat]
+        strip_path: false
+
+  - name: ai-service
+    url: http://ai-service:8010
+    read_timeout: 120000
+    write_timeout: 120000
+    routes:
+      - name: ai-api
+        paths: [/api/v1/ai]
+        strip_path: false
+
+  - name: gateway-health
+    url: http://127.0.0.1:1
+    routes:
+      - name: gateway-health
+        paths: [/health]
+        methods: [GET]
+        strip_path: false
+        plugins:
+          - name: request-termination
+            config:
+              status_code: 200
+              content_type: application/json
+              body: '{"status":"UP","gateway":"Kong"}'
+
+plugins:
+  - name: correlation-id
+    config:
+      header_name: X-Correlation-ID
+      generator: uuid
+      echo_downstream: true
+
+  - name: cors
+    config:
+      origins: ['*']
+      methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+      headers: [Authorization, Content-Type, X-Correlation-ID, Accept]
+      exposed_headers: [X-Correlation-ID]
+      credentials: false
+      max_age: 3600
+
+  - name: request-transformer
+    config:
+      remove:
+        headers: [X-Internal-Service-Key]

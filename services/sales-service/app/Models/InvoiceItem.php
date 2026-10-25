@@ -52,14 +52,9 @@ class InvoiceItem extends Model
         return $this->belongsTo(DeliveryRequestItem::class, 'delivery_request_item_id');
     }
 
-    public function product()
-    {
-        return $this->belongsTo(Product::class, 'product_id');
-    }
-
     public function getUnitAttribute()
     {
-        return $this->orderItem?->unit ?? $this->product?->unit ?? 'Cái';
+        return $this->orderItem?->unit ?? 'Cái';
     }
 
     public function getSubtotalAttribute()
@@ -69,17 +64,17 @@ class InvoiceItem extends Model
 
     public function getDesignationAttribute()
     {
-        return $this->orderItem?->designation ?? $this->product?->designation ?? '';
+        return $this->orderItem?->designation ?? '';
     }
 
     public function getBrandAttribute()
     {
-        return $this->orderItem?->brand ?? $this->product?->brand?->name ?? '';
+        return $this->orderItem?->brand ?? '';
     }
 
     public function getComAttribute()
     {
-        return $this->orderItem?->com ?? $this->product?->com ?? 'Việt Nam';
+        return $this->orderItem?->com ?? 'Việt Nam';
     }
 
     public function getDiscountPercentAttribute()
@@ -89,7 +84,7 @@ class InvoiceItem extends Model
 
     public function getGrossPriceAttribute()
     {
-        return (float)($this->orderItem?->gross_price ?? $this->product?->gross_price ?? $this->unit_price);
+        return (float)($this->orderItem?->gross_price ?? $this->unit_price);
     }
 
     public function getSellingPriceAttribute()

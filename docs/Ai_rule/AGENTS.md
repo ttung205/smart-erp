@@ -25,15 +25,15 @@ Mọi quy trình trong hệ thống đều xoay quanh trục nghiệp vụ xuyê
               ↓
         [ INVENTORY ] (Cập nhật tồn kho On-Hand - inventory-service)
               ↓
-      [ SALES ORDER ] (Tạo đơn bán hàng SO - sales-service)
+  [ QUOTATION → SALES ORDER ] (Báo giá → Đơn bán hàng, duyệt - sales-service)
               ↓
-      [ RESERVATION ] (Khóa giữ chỗ tồn kho nguyên tử - inventory-service)
+   [ DELIVERY REQUEST ] (Yêu cầu giao hàng, chọn kho bán - sales-service)
               ↓
-   [ DELIVERY REQUEST ] (Yêu cầu xuất hàng & lập kế hoạch giao - sales-service)
+   [ SALES DOCUMENT + RESERVATION ] (Chứng từ bán hàng → giữ hàng nguyên tử cả lô - sales → inventory)
               ↓
-         [ DELIVERY ] (Điều phối vận chuyển hàng hóa - sales-service)
+         [ DELIVERY ] (Điều phối kho: soạn, đóng gói, giao - sales-service)
               ↓
-      [ GOODS ISSUE ] (Xuất kho thực tế: Giảm On-Hand & giải phóng Reserved - inventory-service)
+      [ GOODS ISSUE ] (Kho ghi sổ xuất: giảm tồn thực tế - inventory-service)
               ↓
      [ REPORTING / AI ] (Phân tích biên lợi nhuận, Min-Stock, Copilot - ai-service)
 ```
@@ -64,20 +64,22 @@ Trước khi viết hoặc chỉnh sửa bất kỳ đoạn code nào, AI **BẮ
 
 ## 📚 BẢN ĐỒ TÀI LIỆU QUY CHUẨN CHI TIẾT (SUB-RULES INDEX)
 
-Để đảm bảo tính nhất quán tuyệt đối giữa **PHP (Laravel)** và **C# (.NET 10)**, mã nguồn phải tuân theo 4 tài liệu con:
+Để đảm bảo tính nhất quán tuyệt đối giữa **PHP (Laravel)** và **C# (.NET 10)**, mã nguồn phải tuân theo 4 tài liệu con (cùng hợp đồng tại [../contracts/api-spec.md](../contracts/api-spec.md) và [../contracts/events-spec.md](../contracts/events-spec.md)):
 
-1. **[architecture.md](file:///g:/Do_an_lien_nganh/smart-erp/docs/Ai_rule/architecture.md)**: Đặc tả Clean Architecture, Bounded Contexts, Event-Driven (Outbox, RabbitMQ, Saga) và Concurrency Control (Zero Overselling).
-2. **[api-guidelines.md](file:///g:/Do_an_lien_nganh/smart-erp/docs/Ai_rule/api-guidelines.md)**: Chuẩn REST API Envelope, HTTP Status, định tuyến NGINX Gateway, `X-Correlation-ID` và Stateless RBAC JWT.
-3. **[coding-style.md](file:///g:/Do_an_lien_nganh/smart-erp/docs/Ai_rule/coding-style.md)**: Quy chuẩn đặt tên hàm, biến, DTO, JSON naming (`snake_case`), cấu hình UTC, async/await và thực hành Clean Code cho C# & PHP.
-4. **[database-guidelines.md](file:///g:/Do_an_lien_nganh/smart-erp/docs/Ai_rule/database-guidelines.md)**: Nguyên tắc Database-per-Service, cấm Join/FK chéo DB, Data Snapshotting, Atomic SQL Predicate Guard và Outbox schema.
+1. **[architecture.md](architecture.md)**: Bounded Contexts & quyền sở hữu dữ liệu, **khi nào dùng REST / khi nào dùng Queue**, cách chia sẻ dữ liệu qua ranh giới (Snapshot / REST / Composition / Replica), Outbox, Saga, Concurrency, và bảng hiện trạng lệch chuẩn.
+2. **[api-guidelines.md](api-guidelines.md)**: Chuẩn REST API Envelope, HTTP Status, định tuyến NGINX Gateway, `X-Correlation-ID` và Stateless RBAC JWT.
+3. **[coding-style.md](coding-style.md)**: Quy chuẩn đặt tên hàm, biến, DTO, JSON naming (`snake_case`), cấu hình UTC, async/await và thực hành Clean Code cho C# & PHP.
+4. **[database-guidelines.md](database-guidelines.md)**: Nguyên tắc Database-per-Service, cấm Join/FK chéo DB, Data Snapshotting, Atomic SQL Predicate Guard và Outbox schema.
 
 ---
 
 ## 📋 CHECKLIST KIỂM THỬ TRƯỚC KHI COMMIT MÃ NGUỒN
 
 - [ ] Nghiệp vụ nằm đúng bước trong luồng trung tâm SCM (Procurement $\rightarrow$ Goods Issue $\rightarrow$ AI).
-- [ ] Không có câu lệnh `JOIN` hoặc Foreign Key chéo database giữa các microservice.
-- [ ] Mọi thay đổi dữ liệu có phát sinh event đều ghi qua **Transactional Outbox**.
+- [ ] Không có câu lệnh `JOIN`, Foreign Key, **hay connection** tới database của microservice khác (kể cả chỉ đọc).
+- [ ] Dữ liệu của service khác dùng trong chứng từ đã được **snapshot**; lời gọi REST nội bộ có timeout, URL từ cấu hình, nằm trong client ở Infrastructure.
+- [ ] Đã chọn đúng REST hay Queue theo [architecture.md §4](architecture.md#4-chọn-cách-giao-tiếp-rest-đồng-bộ-hay-queue-bất-đồng-bộ); event mới phải có consumer thật.
+- [ ] Mọi thay đổi dữ liệu có phát sinh event đều ghi qua **Transactional Outbox** (cấm publish thẳng trong controller).
 - [ ] Consumer đã kiểm tra `processed_events` để đảm bảo **Idempotency**.
 - [ ] Logic trừ kho đã dùng câu lệnh SQL nguyên tử (Atomic Update Guard).
 - [ ] Đã chuyển đổi Domain Entity sang DTO trước khi trả về Controller.

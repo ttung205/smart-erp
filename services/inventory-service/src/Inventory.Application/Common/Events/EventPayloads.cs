@@ -5,51 +5,6 @@ namespace Inventory.Application.Common.Events;
 #region Incoming Payloads
 
 /// <summary>
-/// Sự kiện SalesOrderCreated bắn từ sales-service qua routing key: sales.order.created
-/// </summary>
-public class SalesOrderCreatedPayload
-{
-    [JsonPropertyName("order_id")]
-    public string OrderId { get; set; } = string.Empty;
-
-    [JsonPropertyName("customer_id")]
-    public long CustomerId { get; set; }
-
-    [JsonPropertyName("order_date")]
-    public string? OrderDate { get; set; }
-
-    [JsonPropertyName("total_amount")]
-    public decimal TotalAmount { get; set; }
-
-    [JsonPropertyName("items")]
-    public List<SalesOrderItemPayload> Items { get; set; } = new();
-}
-
-public class SalesOrderItemPayload
-{
-    [JsonPropertyName("product_id")]
-    public long ProductId { get; set; }
-
-    [JsonPropertyName("warehouse_id")]
-    public long WarehouseId { get; set; }
-
-    [JsonPropertyName("quantity")]
-    public int Quantity { get; set; }
-
-    [JsonPropertyName("gross_price")]
-    public decimal GrossPrice { get; set; }
-
-    [JsonPropertyName("discount_percent")]
-    public decimal DiscountPercent { get; set; }
-
-    [JsonPropertyName("unit_price")]
-    public decimal UnitPrice { get; set; }
-
-    [JsonPropertyName("subtotal")]
-    public decimal Subtotal { get; set; }
-}
-
-/// <summary>
 /// Sự kiện GoodsReceived bắn từ purchase-service qua routing key: purchase.goods.received
 /// </summary>
 public class GoodsReceivedPayload
@@ -112,69 +67,6 @@ public class ProductCreatedPayload
 #endregion
 
 #region Outgoing Payloads
-
-/// <summary>
-/// Sự kiện StockReserved bắn ra cho sales-service qua routing key: inventory.stock.reserved
-/// </summary>
-public class StockReservedPayload
-{
-    [JsonPropertyName("order_id")]
-    public string OrderId { get; set; } = string.Empty;
-
-    [JsonPropertyName("reserved_at")]
-    public DateTime ReservedAt { get; set; } = DateTime.UtcNow;
-
-    [JsonPropertyName("reservations")]
-    public List<StockReservationDetailPayload> Reservations { get; set; } = new();
-}
-
-public class StockReservationDetailPayload
-{
-    [JsonPropertyName("product_id")]
-    public long ProductId { get; set; }
-
-    [JsonPropertyName("warehouse_id")]
-    public long WarehouseId { get; set; }
-
-    [JsonPropertyName("quantity_reserved")]
-    public int QuantityReserved { get; set; }
-
-    [JsonPropertyName("remaining_available")]
-    public int RemainingAvailable { get; set; }
-}
-
-/// <summary>
-/// Sự kiện StockReservationFailed bắn ra cho sales-service qua routing key: inventory.stock.reservation_failed
-/// </summary>
-public class StockReservationFailedPayload
-{
-    [JsonPropertyName("order_id")]
-    public string OrderId { get; set; } = string.Empty;
-
-    [JsonPropertyName("failed_at")]
-    public DateTime FailedAt { get; set; } = DateTime.UtcNow;
-
-    [JsonPropertyName("reason")]
-    public string Reason { get; set; } = "INSUFFICIENT_STOCK";
-
-    [JsonPropertyName("failed_items")]
-    public List<FailedStockItemPayload> FailedItems { get; set; } = new();
-}
-
-public class FailedStockItemPayload
-{
-    [JsonPropertyName("product_id")]
-    public long ProductId { get; set; }
-
-    [JsonPropertyName("warehouse_id")]
-    public long WarehouseId { get; set; }
-
-    [JsonPropertyName("requested_quantity")]
-    public int RequestedQuantity { get; set; }
-
-    [JsonPropertyName("available_quantity")]
-    public int AvailableQuantity { get; set; }
-}
 
 /// <summary>
 /// Sự kiện GoodsIssued bắn ra qua routing key: inventory.goods.issued

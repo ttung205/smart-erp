@@ -44,36 +44,6 @@ return [
             'transaction_mode' => 'DEFERRED',
         ],
 
-        'catalog' => [
-            'driver' => env('DB_CONNECTION') === 'mysql' ? 'mysql' : 'sqlite',
-            'host' => env('DB_HOST', '127.0.0.1'),
-            'port' => env('DB_PORT', '3306'),
-            'database' => env('DB_CONNECTION') === 'mysql'
-                ? env('CATALOG_DB_DATABASE', 'erp_catalog_db')
-                : env('CATALOG_DB_DATABASE', database_path('../../catalog-service/database/database.sqlite')),
-            'username' => env('DB_USERNAME', 'erp_user'),
-            'password' => env('DB_PASSWORD', 'erp_secret'),
-            'charset' => 'utf8mb4',
-            'collation' => 'utf8mb4_unicode_ci',
-            'prefix' => '',
-            'foreign_key_constraints' => true,
-        ],
-
-        'identity' => [
-            'driver' => env('DB_CONNECTION') === 'mysql' ? 'mysql' : 'sqlite',
-            'host' => env('DB_HOST', '127.0.0.1'),
-            'port' => env('DB_PORT', '3306'),
-            'database' => env('DB_CONNECTION') === 'mysql'
-                ? env('IDENTITY_DB_DATABASE', 'erp_identity_db')
-                : env('IDENTITY_DB_DATABASE', database_path('../../identity-service/database/database.sqlite')),
-            'username' => env('DB_USERNAME', 'erp_user'),
-            'password' => env('DB_PASSWORD', 'erp_secret'),
-            'charset' => 'utf8mb4',
-            'collation' => 'utf8mb4_unicode_ci',
-            'prefix' => '',
-            'foreign_key_constraints' => true,
-        ],
-
         'mysql' => [
             'driver' => 'mysql',
             'url' => env('DB_URL'),

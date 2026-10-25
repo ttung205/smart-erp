@@ -68,6 +68,7 @@ Route::middleware('jwt')->group(function () {
     // 5. Invoices (Chứng Từ & Kế Toán Kho)
     Route::post('/invoices/{id}/send-to-warehouse', [InvoiceController::class, 'sendToWarehouse'])->middleware('permission:invoice.manage');
     Route::post('/invoices/{id}/sync-reserve', [InvoiceController::class, 'syncReserve'])->middleware('permission:invoice.manage');
+    Route::post('/invoices/{id}/cancel', [InvoiceController::class, 'cancel'])->middleware('permission:invoice.manage');
     Route::put('/invoices/{id}/assign-logistics', [InvoiceController::class, 'assignLogistics'])->middleware('permission:invoice.manage');
     Route::post('/invoices/{id}/warehouse-post', [InvoiceController::class, 'warehousePost'])->middleware('permission:inventory.issue,invoice.manage');
     Route::put('/invoices/{id}/warehouse-status', [InvoiceController::class, 'updateWarehouseStatus'])->middleware('permission:invoice.manage');

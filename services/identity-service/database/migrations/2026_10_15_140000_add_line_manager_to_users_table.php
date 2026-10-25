@@ -9,10 +9,12 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            // Quản lý trực tiếp: người duyệt đơn E-Office của nhân viên (ưu tiên hơn trưởng phòng)
-            $table->foreignId('line_manager_id')->nullable()->after('department_id')->constrained('users')->nullOnDelete();
-        });
+        if (! Schema::hasColumn('users', 'line_manager_id')) {
+            Schema::table('users', function (Blueprint $table) {
+                // Quản lý trực tiếp: người duyệt đơn E-Office của nhân viên (ưu tiên hơn trưởng phòng)
+                $table->foreignId('line_manager_id')->nullable()->after('department_id')->constrained('users')->nullOnDelete();
+            });
+        }
 
         // Dữ liệu sẵn có: nhân viên → trưởng phòng của mình; trưởng phòng → Super Admin
         $adminId = DB::table('users')->where('email', 'admin@erp.local')->value('id');

@@ -43,6 +43,7 @@ REQUIRED_PERMISSION = "ai.use"
 ANALYTICS_DB = Path(os.getenv("ANALYTICS_DB", str(ROOT / "data" / "analytics.db")))
 CONVERSATION_DB = Path(os.getenv("CONVERSATION_DB", str(ROOT / "data" / "assistant.db")))
 SYNC_INTERVAL_SECONDS = int(os.getenv("SYNC_INTERVAL_SECONDS", "300"))
+WAREHOUSE_SYNC_ENABLED = os.getenv("WAREHOUSE_SYNC_ENABLED", "true").lower() in {"1", "true", "yes", "on"}
 
 # Nguồn dữ liệu cho ETL (chỉ đọc). Môi trường dev dùng file SQLite của từng service.
 SOURCE_DB = {

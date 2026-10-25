@@ -53,42 +53,19 @@ class WarehouseDispatch extends Model
         return $this->belongsTo(SalesOrder::class, 'order_id');
     }
 
-    public function picker()
-    {
-        return $this->belongsTo(User::class, 'picker_id');
-    }
-
-    public function packer()
-    {
-        return $this->belongsTo(User::class, 'packer_id');
-    }
-
-    public function shipper()
-    {
-        return $this->belongsTo(User::class, 'shipper_id');
-    }
-
-    public function postedBy()
-    {
-        return $this->belongsTo(User::class, 'posted_by_id');
-    }
-
-    // Dynamic Display Names lấy từ join User hoặc snapshot
     public function getPickerDisplayNameAttribute()
     {
-        return $this->picker?->name ?: ($this->picker_name ?: null);
+        return $this->picker_name ?: null;
     }
 
     public function getPackerDisplayNameAttribute()
     {
-        return $this->packer?->name ?: ($this->packer_name ?: null);
+        return $this->packer_name ?: null;
     }
 
+    // carrier_name: tên nhân viên giao (WAREHOUSE_DELIVERY) hoặc đơn vị vận chuyển, snapshot lúc phân công
     public function getShipperDisplayNameAttribute()
     {
-        if ($this->shipping_method === 'WAREHOUSE_DELIVERY') {
-            return $this->shipper?->name ?: ($this->carrier_name ?: null);
-        }
-        return $this->carrier_name ?: ($this->shipper?->name ?: null);
+        return $this->carrier_name ?: null;
     }
 }

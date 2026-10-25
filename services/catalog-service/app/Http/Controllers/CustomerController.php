@@ -13,6 +13,11 @@ class CustomerController extends Controller
         $search = trim($request->input('search', ''));
         $query = Customer::with('contacts')->orderBy('name', 'asc');
 
+        if ($request->filled('ids')) {
+            $ids = is_array($request->input('ids')) ? $request->input('ids') : explode(',', (string) $request->input('ids'));
+            $query->whereIn('id', array_map('intval', $ids));
+        }
+
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('code', 'like', "%{$search}%")

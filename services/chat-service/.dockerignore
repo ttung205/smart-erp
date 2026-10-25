@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+.git/
+.vs/
+.vscode/
+.idea/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+chat-files/
+TestResults/
+tests/

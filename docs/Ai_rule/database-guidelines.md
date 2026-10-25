@@ -22,13 +22,17 @@ Hệ thống ERP phân tán áp dụng mô hình **Cô lập hoàn toàn Cơ s�
 2. **CẤM TẠO FOREIGN KEY CHÉO DB**: Khóa ngoại (`FOREIGN KEY ... REFERENCES`) chỉ được tồn tại trong nội bộ cùng một database schema.
 3. **CẤM ĐỌC/GHI TRỰC TIẾP DB KHÁC**: Mỗi microservice chỉ có connection string tới DB của chính nó. Không service nào được cấp quyền truy cập vào database của service khác.
 
+> "Chỉ đọc" cũng bị cấm: một model Eloquent có `$connection = 'catalog'` trong sales-service, hay một đường dẫn SQLite trỏ sang `../catalog-service/database/...`, đều là vi phạm.
+
 ### 1.2. Khóa Ngoại Logic (Primitive Logical References)
-* Khi cần tham chiếu đến thực thể ở service khác, chỉ lưu **ID nguyên thủy (`BIGINT` hoặc `UUID`)**:
-  - Trong `sales_orders`: Cột `customer_id` (`BIGINT`) chỉ lưu ID logic của Customer thuộc `catalog-service`.
-  - Trong `inventory_stocks`: Cột `product_id` (`BIGINT`) chỉ lưu ID logic của Product thuộc `catalog-service`.
-* Khi cần hiển thị thông tin kèm theo:
-  - Hoặc dùng **Data Snapshotting** (lưu cứng dữ liệu lịch sử tại thời điểm lập đơn).
-  - Hoặc gọi API Gateway tổng hợp (BFF / Client Aggregation).
+* Khi cần tham chiếu đến thực thể ở service khác, chỉ lưu **ID nguyên thủy (`BIGINT` hoặc `UUID`)**, có index, không có FK:
+  - Trong `sales_orders`: Cột `customer_id` chỉ lưu ID logic của Customer thuộc `partner-service` (hiện tạm ở `catalog-service`).
+  - Trong `inventory_stocks`: Cột `product_id` chỉ lưu ID logic của Product thuộc `catalog-service`.
+* Khi cần thông tin kèm theo, chọn theo thứ tự ưu tiên (chi tiết: [architecture.md §5](architecture.md#5-chia-sẻ-dữ-liệu-qua-ranh-giới-service)):
+  1. **Snapshot** vào chứng từ (§2 bên dưới) — mặc định.
+  2. **Gọi REST lúc thực thi lệnh** để validate/lấy dữ liệu snapshot.
+  3. **API Composition** ở frontend/BFF cho dữ liệu cần "sống".
+  4. **Bảng replica `ref_*`** đồng bộ qua event — chỉ khi cần lọc/báo cáo khối lượng lớn theo dữ liệu hiện tại hoặc phải chạy được khi owner sập. Bảng `ref_*` chỉ đọc, chỉ chứa cột cần dùng, giữ nguyên ID gốc, có lệnh backfill.
 
 ---
 
@@ -39,6 +43,8 @@ Trong các bảng chứng từ giao dịch thương mại (`sales_order_items`, 
   - `product_name`: Tên sản phẩm lúc mua/bán.
   - `sku`: Mã SKU.
   - `unit_code`: Đơn vị tính (PCS, BOX, KG...).
+  - `brand`, `designation`, `com` (xuất xứ) nếu chứng từ in ra các trường này.
+  - Ở cấp header chứng từ: `customer_code`, `customer_name`, `tax_code`, `contact_name`, và tên người thực hiện (`created_by_name`, `approved_by_name`, `picker_name`…) — không tra ngược identity để lấy tên.
   - `unit_price` / `gross_price`: Đơn giá niêm yết tại thời điểm ký kết.
   - `unit_cost`: Giá vốn tại thời điểm lập chứng từ.
   - `discount_percent`: Phần trăm chiết khấu.
@@ -48,33 +54,18 @@ Trong các bảng chứng từ giao dịch thương mại (`sales_order_items`, 
 
 ## 3. RÀNG BUỘC TOÀN VẸN TRONG QUẢN TRỊ KHO (SCM INVARIANTS)
 
-Trong bảng `inventory_stocks` của `inventory-service`, các ràng buộc sau là **bất biến**:
+`inventory-service` lưu tồn kho theo **2 số dư + 2 sổ cái**, mỗi cặp (kho, sản phẩm) một dòng:
 
-```sql
-CREATE TABLE inventory_stocks (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    product_id BIGINT NOT NULL,
-    warehouse_id BIGINT NOT NULL,
-    quantity_on_hand INT NOT NULL DEFAULT 0,
-    quantity_reserved INT NOT NULL DEFAULT 0,
-    min_stock INT NOT NULL DEFAULT 0,
-    version INT NOT NULL DEFAULT 1,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
-    -- RÀNG BUỘC NGHIỆP VỤ BẤT BIẾN (CHECK CONSTRAINTS)
-    CONSTRAINT chk_on_hand_non_negative CHECK (quantity_on_hand >= 0),
-    CONSTRAINT chk_reserved_non_negative CHECK (quantity_reserved >= 0),
-    CONSTRAINT chk_available_non_negative CHECK ((quantity_on_hand - quantity_reserved) >= 0),
-    
-    UNIQUE KEY uq_product_warehouse (product_id, warehouse_id)
-);
-```
+| Bảng | Ý nghĩa | Tăng khi | Giảm khi |
+|---|---|---|---|
+| `inventory_stocks.quantity` | **Tồn thực tế** — hàng đang nằm trong kho | Nhập kho mua hàng, nhận hàng trả | Kho ghi sổ xuất chứng từ bán hàng |
+| `inventory_stocks_reservation.quantity` | **Tồn khả dụng** — còn được phép bán | Nhập kho mua hàng, nhả giữ chỗ | Tạo chứng từ bán hàng (giữ hàng) |
+| `inventory_stocks_transaction` | Sổ cái tồn thực tế (bất biến) | — | — |
+| `inventory_stocks_reservation_transaction` | Sổ cái tồn khả dụng (bất biến) | — | — |
 
-### 3.1. Ý Nghĩa 3 Cột Tồn Kho Cốt Lõi:
-1. `quantity_on_hand` (Tồn thực tế/vật lý): Số lượng hàng đang nằm thực tế trong kho. Chỉ thay đổi khi **Goods Receipt** (tăng) hoặc **Goods Issue** (giảm).
-2. `quantity_reserved` (Tồn giữ chỗ): Số lượng hàng đã cam kết bán cho khách qua Sales Order đang chờ xuất. Tăng khi `StockReserved`, giảm khi `GoodsIssued` hoặc đơn bị `Cancelled`.
-3. `Available = (quantity_on_hand - quantity_reserved)`: Tồn khả dụng có thể tiếp tục bán. **Tuyệt đối không bao giờ được phép < 0**.
+* Hàng đang giữ (đã cam kết, chưa xuất) = tồn thực tế − tồn khả dụng.
+* **Bất biến**: cả hai số dư luôn `>= 0`. Thực thi bằng UPDATE có điều kiện (`WHERE quantity >= :qty`), không đọc-rồi-ghi ([architecture.md §10.1](architecture.md#101-zero-overselling--atomic-sql-guard)).
+* **Idempotency**: mỗi sổ cái có `UNIQUE (document_type, document_id, warehouse_id, product_id)` — một chứng từ chỉ ghi sổ một lần cho mỗi sản phẩm/kho.
 
 ---
 

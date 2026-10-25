@@ -62,28 +62,19 @@ class SaleReportItem extends Model
         return $this->belongsTo(SalesOrderItem::class, 'order_item_id');
     }
 
-    public function product()
-    {
-        return $this->belongsTo(Product::class, 'product_id');
-    }
-
-    public function customer()
-    {
-        return $this->belongsTo(Customer::class, 'customer_id');
-    }
-
-    public function salesperson()
-    {
-        return $this->belongsTo(User::class, 'salesperson_id');
-    }
-
     public function getCustomerNameAttribute()
     {
-        return $this->customer?->name ?? ($this->order?->customer_name ?? '');
+        return $this->order?->customer_name ?? '';
     }
 
+    // salesperson_id = người phụ trách đơn (hoặc người tạo nếu chưa phân công)
     public function getSalespersonNameAttribute()
     {
-        return $this->salesperson?->name ?? ($this->order?->created_by_name ?? '');
+        $order = $this->order;
+        if (! $order) {
+            return '';
+        }
+
+        return (int) $this->salesperson_id === (int) $order->assigned_to ? $order->assigned_to_name : $order->created_by_name;
     }
 }
