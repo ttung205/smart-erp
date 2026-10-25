@@ -1,0 +1,17 @@
+.git/
+.agents/
+.gemini/
+.tmp/
+tmp/
+data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+node_modules/
+vendor/
+bin/
+obj/
+.venv/
+chat-files/
+docs/

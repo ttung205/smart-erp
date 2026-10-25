@@ -25,6 +25,9 @@ CREATE DATABASE IF NOT EXISTS `erp_analytics_db` CHARACTER SET utf8mb4 COLLATE u
 -- 8. Finance Service Database
 CREATE DATABASE IF NOT EXISTS `erp_finance_db` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+-- 9. Chat Service Database (khi chuyển từ SQLite sang MySQL)
+CREATE DATABASE IF NOT EXISTS `erp_chat_db` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 -- Grant Full Privileges on all ERP databases to application user
 GRANT ALL PRIVILEGES ON `erp_identity_db`.* TO 'erp_user'@'%';
 GRANT ALL PRIVILEGES ON `erp_catalog_db`.* TO 'erp_user'@'%';
@@ -34,5 +37,6 @@ GRANT ALL PRIVILEGES ON `erp_sales_db`.* TO 'erp_user'@'%';
 GRANT ALL PRIVILEGES ON `erp_eoffice_db`.* TO 'erp_user'@'%';
 GRANT ALL PRIVILEGES ON `erp_analytics_db`.* TO 'erp_user'@'%';
 GRANT ALL PRIVILEGES ON `erp_finance_db`.* TO 'erp_user'@'%';
+GRANT ALL PRIVILEGES ON `erp_chat_db`.* TO 'erp_user'@'%';
 
 FLUSH PRIVILEGES;

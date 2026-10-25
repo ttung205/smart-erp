@@ -283,5 +283,5 @@ Cập nhật: 2026-10-20. Đánh dấu ✅ khi xong.
 | 7 | 🟠 | Gọi REST nội bộ thiếu timeout/retry, URL mặc định hardcode | Áp §6 |
 | 8 | 🟠 | Laravel services (catalog, identity) logic nằm trong controller | Tách `Services/Actions` (§3) khi sửa tới module đó |
 | 9 | 🟠 | JWT HS256 dùng chung secret; `X-Internal-Service-Key` dùng chung | RS256 + service token (§9) |
-| 10 | 🟡 | `docker-compose.yml` chỉ có hạ tầng, gateway trỏ tới container không tồn tại | Thêm Dockerfile + service vào compose (§12) |
+| 10 | ✅ | ~~`docker-compose.yml` chỉ có hạ tầng, gateway trỏ tới container không tồn tại~~ | Đã xong 2026-10-24: Đã viết toàn bộ Dockerfile (10 microservices, relay workers, gateway, frontend SPA) + docker-compose.yml hoàn chỉnh (§12) |
 | 11 | 🟡 | File DB, `.backup`, smoke DB nằm trong repo/git | Bổ sung `.gitignore`, `git rm --cached` (§12) |

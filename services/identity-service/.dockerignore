@@ -1,0 +1,16 @@
+vendor/
+node_modules/
+.git/
+.env
+storage/*.key
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+database/*.sqlite*
+database/*.db*
+.phpunit.result.cache
+tests/
+.vscode/
+.idea/
+*.log

@@ -5,25 +5,6 @@
       "name": "/"
     }
   ],
-  "users": [
-    {
-      "name": "erp_rabbit",
-      "password_hash": "sdv7VZWW2DjTu/UcHkJK6AWTH51oJNUnPc+8h3d3zE++n4se",
-      "hashing_algorithm": "rabbit_password_hashing_sha256",
-      "tags": [
-        "administrator"
-      ]
-    }
-  ],
-  "permissions": [
-    {
-      "user": "erp_rabbit",
-      "vhost": "/",
-      "configure": ".*",
-      "write": ".*",
-      "read": ".*"
-    }
-  ],
   "exchanges": [
     {
       "name": "erp.events",

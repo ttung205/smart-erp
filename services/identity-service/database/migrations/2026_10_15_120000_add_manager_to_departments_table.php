@@ -9,9 +9,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('departments', function (Blueprint $table) {
-            $table->foreignId('manager_id')->nullable()->after('description')->constrained('users')->nullOnDelete();
-        });
+        if (! Schema::hasColumn('departments', 'manager_id')) {
+            Schema::table('departments', function (Blueprint $table) {
+                $table->foreignId('manager_id')->nullable()->after('description')->constrained('users')->nullOnDelete();
+            });
+        }
 
         DB::table('permissions')->updateOrInsert(['code' => 'eoffice.manage'], [
             'module' => 'eoffice', 'description' => 'Quản trị văn phòng số: loại nghỉ, ngày lễ, quỹ phép nhân viên',

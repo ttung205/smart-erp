@@ -64,7 +64,11 @@ public class RabbitMqConnection : IDisposable
                     durable: true,
                     exclusive: false,
                     autoDelete: false,
-                    arguments: null);
+                    arguments: new Dictionary<string, object>
+                    {
+                        ["x-dead-letter-exchange"] = "erp.dlx",
+                        ["x-dead-letter-routing-key"] = "dead.letter.inventory"
+                    });
 
                 // Bind queue với các routing key cần nghe
                 // Giữ hàng cho chứng từ bán hàng đi qua REST (reserve/batch), inventory không nghe sales.order.* nữa;

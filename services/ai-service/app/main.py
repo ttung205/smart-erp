@@ -32,11 +32,17 @@ async def sync_loop() -> None:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     store.init()
-    if not config.ANALYTICS_DB.exists():
-        await asyncio.to_thread(warehouse.sync)
-    task = asyncio.create_task(sync_loop())
+    task: asyncio.Task | None = None
+    if config.WAREHOUSE_SYNC_ENABLED and not config.ANALYTICS_DB.exists():
+        try:
+            await asyncio.to_thread(warehouse.sync)
+        except Exception:
+            log.exception("Không thể đồng bộ kho phân tích khi khởi động; dịch vụ tiếp tục ở trạng thái degraded")
+    if config.WAREHOUSE_SYNC_ENABLED:
+        task = asyncio.create_task(sync_loop())
     yield
-    task.cancel()
+    if task is not None:
+        task.cancel()
 
 
 app = FastAPI(title="ai-service", lifespan=lifespan)
@@ -68,7 +74,8 @@ class ChatRequest(BaseModel):
 @router.get("/health")
 def health():
     return ok({"service": "ai-service", "model": config.GROQ_MODEL, "llm_configured": bool(config.GROQ_API_KEY),
-               "analytics_ready": config.ANALYTICS_DB.exists()})
+               "analytics_ready": config.ANALYTICS_DB.exists(),
+               "warehouse_sync_enabled": config.WAREHOUSE_SYNC_ENABLED})
 
 
 @router.post("/chat")
