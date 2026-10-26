@@ -11,10 +11,15 @@ export const BINDINGS = [
   'eoffice.leave.*',
   'eoffice.purchase.*',
   'eoffice.payment.*',
+  'eoffice.attendance.*',
+  'eoffice.payroll.*',
   'purchase.inquiry.*',
   'catalog.product.*',
-  'inventory.stock.*',
+  'inventory.goods.issued',
 ];
+
+/** Binding cũ còn sót trên broker đã chạy trước đây (inventory không bao giờ publish key này); gỡ để tránh route nhầm. */
+export const LEGACY_BINDINGS = ['inventory.stock.*'];
 
 const RETRY_HEADER = 'x-retry-count';
 
@@ -60,6 +65,9 @@ export function startConsumer({ rabbitmq, handle, logger = console }) {
       durable: true,
       arguments: { 'x-message-ttl': rabbitmq.retryDelayMs, 'x-dead-letter-exchange': '', 'x-dead-letter-routing-key': rabbitmq.queue },
     });
+    for (const key of LEGACY_BINDINGS) {
+      await channel.unbindQueue(rabbitmq.queue, rabbitmq.exchange, key);
+    }
     for (const key of BINDINGS) {
       await channel.bindQueue(rabbitmq.queue, rabbitmq.exchange, key);
     }

@@ -53,29 +53,44 @@ public class EventConsumerHandler : IEventConsumerHandler
             return;
         }
 
-        // 2. Nhập kho cộng dồn tồn kho vật lý và tự động ghi thẻ kho cho từng sản phẩm
-        foreach (var item in receipt.Items)
+        // 2+3. Nhập kho và đánh dấu idempotency trong MỘT transaction: crash giữa chừng thì rollback hết,
+        // message được giao lại và xử lý đúng một lần (không cộng tồn hai lần).
+        await using var tx = await _context.Database.BeginTransactionAsync(ct);
+        try
         {
-            var receiveCmd = new ReceiveStockCommand(
-                ReferenceDoc: receipt.ReceiptId,
-                WarehouseId: receipt.WarehouseId,
-                ProductId: item.ProductId,
-                Quantity: item.QuantityReceived,
-                UserId: receipt.ReceivedBy
-            );
+            foreach (var item in receipt.Items)
+            {
+                var receiveCmd = new ReceiveStockCommand(
+                    ReferenceDoc: receipt.ReceiptId,
+                    WarehouseId: receipt.WarehouseId,
+                    ProductId: item.ProductId,
+                    Quantity: item.QuantityReceived,
+                    UserId: receipt.ReceivedBy
+                );
 
-            await _stockManager.ReceiveStockAsync(receiveCmd, ct);
+                await _stockManager.ReceiveStockAsync(receiveCmd, ct);
+            }
+
+            _context.ProcessedEvents.Add(new ProcessedEvent
+            {
+                EventId = envelope.EventId,
+                ConsumerName = ConsumerName,
+                ProcessedAt = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
         }
-
-        // 3. Đánh dấu Idempotency
-        _context.ProcessedEvents.Add(new ProcessedEvent
+        catch (DbUpdateException)
         {
-            EventId = envelope.EventId,
-            ConsumerName = ConsumerName,
-            ProcessedAt = DateTime.UtcNow
-        });
+            if (!await WasProcessedConcurrentlyAsync(envelope.EventId, ct)) throw;
 
-        await _context.SaveChangesAsync(ct);
+            // Bản sao của cùng event vừa được xử lý ở luồng khác (khóa chính processed_events): transaction này đã rollback.
+            _context.ChangeTracker.Clear();
+            _logger.LogWarning("[{CorrelationId}] Sự kiện GoodsReceived {EventId} vừa được xử lý đồng thời. Bỏ qua.",
+                envelope.CorrelationId, envelope.EventId);
+            return;
+        }
 
         _logger.LogInformation("[{CorrelationId}] Xử lý GoodsReceived THÀNH CÔNG cho phiếu {ReceiptId}. Đã cập nhật tồn OnHand và Thẻ kho.",
             envelope.CorrelationId, receipt.ReceiptId);
@@ -152,9 +167,29 @@ public class EventConsumerHandler : IEventConsumerHandler
             ProcessedAt = DateTime.UtcNow
         });
 
-        await _context.SaveChangesAsync(ct);
+        try
+        {
+            await _context.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            if (!await WasProcessedConcurrentlyAsync(envelope.EventId, ct)) throw;
+
+            _context.ChangeTracker.Clear();
+            _logger.LogWarning("[{CorrelationId}] Sự kiện ProductCreated {EventId} vừa được xử lý đồng thời. Bỏ qua.",
+                envelope.CorrelationId, envelope.EventId);
+            return;
+        }
 
         _logger.LogInformation("[{CorrelationId}] Khởi tạo tồn kho THÀNH CÔNG cho sản phẩm {ProductId} (SKU: {Sku}) tại {WarehouseCount} kho.",
             envelope.CorrelationId, product.ProductId, product.Sku, warehouses.Count);
+    }
+
+    /// <summary>Sau khi lưu lỗi: event đã có bản ghi processed_events do luồng khác commit trước?</summary>
+    private async Task<bool> WasProcessedConcurrentlyAsync(string eventId, CancellationToken ct)
+    {
+        _context.ChangeTracker.Clear();
+        return await _context.ProcessedEvents.AsNoTracking()
+            .AnyAsync(p => p.EventId == eventId && p.ConsumerName == ConsumerName, ct);
     }
 }

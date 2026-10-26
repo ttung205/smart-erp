@@ -3,16 +3,15 @@ using Chat.Application.Common.Models;
 using Chat.Application.Dtos;
 using Chat.Domain.Entities;
 using Chat.Domain.Enums;
-using Microsoft.EntityFrameworkCore;
 
 namespace Chat.Application.Services;
 
 public class ConversationService(
-    IChatDbContext db,
+    IChatRepository repository,
     ICurrentUser currentUser,
     IUserDirectory directory,
     IChatNotifier notifier,
-    IFileStorage storage) : ChatServiceBase(db, currentUser, directory, notifier)
+    IFileStorage storage) : ChatServiceBase(repository, currentUser, directory, notifier)
 {
     public const int MaxTitleLength = 120;
     public const int MaxGroupMembers = 200;
@@ -24,15 +23,13 @@ public class ConversationService(
         page = Math.Max(page, 1);
         perPage = Math.Clamp(perPage, 1, 100);
 
-        var conversations = await Db.Conversations.AsNoTracking()
-            .Include(c => c.Members)
-            .Where(c => c.Members.Any(m => m.UserId == Me.Id))
-            .ToListAsync(ct);
+        var conversations = await Repo.ListConversationsOfUserAsync(Me.Id, ct);
         var lastIds = conversations.Where(c => c.LastMessageId != null).Select(c => c.LastMessageId!.Value).ToList();
-        var lastMessages = await Db.ChatMessages.AsNoTracking().Where(m => lastIds.Contains(m.Id)).ToDictionaryAsync(m => m.Id, ct);
-        var unread = await UnreadCountsAsync(Me.Id, null, ct);
+        var lastMessages = (await Repo.GetMessagesAsync(lastIds, ct)).ToDictionary(m => m.Id);
+        var cursors = conversations.Select(c => CursorOf(c, c.Members.First(m => m.UserId == Me.Id))).ToList();
+        var unread = await UnreadCountsAsync(Me.Id, cursors, ct);
         await UsersForDisplayAsync(ct);
-        var aliases = await Db.ContactAliases.AsNoTracking().Where(a => a.OwnerId == Me.Id).ToDictionaryAsync(a => a.TargetId, a => a.Alias, ct);
+        var aliases = await Repo.GetAliasesAsync(Me.Id, ct);
 
         IEnumerable<Conversation> query = conversations;
         if (!string.IsNullOrWhiteSpace(search))
@@ -83,17 +80,16 @@ public class ConversationService(
     private async Task<ConversationDto> BuildDtoAsync(Conversation conversation, ConversationMember me, CancellationToken ct)
     {
         await UsersForDisplayAsync(ct);
-        var last = conversation.LastMessageId is { } lastId
-            ? await Db.ChatMessages.AsNoTracking().FirstOrDefaultAsync(m => m.Id == lastId, ct)
-            : null;
-        var unread = (await UnreadCountsAsync(Me.Id, [conversation.Id], ct)).GetValueOrDefault(conversation.Id);
+        var last = conversation.LastMessageId is { } lastId ? await Repo.GetMessageAsync(lastId, ct) : null;
+        var unread = (await UnreadCountsAsync(Me.Id, [CursorOf(conversation, me)], ct)).GetValueOrDefault(conversation.Id);
         return ToConversationDto(conversation, me, last, unread);
     }
 
     public async Task<int> UnreadTotalAsync(CancellationToken ct)
     {
-        var muted = await Db.ConversationMembers.Where(m => m.UserId == Me.Id && m.Muted).Select(m => m.ConversationId).ToListAsync(ct);
-        var counts = await UnreadCountsAsync(Me.Id, null, ct);
+        var cursors = await Repo.GetReadCursorsAsync(Me.Id, ct);
+        var muted = cursors.Where(c => c.Muted).Select(c => c.ConversationId).ToHashSet();
+        var counts = await UnreadCountsAsync(Me.Id, cursors, ct);
         return counts.Where(kv => !muted.Contains(kv.Key)).Sum(kv => kv.Value);
     }
 
@@ -108,24 +104,15 @@ public class ConversationService(
             throw ChatException.Invalid("Người dùng không tồn tại hoặc đã ngừng hoạt động.");
 
         var key = $"{Math.Min(userId, Me.Id)}_{Math.Max(userId, Me.Id)}";
-        var conversation = await Db.Conversations.Include(c => c.Members).FirstOrDefaultAsync(c => c.DirectKey == key, ct);
+        var conversation = await Repo.FindDirectAsync(key, ct);
         if (conversation == null)
         {
             conversation = new Conversation { Type = ConversationType.Direct, DirectKey = key, CreatedBy = Me.Id };
             conversation.Members.Add(new ConversationMember { UserId = Me.Id, UserName = Me.Name });
             conversation.Members.Add(new ConversationMember { UserId = userId, UserName = other.Name });
-            Db.Conversations.Add(conversation);
-            try
-            {
-                await Db.SaveChangesAsync(ct);
-            }
-            catch (DbUpdateException)
-            {
-                // Hai request tạo cùng lúc: unique DirectKey chặn bản thứ hai, lấy lại bản đã tạo
-                Db.Conversations.Entry(conversation).State = EntityState.Detached;
-                foreach (var m in conversation.Members) Db.ConversationMembers.Entry(m).State = EntityState.Detached;
-                conversation = await Db.Conversations.Include(c => c.Members).FirstAsync(c => c.DirectKey == key, ct);
-            }
+            // Hai request tạo cùng lúc: unique DirectKey chặn bản thứ hai, lấy lại bản đã tạo
+            if (!await Repo.TryInsertConversationAsync(conversation, ct))
+                conversation = await Repo.FindDirectAsync(key, ct) ?? throw ChatException.Invalid("Không tạo được hội thoại.");
         }
         return await BuildDtoAsync(conversation, conversation.Members.First(m => m.UserId == Me.Id), ct);
     }
@@ -140,8 +127,7 @@ public class ConversationService(
         subjectCode = subjectCode?.Trim();
         subjectTitle = subjectTitle?.Trim();
 
-        var conversation = await Db.Conversations.Include(c => c.Members)
-            .FirstOrDefaultAsync(c => c.Type == ConversationType.Work && c.SubjectType == subjectType && c.SubjectId == subjectId, ct);
+        var conversation = await Repo.FindWorkThreadAsync(subjectType, subjectId, ct);
 
         if (conversation == null)
         {
@@ -165,8 +151,7 @@ public class ConversationService(
                 UserName = Me.Name,
                 Role = MemberRole.Owner
             });
-            Db.Conversations.Add(conversation);
-            await Db.SaveChangesAsync(ct);
+            await Repo.TryInsertConversationAsync(conversation, ct);
         }
         else
         {
@@ -175,14 +160,12 @@ public class ConversationService(
             {
                 existingMember = new ConversationMember
                 {
-                    ConversationId = conversation.Id,
                     UserId = Me.Id,
                     UserName = Me.Name,
                     Role = MemberRole.Member
                 };
+                await Repo.AddMembersAsync(conversation.Id, [existingMember], ct);
                 conversation.Members.Add(existingMember);
-                Db.ConversationMembers.Add(existingMember);
-                await Db.SaveChangesAsync(ct);
             }
         }
 
@@ -200,13 +183,8 @@ public class ConversationService(
         var conversation = new Conversation { Type = ConversationType.Group, Title = title, CreatedBy = Me.Id };
         conversation.Members.Add(new ConversationMember { UserId = Me.Id, UserName = Me.Name, Role = MemberRole.Owner });
         foreach (var user in users) conversation.Members.Add(new ConversationMember { UserId = user.Id, UserName = user.Name });
-        Db.Conversations.Add(conversation);
-        await Db.SaveChangesAsync(ct);
-
-        var message = AddSystemMessage(conversation, $"{Me.Name} đã tạo nhóm \"{title}\"");
-        await Db.SaveChangesAsync(ct);
-        TouchLastMessage(conversation, message);
-        await Db.SaveChangesAsync(ct);
+        await Repo.TryInsertConversationAsync(conversation, ct);
+        await PostSystemMessageAsync(conversation, $"{Me.Name} đã tạo nhóm \"{title}\"", ct);
 
         // Báo ngay cho mọi thành viên để nhóm hiện trong danh sách của họ
         await NotifyConversationAsync(conversation, ct);
@@ -238,6 +216,7 @@ public class ConversationService(
         if (title == conversation.Title) return await BuildDtoAsync(conversation, me, ct);
 
         conversation.Title = title;
+        await Repo.UpdateGroupInfoAsync(conversation, ct);
         await CommitSystemMessageAsync(conversation, $"{Me.Name} đã đổi tên nhóm thành \"{title}\"", ct);
         return await BuildDtoAsync(conversation, me, ct);
     }
@@ -255,6 +234,7 @@ public class ConversationService(
         conversation.AvatarPath = path;
         conversation.AvatarContentType = contentType;
         conversation.AvatarVersion++;
+        await Repo.UpdateGroupInfoAsync(conversation, ct);
         await CommitSystemMessageAsync(conversation, $"{Me.Name} đã đổi ảnh nhóm", ct);
         if (oldPath != null) storage.Delete(oldPath);
         return await BuildDtoAsync(conversation, me, ct);
@@ -270,6 +250,7 @@ public class ConversationService(
             conversation.AvatarPath = null;
             conversation.AvatarContentType = null;
             conversation.AvatarVersion++;
+            await Repo.UpdateGroupInfoAsync(conversation, ct);
             await CommitSystemMessageAsync(conversation, $"{Me.Name} đã xoá ảnh nhóm", ct);
             storage.Delete(oldPath);
         }
@@ -294,11 +275,12 @@ public class ConversationService(
         if (conversation.Members.Count + users.Count > MaxGroupMembers) throw ChatException.Invalid($"Nhóm tối đa {MaxGroupMembers} thành viên.");
 
         // Người mới thấy từ tin hiện tại trở đi là "đã đọc" để không bị dồn hàng trăm tin chưa đọc
-        foreach (var user in users)
-            conversation.Members.Add(new ConversationMember
-            {
-                ConversationId = conversation.Id, UserId = user.Id, UserName = user.Name, LastReadMessageId = conversation.LastMessageId
-            });
+        var newMembers = users.Select(user => new ConversationMember
+        {
+            UserId = user.Id, UserName = user.Name, LastReadMessageId = conversation.LastMessageId
+        }).ToList();
+        await Repo.AddMembersAsync(conversation.Id, newMembers, ct);
+        conversation.Members.AddRange(newMembers);
         await CommitSystemMessageAsync(conversation, $"{Me.Name} đã thêm {string.Join(", ", users.Select(u => u.Name))} vào nhóm", ct);
         return await BuildDtoAsync(conversation, me, ct);
     }
@@ -313,8 +295,8 @@ public class ConversationService(
         var allowed = me.Role == MemberRole.Owner || (me.Role == MemberRole.Deputy && target.Role == MemberRole.Member);
         if (!allowed) throw ChatException.Forbidden("Bạn không có quyền xoá người này khỏi nhóm.");
 
+        await Repo.RemoveMemberAsync(conversation.Id, target.UserId, ct);
         conversation.Members.Remove(target);
-        Db.ConversationMembers.Remove(target);
         await CommitSystemMessageAsync(conversation, $"{Me.Name} đã xoá {NameOf(target.UserId, target.UserName)} khỏi nhóm", ct);
         await NotifyRemovedAsync([userId], conversation.Id, "removed");
     }
@@ -335,12 +317,13 @@ public class ConversationService(
         {
             var newOwner = conversation.Members.FirstOrDefault(m => m.UserId == newOwnerId && m.UserId != Me.Id)
                 ?? throw ChatException.Invalid("Trưởng nhóm cần chọn trưởng nhóm mới trước khi rời nhóm.");
+            await Repo.SetMemberRoleAsync(conversation.Id, newOwner.UserId, MemberRole.Owner, ct);
             newOwner.Role = MemberRole.Owner;
             content = $"{Me.Name} đã rời nhóm và chuyển quyền trưởng nhóm cho {NameOf(newOwner.UserId, newOwner.UserName)}";
         }
 
+        await Repo.RemoveMemberAsync(conversation.Id, me.UserId, ct);
         conversation.Members.Remove(me);
-        Db.ConversationMembers.Remove(me);
         await CommitSystemMessageAsync(conversation, content, ct);
         await NotifyRemovedAsync([Me.Id], conversation.Id, "left");
     }
@@ -360,6 +343,7 @@ public class ConversationService(
             ?? throw ChatException.NotFound("Người này không ở trong nhóm.");
         if (target.Role == newRole) return await BuildDtoAsync(conversation, me, ct);
 
+        await Repo.SetMemberRoleAsync(conversation.Id, target.UserId, newRole, ct);
         target.Role = newRole;
         var name = NameOf(target.UserId, target.UserName);
         await CommitSystemMessageAsync(conversation,
@@ -375,6 +359,8 @@ public class ConversationService(
         var target = conversation.Members.FirstOrDefault(m => m.UserId == userId && m.UserId != Me.Id)
             ?? throw ChatException.NotFound("Người này không ở trong nhóm.");
 
+        await Repo.SetMemberRoleAsync(conversation.Id, target.UserId, MemberRole.Owner, ct);
+        await Repo.SetMemberRoleAsync(conversation.Id, me.UserId, MemberRole.Member, ct);
         target.Role = MemberRole.Owner;
         me.Role = MemberRole.Member;
         await CommitSystemMessageAsync(conversation, $"{Me.Name} đã chuyển quyền trưởng nhóm cho {NameOf(target.UserId, target.UserName)}", ct);
@@ -393,28 +379,21 @@ public class ConversationService(
     private async Task DeleteConversationAsync(Conversation conversation, string reason, CancellationToken ct)
     {
         var memberIds = conversation.Members.Select(m => m.UserId).ToList();
-        var files = await Db.MessageAttachments.Where(a => a.Message!.ConversationId == conversation.Id).Select(a => a.StoragePath).ToListAsync(ct);
+        var files = await Repo.GetAttachmentPathsAsync(conversation.Id, ct);
         if (conversation.AvatarPath != null) files.Add(conversation.AvatarPath);
 
-        var messageIds = Db.ChatMessages.Where(m => m.ConversationId == conversation.Id).Select(m => m.Id);
-        Db.MessageHides.RemoveRange(Db.MessageHides.Where(h => messageIds.Contains(h.MessageId)));
-        Db.Conversations.Remove(conversation);
-        await Db.SaveChangesAsync(ct);
+        await Repo.DeleteConversationAsync(conversation.Id, ct);
 
         foreach (var file in files) storage.Delete(file);
         await NotifyRemovedAsync(memberIds, conversation.Id, reason);
     }
 
-    /// <summary>Lưu thay đổi kèm một tin hệ thống, rồi báo tin mới và hội thoại đã cập nhật cho thành viên.</summary>
+    /// <summary>Thêm một tin hệ thống mô tả thay đổi vừa lưu, rồi báo tin mới và hội thoại đã cập nhật cho thành viên.</summary>
     private async Task CommitSystemMessageAsync(Conversation conversation, string content, CancellationToken ct)
     {
-        conversation.UpdatedAt = DateTime.UtcNow;
-        var message = AddSystemMessage(conversation, content);
-        await Db.SaveChangesAsync(ct);
-        TouchLastMessage(conversation, message);
-        await Db.SaveChangesAsync(ct);
+        var message = await PostSystemMessageAsync(conversation, content, ct);
         await UsersForDisplayAsync(ct);
-        await NotifyMessageAsync(conversation, message, Events.MessageCreated);
+        await NotifyMessageAsync(conversation, message, Events.MessageCreated, ct);
         await NotifyConversationAsync(conversation, ct);
     }
 
@@ -424,7 +403,7 @@ public class ConversationService(
     {
         var (conversation, me) = await RequireMemberAsync(id, ct);
         me.PinnedAt = pinned ? me.PinnedAt ?? DateTime.UtcNow : null;
-        await Db.SaveChangesAsync(ct);
+        await Repo.SetMemberPinnedAsync(id, Me.Id, me.PinnedAt, ct);
         return await NotifySelfAsync(conversation, me, ct);
     }
 
@@ -432,7 +411,7 @@ public class ConversationService(
     {
         var (conversation, me) = await RequireMemberAsync(id, ct);
         me.Muted = muted;
-        await Db.SaveChangesAsync(ct);
+        await Repo.SetMemberMutedAsync(id, Me.Id, muted, ct);
         return await NotifySelfAsync(conversation, me, ct);
     }
 
@@ -448,14 +427,14 @@ public class ConversationService(
     public async Task<int> MarkReadAsync(long id, long messageId, CancellationToken ct)
     {
         var (conversation, me) = await RequireMemberAsync(id, ct);
-        var exists = await Db.ChatMessages.AnyAsync(m => m.Id == messageId && m.ConversationId == id, ct);
+        var exists = await Repo.MessageExistsAsync(id, messageId, ct);
         if (!exists) throw ChatException.Invalid("Tin nhắn không thuộc hội thoại.");
 
-        if (me.LastReadMessageId == null || messageId > me.LastReadMessageId)
+        var now = DateTime.UtcNow;
+        if (await Repo.AdvanceReadAsync(id, Me.Id, messageId, now, ct))
         {
             me.LastReadMessageId = messageId;
-            me.LastReadAt = DateTime.UtcNow;
-            await Db.SaveChangesAsync(ct);
+            me.LastReadAt = now;
             await Notifier.ToUsersAsync(conversation.Members.Select(m => m.UserId), Events.ReadUpdated,
                 new { conversation_id = id, user_id = Me.Id, message_id = messageId });
         }
@@ -464,15 +443,7 @@ public class ConversationService(
 
     public async Task<int> MarkAllReadAsync(CancellationToken ct)
     {
-        var memberships = await Db.ConversationMembers.Include(m => m.Conversation)
-            .Where(m => m.UserId == Me.Id && m.Conversation!.LastMessageId != null)
-            .ToListAsync(ct);
-        foreach (var member in memberships.Where(m => m.LastReadMessageId == null || m.LastReadMessageId < m.Conversation!.LastMessageId))
-        {
-            member.LastReadMessageId = member.Conversation!.LastMessageId;
-            member.LastReadAt = DateTime.UtcNow;
-        }
-        await Db.SaveChangesAsync(ct);
+        await Repo.MarkAllReadAsync(Me.Id, DateTime.UtcNow, ct);
         return 0;
     }
 }

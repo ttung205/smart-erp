@@ -5,6 +5,7 @@ use App\Http\Controllers\CustomerReceivableController;
 use App\Http\Controllers\FinanceVoucherController;
 use App\Http\Controllers\GeneralLedgerController;
 use App\Http\Controllers\InvoiceAdjustmentSyncController;
+use App\Http\Controllers\PayrollJournalController;
 use App\Http\Controllers\TreasuryController;
 use Illuminate\Support\Facades\Route;
 
@@ -21,6 +22,7 @@ Route::middleware('jwt')->group(function (): void {
     Route::post('/invoice-adjustments/sync', [InvoiceAdjustmentSyncController::class, 'store'])->middleware('permission:finance.approve,invoice.manage');
     Route::get('/vouchers', [FinanceVoucherController::class, 'index'])->middleware('permission:finance.view');
     Route::post('/vouchers', [FinanceVoucherController::class, 'store'])->middleware('permission:finance.create,finance.approve');
+    Route::post('/payroll-journals', [PayrollJournalController::class, 'store'])->middleware('permission:finance.post,finance.approve');
     Route::post('/vouchers/{voucher}/post', [FinanceVoucherController::class, 'post'])->middleware('permission:finance.post,finance.approve');
     Route::post('/vouchers/{voucher}/allocations', [FinanceVoucherController::class, 'allocate'])->middleware('permission:finance.post,finance.approve');
 });

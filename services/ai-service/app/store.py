@@ -2,39 +2,37 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from contextlib import closing
 from datetime import datetime
 
-from . import config
+from . import db
 
-SCHEMA = """
-create table if not exists conversations (id integer primary key autoincrement, user_id integer not null,
-    title text not null, created_at text not null, updated_at text not null);
-create table if not exists messages (id integer primary key autoincrement, conversation_id integer not null,
-    role text not null, content text not null, created_at text not null);
-create table if not exists tool_calls (id integer primary key autoincrement, conversation_id integer not null,
-    message_id integer, user_id integer not null, tool text not null, arguments text not null, ok integer not null,
-    result_chars integer not null, duration_ms integer not null, created_at text not null);
-create index if not exists ix_conv_user on conversations(user_id, updated_at);
-create index if not exists ix_msg_conv on messages(conversation_id, id);
-"""
+SCHEMA = [
+    """create table if not exists conversations (id bigint primary key auto_increment, user_id bigint not null,
+        title varchar(255) not null, created_at datetime not null, updated_at datetime not null,
+        index ix_conv_user (user_id, updated_at)) default charset utf8mb4""",
+    """create table if not exists messages (id bigint primary key auto_increment, conversation_id bigint not null,
+        role varchar(32) not null, content mediumtext not null, created_at datetime not null,
+        index ix_msg_conv (conversation_id, id)) default charset utf8mb4""",
+    """create table if not exists tool_calls (id bigint primary key auto_increment, conversation_id bigint not null,
+        message_id bigint, user_id bigint not null, tool varchar(64) not null, arguments text not null,
+        ok tinyint not null, result_chars int not null, duration_ms int not null, created_at datetime not null)
+        default charset utf8mb4""",
+]
 
 
 def _now() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
-def connect() -> sqlite3.Connection:
-    config.CONVERSATION_DB.parent.mkdir(parents=True, exist_ok=True)
-    con = sqlite3.connect(config.CONVERSATION_DB)
-    con.row_factory = sqlite3.Row
-    return con
+def connect() -> db.Connection:
+    return db.connect()
 
 
 def init() -> None:
     with closing(connect()) as con:
-        con.executescript(SCHEMA)
+        for statement in SCHEMA:
+            con.execute(statement)
 
 
 def get_or_create_conversation(user_id: int, conversation_id: int | None, first_message: str) -> int:
@@ -47,7 +45,6 @@ def get_or_create_conversation(user_id: int, conversation_id: int | None, first_
         title = first_message.strip().replace("\n", " ")
         cur = con.execute("insert into conversations (user_id, title, created_at, updated_at) values (?, ?, ?, ?)",
                           [user_id, title[:80] + ("…" if len(title) > 80 else ""), _now(), _now()])
-        con.commit()
         return cur.lastrowid
 
 
@@ -63,7 +60,6 @@ def add_message(conversation_id: int, role: str, content: str) -> int:
         cur = con.execute("insert into messages (conversation_id, role, content, created_at) values (?, ?, ?, ?)",
                           [conversation_id, role, content, _now()])
         con.execute("update conversations set updated_at = ? where id = ?", [_now(), conversation_id])
-        con.commit()
         return cur.lastrowid
 
 
@@ -74,14 +70,13 @@ def log_tool_calls(conversation_id: int, message_id: int, user_id: int, calls: l
             "duration_ms, created_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [(conversation_id, message_id, user_id, c["tool"], json.dumps(c["arguments"], ensure_ascii=False),
               int(c["ok"]), c["result_chars"], c["duration_ms"], _now()) for c in calls])
-        con.commit()
 
 
 def list_conversations(user_id: int, limit: int = 30) -> list[dict]:
     with closing(connect()) as con:
         rows = con.execute("select id, title, updated_at from conversations where user_id = ? "
-                           "order by updated_at desc limit ?", [user_id, limit]).fetchall()
-    return [dict(r) for r in rows]
+                           "order by updated_at desc, id desc limit ?", [user_id, limit]).fetchall()
+    return [{**dict(r), "updated_at": db.to_text(r["updated_at"])} for r in rows]
 
 
 def conversation_messages(user_id: int, conversation_id: int) -> list[dict] | None:
@@ -91,7 +86,7 @@ def conversation_messages(user_id: int, conversation_id: int) -> list[dict] | No
             return None
         rows = con.execute("select id, role, content, created_at from messages where conversation_id = ? order by id",
                            [conversation_id]).fetchall()
-    return [dict(r) for r in rows]
+    return [{**dict(r), "created_at": db.to_text(r["created_at"])} for r in rows]
 
 
 def delete_conversation(user_id: int, conversation_id: int) -> bool:
@@ -99,5 +94,4 @@ def delete_conversation(user_id: int, conversation_id: int) -> bool:
         cur = con.execute("delete from conversations where id = ? and user_id = ?", [conversation_id, user_id])
         if cur.rowcount:
             con.execute("delete from messages where conversation_id = ?", [conversation_id])
-        con.commit()
         return bool(cur.rowcount)

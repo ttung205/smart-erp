@@ -6,6 +6,7 @@ Quy ước định dạng (khớp với dữ liệu app tự sinh):
 """
 from __future__ import annotations
 
+import unicodedata
 import uuid
 from collections import defaultdict
 from datetime import date, datetime, timedelta
@@ -95,11 +96,21 @@ class Writer:
         start = lts(datetime.combine(C.START_DATE, datetime.min.time()).replace(hour=7))
         categories = sorted({p.category for p in md.products})
         cat_id = {c: i for i, c in enumerate(categories, 1)}
-        brands = sorted({p.brand for p in md.products})
-        brand_id = {b: i for i, b in enumerate(brands, 1)}
+        # MySQL's utf8mb4_unicode_ci unique index is case/accent-insensitive,
+        # while SQLite's default UNIQUE comparison is not. Collapse raw
+        # variants such as "AVA"/"Ava" and "Hoà Phát"/"Hòa Phát" before IDs.
+        def brand_key(name: str) -> str:
+            folded = unicodedata.normalize("NFKD", name.casefold().replace("đ", "d"))
+            return "".join(ch for ch in folded if not unicodedata.combining(ch))
+
+        brand_by_key: dict[str, str] = {}
+        for name in sorted({p.brand for p in md.products}):
+            brand_by_key.setdefault(brand_key(name), name)
+        brands = sorted(brand_by_key.values())
+        brand_id = {brand_key(b): i for i, b in enumerate(brands, 1)}
         brand_index = defaultdict(list)
         for p in md.products:
-            brand_index[p.brand].append(p.gross_price / p.cost_price)
+            brand_index[brand_key(p.brand)].append(p.gross_price / p.cost_price)
         last_change = {}
         for ch in self.sim.price_changes:
             last_change[ch.product.id] = ch.at
@@ -109,13 +120,14 @@ class Writer:
             rows["categories"].append({"id": cat_id[c], "code": c.lower().replace(" ", "-"), "name": c,
                                        "description": None, "created_at": start, "updated_at": start})
         for b in brands:
-            idx = sum(brand_index[b]) / len(brand_index[b])
-            rows["brands"].append({"id": brand_id[b], "name": b, "price_index": round(idx, 4),
+            key = brand_key(b)
+            idx = sum(brand_index[key]) / len(brand_index[key])
+            rows["brands"].append({"id": brand_id[key], "name": b, "price_index": round(idx, 4),
                                    "created_at": start, "updated_at": start})
         for p in md.products:
             ended = p.discontinued_on and p.discontinued_on <= C.END_DATE and self.sim.on_hand[p.id] <= 0
             rows["products"].append({
-                "id": p.id, "sku": p.sku, "designation": p.model, "brand_id": brand_id[p.brand],
+                "id": p.id, "sku": p.sku, "designation": p.model, "brand_id": brand_id[brand_key(p.brand)],
                 "category_id": cat_id[p.category], "description": p.name, "com": p.origin, "unit": p.unit,
                 "gross_price": p.gross_price, "spec": p.spec, "cost_price": p.cost_price, "min_stock": p.min_stock,
                 "status": "INACTIVE" if ended else "ACTIVE", "created_at": lts(p.created_at),

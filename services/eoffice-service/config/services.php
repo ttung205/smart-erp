@@ -8,6 +8,10 @@ return [
         'url' => env('IDENTITY_SERVICE_URL', 'http://127.0.0.1:8001'),
     ],
 
+    'finance' => [
+        'url' => env('FINANCE_SERVICE_URL', 'http://127.0.0.1:8008'),
+    ],
+
     'internal' => [
         // Gửi kèm header X-Internal-Service-Key khi gọi identity-service (không có token người dùng)
         'key' => env('INTERNAL_SERVICE_KEY'),

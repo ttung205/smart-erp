@@ -7,6 +7,9 @@
       responsiveLayout="scroll"
       :paginator="paginator"
       :rows="rows"
+      :first="first"
+      :lazy="lazy"
+      :totalRecords="totalRecords"
       :rowsPerPageOptions="rowsPerPageOptions"
       :loading="loading"
       :sortField="defaultSortField"
@@ -18,6 +21,7 @@
       :columnResizeMode="columnResizeMode"
       :rowHover="rowHover"
       @row-click="emit('row-click', $event)"
+      @page="emit('page', $event)"
     >
       <!-- Optional slot for custom columns or prepend -->
       <slot name="prepend-columns"></slot>
@@ -84,6 +88,18 @@ const props = defineProps({
     type: Number,
     default: 10
   },
+  first: {
+    type: Number,
+    default: 0
+  },
+  lazy: {
+    type: Boolean,
+    default: false
+  },
+  totalRecords: {
+    type: Number,
+    default: 0
+  },
   rowsPerPageOptions: {
     type: Array,
     default: () => [10, 20, 50]
@@ -142,7 +158,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['row-click']);
+const emit = defineEmits(['row-click', 'page']);
 
 const filteredData = computed(() => {
   if (!props.searchQuery || props.searchQuery.trim() === '') {

@@ -18,6 +18,10 @@ class FinanceVoucherController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $data = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
         $query = FinanceVoucher::with(['lines', 'allocations'])->orderByDesc('voucher_date')->orderByDesc('id');
         if ($request->filled('channel')) {
             $query->where('channel', $request->input('channel'));
@@ -26,7 +30,18 @@ class FinanceVoucherController extends Controller
             $query->where('voucher_type', $request->input('voucher_type'));
         }
 
-        return response()->json(['success' => true, 'data' => $query->get()]);
+        $vouchers = $query->paginate($data['per_page'] ?? 20);
+
+        return response()->json([
+            'success' => true,
+            'data' => $vouchers->items(),
+            'meta' => [
+                'current_page' => $vouchers->currentPage(),
+                'per_page' => $vouchers->perPage(),
+                'total' => $vouchers->total(),
+                'last_page' => $vouchers->lastPage(),
+            ],
+        ]);
     }
 
     public function store(Request $request): JsonResponse

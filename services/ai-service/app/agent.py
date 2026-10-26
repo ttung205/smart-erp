@@ -47,7 +47,7 @@ class Answer:
 
 def _system_prompt(actor: Actor) -> tuple[str, str]:
     with warehouse.connect() as con:
-        meta = dict(con.execute("select key, value from meta").fetchall())
+        meta = dict(con.execute("select meta_key, meta_value from meta").fetchall())
     roles = ", ".join(ROLE_LABELS.get(r, r) for r in actor.roles) or "nhân viên"
     denied = [TOOL_SCOPE[t.name] for t in TOOLS if t.name in TOOL_SCOPE and not actor.can(*t.permissions)]
     prompt = SYSTEM_PROMPT.format(name=actor.name, roles=roles, today=date.today().isoformat(),

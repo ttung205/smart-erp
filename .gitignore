@@ -15,6 +15,13 @@ vendor/
 .env
 .env.backup
 .env.production
+.env.*
+!.env.example
+
+# Secret/credential material & generated compose output (resolve mọi biến, có thể chứa secret)
+compose-resolved.json
+*.pem
+*.key
 
 # Local Databases
 *.sqlite

@@ -11,8 +11,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p /app/data
-
 ENV AI_SERVICE_PORT=8010
 EXPOSE 8010
 

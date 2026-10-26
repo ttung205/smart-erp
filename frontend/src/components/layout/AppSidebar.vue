@@ -227,7 +227,8 @@ const menuCategories = computed(() => {
   const roles = (props.currentUser.roles || []).map(role => typeof role === 'string' ? role : role.code);
   const canShow = item =>
     (!item.roles || item.roles.some(role => roles.includes(role))) &&
-    (!item.permission || hasPermission(item.permission, props.currentUser));
+    (!item.permission || hasPermission(item.permission, props.currentUser)) &&
+    (!item.anyPermission || item.anyPermission.some(code => hasPermission(code, props.currentUser)));
 
   return rawMenuCategories.map(cat => {
     const filteredItems = cat.items.map(item => {

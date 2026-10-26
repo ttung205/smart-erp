@@ -4,14 +4,13 @@ using Chat.Application.Services;
 using Chat.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Net.Http.Headers;
 
 namespace Chat.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/chat")]
-public class MessagesController(MessageService messages, IChatDbContext db, ICurrentUser me, IFileStorage storage) : ControllerBase
+public class MessagesController(MessageService messages, IChatRepository repository, ICurrentUser me, IFileStorage storage) : ControllerBase
 {
     public record ContentInput(string? Content);
     public record EmojiInput(string? Emoji);
@@ -55,9 +54,8 @@ public class MessagesController(MessageService messages, IChatDbContext db, ICur
     [HttpGet("attachments/{id:long}")]
     public async Task<IActionResult> Download(long id, CancellationToken ct)
     {
-        var attachment = await db.MessageAttachments.AsNoTracking()
-            .Where(a => a.Id == id && a.Message!.RecalledAt == null && a.Message.Conversation!.Members.Any(m => m.UserId == me.Id))
-            .FirstOrDefaultAsync(ct) ?? throw ChatException.NotFound("Không tìm thấy tệp.");
+        var attachment = await repository.FindAttachmentForMemberAsync(id, me.Id, ct)
+            ?? throw ChatException.NotFound("Không tìm thấy tệp.");
 
         Response.Headers.XContentTypeOptions = "nosniff";
         Response.Headers.CacheControl = "private, max-age=86400";

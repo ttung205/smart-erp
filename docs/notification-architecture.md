@@ -81,7 +81,7 @@ cd services\notification-service; npm install; npm run dev   # cần JWT_SECRET 
 
 `start_dev.ps1` tự mở thêm 2 tab **Sales Outbox Relay** và **EOffice Outbox Relay** (bỏ qua nếu đang chạy).
 
-Cấu hình `notification-service/.env`: `JWT_SECRET`, `IDENTITY_SERVICE_URL`, `RABBITMQ_URL`, `NOTIFICATION_DB_PATH` (mặc định `database/notifications.sqlite`, dùng `node:sqlite` có sẵn của Node 24).
+Cấu hình `notification-service/.env`: `JWT_SECRET`, `IDENTITY_SERVICE_URL`, `RABBITMQ_URL`, `MONGODB_URI` và `NOTIFICATION_DB_NAME` (MongoDB, mặc định database `erp_notification_db`; chạy `docker compose up -d mongo`).
 
 ## 5. Thêm loại thông báo mới
 

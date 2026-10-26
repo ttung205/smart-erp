@@ -108,7 +108,7 @@ public static class DbInitializer
         { 99, "Hà Lan" },
         { 100, "Nhật Bản" },
     };
-    public static async Task SeedAsync(InventoryDbContext context)
+    public static async Task SeedAsync(InventoryDbContext context, bool seedData = true)
     {
         // 1. Ensure Database & Tables Created
         await context.Database.EnsureCreatedAsync();
@@ -144,6 +144,11 @@ public static class DbInitializer
             {
                 // The deployment already has the idempotency index.
             }
+        }
+
+        if (!seedData)
+        {
+            return;
         }
 
         // 2. Seed Warehouses

@@ -13,7 +13,7 @@ services:
       MYSQL_USER: erp_user
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - ./infrastructure/mysql/init:/docker-entrypoint-initdb.d:ro
       - mysql_data:/var/lib/mysql
@@ -30,12 +30,15 @@ services:
     image: rabbitmq:3.13-management-alpine
     container_name: erp-rabbitmq
     restart: unless-stopped
+    # RabbitMQ lưu dữ liệu theo tên node (rabbit@<hostname>). Hostname cố định để recreate container không tạo node trống.
+    # Giá trị là hostname của node đang giữ dữ liệu trong volume rabbitmq_data; môi trường mới đặt tên nào cũng được.
+    hostname: 704c693c923e
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-erp_rabbit}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-rabbit_secret}
     ports:
-      - "5672:5672"     # AMQP protocol
-      - "15672:15672"   # Management Dashboard UI
+      - "127.0.0.1:5672:5672"     # AMQP protocol
+      - "127.0.0.1:15672:15672"   # Management Dashboard UI
     volumes:
       - ./infrastructure/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - ./infrastructure/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
@@ -48,6 +51,27 @@ services:
       timeout: 5s
       retries: 5
 
+  # MongoDB 7 cho chat-service và notification-service (dữ liệu dạng tài liệu, ghi nhiều).
+  # Chạy replica set một node vì chat-service cần transaction; healthcheck tự khởi tạo replica set lần đầu.
+  # Không bật xác thực: chỉ bind 127.0.0.1 ở dev và không publish ở production (xem docker-compose.prod.yml).
+  mongo:
+    image: mongo:7
+    container_name: erp-mongo
+    restart: unless-stopped
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - erp-network
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval \"try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}).ok }\" | grep -q 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 15s
+
   # Mailpit Local SMTP Server & Web UI (Local Email Testing)
   mailpit:
     image: axllent/mailpit:latest
@@ -55,7 +79,7 @@ services:
     restart: unless-stopped
     ports:
       - "1025:1025"     # SMTP Port cho Notification Service
-      - "8025:8025"     # Web UI xem trước email & file đính kèm
+      - "${MAILPIT_UI_PORT:-8025}:8025"     # Web UI xem trước email & file đính kèm
     networks:
       - erp-network
 
@@ -87,7 +111,7 @@ services:
       DB_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
       JWT_SECRET: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-smart_erp_internal_2026}
-      AUTO_SEED: "true"
+      AUTO_SEED: "false"
     depends_on:
       mysql:
         condition: service_healthy
@@ -129,7 +153,7 @@ services:
       RABBITMQ_USER: ${RABBITMQ_USER:-erp_rabbit}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-rabbit_secret}
       RABBITMQ_EXCHANGE: erp.events
-      AUTO_SEED: "true"
+      AUTO_SEED: "false"
     depends_on:
       mysql:
         condition: service_healthy
@@ -194,6 +218,7 @@ services:
       RabbitMQ__ExchangeName: erp.events
       Jwt__Secret: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
       Services__InternalKey: ${INTERNAL_SERVICE_KEY:-smart_erp_internal_2026}
+      AUTO_SEED: "false"
     depends_on:
       mysql:
         condition: service_healthy
@@ -229,6 +254,7 @@ services:
       RabbitMQ__Password: ${RABBITMQ_PASSWORD:-rabbit_secret}
       RabbitMQ__ExchangeName: erp.events
       Jwt__Secret: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
+      AUTO_SEED: "false"
     depends_on:
       mysql:
         condition: service_healthy
@@ -276,7 +302,7 @@ services:
       IDENTITY_SERVICE_URL: http://identity-service:8001
       INVENTORY_SERVICE_URL: http://inventory-service:8004
       FINANCE_SERVICE_URL: http://finance-service:8008
-      AUTO_SEED: "true"
+      AUTO_SEED: "false"
     depends_on:
       mysql:
         condition: service_healthy
@@ -339,11 +365,12 @@ services:
       JWT_SECRET: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
       IDENTITY_SERVICE_URL: http://identity-service:8001
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-erp_rabbit}:${RABBITMQ_PASSWORD:-rabbit_secret}@rabbitmq:5672
-      NOTIFICATION_DB_PATH: database/notifications.sqlite
+      MONGODB_URI: mongodb://mongo:27017/?replicaSet=rs0
+      NOTIFICATION_DB_NAME: erp_notification_db
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-smart_erp_internal_2026}
-    volumes:
-      - notification_data:/app/database
     depends_on:
+      mongo:
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
       mailpit:
@@ -381,13 +408,14 @@ services:
       DB_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
       JWT_SECRET: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
       IDENTITY_SERVICE_URL: http://identity-service:8001
+      FINANCE_SERVICE_URL: http://finance-service:8008
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-smart_erp_internal_2026}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER:-erp_rabbit}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-rabbit_secret}
       RABBITMQ_EXCHANGE: erp.events
-      AUTO_SEED: "true"
+      AUTO_SEED: "false"
     depends_on:
       mysql:
         condition: service_healthy
@@ -454,7 +482,7 @@ services:
       DB_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
       JWT_SECRET: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-smart_erp_internal_2026}
-      AUTO_SEED: "true"
+      AUTO_SEED: "false"
     depends_on:
       mysql:
         condition: service_healthy
@@ -480,15 +508,17 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: "http://+:8009"
-      ConnectionStrings__ChatDbConnection: "Data Source=data/chat-messenger.db"
+      ConnectionStrings__ChatMongoConnection: "mongodb://mongo:27017/?replicaSet=rs0"
+      Mongo__Database: erp_chat_db
       Storage__Root: "/app/chat-files"
       Jwt__Secret: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
       Services__Identity: "http://identity-service:8001"
       Services__InternalKey: ${INTERNAL_SERVICE_KEY:-smart_erp_internal_2026}
     volumes:
-      - chat_data:/app/data
       - chat_files:/app/chat-files
     depends_on:
+      mongo:
+        condition: service_healthy
       identity-service:
         condition: service_healthy
     healthcheck:
@@ -516,10 +546,16 @@ services:
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_MODEL: "openai/gpt-oss-120b"
       SYNC_INTERVAL_SECONDS: 300
-      WAREHOUSE_SYNC_ENABLED: "false"
-    volumes:
-      - ai_data:/app/data
+      # Mặc định TẮT: ETL đọc thẳng schema của các service khác (xem docs/deployment.md). Bật cho demo: AI_WAREHOUSE_SYNC_ENABLED=true
+      WAREHOUSE_SYNC_ENABLED: ${AI_WAREHOUSE_SYNC_ENABLED:-false}
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: erp_user
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
+      ANALYTICS_DB_NAME: erp_analytics_db
     depends_on:
+      mysql:
+        condition: service_healthy
       identity-service:
         condition: service_healthy
     healthcheck:
@@ -635,7 +671,5 @@ networks:
 volumes:
   mysql_data:
   rabbitmq_data:
-  notification_data:
-  chat_data:
+  mongo_data:
   chat_files:
-  ai_data:

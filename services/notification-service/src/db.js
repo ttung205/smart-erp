@@ -1,69 +1,40 @@
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { MongoClient } from 'mongodb';
 
-const SCHEMA = `
-CREATE TABLE IF NOT EXISTS notifications (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  recipient_id INTEGER NOT NULL,
-  event_id TEXT NOT NULL,
-  type TEXT NOT NULL,
-  category TEXT NOT NULL,
-  title TEXT NOT NULL,
-  body TEXT,
-  link TEXT,
-  action_key TEXT,
-  status TEXT NOT NULL DEFAULT 'UNREAD',
-  actor_id INTEGER,
-  actor_name TEXT,
-  metadata TEXT,
-  created_at TEXT NOT NULL,
-  read_at TEXT,
-  resolved_at TEXT,
-  UNIQUE (event_id, recipient_id)
-);
-CREATE INDEX IF NOT EXISTS idx_notifications_inbox ON notifications (recipient_id, status, id);
-CREATE INDEX IF NOT EXISTS idx_notifications_action ON notifications (action_key, resolved_at);
+/** processed_events chỉ cần nhớ đủ lâu để chặn message gửi lặp; quá hạn thì Mongo tự xóa. */
+const PROCESSED_EVENT_TTL_SECONDS = 30 * 24 * 60 * 60;
 
-CREATE TABLE IF NOT EXISTS processed_events (
-  event_id TEXT PRIMARY KEY,
-  event_type TEXT NOT NULL,
-  processed_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS email_jobs (
-  id TEXT PRIMARY KEY,
-  recipient TEXT NOT NULL,
-  subject TEXT NOT NULL,
-  attachments_count INTEGER NOT NULL DEFAULT 0,
-  status TEXT NOT NULL,
-  message_id TEXT,
-  error TEXT,
-  created_at TEXT NOT NULL,
-  sent_at TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_email_jobs_created ON email_jobs (created_at DESC);
-`;
+/**
+ * Kết nối MongoDB của notification-service và đảm bảo index.
+ * - notifications: UNIQUE (event_id, recipient_id) chống ghi trùng khi event bị gửi lặp.
+ * - processed_events: _id = event_id; TTL tự dọn.
+ * - email_jobs: _id = id của job (uuid).
+ * Truyền dbName riêng khi test để mỗi test chạy trên database độc lập.
+ */
+export async function openDatabase(uri, dbName) {
+  const client = new MongoClient(uri);
+  await client.connect();
+  const db = client.db(dbName);
 
-/** Mở (hoặc tạo) DB SQLite của notification-service. Truyền ':memory:' khi test. */
-export function openDatabase(path) {
-  if (path !== ':memory:') {
-    mkdirSync(dirname(path), { recursive: true });
-  }
-  const db = new DatabaseSync(path);
-  db.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
-  db.exec(SCHEMA);
-  return db;
-}
+  const notifications = db.collection('notifications');
+  const processedEvents = db.collection('processed_events');
+  const emailJobs = db.collection('email_jobs');
 
-/** Chạy fn trong 1 transaction; lỗi thì rollback. */
-export function transaction(db, fn) {
-  db.exec('BEGIN');
-  try {
-    const result = fn();
-    db.exec('COMMIT');
-    return result;
-  } catch (error) {
-    db.exec('ROLLBACK');
-    throw error;
-  }
+  await Promise.all([
+    notifications.createIndex({ event_id: 1, recipient_id: 1 }, { unique: true }),
+    notifications.createIndex({ recipient_id: 1, status: 1, _id: -1 }),
+    notifications.createIndex({ action_key: 1, resolved_at: 1 }),
+    processedEvents.createIndex({ processed_at: 1 }, { expireAfterSeconds: PROCESSED_EVENT_TTL_SECONDS }),
+    emailJobs.createIndex({ created_at: -1 }),
+  ]);
+
+  return {
+    client,
+    db,
+    notifications,
+    processedEvents,
+    emailJobs,
+    close: () => client.close(),
+    /** Chỉ dùng trong test: xóa toàn bộ database tạm. */
+    drop: () => db.dropDatabase(),
+  };
 }

@@ -1,12 +1,9 @@
-import { transaction } from '../db.js';
-
 /**
  * Xử lý 1 domain event: tra rule → xác định người nhận → ghi DB (idempotent) → đẩy realtime.
  * Ném lỗi khi cần retry (vd identity-service chưa phản hồi); message chỉ được ACK khi hàm này xong.
  */
 export class NotificationService {
-  constructor({ db, repository, resolver, rules, publisher, logger = console }) {
-    this.db = db;
+  constructor({ repository, resolver, rules, publisher, logger = console }) {
     this.repository = repository;
     this.resolver = resolver;
     this.rules = rules;
@@ -20,7 +17,7 @@ export class NotificationService {
       this.logger.warn('[Notification] Bỏ qua message thiếu event_id/event_type');
       return { skipped: 'INVALID_ENVELOPE' };
     }
-    if (this.repository.isProcessed(eventId)) {
+    if (await this.repository.isProcessed(eventId)) {
       return { skipped: 'DUPLICATE' };
     }
 
@@ -31,10 +28,15 @@ export class NotificationService {
     if (eventType === 'StockUpdated' || eventType === 'StockReserved') {
       this.publisher?.broadcast?.('inventory:stock_updated', envelope.payload || {});
     }
+    if (eventType === 'GoodsIssued') {
+      // Payload GoodsIssued (issue_id, warehouse_id, items[].balance_*_after) không có `reservations`
+      // nên store frontend không cộng trừ giữ chỗ lần nữa; chỉ báo hiệu tồn kho đã đổi.
+      this.publisher?.broadcast?.('inventory:stock_updated', { event_type: eventType, ...(envelope.payload || {}) });
+    }
 
     const rule = this.rules[eventType];
     if (!rule) {
-      this.repository.markProcessed(eventId, eventType);
+      await this.repository.markProcessed(eventId, eventType);
       return { skipped: 'NO_RULE' };
     }
 
@@ -58,18 +60,17 @@ export class NotificationService {
         }
       : null;
 
-    const { created, resolved } = transaction(this.db, () => {
-      const resolvedRows = this.repository.resolveActions(rule.resolves?.(payload) ?? []);
-      const createdRows = notification ? this.repository.insertMany(eventId, recipientIds, notification) : [];
-      this.repository.markProcessed(eventId, eventType);
-      return { created: createdRows, resolved: resolvedRows };
-    });
+    // Không dùng transaction: unique index (event_id, recipient_id) giữ cho việc ghi thông báo idempotent,
+    // nên nếu lỗi giữa chừng thì xử lý lại event vẫn an toàn. markProcessed đặt cuối cùng.
+    const resolved = await this.repository.resolveActions(rule.resolves?.(payload) ?? []);
+    const created = notification ? await this.repository.insertMany(eventId, recipientIds, notification) : [];
+    await this.repository.markProcessed(eventId, eventType);
 
-    this.pushRealtime(created, resolved);
+    await this.pushRealtime(created, resolved);
     return { created: created.length, resolved: resolved.length };
   }
 
-  pushRealtime(created, resolved) {
+  async pushRealtime(created, resolved) {
     if (!this.publisher) return;
     const touched = new Set();
     for (const { recipientId, notification } of created) {
@@ -81,7 +82,7 @@ export class NotificationService {
       touched.add(recipientId);
     }
     for (const recipientId of touched) {
-      this.publisher.toUser(recipientId, 'notification:unread_count', { unread_count: this.repository.unreadCount(recipientId) });
+      this.publisher.toUser(recipientId, 'notification:unread_count', { unread_count: await this.repository.unreadCount(recipientId) });
     }
   }
 }
