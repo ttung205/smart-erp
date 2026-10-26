@@ -146,22 +146,6 @@
     {
       "source": "erp.events",
       "vhost": "/",
-      "destination": "erp.sales.events",
-      "destination_type": "queue",
-      "routing_key": "inventory.stock.*",
-      "arguments": {}
-    },
-    {
-      "source": "erp.events",
-      "vhost": "/",
-      "destination": "erp.analytics.events",
-      "destination_type": "queue",
-      "routing_key": "*.*.*",
-      "arguments": {}
-    },
-    {
-      "source": "erp.events",
-      "vhost": "/",
       "destination": "erp.notification.events",
       "destination_type": "queue",
       "routing_key": "sales.quotation.*",
@@ -252,7 +236,7 @@
       "vhost": "/",
       "destination": "erp.notification.events",
       "destination_type": "queue",
-      "routing_key": "inventory.stock.*",
+      "routing_key": "inventory.goods.issued",
       "arguments": {}
     },
     {

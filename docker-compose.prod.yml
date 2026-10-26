@@ -1,0 +1,125 @@
+# Production override. Dùng cùng docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# (hoặc scripts/deploy.ps1 -Production, tự kiểm tra cấu hình trước khi chạy)
+#
+# Khác biệt so với Development:
+#   1. Mọi secret là BẮT BUỘC (${VAR:?}) - thiếu biến thì `docker compose config` báo lỗi, không bao giờ dùng giá trị mặc định công khai.
+#   2. Chỉ gateway (8000) và frontend (5175) được publish ra host; các service/hạ tầng khác chỉ truy cập qua mạng Docker erp-network.
+# Không đổi nghiệp vụ, API contract hay schema database.
+
+x-mysql-password: &mysql-password ${MYSQL_PASSWORD:?MYSQL_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)}
+x-rabbit-password: &rabbit-password ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)}
+x-jwt-secret: &jwt-secret ${JWT_SECRET:?JWT_SECRET chưa đặt trong .env/môi trường (xem .env.example)}
+x-internal-key: &internal-key ${INTERNAL_SERVICE_KEY:?INTERNAL_SERVICE_KEY chưa đặt trong .env/môi trường (xem .env.example)}
+
+services:
+  mysql:
+    ports: !reset []
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)}
+      MYSQL_PASSWORD: *mysql-password
+
+  rabbitmq:
+    ports: !reset []
+    environment:
+      RABBITMQ_DEFAULT_PASS: *rabbit-password
+
+  mailpit:
+    ports: !reset []
+
+  identity-service:
+    ports: !reset []
+    environment:
+      APP_KEY: ${IDENTITY_APP_KEY:?IDENTITY_APP_KEY chưa đặt trong .env/môi trường (xem .env.example)}
+      DB_PASSWORD: *mysql-password
+      JWT_SECRET: *jwt-secret
+      INTERNAL_SERVICE_KEY: *internal-key
+
+  catalog-service:
+    ports: !reset []
+    environment:
+      APP_KEY: ${CATALOG_APP_KEY:?CATALOG_APP_KEY chưa đặt trong .env/môi trường (xem .env.example)}
+      DB_PASSWORD: *mysql-password
+      JWT_SECRET: *jwt-secret
+      INTERNAL_SERVICE_KEY: *internal-key
+      RABBITMQ_PASSWORD: *rabbit-password
+
+  catalog-relay:
+    environment:
+      APP_KEY: ${CATALOG_APP_KEY:?CATALOG_APP_KEY chưa đặt trong .env/môi trường (xem .env.example)}
+      DB_PASSWORD: *mysql-password
+      RABBITMQ_PASSWORD: *rabbit-password
+
+  purchase-service:
+    ports: !reset []
+    environment:
+      ConnectionStrings__MySqlConnection: "Server=mysql;Port=3306;Database=erp_purchase_db;User=erp_user;Password=${MYSQL_PASSWORD:?MYSQL_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)};TreatTinyAsBoolean=true;"
+      RabbitMQ__Password: *rabbit-password
+      Jwt__Secret: *jwt-secret
+      Services__InternalKey: *internal-key
+
+  inventory-service:
+    ports: !reset []
+    environment:
+      ConnectionStrings__MySqlConnection: "Server=mysql;Port=3306;Database=erp_inventory_db;User=erp_user;Password=${MYSQL_PASSWORD:?MYSQL_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)};"
+      RabbitMQ__Password: *rabbit-password
+      Jwt__Secret: *jwt-secret
+
+  sales-service:
+    ports: !reset []
+    environment:
+      APP_KEY: ${SALES_APP_KEY:?SALES_APP_KEY chưa đặt trong .env/môi trường (xem .env.example)}
+      DB_PASSWORD: *mysql-password
+      JWT_SECRET: *jwt-secret
+      INTERNAL_SERVICE_KEY: *internal-key
+      RABBITMQ_PASSWORD: *rabbit-password
+
+  sales-relay:
+    environment:
+      APP_KEY: ${SALES_APP_KEY:?SALES_APP_KEY chưa đặt trong .env/môi trường (xem .env.example)}
+      DB_PASSWORD: *mysql-password
+      RABBITMQ_PASSWORD: *rabbit-password
+
+  notification-service:
+    ports: !reset []
+    environment:
+      JWT_SECRET: *jwt-secret
+      INTERNAL_SERVICE_KEY: *internal-key
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-erp_rabbit}:${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)}@rabbitmq:5672
+
+  eoffice-service:
+    ports: !reset []
+    environment:
+      APP_KEY: ${EOFFICE_APP_KEY:?EOFFICE_APP_KEY chưa đặt trong .env/môi trường (xem .env.example)}
+      DB_PASSWORD: *mysql-password
+      JWT_SECRET: *jwt-secret
+      INTERNAL_SERVICE_KEY: *internal-key
+      RABBITMQ_PASSWORD: *rabbit-password
+
+  eoffice-relay:
+    environment:
+      APP_KEY: ${EOFFICE_APP_KEY:?EOFFICE_APP_KEY chưa đặt trong .env/môi trường (xem .env.example)}
+      DB_PASSWORD: *mysql-password
+      RABBITMQ_PASSWORD: *rabbit-password
+
+  finance-service:
+    ports: !reset []
+    environment:
+      APP_KEY: ${FINANCE_APP_KEY:?FINANCE_APP_KEY chưa đặt trong .env/môi trường (xem .env.example)}
+      DB_PASSWORD: *mysql-password
+      JWT_SECRET: *jwt-secret
+      INTERNAL_SERVICE_KEY: *internal-key
+
+  chat-service:
+    ports: !reset []
+    environment:
+      Jwt__Secret: *jwt-secret
+      Services__InternalKey: *internal-key
+
+  ai-service:
+    ports: !reset []
+    environment:
+      JWT_SECRET: *jwt-secret
+
+  gateway-legacy:
+    ports: !reset []

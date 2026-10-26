@@ -1,6 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import nodemailer from 'nodemailer';
+import { EMAIL_LOG_LIST_PERMISSIONS, EMAIL_SEND_PERMISSIONS, EMAIL_STATUS_PERMISSIONS, requireAnyEmailPermission } from './email.auth.js';
+
+const MAX_RECIPIENTS = 50;
+
+const recipientCount = (value) => (Array.isArray(value) ? value.length : value ? 1 : 0);
+// Tên hiển thị đi vào header From: bỏ ký tự điều khiển/dấu nháy để không chèn thêm header hay đổi địa chỉ gửi
+const displayName = (value) => String(value ?? '').replace(/[\r\n"<>]/g, ' ').trim().slice(0, 100) || 'Smart ERP';
 
 export function getTransporter() {
   const host = process.env.SMTP_HOST || '127.0.0.1';
@@ -14,7 +21,7 @@ export function getTransporter() {
 
 export function createEmailRouter({ db, enqueue }) {
   const router = Router();
-  router.post('/send', async (req, res) => {
+  router.post('/send', requireAnyEmailPermission(EMAIL_SEND_PERMISSIONS), async (req, res) => {
     const { to, cc, bcc, subject, text, html, body, attachments = [], senderName = 'Smart ERP' } = req.body;
     if (!to || (Array.isArray(to) && to.length === 0)) {
       return res.status(400).json({ success: false, error: { message: 'Địa chỉ người nhận (to) là bắt buộc.' } });
@@ -26,10 +33,14 @@ export function createEmailRouter({ db, enqueue }) {
       return res.status(400).json({ success: false, error: { message: 'attachments phải là một danh sách.' } });
     }
 
+    if (recipientCount(to) + recipientCount(cc) + recipientCount(bcc) > MAX_RECIPIENTS) {
+      return res.status(422).json({ success: false, error: { message: `Tối đa ${MAX_RECIPIENTS} người nhận mỗi email.` } });
+    }
+
     const id = randomUUID();
     const recipient = Array.isArray(to) ? to.join(', ') : to;
     const mailOptions = {
-      from: `"${senderName}" <${process.env.MAIL_FROM_ADDRESS || 'sales@thanhtung.vn'}>`,
+      from: `"${displayName(senderName)}" <${process.env.MAIL_FROM_ADDRESS || 'sales@thanhtung.vn'}>`,
       to: recipient,
       cc: Array.isArray(cc) ? cc.join(', ') : cc,
       bcc: Array.isArray(bcc) ? bcc.join(', ') : bcc,
@@ -60,13 +71,13 @@ export function createEmailRouter({ db, enqueue }) {
     }
   });
 
-  router.get('/logs', (_req, res) => {
+  router.get('/logs', requireAnyEmailPermission(EMAIL_LOG_LIST_PERMISSIONS), (_req, res) => {
     const rows = db.prepare(`SELECT id, message_id AS messageId, recipient AS "to", subject,
       attachments_count AS attachmentsCount, status, created_at AS createdAt, sent_at AS sentAt, error
       FROM email_jobs ORDER BY created_at DESC LIMIT 100`).all();
     res.json({ success: true, data: rows });
   });
-  router.get('/logs/:id', (req, res) => {
+  router.get('/logs/:id', requireAnyEmailPermission(EMAIL_STATUS_PERMISSIONS), (req, res) => {
     const row = db.prepare(`SELECT id, message_id AS messageId, recipient AS "to", subject,
       attachments_count AS attachmentsCount, status, created_at AS createdAt, sent_at AS sentAt, error
       FROM email_jobs WHERE id = ?`).get(req.params.id);

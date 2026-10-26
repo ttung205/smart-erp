@@ -16,8 +16,12 @@
       :value="vouchers"
       :columns="columns"
       :loading="loading"
-      :rows="20"
+      :rows="rowsPerPage"
+      :first="(page - 1) * rowsPerPage"
+      :total-records="totalRecords"
+      lazy
       empty-icon="pi pi-file"
+      @page="changePage"
       empty-title="Chưa có chứng từ"
     >
       <template #col-voucher_number="{ data }">
@@ -78,6 +82,9 @@ const currentUser = parseJwt(storage.getToken());
 const vouchers = ref([]);
 const loading = ref(false);
 const postingId = ref(null);
+const page = ref(1);
+const rowsPerPage = ref(20);
+const totalRecords = ref(0);
 const voucherType = computed(() => route.meta.voucherType);
 const canCreate = computed(() => hasPermission('finance.create', currentUser));
 const canPost = computed(() => hasPermission('finance.post', currentUser) || hasPermission('finance.approve', currentUser));
@@ -110,12 +117,24 @@ const formatVoucherAmount = voucher => new Intl.NumberFormat('vi-VN', {
 const load = async () => {
   loading.value = true;
   try {
-    vouchers.value = (await financeApi.getVouchers({ voucher_type: voucherType.value })).data || [];
+    const result = await financeApi.getVouchers({
+      voucher_type: voucherType.value,
+      page: page.value,
+      per_page: rowsPerPage.value
+    });
+    vouchers.value = result.data || [];
+    totalRecords.value = result.meta?.total || 0;
   } catch (error) {
     toast.add({ severity: 'error', summary: 'Không tải được chứng từ', detail: error.message, life: 4000 });
   } finally {
     loading.value = false;
   }
+};
+
+const changePage = event => {
+  page.value = event.page + 1;
+  rowsPerPage.value = event.rows;
+  load();
 };
 
 const postVoucher = async voucher => {
@@ -133,5 +152,8 @@ const postVoucher = async voucher => {
 };
 
 onMounted(load);
-watch(voucherType, load);
+watch(voucherType, () => {
+  page.value = 1;
+  load();
+});
 </script>

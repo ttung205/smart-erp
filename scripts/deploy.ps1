@@ -1,7 +1,9 @@
 [CmdletBinding()]
 param(
     [switch]$SkipBuild,
-    [switch]$SkipMigrations
+    [switch]$SkipMigrations,
+    # Dùng docker-compose.prod.yml: bắt buộc secret thật, chỉ publish gateway/frontend
+    [switch]$Production
 )
 
 $ErrorActionPreference = "Stop"
@@ -9,6 +11,12 @@ $root = Split-Path -Parent $PSScriptRoot
 Push-Location $root
 
 try {
+    if ($Production) {
+        & "$PSScriptRoot/validate-prod-config.ps1"
+        if ($LASTEXITCODE -ne 0) { throw "Production configuration validation failed." }
+        $env:COMPOSE_FILE = "docker-compose.yml$([IO.Path]::PathSeparator)docker-compose.prod.yml"
+    }
+
     docker compose config --quiet
     if ($LASTEXITCODE -ne 0) { throw "Docker Compose configuration is invalid." }
 

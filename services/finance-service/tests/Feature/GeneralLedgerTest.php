@@ -2,14 +2,62 @@
 
 namespace Tests\Feature;
 
+use App\Models\ChartOfAccount;
 use App\Models\CustomerReceivable;
+use App\Models\FinanceVoucher;
+use App\Models\GeneralLedgerEntry;
 use Database\Seeders\FinanceMasterDataSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class GeneralLedgerTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_vouchers_are_paginated(): void
+    {
+        $headers = $this->jwtHeaders(['finance.view']);
+        foreach (range(1, 25) as $number) {
+            FinanceVoucher::create([
+                'idempotency_key' => (string) Str::uuid(),
+                'voucher_number' => 'PT-TEST-'.str_pad((string) $number, 3, '0', STR_PAD_LEFT),
+                'voucher_type' => 'CASH_RECEIPT', 'channel' => 'CASH',
+                'voucher_date' => '2026-10-15', 'description' => 'Test voucher',
+                'total_amount' => 100, 'currency' => 'VND', 'status' => 'DRAFT',
+            ]);
+        }
+
+        $this->getJson('/api/vouchers?voucher_type=CASH_RECEIPT&page=2&per_page=10', $headers)
+            ->assertOk()->assertJsonCount(10, 'data')
+            ->assertJsonPath('meta.current_page', 2)
+            ->assertJsonPath('meta.total', 25)
+            ->assertJsonPath('meta.last_page', 3);
+    }
+
+    public function test_general_ledger_pagination_keeps_running_balance_and_full_summary(): void
+    {
+        $this->seed(FinanceMasterDataSeeder::class);
+        $headers = $this->jwtHeaders(['finance.view']);
+        $account = ChartOfAccount::where('code', '1111')->firstOrFail();
+        $counterAccount = ChartOfAccount::where('code', '1311')->firstOrFail();
+        GeneralLedgerEntry::query()->delete();
+        foreach (range(1, 25) as $number) {
+            GeneralLedgerEntry::create([
+                'source_key' => 'PAGINATION:'.$number, 'source_type' => 'TEST', 'source_id' => $number,
+                'document_number' => 'DOC-'.$number, 'entry_date' => '2026-10-15',
+                'debit_account_id' => $account->id, 'credit_account_id' => $counterAccount->id,
+                'amount' => 10, 'currency' => 'VND', 'description' => 'Pagination test',
+            ]);
+        }
+
+        $this->getJson("/api/general-ledger?account_id={$account->id}&page=2&per_page=10", $headers)
+            ->assertOk()->assertJsonCount(10, 'data')
+            ->assertJsonPath('data.0.balance', 110)
+            ->assertJsonPath('summary.total_debit', 250)
+            ->assertJsonPath('summary.closing_balance', 250)
+            ->assertJsonPath('meta.total', 25);
+    }
 
     public function test_posted_cash_voucher_appears_in_general_ledger(): void
     {

@@ -31,6 +31,11 @@ export class NotificationService {
     if (eventType === 'StockUpdated' || eventType === 'StockReserved') {
       this.publisher?.broadcast?.('inventory:stock_updated', envelope.payload || {});
     }
+    if (eventType === 'GoodsIssued') {
+      // Payload GoodsIssued (issue_id, warehouse_id, items[].balance_*_after) không có `reservations`
+      // nên store frontend không cộng trừ giữ chỗ lần nữa; chỉ báo hiệu tồn kho đã đổi.
+      this.publisher?.broadcast?.('inventory:stock_updated', { event_type: eventType, ...(envelope.payload || {}) });
+    }
 
     const rule = this.rules[eventType];
     if (!rule) {

@@ -10,7 +10,7 @@
       <label class="text-sm font-medium">Từ ngày <InputText v-model="from" type="date" fluid class="mt-1" /></label>
       <label class="text-sm font-medium">Đến ngày <InputText v-model="to" type="date" fluid class="mt-1" /></label>
       <label class="text-sm font-medium">Tiền tệ <Select v-model="currency" :options="currencies" fluid class="mt-1" /></label>
-      <Button label="Xem sổ" icon="pi pi-search" :disabled="!accountId" :loading="loading" @click="loadLedger" />
+      <Button label="Xem sổ" icon="pi pi-search" :disabled="!accountId" :loading="loading" @click="loadLedger(true)" />
     </div>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
       <div v-for="card in cards" :key="card.label" class="bg-white border border-slate-200 rounded-md p-4">
@@ -18,7 +18,8 @@
         <div class="mt-1 text-lg font-bold font-mono">{{ money(card.value) }}</div>
       </div>
     </div>
-    <CommonDataTable :value="rows" :columns="columns" :rows="20" :loading="loading" empty-title="Chưa có phát sinh cho tài khoản này">
+    <CommonDataTable :value="rows" :columns="columns" :rows="rowsPerPage" :first="(page - 1) * rowsPerPage"
+      :total-records="totalRecords" :loading="loading" lazy empty-title="Chưa có phát sinh cho tài khoản này" @page="changePage">
       <template #col-entry_date="{ data }">{{ data.entry_date }}</template>
       <template #col-document_number="{ data }"><span class="font-mono font-semibold text-sky-700">{{ data.document_number }}</span></template>
       <template #col-counter_account_code="{ data }"><span class="font-mono">{{ data.counter_account_code }}</span></template>
@@ -55,6 +56,9 @@ const currencies = ['VND', 'USD', 'EUR', 'GBP', 'JPY', 'CNY', 'KRW', 'SGD', 'THB
 const rows = ref([]);
 const loading = ref(false);
 const syncing = ref(false);
+const page = ref(1);
+const rowsPerPage = ref(20);
+const totalRecords = ref(0);
 const summary = ref({ opening_balance: 0, total_debit: 0, total_credit: 0, closing_balance: 0 });
 const accountOptions = computed(() => accounts.value.filter(item => item.is_postable).map(item => ({ value: item.id, label: `${item.code} — ${item.name}` })));
 const cards = computed(() => [
@@ -73,16 +77,30 @@ const columns = [
   { field: 'balance', header: 'Số dư', width: '150px', align: 'right' }
 ];
 const money = value => new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(Number(value || 0));
-const loadLedger = async () => {
+const loadLedger = async (resetPage = false) => {
   if (!accountId.value) return;
+  if (resetPage) page.value = 1;
   loading.value = true;
   try {
-    const result = await financeApi.getGeneralLedger({ account_id: accountId.value, from: from.value, to: to.value, currency: currency.value });
+    const result = await financeApi.getGeneralLedger({
+      account_id: accountId.value,
+      from: from.value,
+      to: to.value,
+      currency: currency.value,
+      page: page.value,
+      per_page: rowsPerPage.value
+    });
     rows.value = result.data || [];
     summary.value = result.summary || summary.value;
+    totalRecords.value = result.meta?.total || 0;
   } catch (error) {
     toast.add({ severity: 'error', summary: 'Không tải được sổ cái', detail: error.message, life: 5000 });
   } finally { loading.value = false; }
+};
+const changePage = event => {
+  page.value = event.page + 1;
+  rowsPerPage.value = event.rows;
+  loadLedger();
 };
 const syncInvoices = async () => {
   syncing.value = true;

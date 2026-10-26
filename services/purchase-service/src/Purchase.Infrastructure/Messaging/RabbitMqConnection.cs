@@ -16,7 +16,6 @@ public class RabbitMqConnection : IDisposable
     private bool _disposed;
 
     public const string ExchangeName = "erp.events";
-    public const string PurchaseQueueName = "erp.purchase.events";
 
     public RabbitMqConnection(IConfiguration configuration, ILogger<RabbitMqConnection> logger)
     {
@@ -58,16 +57,9 @@ public class RabbitMqConnection : IDisposable
                     autoDelete: false,
                     arguments: null);
 
-                // Khởi tạo Queue cho Purchase Service
-                channel.QueueDeclare(
-                    queue: PurchaseQueueName,
-                    durable: true,
-                    exclusive: false,
-                    autoDelete: false,
-                    arguments: null);
-
-                // Bind queue với các sự kiện liên quan nếu cần
-                channel.QueueBind(queue: PurchaseQueueName, exchange: ExchangeName, routingKey: "inventory.goods.*");
+                // Purchase chỉ publish, chưa có consumer nên không khai báo/bind queue erp.purchase.events ở đây:
+                // queue do infrastructure/rabbitmq/definitions.json khai báo (kèm dead-letter, khai báo lệch tham số sẽ bị broker từ chối)
+                // và bind inventory.goods.* vào queue không ai đọc sẽ làm message tồn đọng.
 
                 _logger.LogInformation("Đã kết nối thành công tới RabbitMQ Broker tại {Host}:{Port}", factory.HostName, factory.Port);
                 return true;

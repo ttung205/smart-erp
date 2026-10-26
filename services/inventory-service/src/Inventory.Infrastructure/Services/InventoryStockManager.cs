@@ -65,7 +65,10 @@ public class InventoryStockManager : IInventoryStockManager
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        await using var tx = await _context.Database.BeginTransactionAsync(ct);
+        // Nếu caller (vd consumer GoodsReceived) đã mở transaction thì tham gia vào đó để nhập kho và đánh dấu
+        // đã xử lý event cùng commit/rollback; không thì tự mở transaction như trước.
+        var ownsTransaction = _context.Database.CurrentTransaction is null;
+        await using var tx = ownsTransaction ? await _context.Database.BeginTransactionAsync(ct) : null;
 
         var physicalResult = await ApplyPhysicalDeltaAsync(new ChangeStockCommand(
             command.WarehouseId,
@@ -85,7 +88,7 @@ public class InventoryStockManager : IInventoryStockManager
             "Tăng tồn khả dụng từ đơn nhập kho"
         ), ct);
 
-        await tx.CommitAsync(ct);
+        if (tx is not null) await tx.CommitAsync(ct);
         return physicalResult;
     }
 

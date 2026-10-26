@@ -13,7 +13,7 @@ services:
       MYSQL_USER: erp_user
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - ./infrastructure/mysql/init:/docker-entrypoint-initdb.d:ro
       - mysql_data:/var/lib/mysql
@@ -30,12 +30,15 @@ services:
     image: rabbitmq:3.13-management-alpine
     container_name: erp-rabbitmq
     restart: unless-stopped
+    # RabbitMQ lưu dữ liệu theo tên node (rabbit@<hostname>). Hostname cố định để recreate container không tạo node trống.
+    # Giá trị là hostname của node đang giữ dữ liệu trong volume rabbitmq_data; môi trường mới đặt tên nào cũng được.
+    hostname: 704c693c923e
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-erp_rabbit}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-rabbit_secret}
     ports:
-      - "5672:5672"     # AMQP protocol
-      - "15672:15672"   # Management Dashboard UI
+      - "127.0.0.1:5672:5672"     # AMQP protocol
+      - "127.0.0.1:15672:15672"   # Management Dashboard UI
     volumes:
       - ./infrastructure/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - ./infrastructure/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
@@ -55,7 +58,7 @@ services:
     restart: unless-stopped
     ports:
       - "1025:1025"     # SMTP Port cho Notification Service
-      - "8025:8025"     # Web UI xem trước email & file đính kèm
+      - "${MAILPIT_UI_PORT:-8025}:8025"     # Web UI xem trước email & file đính kèm
     networks:
       - erp-network
 

@@ -32,6 +32,7 @@ const app = createApp({
   repository,
   publisher,
   jwtSecret: config.jwtSecret,
+  internalServiceKey: config.internalServiceKey,
   enqueueEmail: (job) => enqueueEmail(config.rabbitmq, job),
   smtpInfo: {
     host: process.env.SMTP_HOST || '127.0.0.1',
