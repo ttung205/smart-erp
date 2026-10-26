@@ -386,6 +386,7 @@ services:
       DB_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
       JWT_SECRET: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
       IDENTITY_SERVICE_URL: http://identity-service:8001
+      FINANCE_SERVICE_URL: http://finance-service:8008
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-smart_erp_internal_2026}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672

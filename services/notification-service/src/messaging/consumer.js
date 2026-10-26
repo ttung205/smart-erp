@@ -11,6 +11,8 @@ export const BINDINGS = [
   'eoffice.leave.*',
   'eoffice.purchase.*',
   'eoffice.payment.*',
+  'eoffice.attendance.*',
+  'eoffice.payroll.*',
   'purchase.inquiry.*',
   'catalog.product.*',
   'inventory.goods.issued',

@@ -220,6 +220,22 @@
       "vhost": "/",
       "destination": "erp.notification.events",
       "destination_type": "queue",
+      "routing_key": "eoffice.attendance.*",
+      "arguments": {}
+    },
+    {
+      "source": "erp.events",
+      "vhost": "/",
+      "destination": "erp.notification.events",
+      "destination_type": "queue",
+      "routing_key": "eoffice.payroll.*",
+      "arguments": {}
+    },
+    {
+      "source": "erp.events",
+      "vhost": "/",
+      "destination": "erp.notification.events",
+      "destination_type": "queue",
       "routing_key": "purchase.inquiry.*",
       "arguments": {}
     },

@@ -142,6 +142,12 @@ Mọi payload đều có `actor: { id, name }` — người thực hiện hành 
 | `LeaveRequestSubmitted` | `eoffice.leave.submitted` | eoffice-service | `id`, `code`, `requester_id`, `requester_name`, `title`, `start_date`, `end_date`, `total_days`, `step_id`, `approver: { id, name }` |
 | `LeaveRequestApproved` / `LeaveRequestRejected` / `LeaveRequestReturned` | `eoffice.leave.approved\|rejected\|returned` | eoffice-service | như trên + `step_id`, `comment` |
 | `LeaveRequestCancelled` | `eoffice.leave.cancelled` | eoffice-service | như trên + `reason` |
+| `AttendanceRequestSubmitted` | `eoffice.attendance.submitted` | eoffice-service | `id`, `code`, `type_label`, `request_type` (`ADD_PUNCH\|MAKEUP\|REMOTE\|BUSINESS_TRIP\|OVERTIME`), `requester_id`, `requester_name`, `title`, `start_date`, `end_date`, `step_id`, `approver: { id, name }` |
+| `AttendanceRequestApproved` / `AttendanceRequestRejected` / `AttendanceRequestReturned` | `eoffice.attendance.approved\|rejected\|returned` | eoffice-service | như trên + `comment` |
+| `AttendanceRequestCancelled` | `eoffice.attendance.cancelled` | eoffice-service | như trên + `reason` |
+| `PayrollSubmitted` / `PayrollApproved` | `eoffice.payroll.submitted\|approved` | eoffice-service | `period_id`, `year`, `month`, `label`, `employee_count`, `actor: { id, name }` (không mang số tiền) |
+| `PayrollReturned` | `eoffice.payroll.returned` | eoffice-service | như trên + `comment`, `recipient_ids` (người lập bảng lương) |
+| `PayslipPublished` / `PayrollPaid` | `eoffice.payroll.slip_published\|paid` | eoffice-service | như `PayrollSubmitted` + `recipient_ids` (nhân viên có phiếu lương) |
 
 **Ví dụ `QuotationSubmitted`:**
 ```json

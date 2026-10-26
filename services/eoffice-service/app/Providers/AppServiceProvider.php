@@ -3,8 +3,10 @@
 namespace App\Providers;
 
 use App\Auth\JwtVerifier;
+use App\Models\AttendanceRequest;
 use App\Models\LeaveRequest;
 use App\Models\OfficeRequest;
+use App\Models\PayrollPeriod;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
 
@@ -27,6 +29,8 @@ class AppServiceProvider extends ServiceProvider
         Relation::enforceMorphMap([
             'leave_request' => LeaveRequest::class,
             'office_request' => OfficeRequest::class,
+            'attendance_request' => AttendanceRequest::class,
+            'payroll_period' => PayrollPeriod::class,
         ]);
     }
 }

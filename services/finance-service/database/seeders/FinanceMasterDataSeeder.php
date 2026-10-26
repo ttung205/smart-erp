@@ -40,6 +40,7 @@ class FinanceMasterDataSeeder extends Seeder
             ['331', 'Phải trả cho người bán', null, 'LIABILITY', 'CREDIT', true, false],
             ['3331', 'Thuế GTGT phải nộp', null, 'LIABILITY', 'CREDIT', true, false],
             ['3334', 'Thuế thu nhập doanh nghiệp', null, 'LIABILITY', 'CREDIT', true, false],
+            ['3335', 'Thuế thu nhập cá nhân', null, 'LIABILITY', 'CREDIT', true, false],
             ['334', 'Phải trả người lao động', null, 'LIABILITY', 'CREDIT', true, false],
             ['338', 'Phải trả, phải nộp khác', null, 'LIABILITY', 'CREDIT', true, false],
             ['341', 'Vay và nợ thuê tài chính', null, 'LIABILITY', 'CREDIT', true, false],

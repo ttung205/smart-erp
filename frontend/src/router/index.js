@@ -58,6 +58,12 @@ import PurchaseRequestIndex from '../pages/eoffice/purchase-request/index.vue';
 import PurchaseRequestForm from '../pages/eoffice/purchase-request/form.vue';
 import PaymentRequestIndex from '../pages/eoffice/payment-request/index.vue';
 import PaymentRequestForm from '../pages/eoffice/payment-request/form.vue';
+import AttendancePage from '../pages/eoffice/attendance/index.vue';
+import AttendanceRequestsPage from '../pages/eoffice/attendance-requests/index.vue';
+import AttendanceRequestFormPage from '../pages/eoffice/attendance-requests/form.vue';
+import AttendanceManagePage from '../pages/eoffice/attendance-manage/index.vue';
+import PayrollPage from '../pages/eoffice/payroll/index.vue';
+import PayslipPage from '../pages/eoffice/payslip/index.vue';
 
 // Purchase sub-pages
 import PurchaseRequisitionPage from '../pages/purchase/requisition/index.vue';
@@ -704,6 +710,14 @@ export const routes = [
   { path: '/eoffice/payment-requests', name: 'eoffice-payment-requests', component: PaymentRequestIndex, meta: { requiresAuth: true, title: 'Đề nghị thanh toán' } },
   { path: '/eoffice/payment-requests/new', name: 'eoffice-payment-request-new', component: PaymentRequestForm, meta: { requiresAuth: true, title: 'Lập đề nghị thanh toán' } },
   { path: '/eoffice/payment-requests/:id(\\d+)', name: 'eoffice-payment-request-detail', component: PaymentRequestForm, meta: { requiresAuth: true, title: 'Chi tiết đề nghị thanh toán' } },
+  // Chấm công & bảng lương: nhân viên tự xem công/phiếu lương của mình; quản lý và lương cần quyền riêng (kiểm tra ở eoffice-service)
+  { path: '/eoffice/attendance', name: 'eoffice-attendance', component: AttendancePage, meta: { requiresAuth: true, title: 'Chấm công của tôi' } },
+  { path: '/eoffice/attendance-requests', name: 'eoffice-attendance-requests', component: AttendanceRequestsPage, meta: { requiresAuth: true, title: 'Yêu cầu chấm công' } },
+  { path: '/eoffice/attendance-requests/new', name: 'eoffice-attendance-request-new', component: AttendanceRequestFormPage, meta: { requiresAuth: true, title: 'Tạo yêu cầu chấm công' } },
+  { path: '/eoffice/attendance-requests/:id(\\d+)', name: 'eoffice-attendance-request-detail', component: AttendanceRequestFormPage, meta: { requiresAuth: true, title: 'Chi tiết yêu cầu chấm công' } },
+  { path: '/eoffice/attendance-manage', name: 'eoffice-attendance-manage', component: AttendanceManagePage, meta: { requiresAuth: true, anyPermission: ['attendance.view', 'attendance.manage', 'eoffice.manage'], title: 'Quản lý chấm công' } },
+  { path: '/eoffice/payroll', name: 'eoffice-payroll', component: PayrollPage, meta: { requiresAuth: true, anyPermission: ['payroll.view', 'payroll.manage', 'payroll.approve', 'payroll.pay'], title: 'Bảng lương' } },
+  { path: '/eoffice/payslip', name: 'eoffice-payslip', component: PayslipPage, meta: { requiresAuth: true, title: 'Phiếu lương của tôi' } },
   { path: '/eoffice/leave-calendar', redirect: '/eoffice/leave/calendar' },
   { path: '/eoffice/leave-balances', redirect: '/eoffice/leave/balances' },
   { path: '/eoffice/approvals', redirect: { path: '/eoffice/leave', query: { scope: 'to_approve' } } },
@@ -795,6 +809,9 @@ router.beforeEach((to, from, next) => {
           query: { permission: to.meta.permission || `${to.meta.resource}.view` }
         });
       }
+    }
+    if (to.meta.anyPermission && !to.meta.anyPermission.some(code => hasPermission(code, user))) {
+      return next({ path: '/forbidden', query: { permission: to.meta.anyPermission[0] } });
     }
     if (to.meta.permission && !hasPermission(to.meta.permission, user)) {
       return next({ path: '/forbidden', query: { permission: to.meta.permission } });

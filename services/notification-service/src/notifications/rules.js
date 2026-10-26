@@ -21,6 +21,9 @@ const orderKey = (p) => `order:${p.order_id}:approve`;
 const deliveryKey = (p) => `delivery:${p.delivery_request_id}:approve`;
 const dispatchKey = (p) => `dispatch:${p.dispatch_id}:process`;
 const leaveKey = (p) => `leave:${p.id}:approve`;
+const attendanceKey = (p) => `attendance:${p.id}:approve`;
+const payrollApproveKey = (p) => `payroll:${p.period_id}:approve`;
+const payrollPayKey = (p) => `payroll:${p.period_id}:pay`;
 const officeKey = (kind) => (p) => `office:${kind}:${p.id}:approve`;
 
 const officeRules = (kind, label, path) => {
@@ -211,6 +214,88 @@ export const rules = {
     // Đơn hủy khi chưa duyệt thì chỉ cần đóng việc của người duyệt, không báo thêm
     recipients: () => ({}),
     resolves: (p) => [leaveKey(p)],
+  },
+
+  // ── Chấm công: yêu cầu bổ sung/bù công/remote/công tác/OT đi qua luồng duyệt của quản lý trực tiếp ──
+  AttendanceRequestSubmitted: {
+    category: 'task',
+    recipients: (p) => ({ userIds: userIds(p.approver?.id) }),
+    title: (p) => `${p.type_label} ${p.code} cần duyệt`,
+    body: (p) => `${p.requester_name} gửi yêu cầu: ${p.title}`,
+    link: () => '/eoffice/attendance-requests?scope=to_approve',
+    actionKey: attendanceKey,
+  },
+  AttendanceRequestApproved: {
+    category: 'info',
+    recipients: (p) => ({ userIds: userIds(p.requester_id) }),
+    title: (p) => `${p.type_label} ${p.code} đã được duyệt`,
+    body: (p) => withReason(`${actorName(p)} đã duyệt yêu cầu.`, p.comment),
+    link: (p) => `/eoffice/attendance-requests/${p.id}`,
+    resolves: (p) => [attendanceKey(p)],
+  },
+  AttendanceRequestRejected: {
+    category: 'info',
+    recipients: (p) => ({ userIds: userIds(p.requester_id) }),
+    title: (p) => `${p.type_label} ${p.code} bị từ chối`,
+    body: (p) => withReason(`${actorName(p)} đã từ chối yêu cầu.`, p.comment),
+    link: (p) => `/eoffice/attendance-requests/${p.id}`,
+    resolves: (p) => [attendanceKey(p)],
+  },
+  AttendanceRequestReturned: {
+    category: 'info',
+    recipients: (p) => ({ userIds: userIds(p.requester_id) }),
+    title: (p) => `${p.type_label} ${p.code} bị trả lại`,
+    body: (p) => withReason(`${actorName(p)} trả lại yêu cầu để bổ sung.`, p.comment),
+    link: (p) => `/eoffice/attendance-requests/${p.id}`,
+    resolves: (p) => [attendanceKey(p)],
+  },
+  AttendanceRequestCancelled: {
+    category: 'info',
+    // Hủy khi chưa duyệt thì chỉ đóng việc của người duyệt, không báo thêm
+    recipients: () => ({}),
+    resolves: (p) => [attendanceKey(p)],
+  },
+
+  // ── Bảng lương: payload không mang số tiền, chỉ báo trạng thái ──
+  PayrollSubmitted: {
+    category: 'task',
+    recipients: () => ({ permissions: ['payroll.approve'] }),
+    title: (p) => `Bảng lương tháng ${p.label} cần duyệt`,
+    body: (p) => `${actorName(p)} đã gửi bảng lương ${p.employee_count} nhân viên chờ duyệt.`,
+    link: () => '/eoffice/payroll',
+    actionKey: payrollApproveKey,
+  },
+  PayrollApproved: {
+    category: 'task',
+    recipients: () => ({ permissions: ['payroll.pay'] }),
+    title: (p) => `Bảng lương tháng ${p.label} đã duyệt, cần chi lương`,
+    body: (p) => `${actorName(p)} đã duyệt bảng lương ${p.employee_count} nhân viên.`,
+    link: () => '/eoffice/payroll',
+    actionKey: payrollPayKey,
+    resolves: (p) => [payrollApproveKey(p)],
+  },
+  PayrollReturned: {
+    category: 'info',
+    recipients: (p) => ({ userIds: userIds(...(p.recipient_ids || [])) }),
+    title: (p) => `Bảng lương tháng ${p.label} bị trả lại`,
+    body: (p) => withReason(`${actorName(p)} trả lại bảng lương để chỉnh sửa.`, p.comment),
+    link: () => '/eoffice/payroll',
+    resolves: (p) => [payrollApproveKey(p)],
+  },
+  PayslipPublished: {
+    category: 'info',
+    recipients: (p) => ({ userIds: userIds(...(p.recipient_ids || [])) }),
+    title: (p) => `Phiếu lương tháng ${p.label} đã sẵn sàng`,
+    body: () => 'Bạn có thể xem chi tiết phiếu lương trong mục Phiếu lương của tôi.',
+    link: () => '/eoffice/payslip',
+  },
+  PayrollPaid: {
+    category: 'info',
+    recipients: (p) => ({ userIds: userIds(...(p.recipient_ids || [])) }),
+    title: (p) => `Lương tháng ${p.label} đã được chi`,
+    body: () => 'Kế toán đã chi lương, vui lòng kiểm tra tài khoản nhận lương.',
+    link: () => '/eoffice/payslip',
+    resolves: (p) => [payrollPayKey(p)],
   },
 
   // ── Sản phẩm mới: thông báo đến bộ phận Kho vận (LOGISTIC) để theo dõi tồn kho ──
