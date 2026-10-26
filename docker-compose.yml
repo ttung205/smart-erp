@@ -51,6 +51,27 @@ services:
       timeout: 5s
       retries: 5
 
+  # MongoDB 7 cho chat-service và notification-service (dữ liệu dạng tài liệu, ghi nhiều).
+  # Chạy replica set một node vì chat-service cần transaction; healthcheck tự khởi tạo replica set lần đầu.
+  # Không bật xác thực: chỉ bind 127.0.0.1 ở dev và không publish ở production (xem docker-compose.prod.yml).
+  mongo:
+    image: mongo:7
+    container_name: erp-mongo
+    restart: unless-stopped
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - erp-network
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval \"try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}).ok }\" | grep -q 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 15s
+
   # Mailpit Local SMTP Server & Web UI (Local Email Testing)
   mailpit:
     image: axllent/mailpit:latest
@@ -344,11 +365,12 @@ services:
       JWT_SECRET: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
       IDENTITY_SERVICE_URL: http://identity-service:8001
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-erp_rabbit}:${RABBITMQ_PASSWORD:-rabbit_secret}@rabbitmq:5672
-      NOTIFICATION_DB_PATH: database/notifications.sqlite
+      MONGODB_URI: mongodb://mongo:27017/?replicaSet=rs0
+      NOTIFICATION_DB_NAME: erp_notification_db
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-smart_erp_internal_2026}
-    volumes:
-      - notification_data:/app/database
     depends_on:
+      mongo:
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
       mailpit:
@@ -641,7 +663,7 @@ networks:
 volumes:
   mysql_data:
   rabbitmq_data:
-  notification_data:
+  mongo_data:
   chat_data:
   chat_files:
   ai_data:

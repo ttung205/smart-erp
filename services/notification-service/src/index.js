@@ -18,8 +18,8 @@ if (!config.internalServiceKey) {
   console.warn('[Notification Service] Chưa cấu hình INTERNAL_SERVICE_KEY: identity-service sẽ từ chối tra người nhận theo quyền.');
 }
 
-const db = openDatabase(config.dbPath);
-const repository = new NotificationRepository(db);
+const database = await openDatabase(config.mongo.uri, config.mongo.dbName);
+const repository = new NotificationRepository(database);
 
 let realtime = null;
 const publisher = {
@@ -28,7 +28,7 @@ const publisher = {
 };
 
 const app = createApp({
-  db,
+  database,
   repository,
   publisher,
   jwtSecret: config.jwtSecret,
@@ -44,7 +44,6 @@ const server = createServer(app);
 realtime = createRealtime(server, { jwtSecret: config.jwtSecret });
 
 const notificationService = new NotificationService({
-  db,
   repository,
   resolver: new RecipientResolver({
     identityUrl: config.identityUrl,
@@ -57,8 +56,8 @@ const notificationService = new NotificationService({
 const consumer = startConsumer({ rabbitmq: config.rabbitmq, handle: (envelope) => notificationService.handleEvent(envelope) });
 const emailConsumer = startEmailConsumer({
   rabbitmq: config.rabbitmq,
-  handle: (job) => sendQueuedEmail(db, job),
-  onFailed: (job, error) => markEmailFailed(db, job, error),
+  handle: (job) => sendQueuedEmail(database, job),
+  onFailed: (job, error) => markEmailFailed(database, job, error),
 });
 
 server.listen(config.port, () => {
@@ -70,8 +69,8 @@ async function shutdown() {
   await consumer.stop();
   await emailConsumer.stop();
   realtime.io.close();
-  server.close(() => {
-    db.close();
+  server.close(async () => {
+    await database.close();
     process.exit(0);
   });
 }

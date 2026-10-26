@@ -1,124 +1,143 @@
-const nowIso = () => new Date().toISOString();
+import { ObjectId } from 'mongodb';
 
-function toDto(row) {
-  if (!row) return null;
+const iso = (value) => (value ? new Date(value).toISOString() : null);
+
+function toDto(doc) {
+  if (!doc) return null;
   return {
-    id: row.id,
-    type: row.type,
-    category: row.category,
-    title: row.title,
-    body: row.body,
-    link: row.link,
-    action_key: row.action_key,
-    status: row.status,
-    actor: row.actor_id ? { id: row.actor_id, name: row.actor_name } : null,
-    metadata: row.metadata ? JSON.parse(row.metadata) : {},
-    created_at: row.created_at,
-    read_at: row.read_at,
-    resolved_at: row.resolved_at,
+    id: doc._id.toString(),
+    type: doc.type,
+    category: doc.category,
+    title: doc.title,
+    body: doc.body ?? null,
+    link: doc.link ?? null,
+    action_key: doc.action_key ?? null,
+    status: doc.status,
+    actor: doc.actor_id ? { id: doc.actor_id, name: doc.actor_name } : null,
+    metadata: doc.metadata ?? {},
+    created_at: iso(doc.created_at),
+    read_at: iso(doc.read_at),
+    resolved_at: iso(doc.resolved_at),
   };
 }
 
+/** id không đúng định dạng ObjectId thì coi như không tồn tại (404), không ném lỗi. */
+function toObjectId(id) {
+  return ObjectId.isValid(id) && String(new ObjectId(id)) === String(id) ? new ObjectId(id) : null;
+}
+
 export class NotificationRepository {
-  constructor(db) {
-    this.db = db;
+  constructor(database) {
+    this.notifications = database.notifications;
+    this.processedEvents = database.processedEvents;
   }
 
-  isProcessed(eventId) {
-    return Boolean(this.db.prepare('SELECT 1 FROM processed_events WHERE event_id = ?').get(eventId));
+  async isProcessed(eventId) {
+    return Boolean(await this.processedEvents.findOne({ _id: eventId }, { projection: { _id: 1 } }));
   }
 
-  markProcessed(eventId, eventType) {
-    this.db
-      .prepare('INSERT OR IGNORE INTO processed_events (event_id, event_type, processed_at) VALUES (?, ?, ?)')
-      .run(eventId, eventType, nowIso());
+  async markProcessed(eventId, eventType) {
+    await this.processedEvents.updateOne(
+      { _id: eventId },
+      { $setOnInsert: { event_type: eventType, processed_at: new Date() } },
+      { upsert: true },
+    );
   }
 
-  /** Ghi 1 dòng/người nhận; trùng (event_id, recipient_id) thì bỏ qua. Trả về các bản ghi vừa tạo. */
-  insertMany(eventId, recipientIds, notification) {
-    const insert = this.db.prepare(`
-      INSERT OR IGNORE INTO notifications
-        (recipient_id, event_id, type, category, title, body, link, action_key, actor_id, actor_name, metadata, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    const createdAt = nowIso();
+  /**
+   * Ghi 1 bản ghi/người nhận; trùng (event_id, recipient_id) thì bỏ qua nhờ unique index.
+   * Trả về các bản ghi vừa tạo mới.
+   */
+  async insertMany(eventId, recipientIds, notification) {
+    const createdAt = new Date();
     const created = [];
     for (const recipientId of recipientIds) {
-      const result = insert.run(
-        recipientId,
-        eventId,
-        notification.type,
-        notification.category,
-        notification.title,
-        notification.body ?? null,
-        notification.link ?? null,
-        notification.actionKey ?? null,
-        notification.actor?.id ?? null,
-        notification.actor?.name ?? null,
-        JSON.stringify(notification.metadata ?? {}),
-        createdAt,
+      const result = await this.notifications.updateOne(
+        { event_id: eventId, recipient_id: recipientId },
+        {
+          $setOnInsert: {
+            type: notification.type,
+            category: notification.category,
+            title: notification.title,
+            body: notification.body ?? null,
+            link: notification.link ?? null,
+            action_key: notification.actionKey ?? null,
+            status: 'UNREAD',
+            actor_id: notification.actor?.id ?? null,
+            actor_name: notification.actor?.name ?? null,
+            metadata: notification.metadata ?? {},
+            created_at: createdAt,
+            read_at: null,
+            resolved_at: null,
+          },
+        },
+        { upsert: true },
       );
-      if (result.changes > 0) {
-        created.push({ recipientId, notification: this.find(Number(result.lastInsertRowid)) });
+      if (result.upsertedId) {
+        created.push({ recipientId, notification: await this.find(result.upsertedId) });
       }
     }
     return created;
   }
 
   /** Đánh dấu "đã xử lý" mọi việc cần làm có action_key; trả về [{recipientId, id}] để đẩy realtime. */
-  resolveActions(actionKeys) {
+  async resolveActions(actionKeys) {
     if (actionKeys.length === 0) return [];
-    const placeholders = actionKeys.map(() => '?').join(', ');
-    const rows = this.db
-      .prepare(`SELECT id, recipient_id FROM notifications WHERE action_key IN (${placeholders}) AND resolved_at IS NULL`)
-      .all(...actionKeys);
-    if (rows.length === 0) return [];
-    this.db
-      .prepare(`UPDATE notifications SET status = 'RESOLVED', resolved_at = ? WHERE action_key IN (${placeholders}) AND resolved_at IS NULL`)
-      .run(nowIso(), ...actionKeys);
-    return rows.map((row) => ({ id: row.id, recipientId: row.recipient_id }));
+    const filter = { action_key: { $in: actionKeys }, resolved_at: null };
+    const docs = await this.notifications.find(filter, { projection: { recipient_id: 1 } }).toArray();
+    if (docs.length === 0) return [];
+    await this.notifications.updateMany(
+      { _id: { $in: docs.map((doc) => doc._id) }, resolved_at: null },
+      { $set: { status: 'RESOLVED', resolved_at: new Date() } },
+    );
+    return docs.map((doc) => ({ id: doc._id.toString(), recipientId: doc.recipient_id }));
   }
 
-  find(id) {
-    return toDto(this.db.prepare('SELECT * FROM notifications WHERE id = ?').get(id));
+  async find(id) {
+    const objectId = id instanceof ObjectId ? id : toObjectId(id);
+    return objectId ? toDto(await this.notifications.findOne({ _id: objectId })) : null;
   }
 
-  list(recipientId, { status, category, beforeId, limit = 20 } = {}) {
-    const where = ['recipient_id = ?'];
-    const params = [recipientId];
-    if (status === 'unread') where.push("status = 'UNREAD'");
-    if (category) {
-      where.push('category = ?');
-      params.push(category);
-    }
+  async list(recipientId, { status, category, beforeId, limit = 20 } = {}) {
+    const filter = { recipient_id: recipientId };
+    if (status === 'unread') filter.status = 'UNREAD';
+    if (category) filter.category = category;
     if (beforeId) {
-      where.push('id < ?');
-      params.push(beforeId);
+      const before = toObjectId(beforeId);
+      if (before) filter._id = { $lt: before };
     }
-    const rows = this.db
-      .prepare(`SELECT * FROM notifications WHERE ${where.join(' AND ')} ORDER BY id DESC LIMIT ?`)
-      .all(...params, Math.min(Math.max(Number(limit) || 20, 1), 100));
-    return rows.map(toDto);
+    const docs = await this.notifications
+      .find(filter)
+      .sort({ _id: -1 })
+      .limit(Math.min(Math.max(Number(limit) || 20, 1), 100))
+      .toArray();
+    return docs.map(toDto);
   }
 
   unreadCount(recipientId) {
-    return this.db
-      .prepare("SELECT COUNT(*) AS total FROM notifications WHERE recipient_id = ? AND status = 'UNREAD'")
-      .get(recipientId).total;
+    return this.notifications.countDocuments({ recipient_id: recipientId, status: 'UNREAD' });
   }
 
   /** Việc cần làm đã RESOLVED vẫn giữ nguyên trạng thái, chỉ ghi nhận thời điểm đọc. */
-  markRead(recipientId, id) {
-    const readAt = nowIso();
-    const result = this.db
-      .prepare("UPDATE notifications SET status = CASE WHEN status = 'UNREAD' THEN 'READ' ELSE status END, read_at = COALESCE(read_at, ?) WHERE id = ? AND recipient_id = ?")
-      .run(readAt, id, recipientId);
-    return result.changes > 0 ? this.find(id) : null;
+  async markRead(recipientId, id) {
+    const objectId = toObjectId(id);
+    if (!objectId) return null;
+    const result = await this.notifications.updateOne({ _id: objectId, recipient_id: recipientId }, [
+      {
+        $set: {
+          status: { $cond: [{ $eq: ['$status', 'UNREAD'] }, 'READ', '$status'] },
+          read_at: { $ifNull: ['$read_at', new Date()] },
+        },
+      },
+    ]);
+    return result.matchedCount > 0 ? this.find(objectId) : null;
   }
 
-  markAllRead(recipientId) {
-    return this.db
-      .prepare("UPDATE notifications SET status = 'READ', read_at = ? WHERE recipient_id = ? AND status = 'UNREAD'")
-      .run(nowIso(), recipientId).changes;
+  async markAllRead(recipientId) {
+    const result = await this.notifications.updateMany(
+      { recipient_id: recipientId, status: 'UNREAD' },
+      { $set: { status: 'READ', read_at: new Date() } },
+    );
+    return result.modifiedCount;
   }
 }

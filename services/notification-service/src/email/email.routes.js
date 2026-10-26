@@ -19,7 +19,22 @@ export function getTransporter() {
   return nodemailer.createTransport(config);
 }
 
-export function createEmailRouter({ db, enqueue }) {
+/** Express 4 không tự bắt lỗi của handler async. */
+const wrap = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+
+const EMAIL_LOG_FIELDS = (doc) => ({
+  id: doc._id,
+  messageId: doc.message_id ?? null,
+  to: doc.recipient,
+  subject: doc.subject,
+  attachmentsCount: doc.attachments_count ?? 0,
+  status: doc.status,
+  createdAt: doc.created_at.toISOString(),
+  sentAt: doc.sent_at ? doc.sent_at.toISOString() : null,
+  error: doc.error ?? null,
+});
+
+export function createEmailRouter({ database, enqueue }) {
   const router = Router();
   router.post('/send', requireAnyEmailPermission(EMAIL_SEND_PERMISSIONS), async (req, res) => {
     const { to, cc, bcc, subject, text, html, body, attachments = [], senderName = 'Smart ERP' } = req.body;
@@ -61,9 +76,11 @@ export function createEmailRouter({ db, enqueue }) {
 
     try {
       await enqueue({ id, mailOptions });
-      db.prepare(`INSERT INTO email_jobs (id, recipient, subject, attachments_count, status, created_at)
-        VALUES (?, ?, ?, ?, 'QUEUED', ?) ON CONFLICT(id) DO NOTHING`)
-        .run(id, recipient, subject, attachments.length, new Date().toISOString());
+      await database.emailJobs.updateOne(
+        { _id: id },
+        { $setOnInsert: { recipient, subject, attachments_count: attachments.length, status: 'QUEUED', created_at: new Date() } },
+        { upsert: true },
+      );
       return res.status(202).json({ success: true, data: { id, to, subject, status: 'QUEUED' } });
     } catch (error) {
       console.error('[NotificationService] Email queue error:', error);
@@ -71,36 +88,45 @@ export function createEmailRouter({ db, enqueue }) {
     }
   });
 
-  router.get('/logs', requireAnyEmailPermission(EMAIL_LOG_LIST_PERMISSIONS), (_req, res) => {
-    const rows = db.prepare(`SELECT id, message_id AS messageId, recipient AS "to", subject,
-      attachments_count AS attachmentsCount, status, created_at AS createdAt, sent_at AS sentAt, error
-      FROM email_jobs ORDER BY created_at DESC LIMIT 100`).all();
-    res.json({ success: true, data: rows });
-  });
-  router.get('/logs/:id', requireAnyEmailPermission(EMAIL_STATUS_PERMISSIONS), (req, res) => {
-    const row = db.prepare(`SELECT id, message_id AS messageId, recipient AS "to", subject,
-      attachments_count AS attachmentsCount, status, created_at AS createdAt, sent_at AS sentAt, error
-      FROM email_jobs WHERE id = ?`).get(req.params.id);
-    return row ? res.json({ success: true, data: row }) : res.status(404).json({ success: false, error: { message: 'Email job không tồn tại.' } });
-  });
+  router.get('/logs', requireAnyEmailPermission(EMAIL_LOG_LIST_PERMISSIONS), wrap(async (_req, res) => {
+    const docs = await database.emailJobs.find().sort({ created_at: -1 }).limit(100).toArray();
+    res.json({ success: true, data: docs.map(EMAIL_LOG_FIELDS) });
+  }));
+  router.get('/logs/:id', requireAnyEmailPermission(EMAIL_STATUS_PERMISSIONS), wrap(async (req, res) => {
+    const doc = await database.emailJobs.findOne({ _id: req.params.id });
+    return doc ? res.json({ success: true, data: EMAIL_LOG_FIELDS(doc) }) : res.status(404).json({ success: false, error: { message: 'Email job không tồn tại.' } });
+  }));
   return router;
 }
 
-export async function sendQueuedEmail(db, job, transporter = getTransporter()) {
-  const existing = db.prepare('SELECT status FROM email_jobs WHERE id = ?').get(job.id);
+export async function sendQueuedEmail(database, job, transporter = getTransporter()) {
+  const existing = await database.emailJobs.findOne({ _id: job.id }, { projection: { status: 1 } });
   if (existing?.status === 'SENT') return;
   const { to, subject, attachments = [] } = job.mailOptions;
-  db.prepare(`INSERT INTO email_jobs (id, recipient, subject, attachments_count, status, created_at)
-    VALUES (?, ?, ?, ?, 'QUEUED', ?) ON CONFLICT(id) DO NOTHING`)
-    .run(job.id, to, subject, attachments.length, new Date().toISOString());
+  await database.emailJobs.updateOne(
+    { _id: job.id },
+    { $setOnInsert: { recipient: to, subject, attachments_count: attachments.length, status: 'QUEUED', created_at: new Date() } },
+    { upsert: true },
+  );
   const info = await transporter.sendMail(job.mailOptions);
-  db.prepare(`UPDATE email_jobs SET status = 'SENT', message_id = ?, sent_at = ?, error = NULL WHERE id = ?`)
-    .run(info.messageId, new Date().toISOString(), job.id);
+  await database.emailJobs.updateOne(
+    { _id: job.id },
+    { $set: { status: 'SENT', message_id: info.messageId, sent_at: new Date(), error: null } },
+  );
 }
 
-export function markEmailFailed(db, job, error) {
-  db.prepare(`INSERT INTO email_jobs (id, recipient, subject, attachments_count, status, error, created_at)
-    VALUES (?, ?, ?, ?, 'FAILED', ?, ?) ON CONFLICT(id) DO UPDATE SET status = 'FAILED', error = excluded.error`)
-    .run(job.id, job.mailOptions.to, job.mailOptions.subject, job.mailOptions.attachments?.length || 0,
-      error.message, new Date().toISOString());
+export async function markEmailFailed(database, job, error) {
+  await database.emailJobs.updateOne(
+    { _id: job.id },
+    {
+      $set: { status: 'FAILED', error: error.message },
+      $setOnInsert: {
+        recipient: job.mailOptions.to,
+        subject: job.mailOptions.subject,
+        attachments_count: job.mailOptions.attachments?.length || 0,
+        created_at: new Date(),
+      },
+    },
+    { upsert: true },
+  );
 }

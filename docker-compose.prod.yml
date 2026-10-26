@@ -19,6 +19,9 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)}
       MYSQL_PASSWORD: *mysql-password
 
+  mongo:
+    ports: !reset []
+
   rabbitmq:
     ports: !reset []
     environment:

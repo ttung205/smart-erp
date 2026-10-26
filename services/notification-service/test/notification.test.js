@@ -2,13 +2,13 @@ import { createHmac } from 'node:crypto';
 import { once } from 'node:events';
 import { createServer } from 'node:http';
 import assert from 'node:assert/strict';
-import { beforeEach, describe, it } from 'node:test';
+import { after, beforeEach, describe, it } from 'node:test';
 import { createApp } from '../src/app.js';
-import { openDatabase } from '../src/db.js';
 import { NotificationRepository } from '../src/notifications/notification.repository.js';
 import { NotificationService } from '../src/notifications/notification.service.js';
 import { RecipientResolver } from '../src/notifications/recipient-resolver.js';
 import { rules } from '../src/notifications/rules.js';
+import { openTestDatabase } from './helpers/mongo.js';
 
 const SECRET = 'notification-test-secret';
 const silentLogger = { log() {}, warn() {}, error() {} };
@@ -35,7 +35,7 @@ function fakeIdentity(usersByPermission, calls = []) {
   };
 }
 
-let db;
+let database;
 let repository;
 let pushes;
 let service;
@@ -43,7 +43,6 @@ let identityCalls;
 
 function buildService(fetchImpl) {
   return new NotificationService({
-    db,
     repository,
     resolver: new RecipientResolver({ identityUrl: 'http://identity', cacheTtlMs: 60000, fetchImpl }),
     rules,
@@ -52,9 +51,18 @@ function buildService(fetchImpl) {
   });
 }
 
-beforeEach(() => {
-  db = openDatabase(':memory:');
-  repository = new NotificationRepository(db);
+const databases = [];
+after(async () => {
+  for (const item of databases) {
+    await item.drop();
+    await item.close();
+  }
+});
+
+beforeEach(async () => {
+  database = await openTestDatabase();
+  databases.push(database);
+  repository = new NotificationRepository(database);
   pushes = [];
   identityCalls = [];
   service = buildService(fakeIdentity({ 'quotation.approve': [1, 2, 3], 'inventory.manage': [5], 'inventory.issue': [5, 6] }, identityCalls));
@@ -66,26 +74,26 @@ describe('NotificationService', () => {
   it('gửi yêu cầu hỏi hàng cho Purchase và báo lại Sale khi đã chọn đủ kết quả', async () => {
     const payload = { request_id: 77, code: 'IQ-RE-161026', assignee_id: 9, watcher_id: 10, requested_by: 7, actor: { id: 7, name: 'Sale' } };
     await service.handleEvent(envelope('ItemInquiryRequested', payload));
-    assert.equal(repository.list(9)[0].action_key, 'item-inquiry:77:process');
-    assert.equal(repository.list(10)[0].link, '/purchase/item-inquiries/77');
-    assert.equal(repository.list(7).length, 0);
+    assert.equal((await repository.list(9))[0].action_key, 'item-inquiry:77:process');
+    assert.equal((await repository.list(10))[0].link, '/purchase/item-inquiries/77');
+    assert.equal((await repository.list(7)).length, 0);
     await service.handleEvent(envelope('ItemInquiryResponded', { ...payload, actor: { id: 9, name: 'Purchase' } }));
-    assert.equal(repository.list(9).some(x => x.status === 'RESOLVED'), true);
-    assert.equal(repository.list(7)[0].link, '/sale/item-inquiries/77');
+    assert.equal((await repository.list(9)).some(x => x.status === 'RESOLVED'), true);
+    assert.equal((await repository.list(7))[0].link, '/sale/item-inquiries/77');
   });
   it('gửi việc cần duyệt cho mọi người có quyền, trừ người gửi', async () => {
     const result = await service.handleEvent(envelope('QuotationSubmitted', { ...quotation, actor: { id: 3, name: 'Sale' } }));
 
     assert.deepEqual(result, { created: 2, resolved: 0 });
     for (const userId of [1, 2]) {
-      const [item] = repository.list(userId);
+      const [item] = (await repository.list(userId));
       assert.equal(item.category, 'task');
       assert.equal(item.title, 'Báo giá QT-001 cần phê duyệt');
       assert.equal(item.link, '/quotation/10');
       assert.equal(item.action_key, 'quotation:10:approve');
       assert.match(item.body, /Sale gửi duyệt báo giá cho Công ty A/);
     }
-    assert.equal(repository.list(3).length, 0);
+    assert.equal((await repository.list(3)).length, 0);
     assert.deepEqual(
       pushes.filter((p) => p.event === 'notification:new').map((p) => p.userId),
       [1, 2],
@@ -99,7 +107,7 @@ describe('NotificationService', () => {
     const second = await service.handleEvent(event);
 
     assert.deepEqual(second, { skipped: 'DUPLICATE' });
-    assert.equal(repository.list(1).length, 1);
+    assert.equal((await repository.list(1)).length, 1);
   });
 
   it('một người duyệt xong thì việc cần làm của những người còn lại được đóng', async () => {
@@ -109,9 +117,9 @@ describe('NotificationService', () => {
     const result = await service.handleEvent(envelope('QuotationApproved', { ...quotation, actor: { id: 1, name: 'Trưởng phòng' } }));
 
     assert.deepEqual(result, { created: 1, resolved: 2 });
-    assert.equal(repository.list(2)[0].status, 'RESOLVED');
-    assert.equal(repository.unreadCount(2), 0);
-    const [info] = repository.list(3);
+    assert.equal((await repository.list(2))[0].status, 'RESOLVED');
+    assert.equal((await repository.unreadCount(2)), 0);
+    const [info] = (await repository.list(3));
     assert.equal(info.title, 'Báo giá QT-001 đã được duyệt');
     assert.ok(pushes.some((p) => p.userId === 2 && p.event === 'notification:resolved'));
     assert.ok(pushes.some((p) => p.userId === 2 && p.event === 'notification:unread_count' && p.data.unread_count === 0));
@@ -120,9 +128,9 @@ describe('NotificationService', () => {
   it('xuất kho gửi người có quyền kho (inventory.manage / inventory.issue), không trùng người', async () => {
     await service.handleEvent(envelope('WarehouseDispatchRequested', { dispatch_id: 4, invoice_number: 'INV-1', warehouse_name: 'Kho HN', actor: { id: 9, name: 'KT' } }));
 
-    assert.equal(repository.list(5).length, 1);
-    assert.equal(repository.list(6).length, 1);
-    assert.equal(repository.list(5)[0].action_key, 'dispatch:4:process');
+    assert.equal((await repository.list(5)).length, 1);
+    assert.equal((await repository.list(6)).length, 1);
+    assert.equal((await repository.list(5))[0].action_key, 'dispatch:4:process');
   });
 
   it('nghỉ phép gửi đúng người duyệt trong payload rồi báo kết quả cho người làm đơn', async () => {
@@ -130,8 +138,8 @@ describe('NotificationService', () => {
     await service.handleEvent(envelope('LeaveRequestSubmitted', { ...leave, approver: { id: 8, name: 'Quản lý' }, actor: { id: 42, name: 'Nhân viên' } }));
     await service.handleEvent(envelope('LeaveRequestRejected', { ...leave, comment: 'Cuối tháng bận', actor: { id: 8, name: 'Quản lý' } }));
 
-    assert.equal(repository.list(8)[0].status, 'RESOLVED');
-    const [result] = repository.list(42);
+    assert.equal((await repository.list(8))[0].status, 'RESOLVED');
+    const [result] = (await repository.list(42));
     assert.equal(result.title, 'Đơn nghỉ phép NP-2026-0001 bị từ chối');
     assert.match(result.body, /Lý do: Cuối tháng bận/);
     assert.equal(identityCalls.length, 0);
@@ -142,10 +150,10 @@ describe('NotificationService', () => {
     const payment = { id: 12, code: 'TT-2026-0001', requester_id: 42, requester_name: 'Nhân viên', total_amount: 500000, title: 'Tiếp khách' };
     await service.handleEvent(envelope('OfficePurchaseRequestSubmitted', { ...purchase, approver: { id: 8 }, actor: { id: 42, name: 'Nhân viên' } }));
     await service.handleEvent(envelope('OfficePaymentRequestSubmitted', { ...payment, approver: { id: 8 }, actor: { id: 42, name: 'Nhân viên' } }));
-    assert.equal(repository.list(8).length, 2);
+    assert.equal((await repository.list(8)).length, 2);
     await service.handleEvent(envelope('OfficePurchaseRequestApproved', { ...purchase, actor: { id: 8, name: 'Quản lý' } }));
-    assert.equal(repository.list(8).find(item => item.action_key === 'office:Purchase:11:approve').status, 'RESOLVED');
-    assert.match(repository.list(42)[0].title, /mua sắm/);
+    assert.equal((await repository.list(8)).find(item => item.action_key === 'office:Purchase:11:approve').status, 'RESOLVED');
+    assert.match((await repository.list(42))[0].title, /mua sắm/);
   });
 
   it('identity lỗi thì ném lỗi để retry, không đánh dấu đã xử lý', async () => {
@@ -153,7 +161,7 @@ describe('NotificationService', () => {
     const event = envelope('QuotationSubmitted', { ...quotation, actor: { id: 3, name: 'Sale' } }, 'evt-retry');
 
     await assert.rejects(failing.handleEvent(event), /503/);
-    assert.equal(repository.isProcessed('evt-retry'), false);
+    assert.equal((await repository.isProcessed('evt-retry')), false);
 
     const result = await service.handleEvent(event);
     assert.equal(result.created, 2);
@@ -162,7 +170,7 @@ describe('NotificationService', () => {
   it('event không có rule chỉ được đánh dấu đã xử lý', async () => {
     const result = await service.handleEvent(envelope('SomethingElse', {}, 'evt-none'));
     assert.deepEqual(result, { skipped: 'NO_RULE' });
-    assert.equal(repository.isProcessed('evt-none'), true);
+    assert.equal((await repository.isProcessed('evt-none')), true);
   });
 });
 
@@ -199,8 +207,8 @@ describe('Inbox API', () => {
 
   it('chỉ trả thông báo của người đang đăng nhập và đánh dấu đã đọc', async () => {
     await service.handleEvent(envelope('QuotationSubmitted', { ...quotation, actor: { id: 3, name: 'Sale' } }));
-    const [mine] = repository.list(1);
-    const [others] = repository.list(2);
+    const [mine] = (await repository.list(1));
+    const [others] = (await repository.list(2));
 
     await withServer(async (base) => {
       assert.equal((await fetch(base)).status, 401);

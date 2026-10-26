@@ -6,7 +6,7 @@ import { createEmailRouter } from './email/email.routes.js';
 import { notificationRoutes } from './notifications/notification.routes.js';
 
 /** Express app tách riêng khỏi http server / broker để test độc lập. */
-export function createApp({ db, repository, publisher, jwtSecret, internalServiceKey = '', smtpInfo, enqueueEmail }) {
+export function createApp({ database, repository, publisher, jwtSecret, internalServiceKey = '', smtpInfo, enqueueEmail }) {
   const app = express();
 
   app.use(cors());
@@ -20,7 +20,7 @@ export function createApp({ db, repository, publisher, jwtSecret, internalServic
   });
 
   // Email: đã xác thực ở trên, mỗi route kiểm tra quyền riêng; đăng ký trước router thông báo chung
-  app.use('/api/v1/notifications/email', createEmailRouter({ db, enqueue: enqueueEmail }));
+  app.use('/api/v1/notifications/email', createEmailRouter({ database, enqueue: enqueueEmail }));
   app.use('/api/v1/notifications', requireAuth(jwtSecret), notificationRoutes({ repository, publisher }));
 
   return app;

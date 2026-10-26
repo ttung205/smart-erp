@@ -4,14 +4,14 @@ import { once } from 'node:events';
 import { createServer } from 'node:http';
 import { after, before, test } from 'node:test';
 import { createApp } from '../src/app.js';
-import { openDatabase } from '../src/db.js';
+import { openTestDatabase } from './helpers/mongo.js';
 import { markEmailFailed, sendQueuedEmail } from '../src/email/email.routes.js';
 
-const db = openDatabase(':memory:');
+const database = await openTestDatabase();
 const jobs = [];
 const SECRET = 'email-test-secret';
 const INTERNAL_KEY = 'email-test-internal-key';
-const server = createServer(createApp({ db, repository: {}, jwtSecret: SECRET, internalServiceKey: INTERNAL_KEY, enqueueEmail: async (job) => jobs.push(job) }));
+const server = createServer(createApp({ database, repository: {}, jwtSecret: SECRET, internalServiceKey: INTERNAL_KEY, enqueueEmail: async (job) => jobs.push(job) }));
 
 function token(permissions, { secret = SECRET, exp = Math.floor(Date.now() / 1000) + 3600, iss = 'identity-service' } = {}) {
   const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
@@ -32,7 +32,7 @@ before(async () => {
   await once(server, 'listening');
   baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
-after(async () => { server.close(); db.close(); });
+after(async () => { server.close(); await database.drop(); await database.close(); });
 
 test('email API queues a job and worker records SMTP delivery once', async () => {
   const response = await fetch(`${baseUrl}/api/v1/notifications/email/send`, {
@@ -47,17 +47,17 @@ test('email API queues a job and worker records SMTP delivery once', async () =>
   assert.equal(jobs[0].mailOptions.attachments[0].encoding, 'base64');
   let sends = 0;
   const transporter = { async sendMail() { sends++; return { messageId: 'smtp-1' }; } };
-  await sendQueuedEmail(db, jobs[0], transporter);
-  await sendQueuedEmail(db, jobs[0], transporter);
+  await sendQueuedEmail(database, jobs[0], transporter);
+  await sendQueuedEmail(database, jobs[0], transporter);
   assert.equal(sends, 1);
   const logs = await (await fetch(`${baseUrl}/api/v1/notifications/email/logs`, { headers: bearer(['quotation.manage']) })).json();
   assert.equal(logs.data[0].status, 'SENT');
   assert.equal(logs.data[0].messageId, 'smtp-1');
 });
 
-test('failed email is recorded for inspection', () => {
-  markEmailFailed(db, { id: 'failed-job', mailOptions: { to: 'b@example.com', subject: 'Fail' } }, new Error('SMTP unavailable'));
-  assert.equal(db.prepare('SELECT status FROM email_jobs WHERE id = ?').get('failed-job').status, 'FAILED');
+test('failed email is recorded for inspection', async () => {
+  await markEmailFailed(database, { id: 'failed-job', mailOptions: { to: 'b@example.com', subject: 'Fail' } }, new Error('SMTP unavailable'));
+  assert.equal((await database.emailJobs.findOne({ _id: 'failed-job' })).status, 'FAILED');
 });
 
 test('email API rejects requests without valid credentials and queues nothing', async () => {
@@ -116,7 +116,7 @@ test('email API limits recipients and neutralises header injection in the sender
 });
 
 test('email auth is disabled for internal key when no key is configured', async () => {
-  const bare = createServer(createApp({ db, repository: {}, jwtSecret: SECRET, enqueueEmail: async () => {} }));
+  const bare = createServer(createApp({ database, repository: {}, jwtSecret: SECRET, enqueueEmail: async () => {} }));
   bare.listen(0);
   await once(bare, 'listening');
   const response = await fetch(`http://127.0.0.1:${bare.address().port}/api/v1/notifications/email/send`, {

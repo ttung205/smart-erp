@@ -3,10 +3,10 @@ import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { BINDINGS } from '../src/messaging/consumer.js';
-import { openDatabase } from '../src/db.js';
 import { NotificationRepository } from '../src/notifications/notification.repository.js';
 import { NotificationService } from '../src/notifications/notification.service.js';
 import { rules } from '../src/notifications/rules.js';
+import { openTestDatabase } from './helpers/mongo.js';
 
 const definitions = JSON.parse(readFileSync(fileURLToPath(new URL('../../../infrastructure/rabbitmq/definitions.json', import.meta.url)), 'utf8'));
 
@@ -45,11 +45,10 @@ describe('RabbitMQ routing: inventory.goods.issued', () => {
 
 describe('GoodsIssued xử lý đúng một lần', () => {
   it('broadcast một lần dù message bị giao lại', async () => {
-    const db = openDatabase(':memory:');
+    const database = await openTestDatabase();
     const broadcasts = [];
     const service = new NotificationService({
-      db,
-      repository: new NotificationRepository(db),
+      repository: new NotificationRepository(database),
       resolver: {},
       rules,
       publisher: { broadcast: (event, data) => broadcasts.push({ event, data }) },
@@ -66,5 +65,7 @@ describe('GoodsIssued xử lý đúng một lần', () => {
     assert.equal(broadcasts.length, 1);
     assert.equal(broadcasts[0].event, 'inventory:stock_updated');
     assert.equal(broadcasts[0].data.issue_id, 'PXK-1');
+    await database.drop();
+    await database.close();
   });
 });
