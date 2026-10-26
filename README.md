@@ -69,7 +69,7 @@ Publish qua Transactional Outbox: purchase, inventory, sales, eoffice. Consume: 
 | `eoffice-service` | 8007 | Laravel 13 / PHP | Đơn nghỉ phép, luồng phê duyệt nội bộ |
 | `finance-service` | 8008 | Laravel 13 / PHP | Thu chi, công nợ, chứng từ kế toán |
 
-Hạ tầng (Docker Compose): **RabbitMQ 3.13** (message broker), **Kong OSS** DB-less (API gateway), **MySQL 8** (database khi triển khai), **Mailpit** (SMTP giả lập để test email).
+Hạ tầng (Docker Compose): **RabbitMQ 3.13** (message broker), **Kong OSS** DB-less (API gateway), **MySQL 8** (database nghiệp vụ, kho phân tích và hội thoại AI), **MongoDB 7** (chat-service và notification-service), **Mailpit** (SMTP giả lập để test email).
 
 ## 3. Các cơ chế hệ phân tán
 
@@ -135,7 +135,7 @@ Chi tiết: [docs/notification-architecture.md](docs/notification-architecture.m
 | PHP | ≥ 8.3 | extension `pdo_sqlite`, `sqlite3`, `mbstring`, `curl`, `sockets` (cho `php-amqplib`) |
 | Composer | ≥ 2.5 | |
 | .NET SDK | 10 | purchase-service, inventory-service |
-| Node.js | ≥ 24 | notification-service dùng `node:sqlite` có sẵn; frontend dùng Vite |
+| Node.js | ≥ 24 | notification-service và frontend (Vite) |
 | Docker Desktop | bản mới | RabbitMQ, Mailpit (bắt buộc để chạy luồng message) |
 | Windows Terminal | | `start_dev.ps1` mở mỗi service một tab |
 

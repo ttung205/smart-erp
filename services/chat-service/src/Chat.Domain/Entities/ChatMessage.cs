@@ -41,8 +41,6 @@ public class ChatMessage
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    public Conversation? Conversation { get; set; }
-    public ChatMessage? ReplyTo { get; set; }
     public List<MessageAttachment> Attachments { get; set; } = [];
     public List<MessageReaction> ReactionList { get; set; } = [];
 

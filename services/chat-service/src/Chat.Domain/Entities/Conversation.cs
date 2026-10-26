@@ -35,6 +35,6 @@ public class Conversation
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+    /// <summary>Thành viên nhúng trong tài liệu hội thoại; con trỏ đã đọc, tắt thông báo, ghim là của riêng từng người.</summary>
     public List<ConversationMember> Members { get; set; } = [];
-    public List<ChatMessage> Messages { get; set; } = [];
 }

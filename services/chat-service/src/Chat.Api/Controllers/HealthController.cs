@@ -7,9 +7,9 @@ namespace Chat.Api.Controllers;
 [ApiController]
 public class HealthController : ControllerBase
 {
-    private readonly ChatDbContext _context;
+    private readonly MongoChatContext _context;
 
-    public HealthController(ChatDbContext context)
+    public HealthController(MongoChatContext context)
     {
         _context = context;
     }
@@ -22,7 +22,7 @@ public class HealthController : ControllerBase
         bool dbConnected;
         try
         {
-            dbConnected = await _context.Database.CanConnectAsync(ct);
+            dbConnected = await _context.PingAsync(ct);
         }
         catch (Exception)
         {

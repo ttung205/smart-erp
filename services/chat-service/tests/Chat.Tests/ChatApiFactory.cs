@@ -12,12 +12,18 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Chat.Tests;
 
-/// <summary>Chạy Chat.Api thật trên SQLite tạm, danh bạ giả và bộ ghi sự kiện realtime.</summary>
+/// <summary>Chạy Chat.Api thật trên MongoDB (database riêng cho mỗi factory), danh bạ giả và bộ ghi sự kiện realtime.</summary>
 public sealed class ChatApiFactory : WebApplicationFactory<Program>
 {
     public const string Secret = "test_secret_for_chat_service_tests_2026";
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "chat-tests-" + Guid.NewGuid().ToString("N"));
+    /// <summary>Cần MongoDB đang chạy (docker compose up -d mongo); đổi địa chỉ bằng biến môi trường CHAT_TEST_MONGO.</summary>
+    private static readonly string MongoUri =
+        Environment.GetEnvironmentVariable("CHAT_TEST_MONGO") ?? "mongodb://127.0.0.1:27017/?directConnection=true";
+
+    private readonly string _id = Guid.NewGuid().ToString("N");
+    private string _root => Path.Combine(Path.GetTempPath(), "chat-tests-" + _id);
+    private string _database => "erp_chat_test_" + _id;
 
     public RecordingNotifier Notifier { get; } = new();
 
@@ -27,7 +33,8 @@ public sealed class ChatApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         Directory.CreateDirectory(_root);
-        builder.UseSetting("ConnectionStrings:ChatDbConnection", $"Data Source={Path.Combine(_root, "chat.db")}");
+        builder.UseSetting("ConnectionStrings:ChatMongoConnection", MongoUri);
+        builder.UseSetting("Mongo:Database", _database);
         builder.UseSetting("Storage:Root", Path.Combine(_root, "files"));
         builder.UseSetting("Jwt:Secret", Secret);
         builder.UseSetting("Services:InternalKey", "test-internal-key");
@@ -61,7 +68,7 @@ public sealed class ChatApiFactory : WebApplicationFactory<Program>
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        try { new MongoDB.Driver.MongoClient(MongoUri).DropDatabase(_database); } catch (Exception) { }
         try { Directory.Delete(_root, true); } catch (IOException) { }
     }
 }

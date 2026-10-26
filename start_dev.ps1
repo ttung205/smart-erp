@@ -138,6 +138,15 @@ if (-not (Test-PortInUse 5672)) {
     Write-Host "        Neu can message broker, mo Docker Desktop va chay: docker compose up -d rabbitmq" -ForegroundColor Gray
 }
 
+if (-not (Test-PortInUse 27017)) {
+    Write-Host " [WARN] MongoDB chua chay. Chat va Notification can MongoDB (replica set mot node)." -ForegroundColor Yellow
+    Write-Host "        Mo Docker Desktop va chay: docker compose up -d mongo" -ForegroundColor Gray
+}
+if (-not (Test-PortInUse 3306)) {
+    Write-Host " [WARN] MySQL chua chay. AI Service luu hoi thoai va kho phan tich trong MySQL." -ForegroundColor Yellow
+    Write-Host "        Mo Docker Desktop va chay: docker compose up -d mysql" -ForegroundColor Gray
+}
+
 Write-Host "`nDanh sach service:" -ForegroundColor Green
 Write-Host " - Identity Service     : http://127.0.0.1:8001" -ForegroundColor Gray
 Write-Host " - Catalog Service      : http://127.0.0.1:8002" -ForegroundColor Gray

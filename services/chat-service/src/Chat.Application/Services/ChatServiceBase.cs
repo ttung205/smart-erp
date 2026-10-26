@@ -3,7 +3,6 @@ using Chat.Application.Common.Models;
 using Chat.Application.Dtos;
 using Chat.Domain.Entities;
 using Chat.Domain.Enums;
-using Microsoft.EntityFrameworkCore;
 
 namespace Chat.Application.Services;
 
@@ -12,12 +11,12 @@ namespace Chat.Application.Services;
 /// Quy tắc quyền: mọi thao tác trên hội thoại yêu cầu là thành viên; người ngoài nhận 404 để không lộ hội thoại tồn tại.
 /// </summary>
 public abstract class ChatServiceBase(
-    IChatDbContext db,
+    IChatRepository repository,
     ICurrentUser currentUser,
     IUserDirectory directory,
     IChatNotifier notifier)
 {
-    protected readonly IChatDbContext Db = db;
+    protected readonly IChatRepository Repo = repository;
     protected readonly ICurrentUser Me = currentUser;
     protected readonly IUserDirectory Directory = directory;
     protected readonly IChatNotifier Notifier = notifier;
@@ -40,7 +39,7 @@ public abstract class ChatServiceBase(
 
     protected async Task<(Conversation Conversation, ConversationMember Me)> RequireMemberAsync(long conversationId, CancellationToken ct)
     {
-        var conversation = await Db.Conversations.Include(c => c.Members).FirstOrDefaultAsync(c => c.Id == conversationId, ct);
+        var conversation = await Repo.GetConversationAsync(conversationId, ct);
         var member = conversation?.Members.FirstOrDefault(m => m.UserId == Me.Id);
         if (conversation == null || member == null) throw ChatException.NotFound();
         return (conversation, member);
@@ -127,17 +126,17 @@ public abstract class ChatServiceBase(
             c.SubjectType, c.SubjectId, c.SubjectCode, c.SubjectTitle);
     }
 
-    protected MessageDto ToMessageDto(ChatMessage m)
+    protected MessageDto ToMessageDto(ChatMessage m, ChatMessage? replyTo)
     {
         var recalled = m.RecalledAt != null;
-        ReplyDto? reply = m.ReplyTo == null ? null : new ReplyDto(
-            m.ReplyTo.Id,
-            m.ReplyTo.SenderId is { } rid ? NameOf(rid, m.ReplyTo.SenderName) : m.ReplyTo.SenderName,
-            m.ReplyTo.RecalledAt != null ? string.Empty : m.ReplyTo.Content,
-            m.ReplyTo.RecalledAt != null);
+        ReplyDto? reply = replyTo == null ? null : new ReplyDto(
+            replyTo.Id,
+            replyTo.SenderId is { } rid ? NameOf(rid, replyTo.SenderName) : replyTo.SenderName,
+            replyTo.RecalledAt != null ? string.Empty : replyTo.Content,
+            replyTo.RecalledAt != null);
 
         var reactions = m.ReactionList
-            .OrderBy(r => r.Id)
+            .OrderBy(r => r.CreatedAt)
             .GroupBy(r => r.Emoji)
             .Select(g => new ReactionDto(g.Key, g.Select(r => new ReactionUserDto(r.UserId, NameOf(r.UserId, r.UserName))).ToList()))
             .ToList();
@@ -154,28 +153,25 @@ public abstract class ChatServiceBase(
             attachments, reactions, m.EditedAt, m.PinnedAt, m.PinnedById, m.CreatedAt);
     }
 
-    protected IQueryable<ChatMessage> MessagesWithParts() =>
-        Db.ChatMessages.Include(m => m.ReplyTo).Include(m => m.Attachments).Include(m => m.ReactionList);
-
-    /// <summary>Số tin chưa đọc theo hội thoại của một người: tin của người khác, sau con trỏ đọc, chưa thu hồi, chưa bị ẩn.</summary>
-    protected async Task<Dictionary<long, int>> UnreadCountsAsync(long userId, IReadOnlyCollection<long>? conversationIds, CancellationToken ct)
+    /// <summary>Dựng payload cho nhiều tin; các tin được trả lời được nạp bằng một truy vấn.</summary>
+    protected async Task<List<MessageDto>> ToMessageDtosAsync(IReadOnlyCollection<ChatMessage> messages, CancellationToken ct)
     {
-        var query =
-            from m in Db.ChatMessages
-            join mem in Db.ConversationMembers on m.ConversationId equals mem.ConversationId
-            where mem.UserId == userId
-                  && m.SenderId != null && m.SenderId != userId
-                  && m.RecalledAt == null
-                  && (mem.LastReadMessageId == null || m.Id > mem.LastReadMessageId)
-                  && !Db.MessageHides.Any(h => h.MessageId == m.Id && h.UserId == userId)
-            select m.ConversationId;
-        if (conversationIds != null) query = query.Where(id => conversationIds.Contains(id));
-        return await query.GroupBy(id => id).Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.Count, ct);
+        var replyIds = messages.Where(m => m.ReplyToId != null).Select(m => m.ReplyToId!.Value).Distinct().ToList();
+        var replies = (await Repo.GetMessagesAsync(replyIds, ct)).ToDictionary(m => m.Id);
+        return messages.Select(m => ToMessageDto(m, m.ReplyToId is { } id ? replies.GetValueOrDefault(id) : null)).ToList();
     }
+
+    /// <summary>Số tin chưa đọc theo hội thoại: tin của người khác, sau con trỏ đọc, chưa thu hồi, chưa bị ẩn.</summary>
+    protected Task<Dictionary<long, int>> UnreadCountsAsync(long userId, IReadOnlyCollection<ReadCursor> cursors, CancellationToken ct) =>
+        Repo.UnreadCountsAsync(userId, cursors, ct);
+
+    protected static ReadCursor CursorOf(Conversation conversation, ConversationMember member) =>
+        new(conversation.Id, member.LastReadMessageId, member.Muted);
 
     // ---------- Tin hệ thống & sự kiện ----------
 
-    protected ChatMessage AddSystemMessage(Conversation conversation, string content)
+    /// <summary>Lưu một tin hệ thống và đẩy con trỏ tin cuối của hội thoại tới tin đó.</summary>
+    protected async Task<ChatMessage> PostSystemMessageAsync(Conversation conversation, string content, CancellationToken ct)
     {
         var message = new ChatMessage
         {
@@ -184,30 +180,46 @@ public abstract class ChatServiceBase(
             Content = content,
             CreatedAt = DateTime.UtcNow
         };
-        Db.ChatMessages.Add(message);
+        await Repo.InsertMessagesAsync([message], ct);
+        await TouchLastMessageAsync(conversation, message, null, ct);
         return message;
     }
 
-    /// <summary>Gọi sau SaveChanges để cập nhật con trỏ tin cuối của hội thoại.</summary>
-    protected static void TouchLastMessage(Conversation conversation, ChatMessage message)
+    /// <summary>
+    /// Cập nhật tin cuối trong DB và trong đối tượng đang giữ (để payload trả về đúng ngay);
+    /// nếu có <paramref name="readByUserId"/> thì người đó coi như đã đọc tới tin này.
+    /// </summary>
+    protected async Task TouchLastMessageAsync(Conversation conversation, ChatMessage message, long? readByUserId, CancellationToken ct)
     {
-        conversation.LastMessageId = message.Id;
-        conversation.LastMessageAt = message.CreatedAt;
+        await Repo.TouchLastMessageAsync(conversation.Id, message.Id, message.CreatedAt, readByUserId, ct);
+        if (conversation.LastMessageId == null || conversation.LastMessageId < message.Id)
+        {
+            conversation.LastMessageId = message.Id;
+            conversation.LastMessageAt = message.CreatedAt;
+        }
         conversation.UpdatedAt = DateTime.UtcNow;
+        if (readByUserId is { } userId
+            && conversation.Members.FirstOrDefault(m => m.UserId == userId) is { } member
+            && (member.LastReadMessageId == null || member.LastReadMessageId < message.Id))
+        {
+            member.LastReadMessageId = message.Id;
+            member.LastReadAt = message.CreatedAt;
+        }
     }
 
-    protected Task NotifyMessageAsync(Conversation conversation, ChatMessage message, string eventName) =>
-        Notifier.ToUsersAsync(conversation.Members.Select(m => m.UserId), eventName, new { message = ToMessageDto(message) });
+    protected async Task NotifyMessageAsync(Conversation conversation, ChatMessage message, string eventName, CancellationToken ct)
+    {
+        var dto = (await ToMessageDtosAsync([message], ct))[0];
+        await Notifier.ToUsersAsync(conversation.Members.Select(m => m.UserId), eventName, new { message = dto });
+    }
 
     /// <summary>Gửi hội thoại đã cập nhật cho từng thành viên (payload riêng từng người vì có unread, mute, ghim).</summary>
     protected async Task NotifyConversationAsync(Conversation conversation, CancellationToken ct)
     {
-        var last = conversation.LastMessageId is { } lastId
-            ? await Db.ChatMessages.AsNoTracking().FirstOrDefaultAsync(m => m.Id == lastId, ct)
-            : null;
+        var last = conversation.LastMessageId is { } lastId ? await Repo.GetMessageAsync(lastId, ct) : null;
         foreach (var member in conversation.Members)
         {
-            var unread = (await UnreadCountsAsync(member.UserId, [conversation.Id], ct)).GetValueOrDefault(conversation.Id);
+            var unread = (await UnreadCountsAsync(member.UserId, [CursorOf(conversation, member)], ct)).GetValueOrDefault(conversation.Id);
             await Notifier.ToUsersAsync([member.UserId], Events.ConversationUpserted,
                 new { conversation = ToConversationDto(conversation, member, last, unread) });
         }

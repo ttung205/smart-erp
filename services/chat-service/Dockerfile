@@ -23,8 +23,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 
 COPY --from=build /app/publish .
 
-# Tao thu muc luu tru chat file va sqlite database
-RUN mkdir -p /app/chat-files /app/data
+# Thu muc luu tep dinh kem (volume chat_files)
+RUN mkdir -p /app/chat-files
 
 ENV ASPNETCORE_URLS=http://+:8009
 ENV ASPNETCORE_ENVIRONMENT=Production

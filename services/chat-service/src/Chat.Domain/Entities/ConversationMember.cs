@@ -2,11 +2,9 @@ using Chat.Domain.Enums;
 
 namespace Chat.Domain.Entities;
 
-/// <summary>Thành viên hội thoại kèm trạng thái riêng của từng người (đã đọc, tắt thông báo, ghim).</summary>
+/// <summary>Thành viên hội thoại (nhúng trong Conversation) kèm trạng thái riêng của từng người (đã đọc, tắt thông báo, ghim).</summary>
 public class ConversationMember
 {
-    public long Id { get; set; }
-    public long ConversationId { get; set; }
     public long UserId { get; set; }
 
     /// <summary>Tên lúc được thêm vào, dùng khi không lấy được danh bạ từ identity-service.</summary>
@@ -21,6 +19,4 @@ public class ConversationMember
     public bool Muted { get; set; }
     public DateTime? PinnedAt { get; set; }
     public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
-
-    public Conversation? Conversation { get; set; }
 }

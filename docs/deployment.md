@@ -76,8 +76,10 @@ the legacy port mapping from `8100:80` to `8000:80`, then run the smoke test.
 
 ## Known limitation
 
-The AI service currently starts with warehouse synchronization disabled in
-Docker because its ETL still expects service-local SQLite sources, while core
-services use MySQL. `/health` remains available and reports both
-`analytics_ready` and `warehouse_sync_enabled`. Replace this with an event/API-
+The AI service keeps its conversation history and analytics read model in the
+MySQL schema `erp_analytics_db`. Warehouse synchronization is off by default in
+Docker (`AI_WAREHOUSE_SYNC_ENABLED=false`) because the ETL reads the other
+services' MySQL schemas directly, which crosses service boundaries. Set
+`AI_WAREHOUSE_SYNC_ENABLED=true` for demos only. `/health` reports both
+`analytics_ready` and `warehouse_sync_enabled`. Replace the ETL with an event/API-
 based ingestion path before enabling AI analytics in production.

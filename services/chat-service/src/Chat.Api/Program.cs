@@ -9,7 +9,6 @@ using Chat.Application.Common.Interfaces;
 using Chat.Application.Common.Models;
 using Chat.Infrastructure;
 using Chat.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -64,11 +63,8 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// 5. Tạo/cập nhật CSDL theo migration
-using (var scope = app.Services.CreateScope())
-{
-    await scope.ServiceProvider.GetRequiredService<ChatDbContext>().Database.MigrateAsync();
-}
+// 5. Tạo index MongoDB (idempotent)
+await app.Services.GetRequiredService<MongoChatContext>().EnsureIndexesAsync();
 
 app.UseCors("ChatCorsPolicy");
 app.UseMiddleware<CorrelationIdMiddleware>();

@@ -22,13 +22,13 @@ Important boundary: this is a static review. Live broker bindings, migrated prod
 ## 2. Executive findings
 
 1. The repository contains **10 backend services**: Identity, Catalog, Purchase, Inventory, Sales, Notification, E-Office, Finance, Chat, and AI. Kong exposes all ten; Vue/Nginx is the browser entry point. Evidence: `docker-compose.yml` service definitions; `infrastructure/kong/kong.yml` — `services`.
-2. Database-per-service is logical rather than physical for the six MySQL-backed business services: they use separate schemas on one MySQL 8 container. Notification, Chat, and AI use service-local SQLite files. Evidence: `docker-compose.yml` — `mysql` and service connection environments; `infrastructure/mysql/init/01-create-databases.sql`.
+2. Database-per-service is logical rather than physical for the six MySQL-backed business services: they use separate schemas on one MySQL 8 container. Notification and Chat use a separate MongoDB 7 container (single-node replica set, databases `erp_notification_db` and `erp_chat_db`); AI keeps its conversation history and analytics read model in the MySQL schema `erp_analytics_db`. Evidence: `docker-compose.yml` — `mysql` and service connection environments; `infrastructure/mysql/init/01-create-databases.sql`.
 3. Actual asynchronous business integration exists for Catalog/Sales/E-Office/Purchase producers, Inventory producer+consumer, and Notification consumers. Only Inventory and Notification consume domain events in current source. Evidence: `Inventory.Infrastructure.DependencyInjection.AddInfrastructure`, `notification-service/src/index.js — startConsumer`, and repository-wide consumer search.
 4. Sales Order creation does **not** reserve stock. It snapshots Catalog/Identity data and commits a `DRAFT`. Reservation is a later synchronous call from an Invoice action to Inventory `POST /stocks/reserve/batch`. Evidence: `SalesOrderController.store`, `ReferenceSnapshot`, `InvoiceController.syncReserve`, `InvoiceController.reserveStockForInvoice`.
 5. The Transactional Outbox is implemented in Catalog, Sales, E-Office, Purchase, and Inventory. Catalog/Sales/E-Office run separate Compose relay containers; Purchase and Inventory host background relay workers in their API processes. Evidence: Compose `*-relay`; `RelayOutboxEvents.handle`; `Purchase.Infrastructure.DependencyInjection.AddInfrastructure`; `Inventory.Infrastructure.DependencyInjection.AddInfrastructure`.
 6. Chat realtime is implemented with SignalR over `/api/v1/chat/hub`; Notification realtime is independently implemented with Socket.IO over `/api/v1/notifications/socket.io`. They are not connected to each other. Evidence: `Chat.Api.Program`, `ChatHub`, `notification-service/src/realtime/socket.js — createRealtime`.
 7. RabbitMQ analytics routing is configured, but AI has no AMQP consumer. Chat's roadmap claims a RabbitMQ bot worker, but current Chat project has neither `RabbitMQ.Client` nor a worker registration. Both are **CONFIGURED_ONLY / DOC_ONLY**, not implemented integration. Evidence: `infrastructure/rabbitmq/definitions.json`; `services/ai-service/requirements.txt`; `services/chat-service/src/Chat.Infrastructure/Chat.Infrastructure.csproj`; contrast `docs/csharp-realtime-chat-roadmap.md:201-205`.
-8. AI's ETL directly opens other services' SQLite files read-only, but the production Compose sets `WAREHOUSE_SYNC_ENABLED=false` and mounts none of those sources. Therefore conversational endpoints are implemented, while production data refresh from service databases is disabled/inaccessible by this topology. Evidence: `services/ai-service/app/warehouse.py — _src/build/sync`; `services/ai-service/app/main.py — lifespan`; `docker-compose.yml — ai-service`.
+8. AI's ETL reads the other services' MySQL schemas read-only and refreshes the analytics read model every `SYNC_INTERVAL_SECONDS` when `AI_WAREHOUSE_SYNC_ENABLED=true` (default off). This crosses service boundaries and is a known deviation until an `erp.analytics.events` consumer or export APIs replace it. Evidence: `services/ai-service/app/warehouse.py — _src/build/sync`; `services/ai-service/app/main.py — lifespan`; `docker-compose.yml — ai-service`.
 
 ## 3. System context
 
@@ -107,9 +107,9 @@ flowchart TB
     MYSQL[(MySQL 8\n9 initialized schemas)]
     RMQ[(RabbitMQ 3.13\nerp.events + erp.dlx)]
     SMTP[Mailpit :1025/:8025]
-    NSQL[(notifications.sqlite)]
-    CSQL[(chat-messenger.db + chat-files)]
-    ASQL[(assistant.db + analytics.db)]
+    NSQL[(MongoDB erp_notification_db)]
+    CSQL[(MongoDB erp_chat_db + chat-files volume)]
+    ASQL[(MySQL erp_analytics_db)]
 
     ID & CAT & PUR & INV & SAL & EO & FIN --> MYSQL
     CR & SR & ER & PR & IP & IC & NC & EC <--> RMQ
@@ -134,11 +134,11 @@ Notes:
 | `purchase-service` | ASP.NET Core `net10.0`, EF Core 8/Pomelo; hosted relay | PR, PO, goods receipt, 3-way invoice matching/posting, purchase returns, item/supplier inquiries | `erp_purchase_db`: purchase aggregate tables, inquiry tables, outbox/processed events | MySQL, RabbitMQ; HTTP to Identity/Catalog/Notification endpoints inside item inquiry code | **IMPLEMENTED** — controllers under `Purchase.Api/Controllers`; `Purchase.Application.DependencyInjection.AddApplication`; `ItemInquiriesController` |
 | `inventory-service` | ASP.NET Core `net10.0`, EF Core 8/Pomelo; two hosted workers | Warehouses, stock/on-hand ledger, reservations, receive/issue/return transfer; consumes product and goods-received events | `erp_inventory_db`: warehouses, stock, reservation and transaction ledgers, outbox/processed events | MySQL, RabbitMQ | **IMPLEMENTED** — `StocksController`; `WarehousesController`; `RabbitMqConsumerWorker.ProcessMessageAsync` |
 | `sales-service` | Laravel 13.17, PHP 8.4; separate relay | Quotations, sales orders, deliveries, invoices/dispatch, VAT invoices/adjustments, returns, reports, attachments | `erp_sales_db`: sales documents/reporting/return tables + `outbox_events` | MySQL, RabbitMQ; synchronous Catalog, Identity, Inventory, Finance | **IMPLEMENTED** — `routes/api.php`; `ReferenceSnapshot`; `InvoiceController`; `CustomerReceivableService` |
-| `notification-service` | Node 22, Express 4, `node:sqlite`, Socket.IO 4, Nodemailer; two in-process consumers | Notification inbox, recipient resolution, idempotent event handling, realtime push, queued email | `notifications.sqlite`: notifications, processed events, email jobs | RabbitMQ, Identity REST, Mailpit SMTP | **IMPLEMENTED** — `src/index.js`; `NotificationService.handleEvent`; `email.queue.js` |
+| `notification-service` | Node 22, Express 4, MongoDB driver 6, Socket.IO 4, Nodemailer; two in-process consumers | Notification inbox, recipient resolution, idempotent event handling, realtime push, queued email | MongoDB `erp_notification_db`: notifications, processed_events (TTL 30 days), email_jobs | RabbitMQ, Identity REST, Mailpit SMTP | **IMPLEMENTED** — `src/index.js`; `NotificationService.handleEvent`; `email.queue.js` |
 | `eoffice-service` | Laravel 13.17, PHP 8.4; separate relay | Leave, purchase/payment office requests, approval steps/history, balances/holidays | `erp_eoffice_db`: leave/approval/office request tables + `outbox_events` | MySQL, RabbitMQ, Identity REST | **IMPLEMENTED** — `routes/api.php`; `LeaveRequestService`; `OfficeRequestService`; `IdentityClient` |
 | `finance-service` | Laravel 13.17, PHP 8.4 | Chart of accounts, cash/bank books, vouchers/posting/allocation, receivables, GL, invoice adjustment sync | `erp_finance_db`: accounts, funds/banks, vouchers/lines, allocations, receivables/adjustments, GL | MySQL; receives Sales REST calls | **IMPLEMENTED** — `routes/api.php`; Finance controllers |
-| `chat-service` | ASP.NET Core `net10.0`, EF Core 8 SQLite, SignalR | Direct/group/work-thread chat, messages/files/reactions/pins/read state, presence/typing | `chat-messenger.db`: conversations, members, messages, attachments, reactions, hides, aliases; local file volume | Identity REST; no RabbitMQ package in current project | REST/SignalR **IMPLEMENTED**; Rabbit bot **DOC_ONLY** — `Program.cs`; `ChatHub`; `IdentityUserDirectory`; `.csproj` |
-| `ai-service` | Python 3.12, FastAPI, SQLite, HTTPX, external Groq | Permission-gated conversational analytics and conversation history; optional local ETL read model | `assistant.db` and `analytics.db` | Groq HTTPS; optional direct read-only SQLite access to six service DB files | API **IMPLEMENTED**; Compose ETL **DISABLED**; AMQP analytics consumer **ABSENT** — `main.py`; `warehouse.py`; Compose `WAREHOUSE_SYNC_ENABLED` |
+| `chat-service` | ASP.NET Core `net10.0`, MongoDB.Driver 3, SignalR | Direct/group/work-thread chat, messages/files/reactions/pins/read state, presence/typing | MongoDB `erp_chat_db`: conversations (members embedded), chat_messages (attachments and reactions embedded), message_hides, contact_aliases, counters; local file volume | Identity REST; no RabbitMQ package in current project | REST/SignalR **IMPLEMENTED**; Rabbit bot **DOC_ONLY** — `Program.cs`; `ChatHub`; `IdentityUserDirectory`; `.csproj` |
+| `ai-service` | Python 3.12, FastAPI, PyMySQL, HTTPX, external Groq | Permission-gated conversational analytics and conversation history; optional local ETL read model | MySQL `erp_analytics_db`: conversations/messages/tool_calls and the analytics read model | Groq HTTPS; read-only MySQL access to the six service schemas for the ETL | API **IMPLEMENTED**; Compose ETL **OPT-IN (default OFF)**; AMQP analytics consumer **ABSENT** — `main.py`; `warehouse.py`; Compose `WAREHOUSE_SYNC_ENABLED` |
 
 ### Frontend and gateway
 
@@ -157,9 +157,9 @@ Notes:
 | Sales | MySQL `erp_sales_db` | quotations/orders/deliveries/invoices and lines, dispatches, VAT documents/adjustments, sale returns, attachments, reports, sequences, outbox_events | `sales-service/database/migrations/*` |
 | E-Office | MySQL `erp_eoffice_db` | leave types/balances/requests, holidays, approval steps/history, office requests/items/attachments, outbox_events | `eoffice-service/database/migrations/*` |
 | Finance | MySQL `erp_finance_db` | chart_of_accounts, cash_funds, bank_accounts, customer_receivables, vouchers/lines, allocations, GL entries, receivable_adjustments | `finance-service/database/migrations/*` |
-| Notification | volume-backed SQLite `database/notifications.sqlite` | notifications, processed_events, email_jobs | `notification-service/src/db.js — SCHEMA/openDatabase` |
-| Chat | volume-backed SQLite `data/chat-messenger.db`; files in `/app/chat-files` | conversations, conversation_members, chat_messages, attachments, reactions, hides, contact aliases | `ChatDbContext.OnModelCreating`; Compose volumes |
-| AI | volume-backed SQLite `assistant.db`, `analytics.db` | conversations/messages/tool_calls; dimensions/facts/stock/receivable read model | `ai-service/app/store.py — SCHEMA`; `warehouse.py — SCHEMA` |
+| Notification | MongoDB `erp_notification_db` | notifications (unique `event_id`+`recipient_id`), processed_events (TTL), email_jobs | `notification-service/src/db.js — openDatabase` |
+| Chat | MongoDB `erp_chat_db`; files in `/app/chat-files` | conversations (embedded members), chat_messages (embedded attachments/reactions), message_hides, contact_aliases, counters | `MongoChatContext.EnsureIndexesAsync`; `MongoChatRepository`; Compose volumes |
+| AI | MySQL `erp_analytics_db` | conversations/messages/tool_calls; dimensions/facts/stock/receivable read model (rebuilt as `<table>_new` and swapped with one atomic `RENAME TABLE`) | `ai-service/app/store.py — SCHEMA`; `warehouse.py — TABLES` |
 
 The generic Laravel skeleton tables (`users`, sessions, jobs, cache) also exist in Finance/E-Office migrations, but no evidence makes them authoritative identity data. Treat them as framework residue, not cross-service ownership.
 
@@ -218,7 +218,7 @@ flowchart LR
 
     EX -->|sales.*, eoffice.*, purchase.inquiry.*, catalog.product.*, inventory.stock.*| NQ[erp.notification.events]
     NQ --> NC[Notification consumer]
-    NC --> NDB[(notifications.sqlite)]
+    NC --> NDB[(MongoDB erp_notification_db)]
     NC --> SIO[Socket.IO user rooms]
 
     EX -.->|*.*.* configured| AQ[erp.analytics.events]
@@ -347,8 +347,8 @@ Evidence: `ConversationsController`; `MessagesController`; `MessageService.SendA
 ### 10.9 AI/analytics — API IMPLEMENTED; production refresh CONFIGURED OFF
 
 - FastAPI provides health, chat, conversation history/delete, and admin sync. JWT requires `ai.use`; manual sync requires `SUPER_ADMIN`.
-- The agent invokes external Groq and reads `analytics.db` through registered tools.
-- The ETL code reads six other services' SQLite files directly and builds a local star-like read model. This is executable in a suitably mounted development environment, but Compose supplies MySQL to those services, mounts no source SQLite files into AI, and explicitly disables warehouse sync.
+- The agent invokes external Groq and reads the MySQL analytics schema `erp_analytics_db` through registered tools.
+- The ETL reads the six other services' MySQL schemas directly (read-only session) and builds a star-like read model in `erp_analytics_db`; Compose keeps it off by default (`AI_WAREHOUSE_SYNC_ENABLED=false`) and it is meant for demos. Reading another service's schema still crosses a service boundary; the target is the `erp.analytics.events` consumer or export APIs (architecture.md §13 item 2).
 - Roadmap analytics endpoints (`/analytics/overview`, forecast, RFM, credit risk, summary) are not present in `main.py`; classify them as **PLANNED / DOC_ONLY**.
 
 Evidence: `ai-service/app/main.py`; `auth.py`; `agent.py`; `warehouse.py`; `docker-compose.yml`; `docs/data-analytics-ml-bi-roadmap.md:100-112`.
@@ -440,7 +440,7 @@ Evidence: `SalesOrderController.store:56-230`; `SalesOrderController.submitAppro
 | Medium | Gateway startup depends on health of all ten services. | One optional service blocks the single API entry point. | `docker-compose.yml — gateway.depends_on` |
 | Medium | Outbox implementations differ: Laravel has confirms+mandatory, .NET workers mark published after `BasicPublish` without confirms. | Delivery guarantees are inconsistent and weaker for Purchase/Inventory. | Laravel `RabbitMqPublisher.publish`; .NET relay workers |
 | Medium | PHP API containers use `artisan serve` with production env. | Throughput/process management bottleneck and unsuitable production serving model. | Laravel Dockerfiles and Compose `APP_ENV=production` |
-| Medium | Notification and Chat use single SQLite files; Chat files are local volumes. | Horizontal scaling, concurrent writers, and multi-node websocket affinity are constrained. | their dependency injection/config and Compose volumes |
+| Medium | Chat attachments are local volume files; MongoDB runs as a single-node replica set without authentication (bound to 127.0.0.1 in development, unpublished in production). | Chat cannot scale across nodes (shared storage and SignalR backplane missing); anyone on `erp-network` can reach MongoDB. | Compose `mongo`, `chat_files` |
 | Medium | Shared symmetric JWT secret across all services. | Any compromised verifier can mint tokens; no key rotation/revocation evidence. | Compose `JWT_SECRET`; verifier/issuer implementations |
 | Medium | Rabbit declarations are duplicated between static definitions and consumer startup code. | Argument/binding drift can close channels or change effective topology. | `definitions.json`; `RabbitMqConnection.TryConnect`; Notification `consumer.setup` |
 | Medium | Roadmaps/report claim completed features not present in executable source. | Architecture documentation is unreliable without code verification. | Chat roadmap phase 3; AI roadmap endpoints |
@@ -481,7 +481,6 @@ Observability beyond correlation IDs and container logs is **UNKNOWN**: no metri
 - Whether live RabbitMQ definitions exactly match the checked-in JSON after runtime declarations/unbinds.
 - Queue depths, dead letters, outbox backlog, duplicate rates, and event delivery latency.
 - Whether all ten health checks pass simultaneously under Compose.
-- Whether the AI volume already contains a prebuilt `analytics.db`; if so, its freshness/provenance.
 - Actual environment secret overrides, TLS termination, firewall rules, and whether direct service ports are externally reachable.
 - Production backup/restore, retention, disaster recovery, monitoring, and horizontal scaling policies.
 - End-to-end transactional behavior under failure (network timeout after remote commit, relay crash between publish and status update).

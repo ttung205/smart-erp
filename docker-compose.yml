@@ -508,15 +508,17 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: "http://+:8009"
-      ConnectionStrings__ChatDbConnection: "Data Source=data/chat-messenger.db"
+      ConnectionStrings__ChatMongoConnection: "mongodb://mongo:27017/?replicaSet=rs0"
+      Mongo__Database: erp_chat_db
       Storage__Root: "/app/chat-files"
       Jwt__Secret: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
       Services__Identity: "http://identity-service:8001"
       Services__InternalKey: ${INTERNAL_SERVICE_KEY:-smart_erp_internal_2026}
     volumes:
-      - chat_data:/app/data
       - chat_files:/app/chat-files
     depends_on:
+      mongo:
+        condition: service_healthy
       identity-service:
         condition: service_healthy
     healthcheck:
@@ -544,7 +546,8 @@ services:
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_MODEL: "openai/gpt-oss-120b"
       SYNC_INTERVAL_SECONDS: 300
-      WAREHOUSE_SYNC_ENABLED: "true"
+      # Mặc định TẮT: ETL đọc thẳng schema của các service khác (xem docs/deployment.md). Bật cho demo: AI_WAREHOUSE_SYNC_ENABLED=true
+      WAREHOUSE_SYNC_ENABLED: ${AI_WAREHOUSE_SYNC_ENABLED:-false}
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
       MYSQL_USER: erp_user
@@ -669,5 +672,4 @@ volumes:
   mysql_data:
   rabbitmq_data:
   mongo_data:
-  chat_data:
   chat_files:

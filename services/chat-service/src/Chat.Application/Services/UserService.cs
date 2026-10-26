@@ -1,14 +1,11 @@
 using Chat.Application.Common.Interfaces;
 using Chat.Application.Common.Models;
 using Chat.Application.Dtos;
-using Chat.Domain.Entities;
-using Chat.Domain.Enums;
-using Microsoft.EntityFrameworkCore;
 
 namespace Chat.Application.Services;
 
 public class UserService(
-    IChatDbContext db,
+    IChatRepository repository,
     ICurrentUser me,
     IUserDirectory directory,
     IPresenceTracker presence)
@@ -37,13 +34,7 @@ public class UserService(
     {
         var users = await directory.GetUsersAsync(ct);
         var myDepartment = users.TryGetValue(me.Id, out var self) ? self.DepartmentId : null;
-        var directPartners = await db.ConversationMembers
-            .Where(m => m.UserId != me.Id
-                        && m.Conversation!.Type == ConversationType.Direct
-                        && m.Conversation.Members.Any(x => x.UserId == me.Id))
-            .Select(m => m.UserId)
-            .ToListAsync(ct);
-        var partners = directPartners.ToHashSet();
+        var partners = (await repository.GetDirectPartnerIdsAsync(me.Id, ct)).ToHashSet();
 
         return users.Values
             .Where(u => u.IsActive && u.Id != me.Id && ((myDepartment != null && u.DepartmentId == myDepartment) || partners.Contains(u.Id)))
@@ -62,8 +53,7 @@ public class UserService(
 
     public async Task<PreferencesDto> PreferencesAsync(CancellationToken ct)
     {
-        var aliases = await db.ContactAliases.Where(a => a.OwnerId == me.Id).ToDictionaryAsync(a => a.TargetId, a => a.Alias, ct);
-        return new PreferencesDto(aliases);
+        return new PreferencesDto(await repository.GetAliasesAsync(me.Id, ct));
     }
 
     /// <summary>Đặt tên gợi nhớ; chuỗi rỗng là xoá.</summary>
@@ -73,15 +63,8 @@ public class UserService(
         alias = alias?.Trim();
         if (alias?.Length > MaxAliasLength) throw ChatException.Invalid($"Tên gợi nhớ tối đa {MaxAliasLength} ký tự.");
 
-        var existing = await db.ContactAliases.FirstOrDefaultAsync(a => a.OwnerId == me.Id && a.TargetId == targetId, ct);
-        if (string.IsNullOrEmpty(alias))
-        {
-            if (existing != null) db.ContactAliases.Remove(existing);
-            alias = null;
-        }
-        else if (existing == null) db.ContactAliases.Add(new ContactAlias { OwnerId = me.Id, TargetId = targetId, Alias = alias });
-        else existing.Alias = alias;
-        await db.SaveChangesAsync(ct);
+        alias = string.IsNullOrEmpty(alias) ? null : alias;
+        await repository.SetAliasAsync(me.Id, targetId, alias, ct);
         return alias;
     }
 
