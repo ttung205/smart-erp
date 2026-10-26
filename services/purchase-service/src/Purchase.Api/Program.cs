@@ -76,11 +76,12 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 app.UseMiddleware<JwtAuthMiddleware>();
 
-// 6. Khởi tạo Database và Seed dữ liệu mẫu ban đầu
+// 6. Khởi tạo schema; chỉ nạp dữ liệu mẫu khi được bật rõ ràng.
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<PurchaseDbContext>();
-    await DbInitializer.SeedAsync(context);
+    var autoSeed = builder.Configuration.GetValue<bool>("AUTO_SEED");
+    await DbInitializer.SeedAsync(context, autoSeed);
 }
 
 // 7. Cấu hình Swagger UI trong môi trường Development

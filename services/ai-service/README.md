@@ -62,6 +62,22 @@ python -m simulator.run
 python -m simulator.validate
 ```
 
+### Nạp dữ liệu vào MySQL của Docker Compose
+
+Simulator sinh dữ liệu vào SQLite trước để có thể kiểm tra nhất quán. Muốn giao diện Docker sử dụng cùng bộ dữ liệu đó,
+hãy dừng các service ghi dữ liệu, kiểm tra schema rồi dùng bộ nạp MySQL:
+
+```bash
+python -m simulator.run
+python -m simulator.validate
+python -m simulator.import_mysql --check
+python -m simulator.import_mysql
+```
+
+`import_mysql` tự tạo `mysqldump` trong `simulator/.backup/mysql/` trước khi thay dữ liệu nghiệp vụ. Thông tin kết nối
+mặc định khớp `docker-compose.yml`; có thể ghi đè bằng `SIMULATOR_MYSQL_HOST`, `SIMULATOR_MYSQL_PORT`,
+`SIMULATOR_MYSQL_USER` và `SIMULATOR_MYSQL_PASSWORD`.
+
 Dữ liệu deterministic theo `SEED` trong `config.py`: chạy lại cho ra đúng bộ dữ liệu đó.
 
 ## Cấu trúc

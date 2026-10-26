@@ -87,7 +87,7 @@ services:
       DB_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
       JWT_SECRET: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-smart_erp_internal_2026}
-      AUTO_SEED: "true"
+      AUTO_SEED: "false"
     depends_on:
       mysql:
         condition: service_healthy
@@ -129,7 +129,7 @@ services:
       RABBITMQ_USER: ${RABBITMQ_USER:-erp_rabbit}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-rabbit_secret}
       RABBITMQ_EXCHANGE: erp.events
-      AUTO_SEED: "true"
+      AUTO_SEED: "false"
     depends_on:
       mysql:
         condition: service_healthy
@@ -194,6 +194,7 @@ services:
       RabbitMQ__ExchangeName: erp.events
       Jwt__Secret: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
       Services__InternalKey: ${INTERNAL_SERVICE_KEY:-smart_erp_internal_2026}
+      AUTO_SEED: "false"
     depends_on:
       mysql:
         condition: service_healthy
@@ -229,6 +230,7 @@ services:
       RabbitMQ__Password: ${RABBITMQ_PASSWORD:-rabbit_secret}
       RabbitMQ__ExchangeName: erp.events
       Jwt__Secret: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
+      AUTO_SEED: "false"
     depends_on:
       mysql:
         condition: service_healthy
@@ -276,7 +278,7 @@ services:
       IDENTITY_SERVICE_URL: http://identity-service:8001
       INVENTORY_SERVICE_URL: http://inventory-service:8004
       FINANCE_SERVICE_URL: http://finance-service:8008
-      AUTO_SEED: "true"
+      AUTO_SEED: "false"
     depends_on:
       mysql:
         condition: service_healthy
@@ -387,7 +389,7 @@ services:
       RABBITMQ_USER: ${RABBITMQ_USER:-erp_rabbit}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-rabbit_secret}
       RABBITMQ_EXCHANGE: erp.events
-      AUTO_SEED: "true"
+      AUTO_SEED: "false"
     depends_on:
       mysql:
         condition: service_healthy
@@ -454,7 +456,7 @@ services:
       DB_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
       JWT_SECRET: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-smart_erp_internal_2026}
-      AUTO_SEED: "true"
+      AUTO_SEED: "false"
     depends_on:
       mysql:
         condition: service_healthy

@@ -72,11 +72,12 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 app.UseMiddleware<JwtAuthMiddleware>();
 
-// Initialize and Seed Database
+// Initialize schema; only load sample data when explicitly enabled.
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
-    await DbInitializer.SeedAsync(context);
+    var autoSeed = builder.Configuration.GetValue<bool>("AUTO_SEED");
+    await DbInitializer.SeedAsync(context, autoSeed);
 }
 
 // Configure the HTTP request pipeline

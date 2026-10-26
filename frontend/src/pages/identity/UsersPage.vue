@@ -283,14 +283,31 @@ const filteredUsers = computed(() => {
 const loadAllData = async () => {
   loading.fetch = true;
   try {
-    const [usersRes, deptsRes, rolesRes] = await Promise.all([
+    const [usersResult, deptsResult, rolesResult] = await Promise.allSettled([
       identityApi.getUsers(),
       identityApi.getDepartments(),
       identityApi.getRoles()
     ]);
-    if (usersRes?.success) users.value = usersRes.data;
-    if (deptsRes?.success) departments.value = deptsRes.data;
-    if (rolesRes?.success) roles.value = rolesRes.data;
+
+    if (usersResult.status === 'fulfilled' && usersResult.value?.success) {
+      users.value = usersResult.value.data;
+    }
+    if (deptsResult.status === 'fulfilled' && deptsResult.value?.success) {
+      departments.value = deptsResult.value.data;
+    }
+    if (rolesResult.status === 'fulfilled' && rolesResult.value?.success) {
+      roles.value = rolesResult.value.data;
+    }
+
+    const failed = [usersResult, deptsResult, rolesResult].filter(result => result.status === 'rejected');
+    if (failed.length) {
+      toast.add({
+        severity: 'warn',
+        summary: 'Dữ liệu tải chưa đầy đủ',
+        detail: failed[0].reason?.message || 'Một số danh mục nhân sự chưa thể tải',
+        life: 4000
+      });
+    }
   } catch (err) {
     toast.add({
       severity: 'error',

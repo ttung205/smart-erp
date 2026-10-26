@@ -6,12 +6,17 @@ namespace Purchase.Infrastructure.Persistence;
 
 public static class DbInitializer
 {
-    public static async Task SeedAsync(PurchaseDbContext context)
+    public static async Task SeedAsync(PurchaseDbContext context, bool seedData = true)
     {
         // 1. Tự động khởi tạo Database & các Bảng (cho cả SQLite và MySQL)
         await context.Database.EnsureCreatedAsync();
         await CreateInquiryTablesAsync(context);
         await EnsurePurchaseReturnTablesAsync(context);
+
+        if (!seedData)
+        {
+            return;
+        }
 
         // 2. Nạp dữ liệu mẫu cho Đề nghị mua hàng (PR) - Khớp 100% với danh mục thiết bị điện tử từ Catalog
         if (!await context.PurchaseRequisitions.AnyAsync())
