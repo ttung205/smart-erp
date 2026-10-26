@@ -39,18 +39,22 @@ JWT_SECRET = os.getenv("JWT_SECRET", "")
 JWT_ISSUER = os.getenv("JWT_ISSUER", "identity-service")
 REQUIRED_PERMISSION = "ai.use"
 
-# Kho phân tích (dev: SQLite) và lịch sử hội thoại
-ANALYTICS_DB = Path(os.getenv("ANALYTICS_DB", str(ROOT / "data" / "analytics.db")))
-CONVERSATION_DB = Path(os.getenv("CONVERSATION_DB", str(ROOT / "data" / "assistant.db")))
+# MySQL: lịch sử hội thoại và kho phân tích cùng nằm trong schema ANALYTICS_DB_NAME
+MYSQL_HOST = os.getenv("MYSQL_HOST", "127.0.0.1")
+MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
+MYSQL_USER = os.getenv("MYSQL_USER", "erp_user")
+MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "erp_secret")
+ANALYTICS_DB_NAME = os.getenv("ANALYTICS_DB_NAME", "erp_analytics_db")
 SYNC_INTERVAL_SECONDS = int(os.getenv("SYNC_INTERVAL_SECONDS", "300"))
 WAREHOUSE_SYNC_ENABLED = os.getenv("WAREHOUSE_SYNC_ENABLED", "true").lower() in {"1", "true", "yes", "on"}
 
-# Nguồn dữ liệu cho ETL (chỉ đọc). Môi trường dev dùng file SQLite của từng service.
+# Nguồn dữ liệu cho ETL (chỉ đọc, cùng MySQL server). Đây là điểm lệch chuẩn đã biết (architecture.md §13 #2):
+# đích là consume event `erp.analytics.events` hoặc export API của từng service.
 SOURCE_DB = {
-    "identity": Path(os.getenv("SOURCE_IDENTITY_DB", str(SERVICES / "identity-service/database/database.sqlite"))),
-    "catalog": Path(os.getenv("SOURCE_CATALOG_DB", str(SERVICES / "catalog-service/database/database.sqlite"))),
-    "sales": Path(os.getenv("SOURCE_SALES_DB", str(SERVICES / "sales-service/database/database.sqlite"))),
-    "inventory": Path(os.getenv("SOURCE_INVENTORY_DB", str(SERVICES / "inventory-service/src/Inventory.Api/inventory.db"))),
-    "purchase": Path(os.getenv("SOURCE_PURCHASE_DB", str(SERVICES / "purchase-service/src/Purchase.Api/purchase.db"))),
-    "finance": Path(os.getenv("SOURCE_FINANCE_DB", str(SERVICES / "finance-service/database/database.sqlite"))),
+    "identity": os.getenv("SOURCE_IDENTITY_DB", "erp_identity_db"),
+    "catalog": os.getenv("SOURCE_CATALOG_DB", "erp_catalog_db"),
+    "sales": os.getenv("SOURCE_SALES_DB", "erp_sales_db"),
+    "inventory": os.getenv("SOURCE_INVENTORY_DB", "erp_inventory_db"),
+    "purchase": os.getenv("SOURCE_PURCHASE_DB", "erp_purchase_db"),
+    "finance": os.getenv("SOURCE_FINANCE_DB", "erp_finance_db"),
 }

@@ -5,12 +5,13 @@
 """
 from __future__ import annotations
 
-import sqlite3
 import unicodedata
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any, Callable
 
+from . import db as database
 from . import warehouse
 from .auth import Actor
 
@@ -46,14 +47,25 @@ def change(new: float, old: float) -> str:
     return f"{(new - old) / old * 100:+.1f}%"
 
 
-def db() -> sqlite3.Connection:
+_open_connections: ContextVar[list | None] = ContextVar("open_connections", default=None)
+
+
+def db() -> database.Connection:
+    """Mở kết nối đọc kho phân tích; run_tool đóng lại sau khi tool chạy xong."""
     con = warehouse.connect()
-    con.create_function("unaccent", 1, unaccent, deterministic=True)
+    connections = _open_connections.get()
+    if connections is not None:
+        connections.append(con)
     return con
 
 
-def as_of(con: sqlite3.Connection) -> date:
-    value = con.execute("select value from meta where key = 'as_of'").fetchone()
+def ua(expr: str) -> str:
+    """Biểu thức SQL so khớp không phân biệt dấu: collation unicode_ci bỏ dấu và hoa/thường, riêng đ/Đ phải đổi tay."""
+    return f"replace(replace({expr}, 'đ', 'd'), 'Đ', 'D')"
+
+
+def as_of(con: database.Connection) -> date:
+    value = con.execute("select meta_value from meta where meta_key = 'as_of'").fetchone()
     return date.fromisoformat(value[0]) if value and value[0] else date.today()
 
 
@@ -72,7 +84,7 @@ class Filters:
 
     def like(self, column: str, value: str | None) -> None:
         if value:
-            self.sql.append(f"unaccent({column}) like ?")
+            self.sql.append(f"{ua(column)} like ?")
             self.args.append(f"%{unaccent(value)}%")
 
     def eq(self, column: str, value: Any) -> None:
@@ -100,7 +112,7 @@ def sales_filters(args: dict) -> Filters:
 SALES_JOIN = ("from fact_sales s join dim_product p on p.id = s.product_id "
               "left join dim_customer c on c.id = s.customer_id left join dim_staff st on st.id = s.salesperson_id")
 GROUP_EXPR = {
-    "month": "substr(s.date, 1, 7)", "week": "strftime('%Y-W%W', s.date)", "day": "s.date",
+    "month": "substr(s.date, 1, 7)", "week": "date_format(s.date, '%Y-W%u')", "day": "s.date",
     "category": "p.category", "brand": "p.brand", "product": "p.sku || ' - ' || p.name",
     "customer": "c.code || ' - ' || c.name", "customer_type": "c.type", "region": "c.region",
     "province": "c.province", "salesperson": "st.name", "none": "'Tổng'",
@@ -135,10 +147,10 @@ def sales_report(actor: Actor, args: dict) -> dict:
                         f"count(distinct s.customer_id) {base}", params).fetchone()
     revenue = total[0] or 0
     top_n = min(int(args.get("top_n") or 10), 25)
-    order = "key" if group_by in TIME_GROUPS else "revenue desc"
+    order = "grp" if group_by in TIME_GROUPS else "revenue desc"
     limit = 400 if group_by in TIME_GROUPS else top_n
-    rows = con.execute(f"select {expr} key, sum(s.revenue) revenue, sum(s.cost) cost, sum(s.quantity) qty, "
-                       f"count(distinct s.order_id) orders {base} group by key order by {order} limit ?",
+    rows = con.execute(f"select {expr} grp, sum(s.revenue) revenue, sum(s.cost) cost, sum(s.quantity) qty, "
+                       f"count(distinct s.order_id) orders {base} group by grp order by {order} limit ?",
                        [*params, limit]).fetchall()
     return {
         "ky": f"{start} → {end}",
@@ -146,7 +158,7 @@ def sales_report(actor: Actor, args: dict) -> dict:
                  "bien_lai_gop": pct(revenue - (total[1] or 0), revenue), "so_luong": int(total[2] or 0),
                  "so_don": total[3], "so_khach": total[4]},
         "theo": group_by,
-        "dong": [{"nhom": r["key"] or "(không rõ)", "doanh_thu": money(r["revenue"]), "ty_trong": pct(r["revenue"], revenue),
+        "dong": [{"nhom": r["grp"] or "(không rõ)", "doanh_thu": money(r["revenue"]), "ty_trong": pct(r["revenue"], revenue),
                   "so_luong": int(r["qty"] or 0), "so_don": r["orders"]} for r in rows],
         "ghi_chu": "Doanh thu trước VAT, ghi nhận khi xuất kho. Lợi nhuận gộp ước tính theo giá vốn hiện hành.",
     }
@@ -161,8 +173,8 @@ def compare_sales(actor: Actor, args: dict) -> dict:
     f = sales_filters(args)
 
     def collect(p):
-        rows = con.execute(f"select {expr} key, sum(s.revenue), sum(s.quantity) {SALES_JOIN} "
-                           f"where s.date between ? and ?{f.where} group by key", [p[0], p[1], *f.args]).fetchall()
+        rows = con.execute(f"select {expr} grp, sum(s.revenue), sum(s.quantity) {SALES_JOIN} "
+                           f"where s.date between ? and ?{f.where} group by grp", [p[0], p[1], *f.args]).fetchall()
         return {r[0]: (r[1] or 0, r[2] or 0) for r in rows}
 
     rb, ra = collect(before), collect(after)
@@ -243,7 +255,8 @@ def inventory_status(actor: Actor, args: dict) -> dict:
 def product_info(actor: Actor, args: dict) -> dict:
     con = db()
     words = unaccent(args.get("query")).split() or [""]
-    match = " and ".join(["unaccent(p.sku || ' ' || p.model || ' ' || p.name || ' ' || p.category || ' ' || p.brand) like ?"] * len(words))
+    text = ua("p.sku || ' ' || p.model || ' ' || p.name || ' ' || p.category || ' ' || p.brand")
+    match = " and ".join([f"{text} like ?"] * len(words))
     rows = con.execute(f"""
         select p.*, coalesce(k.on_hand, 0) on_hand, coalesce(k.available, 0) available, sp.name supplier
         from dim_product p left join stock k on k.product_id = p.id left join dim_supplier sp on sp.id = p.supplier_id
@@ -272,8 +285,8 @@ def product_info(actor: Actor, args: dict) -> dict:
 def product_trend(actor: Actor, args: dict) -> dict:
     con = db()
     q = unaccent(args.get("product"))
-    p = con.execute("select id, sku, name from dim_product where unaccent(sku || ' ' || name) like ? limit 1",
-                    [f"%{q}%"]).fetchone()
+    text = ua("sku || ' ' || name")
+    p = con.execute(f"select id, sku, name from dim_product where {text} like ? limit 1", [f"%{q}%"]).fetchone()
     if not p:
         return {"loi": f"Không tìm thấy sản phẩm '{args.get('product')}'"}
     rows = con.execute("select substr(date, 1, 7) m, sum(quantity), sum(revenue) from fact_sales where product_id = ? "
@@ -329,10 +342,10 @@ def receivables_report(actor: Actor, args: dict) -> dict:
     if mode == "aging":
         buckets = con.execute(f"""select
             sum(case when r.due_date >= ? then r.outstanding end),
-            sum(case when julianday(?) - julianday(r.due_date) between 1 and 30 then r.outstanding end),
-            sum(case when julianday(?) - julianday(r.due_date) between 31 and 60 then r.outstanding end),
-            sum(case when julianday(?) - julianday(r.due_date) between 61 and 90 then r.outstanding end),
-            sum(case when julianday(?) - julianday(r.due_date) > 90 then r.outstanding end) {base}""",
+            sum(case when datediff(?, r.due_date) between 1 and 30 then r.outstanding end),
+            sum(case when datediff(?, r.due_date) between 31 and 60 then r.outstanding end),
+            sum(case when datediff(?, r.due_date) between 61 and 90 then r.outstanding end),
+            sum(case when datediff(?, r.due_date) > 90 then r.outstanding end) {base}""",
                               [today] * 5 + f.args).fetchone()
         result["tuoi_no"] = dict(zip(["trong_han", "qua_han_1_30", "qua_han_31_60", "qua_han_61_90", "qua_han_tren_90"],
                                      map(money, buckets)))
@@ -340,7 +353,7 @@ def receivables_report(actor: Actor, args: dict) -> dict:
     overdue_only = mode == "overdue"
     rows = con.execute(f"""select c.code, c.name, c.type, sum(r.outstanding) debt,
             sum(case when r.due_date < ? then r.outstanding end) overdue,
-            max(julianday(?) - julianday(r.due_date)) max_days, count(*) invoices, min(r.due_date) oldest_due
+            max(datediff(?, r.due_date)) max_days, count(*) invoices, min(r.due_date) oldest_due
             {base} group by c.id {'having overdue > 0' if overdue_only else ''}
             order by {'overdue' if overdue_only else 'debt'} desc limit ?""", [today, today, *f.args, top_n]).fetchall()
     result["dong"] = [{"ma": r["code"], "khach": r["name"], "loai": r["type"], "con_no": money(r["debt"]),
@@ -363,32 +376,32 @@ def purchase_report(actor: Actor, args: dict) -> dict:
         late = " and l.expected_date < ?" if mode == "late_orders" else ""
         params = [*f.args, *([today] if late else []), limit]
         rows = con.execute(f"""select l.po_code, l.date, l.expected_date, l.status, sp.name supplier, l.currency,
-                {value} value, sum(l.qty_ordered - l.qty_received) pending, count(*) lines
+                {value} value, sum(l.qty_ordered - l.qty_received) pending, count(*) line_count
                 {join} where l.status in ('Approved', 'PartiallyReceived'){f.where}{late}
                 group by l.po_id order by l.expected_date limit ?""", params).fetchall()
         return {"ngay_du_lieu": today, "che_do": mode, "so_po": len(rows), "dong": [
             {"po": r["po_code"], "ngay_dat": r["date"], "du_kien_ve": r["expected_date"], "trang_thai": r["status"],
              "ncc": r["supplier"], "gia_tri": f"{r['value']:,.0f} USD" if r["currency"] == "USD" else money(r["value"]),
-             "so_luong_chua_ve": int(r["pending"]), "so_dong": r["lines"]} for r in rows]}
+             "so_luong_chua_ve": int(r["pending"]), "so_dong": r["line_count"]} for r in rows]}
     start, end = period(con, args.get("start_date"), args.get("end_date"), default_days=365)
     rows = con.execute(f"""select sp.name supplier, sp.code, max(l.currency) currency, count(distinct l.po_id) pos,
             {value} value,
-            avg(case when l.first_receipt is not null then julianday(l.first_receipt) - julianday(l.date) end) lead,
+            avg(case when l.first_receipt is not null then datediff(l.first_receipt, l.date) end) lead_days,
             count(distinct case when l.first_receipt > l.expected_date then l.po_id end) late,
             count(distinct case when l.first_receipt is not null then l.po_id end) received
             {join} where l.date between ? and ?{f.where} group by sp.id
-            order by {"1.0 * late / max(received, 1) desc" if args.get("sort") == "late_rate" else "value desc"} limit ?""",
+            order by {"1.0 * late / greatest(received, 1) desc" if args.get("sort") == "late_rate" else "value desc"} limit ?""",
                        [start, end, *f.args, limit]).fetchall()
     return {"ky": f"{start} → {end}", "che_do": "supplier_performance", "dong": [
         {"ncc": r["supplier"], "ma": r["code"], "so_po": r["pos"],
          "gia_tri_mua": f"{r['value']:,.0f} USD" if r["currency"] == "USD" else money(r["value"]),
-         "lead_time_tb_ngay": round(r["lead"] or 0, 1), "ty_le_giao_tre": pct(r["late"], r["received"])} for r in rows]}
+         "lead_time_tb_ngay": round(r["lead_days"] or 0, 1), "ty_le_giao_tre": pct(r["late"], r["received"])} for r in rows]}
 
 
 def supplier_info(actor: Actor, args: dict) -> dict:
     con = db()
-    rows = con.execute("""select sp.*, (select count(*) from dim_product p where p.supplier_id = sp.id) products
-        from dim_supplier sp where unaccent(sp.name || ' ' || sp.code || ' ' || coalesce(sp.notes, '')) like ?
+    rows = con.execute(f"""select sp.*, (select count(*) from dim_product p where p.supplier_id = sp.id) products
+        from dim_supplier sp where {ua("sp.name || ' ' || sp.code || ' ' || coalesce(sp.notes, '')")} like ?
         limit ?""", [f"%{unaccent(args.get('query'))}%", min(int(args.get("limit") or 5), 15)]).fetchall()
     return {"ket_qua": [{"ma": r["code"], "ten": r["name"], "loai": r["supplier_type"], "nhom": r["supplier_group"],
                          "dieu_khoan_thanh_toan": r["payment_terms"], "email": r["email"], "sdt": r["phone"],
@@ -504,6 +517,17 @@ def available_tools(actor: Actor) -> list[Tool]:
 
 
 def run_tool(actor: Actor, name: str, args: dict) -> dict:
+    connections: list[database.Connection] = []
+    token = _open_connections.set(connections)
+    try:
+        return _run_tool(actor, name, args)
+    finally:
+        _open_connections.reset(token)
+        for con in connections:
+            con.close()
+
+
+def _run_tool(actor: Actor, name: str, args: dict) -> dict:
     tool = TOOL_BY_NAME.get(name)
     if not tool:
         return {"loi": f"Không có công cụ {name}"}

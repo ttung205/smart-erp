@@ -9,7 +9,7 @@ Chatbot nội bộ chỉ-đọc, hiển thị dạng widget nổi trên mọi tr
 ```
 Widget (Vue) ──JWT──► ai-service :8010 /api/v1/ai/chat
                         ├─ Groq (openai/gpt-oss-120b, tool calling)
-                        └─ 10 tool SQL trên kho phân tích data/analytics.db
+                        └─ 10 tool SQL trên kho phân tích MySQL (schema erp_analytics_db)
                              (đồng bộ 5 phút/lần từ DB các service, chỉ đọc)
 ```
 
@@ -17,7 +17,7 @@ Widget (Vue) ──JWT──► ai-service :8010 /api/v1/ai/chat
   (`order.view`/`report.view`, `inventory.view`, `purchase.view`, `finance.view`, `catalog.view`...);
   người hỏi chỉ được cấp tool mình có quyền, gọi vượt quyền bị từ chối.
 - **Số liệu do SQL tính**, đã định dạng sẵn (tỷ/triệu); LLM chỉ chọn tool và diễn giải.
-- Hội thoại + nhật ký gọi tool lưu ở `data/assistant.db`.
+- Hội thoại + nhật ký gọi tool lưu ở các bảng `conversations`, `messages`, `tool_calls` trong schema `erp_analytics_db`.
 
 ```bash
 cp .env.example .env        # điền JWT_SECRET (trùng identity) và GROQ_API_KEY (https://console.groq.com/keys)

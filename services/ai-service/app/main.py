@@ -33,7 +33,7 @@ async def sync_loop() -> None:
 async def lifespan(_: FastAPI):
     store.init()
     task: asyncio.Task | None = None
-    if config.WAREHOUSE_SYNC_ENABLED and not config.ANALYTICS_DB.exists():
+    if config.WAREHOUSE_SYNC_ENABLED and not warehouse.is_ready():
         try:
             await asyncio.to_thread(warehouse.sync)
         except Exception:
@@ -74,7 +74,7 @@ class ChatRequest(BaseModel):
 @router.get("/health")
 def health():
     return ok({"service": "ai-service", "model": config.GROQ_MODEL, "llm_configured": bool(config.GROQ_API_KEY),
-               "analytics_ready": config.ANALYTICS_DB.exists(),
+               "analytics_ready": warehouse.is_ready(),
                "warehouse_sync_enabled": config.WAREHOUSE_SYNC_ENABLED})
 
 

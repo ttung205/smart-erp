@@ -123,6 +123,7 @@ services:
     ports: !reset []
     environment:
       JWT_SECRET: *jwt-secret
+      MYSQL_PASSWORD: *mysql-password
 
   gateway-legacy:
     ports: !reset []

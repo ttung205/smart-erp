@@ -544,10 +544,15 @@ services:
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_MODEL: "openai/gpt-oss-120b"
       SYNC_INTERVAL_SECONDS: 300
-      WAREHOUSE_SYNC_ENABLED: "false"
-    volumes:
-      - ai_data:/app/data
+      WAREHOUSE_SYNC_ENABLED: "true"
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: erp_user
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
+      ANALYTICS_DB_NAME: erp_analytics_db
     depends_on:
+      mysql:
+        condition: service_healthy
       identity-service:
         condition: service_healthy
     healthcheck:
@@ -666,4 +671,3 @@ volumes:
   mongo_data:
   chat_data:
   chat_files:
-  ai_data:

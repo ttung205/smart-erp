@@ -1,9 +1,6 @@
-"""Script xuất dữ liệu từ analytics.db thành bộ Dataset chuẩn hóa cho Kaggle.
-Sử dụng thư viện chuẩn của Python (csv, sqlite3) - chạy siêu nhanh, không phụ thuộc thư viện ngoài.
-"""
+"""Script xuất dữ liệu từ kho phân tích (MySQL, schema erp_analytics_db) thành bộ Dataset chuẩn hóa cho Kaggle."""
 import csv
 import random
-import sqlite3
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -11,17 +8,15 @@ from pathlib import Path
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-from app import config
+from app import config, warehouse
 
 ROOT = Path(__file__).resolve().parents[2]
-DB_PATH = config.ANALYTICS_DB
 OUT_DIR = ROOT / "kaggle_dataset"
 
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-print(f"Đang đọc dữ liệu từ: {DB_PATH}")
-con = sqlite3.connect(DB_PATH)
-con.row_factory = sqlite3.Row
+print(f"Đang đọc dữ liệu từ: mysql://{config.MYSQL_HOST}:{config.MYSQL_PORT}/{config.ANALYTICS_DB_NAME}")
+con = warehouse.connect()
 
 def export_table(query: str, outfile: Path, enrich_fn=None):
     cur = con.execute(query)
