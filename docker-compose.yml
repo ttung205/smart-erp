@@ -636,6 +636,12 @@ services:
       KONG_STATUS_LISTEN: "0.0.0.0:8100"
       KONG_NGINX_HTTP_CLIENT_MAX_BODY_SIZE: 210m
       KONG_LOG_LEVEL: notice
+      # Trình duyệt đi qua nginx (frontend) nên Kong chỉ thấy IP của container nginx. Tin X-Forwarded-For từ mạng nội bộ
+      # (Docker) để rate limit và access log tính theo IP người dùng thật, không gộp cả công ty vào một hạn mức.
+      # Kết nối từ ngoài mạng riêng không nằm trong danh sách này nên không giả mạo được IP bằng header.
+      KONG_TRUSTED_IPS: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+      KONG_REAL_IP_HEADER: X-Forwarded-For
+      KONG_REAL_IP_RECURSIVE: "on"
       # Docker DNS trả TTL 600s: service bị tạo lại (IP mới) sẽ 502 tới 10 phút. Ép Kong phân giải lại sau 10s
       KONG_DNS_VALID_TTL: "10"
       # Access log kèm correlation id và thời gian xử lý, để tìm một request trong Loki (dashboard Logs)
