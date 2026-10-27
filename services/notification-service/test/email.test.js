@@ -167,6 +167,20 @@ test('worker downloads the attachments, sends once and records SMTP delivery', a
   assert.equal(record.message_id, 'smtp-1');
 });
 
+test('a job queued before the event design (inline attachments, no references) is still sent with its attachments', async () => {
+  const sent = [];
+  const transporter = { async sendMail(options) { sent.push(options); return { messageId: 'legacy-1' }; } };
+  const legacyJob = {
+    id: randomUUID(),
+    mailOptions: { from: 'x@y.z', to: 'a@example.com', subject: 'Job cũ', text: 'hi', attachments: [{ filename: 'old.pdf', content: 'JVBERg==', encoding: 'base64' }] },
+  };
+
+  await sendQueuedEmail(database, legacyJob, transporter, null);
+
+  assert.equal(sent.length, 1);
+  assert.deepEqual(sent[0].attachments, legacyJob.mailOptions.attachments);
+});
+
 test('an attachment that cannot be fetched fails the send so the queue retries it', async () => {
   const { service, enqueued } = buildService();
   await service.handleEvent(emailEvent());

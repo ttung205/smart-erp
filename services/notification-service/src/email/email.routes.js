@@ -59,8 +59,9 @@ export async function sendQueuedEmail(database, job, transporter = getTransporte
   );
 
   if (refs.length > 0 && !fetchAttachment) throw new Error('Chưa cấu hình bộ tải tệp đính kèm.');
-  const attachments = await Promise.all(refs.map((ref) => fetchAttachment(ref)));
-  const info = await transporter.sendMail({ ...job.mailOptions, attachments });
+  // Job cũ (trước khi chuyển sang event) mang sẵn mailOptions.attachments dạng base64 và không có attachmentRefs: giữ nguyên
+  const mail = refs.length ? { ...job.mailOptions, attachments: await Promise.all(refs.map((ref) => fetchAttachment(ref))) } : job.mailOptions;
+  const info = await transporter.sendMail(mail);
   await database.emailJobs.updateOne(
     { _id: job.id },
     { $set: { status: 'SENT', message_id: info.messageId, sent_at: new Date(), error: null } },
