@@ -14,7 +14,11 @@ Kong provides:
 - CORS handling at the edge;
 - removal of client-supplied `X-Internal-Service-Key`;
 - WebSocket pass-through for notification and chat;
-- a gateway `/health` endpoint.
+- a gateway `/health` endpoint;
+- rate limiting per client IP (600/min overall, 20/min on `/api/v1/auth`, 10/min on `/api/v1/ai`);
+- per-service connect/read timeouts and 2 retries (nginx never retries non-idempotent methods);
+- Prometheus metrics on the status listener (`gateway:8100/metrics`) and an access log that includes
+  `correlation_id`.
 
 ## First deployment
 
@@ -50,6 +54,50 @@ docker run --rm -e KONG_DATABASE=off `
   kong:3.9.1 kong config parse /kong/declarative/kong.yml
 docker compose up -d --no-deps --force-recreate gateway
 ./scripts/smoke-test.ps1
+```
+
+## Monitoring
+
+The monitoring stack is an opt-in Compose profile so the core system still runs on smaller machines:
+
+```powershell
+docker compose --profile monitoring up -d
+```
+
+| Component | Role | Access |
+|---|---|---|
+| Grafana 12 | Dashboards *ERP Overview*, *RabbitMQ*, *Logs*; alert list | `http://127.0.0.1:3000` (user `admin`, password `GRAFANA_ADMIN_PASSWORD`) |
+| Prometheus 3 | Scrapes Kong and RabbitMQ (`rabbitmq_prometheus`); evaluates `infrastructure/monitoring/prometheus/alerts.yml` | `http://127.0.0.1:9090` (dev only) |
+| Loki 3 | Log store, 7-day retention | internal |
+| Grafana Alloy | Tails stdout/stderr of every `smart-erp` container via the Docker socket, labels each stream with `service` | internal |
+
+Alerts: `DeadLetterNotEmpty` (message stuck in `erp.dead_letters`), `ServiceHigh5xx` (more than 5% 5xx through Kong for 5 min),
+`ScrapeTargetDown`.
+
+Tracing one request: copy `X-Correlation-ID` from the response headers, open the *Logs* dashboard and paste it into
+the search box. Kong's access log always carries the id; Chat and Purchase also include it when they log an error.
+
+Container CPU/RAM is not collected: cAdvisor cannot read containers on Docker Desktop with the containerd image store.
+
+## Resilience
+
+| Mechanism | Where |
+|---|---|
+| Transactional Outbox + publisher confirms | Catalog, Sales, E-Office (relay containers), Purchase, Inventory (background workers) |
+| Retry queue (10 s × 5) then dead letter `erp.dlx` → `erp.dead_letters` | Notification consumers |
+| Idempotent consumers (`event_id`) | Notification, Inventory |
+| Circuit breaker: opens 30 s after 5 consecutive failures (connection error or 5xx; 4xx does not count), one half-open probe | Sales → Inventory / Finance / Identity / Catalog; E-Office → Identity / Finance (cache-based Guzzle middleware); Chat → Identity, Purchase → Catalog / Identity / Notification (Polly, `Microsoft.Extensions.Http.Resilience`) |
+| Retry 2× on connection errors only | Calls that are safe to repeat: reads, and Inventory reserve / release / issue (idempotent per document). Never on POSTs to Finance, sales-return transfers, or email sends |
+| Rate limiting, timeouts | Kong |
+| Health checks + `restart: unless-stopped` | Every container |
+
+`GET /api/v1/sales/health` reports the state of each Sales circuit breaker (`CLOSED`, `OPEN`, `HALF_OPEN`).
+
+Dead letters: after fixing the cause, list and replay them with
+
+```powershell
+./scripts/replay-dead-letters.ps1            # list only
+./scripts/replay-dead-letters.ps1 -Replay    # re-publish to the original exchange/routing key
 ```
 
 ## Database changes and rollback
