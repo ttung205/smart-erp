@@ -35,7 +35,7 @@ def _retry_after(resp: httpx.Response) -> float:
 
 
 async def _call(client: httpx.AsyncClient, model: str, messages: list[dict], tools: list[dict] | None) -> dict:
-    body = {"model": model, "messages": messages, "temperature": 0.2, "max_tokens": 1500}
+    body = {"model": model, "messages": messages, "temperature": 0.2, "max_tokens": 2500}
     if tools:
         body.update({"tools": tools, "tool_choice": "auto"})
     for attempt in range(3):
