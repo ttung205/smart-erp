@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using Purchase.Application.Common.Models;
+using Polly;
 using Purchase.Domain.Exceptions;
 
 namespace Purchase.Api.Middlewares;
@@ -52,6 +53,14 @@ public class GlobalExceptionHandlingMiddleware
                 statusCode = HttpStatusCode.NotFound;
                 errorCode = "RESOURCE_NOT_FOUND";
                 _logger.LogWarning(exception, "[{CorrelationId}] Resource not found: {Message}", correlationId, exception.Message);
+                break;
+
+            // Service khác không phản hồi hoặc circuit breaker đang mở
+            case HttpRequestException or ExecutionRejectedException:
+                statusCode = HttpStatusCode.ServiceUnavailable;
+                errorCode = "DEPENDENCY_UNAVAILABLE";
+                message = "Dịch vụ liên quan tạm thời không phản hồi, vui lòng thử lại sau.";
+                _logger.LogWarning(exception, "[{CorrelationId}] Dependency unavailable: {Message}", correlationId, exception.Message);
                 break;
 
             case InvalidOperationException:

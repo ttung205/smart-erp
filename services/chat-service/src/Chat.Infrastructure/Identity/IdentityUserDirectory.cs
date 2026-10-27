@@ -4,6 +4,7 @@ using Chat.Application.Common.Models;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Polly;
 
 namespace Chat.Infrastructure.Identity;
 
@@ -50,7 +51,8 @@ public sealed class IdentityUserDirectory(
             cache.Set(CacheKey, (IReadOnlyDictionary<long, DirectoryUser>)users, CacheDuration);
             return users;
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or KeyNotFoundException)
+        // ExecutionRejectedException: Polly từ chối (circuit breaker đang mở hoặc hết thời gian chờ)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or KeyNotFoundException or ExecutionRejectedException)
         {
             logger.LogWarning(ex, "Không tải được danh bạ từ identity-service");
             throw new ChatException(503, "DIRECTORY_UNAVAILABLE", "Không tải được danh bạ nhân viên, vui lòng thử lại.");

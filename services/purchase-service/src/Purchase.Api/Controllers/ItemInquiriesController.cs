@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Polly;
 using Purchase.Application.Interfaces;
 using Purchase.Domain.Entities;
 using Purchase.Infrastructure.Persistence;
@@ -24,7 +25,8 @@ public class ItemInquiriesController(PurchaseDbContext db, IOutboxService outbox
     private static IActionResult Bad(string message) => new BadRequestObjectResult(new { success = false, error = new { message } });
     private string Base(string name, string fallback) => (config[$"Services:{name}"] ?? fallback).TrimEnd('/');
     private string InternalKey() => config["Services:InternalKey"] is { Length: > 0 } key ? key : throw new InvalidOperationException("Services:InternalKey chưa được cấu hình.");
-    private HttpClient Client() { var client = clients.CreateClient(); client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Request.Headers.Authorization.ToString().Replace("Bearer ", "", StringComparison.OrdinalIgnoreCase)); return client; }
+    public const string InternalClient = "internal";
+    private HttpClient Client() { var client = clients.CreateClient(InternalClient); client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Request.Headers.Authorization.ToString().Replace("Bearer ", "", StringComparison.OrdinalIgnoreCase)); return client; }
     private static object OkData(object data) => new { success = true, data };
     private static string Code(string source) => new string(source.Where(ch => char.IsLetterOrDigit(ch) || ch == '-').Select(char.ToUpperInvariant).ToArray()).Trim('-');
     private async Task<string> UniqueCode(string source, bool request, CancellationToken ct)
@@ -103,7 +105,7 @@ public class ItemInquiriesController(PurchaseDbContext db, IOutboxService outbox
             inquiry.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync(ct);
         }
-        catch (HttpRequestException) { /* The email worker may be temporarily unavailable. */ }
+        catch (Exception ex) when (ex is HttpRequestException or ExecutionRejectedException) { /* The email worker may be temporarily unavailable. */ }
     }
 
     [HttpGet("requests")]
