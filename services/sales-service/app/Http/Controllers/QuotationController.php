@@ -14,6 +14,7 @@ use App\Support\Outbox;
 use App\Support\SalesWorkflow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class QuotationController extends Controller
@@ -324,6 +325,70 @@ class QuotationController extends Controller
             'data' => $q,
             'message' => "Báo giá {$q->quotation_number} đã được gửi xét duyệt.",
         ]);
+    }
+
+    /**
+     * Yêu cầu gửi email báo giá cho khách. Không gửi mail tại đây: ghi event QuotationEmailRequested vào outbox
+     * (cùng transaction), notification-service nhận event, lấy tệp đính kèm từ Sales rồi đưa vào hàng đợi gửi mail.
+     * Tệp PDF phải được upload trước (POST /attachments/upload, attachable_type = quotation) rồi truyền attachment_ids.
+     */
+    public function sendEmail(Request $request, $id)
+    {
+        $q = Quotation::where('id', $id)->orWhere('quotation_number', $id)->first();
+        if (! $q) {
+            return response()->json(['success' => false, 'error' => ['code' => 'NOT_FOUND']], 404);
+        }
+
+        $data = $request->validate([
+            'to' => ['required', 'array', 'min:1', 'max:50'],
+            'to.*' => ['required', 'email:rfc', 'max:254'],
+            'cc' => ['nullable', 'array', 'max:50'],
+            'cc.*' => ['required', 'email:rfc', 'max:254'],
+            'subject' => ['required', 'string', 'max:255'],
+            'body' => ['nullable', 'string', 'max:50000'],
+            'sender_name' => ['nullable', 'string', 'max:100'],
+            'attachment_ids' => ['nullable', 'array', 'max:10'],
+            'attachment_ids.*' => ['integer'],
+        ]);
+        if (count($data['to']) + count($data['cc'] ?? []) > 50) {
+            return response()->json(['success' => false, 'error' => ['code' => 'TOO_MANY_RECIPIENTS', 'message' => 'Tối đa 50 người nhận mỗi email.']], 422);
+        }
+
+        $attachmentIds = array_values(array_unique($data['attachment_ids'] ?? []));
+        $attachments = SalesAttachment::query()
+            ->whereIn('id', $attachmentIds)
+            ->where('attachable_type', 'quotation')
+            ->where('attachable_id', $q->id)
+            ->get();
+        if ($attachments->count() !== count($attachmentIds)) {
+            return response()->json(['success' => false, 'error' => ['code' => 'ATTACHMENT_NOT_FOUND', 'message' => 'Có tệp đính kèm không thuộc báo giá này.']], 422);
+        }
+
+        $jobId = (string) Str::uuid();
+        DB::transaction(function () use ($request, $q, $data, $attachments, $jobId): void {
+            $this->recordEvent('QuotationEmailRequested', 'sales.quotation.email_requested', $q, $request, [
+                'email' => [
+                    'job_id' => $jobId,
+                    'to' => array_values($data['to']),
+                    'cc' => array_values($data['cc'] ?? []),
+                    'subject' => preg_replace('/[\r\n]+/', ' ', $data['subject']),
+                    'body' => (string) ($data['body'] ?? ''),
+                    'sender_name' => $data['sender_name'] ?? null,
+                ],
+                'attachments' => $attachments->map(fn (SalesAttachment $a): array => [
+                    'source' => 'sales',
+                    'id' => $a->id,
+                    'filename' => $a->file_name,
+                    'content_type' => $a->mime_type,
+                ])->all(),
+            ]);
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => ['email_job_id' => $jobId, 'status' => 'REQUESTED'],
+            'message' => "Đã yêu cầu gửi email báo giá {$q->quotation_number}.",
+        ], 202);
     }
 
     public function approve(Request $request, $id)
