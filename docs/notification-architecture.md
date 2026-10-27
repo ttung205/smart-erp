@@ -95,9 +95,9 @@ Cấu hình `notification-service/.env`: `JWT_SECRET`, `IDENTITY_SERVICE_URL`, `
 
 ## 7. Hàng đợi gửi email
 
-`POST /api/v1/notifications/email/send` xác nhận email đã được RabbitMQ nhận bằng publisher confirm rồi trả HTTP `202` với `status: QUEUED` và `id`. Đây chưa phải xác nhận SMTP đã gửi. Worker trong notification-service lấy job từ `erp.email.send`, gửi SMTP, rồi cập nhật `email_jobs` trong SQLite thành `SENT`. `GET /api/v1/notifications/email/logs` trả các trạng thái `QUEUED`, `SENT`, `FAILED`.
+Email gửi ra ngoài chỉ đi qua event, không còn API gửi trực tiếp. Sales phát `QuotationEmailRequested` (`sales.quotation.email_requested`) và Purchase phát `SupplierInquiryEmailRequested` (`purchase.inquiry.email_requested`) qua outbox. Notification nhận event từ `erp.notification.events`, kiểm tra nội dung, ghi `email_jobs` trạng thái `QUEUED` (khóa là `email.job_id` trong event) rồi đưa job vào `erp.email.send`. Đặc tả event: [events-spec.md §2.6](contracts/events-spec.md). Worker lấy job, tải tệp đính kèm từ service sở hữu bằng khóa nội bộ, gửi SMTP, rồi cập nhật `email_jobs` trong MongoDB thành `SENT`. `GET /api/v1/notifications/email/logs/{job_id}` trả `QUEUED`, `SENT`, `FAILED` (404 nghĩa là Notification chưa xử lý event).
 
-Nếu SMTP lỗi, job chuyển sang `erp.email.retry` trong 10 giây rồi quay lại, tối đa 5 lần; sau đó chuyển đến `erp.dead_letters`. Cần chạy RabbitMQ và notification-service để gửi email. Job chứa nội dung và tệp đính kèm dạng base64, nên tránh tệp quá lớn. RabbitMQ giao job theo cơ chế at-least-once; nếu worker ngừng sau khi SMTP nhận thư nhưng trước khi cập nhật SQLite, một bản gửi trùng có thể xảy ra khi retry.
+Nếu SMTP lỗi, job chuyển sang `erp.email.retry` trong 10 giây rồi quay lại, tối đa 5 lần; sau đó chuyển đến `erp.dead_letters`. Cần chạy RabbitMQ và notification-service để gửi email. Event và job chỉ chứa tham chiếu tệp `{source, id}`, không chứa nội dung tệp. RabbitMQ giao theo cơ chế at-least-once; nếu worker ngừng sau khi SMTP nhận thư nhưng trước khi cập nhật MongoDB, một bản gửi trùng có thể xảy ra khi retry.
 - Cài đặt nhận thông báo theo user (tắt/bật từng loại, từng kênh).
 - Outbox + event cho purchase (PR/PO cần duyệt), finance, trả hàng bán.
 - Chuyển DB notification sang MySQL khi chạy production (chỉ cần thay `db.js` + repository).

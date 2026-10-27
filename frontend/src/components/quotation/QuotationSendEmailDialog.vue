@@ -118,7 +118,7 @@ import Textarea from 'primevue/textarea';
 import Tag from 'primevue/tag';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
-import { notificationApi } from '../../api/notification.api';
+import { salesApi } from '../../api/sales.api';
 import { getCompanyConfig, loadCompanyConfig } from '../../config/companyConfig';
 
 const props = defineProps({
@@ -153,6 +153,13 @@ const form = reactive({
   subject: '',
   body: ''
 });
+
+/** base64 hoặc data URL của PDF -> File để upload lên Sales. */
+const pdfToFile = (base64, fileName) => {
+  const raw = base64.includes(',') ? base64.split(',')[1] : base64;
+  const bytes = Uint8Array.from(atob(raw), (ch) => ch.charCodeAt(0));
+  return new File([bytes], fileName, { type: 'application/pdf' });
+};
 
 const attachmentFileName = computed(() => {
   const quoteNo = props.quotation?.quotation_number || props.quotation?.id || 'Bao_Gia';
@@ -212,31 +219,43 @@ const handleSendEmail = async () => {
     return;
   }
 
+  if (!props.quotation?.id) {
+    toast.add({
+      severity: 'warn',
+      summary: 'Chưa lưu báo giá',
+      detail: 'Vui lòng lưu báo giá trước khi gửi email.',
+      life: 3000
+    });
+    return;
+  }
+
   sending.value = true;
   try {
-    const payload = {
+    // PDF được dựng trên trình duyệt: upload lên Sales trước, sau đó chỉ truyền mã tệp. Email đi theo event
+    // (Sales -> RabbitMQ -> Notification), không gửi nội dung tệp qua message.
+    const attachmentIds = [];
+    if (props.pdfBase64) {
+      const formData = new FormData();
+      formData.append('file', pdfToFile(props.pdfBase64, attachmentFileName.value));
+      formData.append('attachable_type', 'quotation');
+      formData.append('attachable_id', String(props.quotation.id));
+      const uploaded = await salesApi.uploadAttachments(formData);
+      attachmentIds.push(uploaded.data.id);
+    }
+
+    const res = await salesApi.sendQuotationEmail(props.quotation.id, {
       to: form.to.split(',').map(s => s.trim()).filter(Boolean),
       cc: form.cc ? form.cc.split(',').map(s => s.trim()).filter(Boolean) : [],
       subject: form.subject.trim(),
       body: form.body,
-      senderName: company.shortName ? `${company.shortName} ERP` : 'Smart ERP',
-      attachments: []
-    };
-
-    if (props.pdfBase64) {
-      payload.attachments.push({
-        filename: attachmentFileName.value,
-        content: props.pdfBase64,
-        contentType: 'application/pdf'
-      });
-    }
-
-    const res = await notificationApi.sendEmail(payload);
+      sender_name: company.shortName ? `${company.shortName} ERP` : 'Smart ERP',
+      attachment_ids: attachmentIds
+    });
 
     toast.add({
       severity: 'success',
       summary: 'Đã đưa email vào hàng đợi',
-      detail: `Email báo giá tới ${form.to} đang chờ gửi. Có thể kiểm tra trạng thái trong lịch sử email.`,
+      detail: `Email báo giá tới ${form.to} đã được ghi nhận và đang chờ gửi. Có thể kiểm tra trạng thái trong lịch sử email.`,
       life: 5000
     });
 
@@ -247,7 +266,7 @@ const handleSendEmail = async () => {
     toast.add({
       severity: 'error',
       summary: 'Lỗi gửi email',
-      detail: err.message || 'Không thể kết nối tới Notification Service để gửi mail.',
+      detail: err.message || 'Không thể gửi yêu cầu email tới hệ thống.',
       life: 4000
     });
   } finally {

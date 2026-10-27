@@ -175,6 +175,41 @@ Mọi payload đều có `actor: { id, name }` — người thực hiện hành 
 
 ---
 
+### 2.6. Nhóm Gửi Email (Sales / Purchase → notification-service)
+
+Mọi email gửi ra ngoài (khách hàng, nhà cung cấp) đi theo **một đường duy nhất**: service nghiệp vụ ghi event `*EmailRequested` qua Transactional Outbox, `notification-service` nhận event, ghi `email_jobs` (`QUEUED`), đưa job vào hàng đợi `erp.email.send` rồi worker gửi SMTP (retry 10 giây x 5 lần, quá thì vào `erp.dead_letters`). Không còn API gửi email trực tiếp: `POST /api/v1/notifications/email/send` đã bị xóa.
+
+| Event | Routing Key | Producer | Bên phát khởi tạo bằng |
+| :--- | :--- | :--- | :--- |
+| `QuotationEmailRequested` | `sales.quotation.email_requested` | sales-service | `POST /api/v1/sales/quotations/{id}/send-email` (người dùng soạn To, CC, tiêu đề, nội dung) |
+| `SupplierInquiryEmailRequested` | `purchase.inquiry.email_requested` | purchase-service | `POST /api/v1/purchase/inquiries/supplier-inquiries/{id}/send` (Purchase dựng nội dung hỏi hàng) |
+
+Payload (ngoài `actor` và các trường định danh chứng từ như event khác):
+
+```json
+{
+  "email": {
+    "job_id": "6f0c8e0e-6f4a-4c1e-9d6b-2f3a1c9b7a10",
+    "to": ["khach@example.com"],
+    "cc": ["sep@example.com"],
+    "subject": "Báo giá QT-001",
+    "body": "Kính gửi ...",
+    "sender_name": "Công ty ABC"
+  },
+  "attachments": [
+    { "source": "sales", "id": 123, "filename": "QT-001.pdf", "content_type": "application/pdf" }
+  ]
+}
+```
+
+Quy ước:
+- **`email.job_id`** (UUID) do bên phát sinh và lưu lại. Đây là khóa idempotent và cũng là `id` để tra trạng thái: `GET /api/v1/notifications/email/logs/{job_id}` (`QUEUED` → `SENT` | `FAILED`). Chưa có bản ghi nghĩa là Notification chưa xử lý event (trả 404).
+- **Nội dung do bên phát quyết định**; Notification không đổi nội dung, chỉ kiểm tra (địa chỉ hợp lệ, tối đa 50 người nhận, không có ký tự xuống dòng trong header), escape HTML rồi gửi. Event sai định dạng không được thử lại: ghi `email_jobs` = `FAILED` kèm lý do.
+- **Tệp đính kèm chỉ là tham chiếu** `{source, id}`, không đưa nội dung vào event. Notification tải tệp lúc gửi bằng `X-Internal-Service-Key`: `sales` → `GET /api/internal/attachments/{id}/download`, `purchase` → `GET /internal/inquiry-attachments/{id}`. Tải lỗi thì job thử lại theo hàng đợi. Tệp PDF báo giá được dựng trên trình duyệt nên phải upload lên Sales trước (`POST /attachments/upload`, `attachable_type = quotation`) rồi truyền `attachment_ids`.
+- Consumer: `notification-service` (binding sẵn có `sales.quotation.*`, `purchase.inquiry.*` vào `erp.notification.events`).
+
+---
+
 ### 2.5. Nhóm Master Data (Catalog / Identity / Partner)
 
 Master data mặc định được service khác lấy qua **REST lúc tạo chứng từ rồi snapshot** ([architecture.md §5](../Ai_rule/architecture.md#5-chia-sẻ-dữ-liệu-qua-ranh-giới-service)) — **không** cần event. Event master data chỉ tồn tại khi có service phải *phản ứng* với thay đổi:
