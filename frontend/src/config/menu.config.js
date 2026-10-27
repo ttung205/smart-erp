@@ -14,6 +14,13 @@ export const menuCategories = [
         label: 'Trợ lý AI',
         icon: 'pi pi-sparkles',
         permission: 'ai.use'
+      },
+      {
+        id: 'analytics-dashboard',
+        path: '/analytics',
+        label: 'Phân tích & Dự báo BI',
+        icon: 'pi pi-chart-line',
+        permission: 'ai.use'
       }
     ]
   },

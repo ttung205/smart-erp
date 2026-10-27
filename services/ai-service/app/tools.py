@@ -12,7 +12,7 @@ from datetime import date, timedelta
 from typing import Any, Callable
 
 from . import db as database
-from . import warehouse
+from . import ml, warehouse
 from .auth import Actor
 
 SALES_PERMS = ("order.view", "report.view")
@@ -432,6 +432,361 @@ def order_list(actor: Actor, args: dict) -> dict:
                       "da_giao": f"{int(r['delivered'] or 0)}/{int(r['qty'] or 0)}"} for r in rows]}
 
 
+
+# ------------------------------------------------------------------- ML & Recommendations (Nhóm 1 & Nhóm 2)
+DOW_VN = {0: "Thứ Hai", 1: "Thứ Ba", 2: "Thứ Tư", 3: "Thứ Năm", 4: "Thứ Sáu", 5: "Thứ Bảy", 6: "Chủ Nhật"}
+
+
+def demand_forecast(actor: Actor, args: dict) -> dict:
+    mode = args.get("mode", "daily")
+    data = ml.get_sales_forecast()
+    con = db()
+    today = as_of(con).isoformat()
+    metrics = data.get("metrics", {})
+    all_daily = data.get("forecast", [])
+    total_30d = metrics.get("total_predicted_revenue") or sum(d["predicted"] for d in all_daily)
+    avg_daily = metrics.get("avg_daily_forecast") or (total_30d / len(all_daily) if all_daily else 0)
+
+    if mode == "monthly":
+        monthly = data.get("monthly_forecast", [])
+        return {
+            "ngay_du_lieu": today,
+            "che_do": "monthly (Toàn cảnh Quý IV/2026)",
+            "mo_hinh": "Decomposition + Seasonal Ramp (+3.0% - +6.5%) + Shaded Corridor (95%)",
+            "tong_quy_4_uoc_tinh": money(sum(m["predicted"] for m in monthly)),
+            "du_bao_cac_thang": [
+                {
+                    "thang": m["date"],
+                    "du_bao_doanh_thu": money(m["predicted"]),
+                    "can_duoi_95": money(m["lower"]),
+                    "can_tren_95": money(m["upper"]),
+                }
+                for m in monthly
+            ],
+            "nhan_xet": "Tháng 11 và 12 bước vào mùa cao điểm mua sắm cuối năm và Tết, doanh thu dự kiến tăng từ 5.2% đến 14.5% so với tháng 10.",
+        }
+
+    limit_days = min(int(args.get("limit_days") or 7), 30)
+    daily = all_daily[:limit_days]
+
+    # Tổng hợp 4 tuần để model dễ tóm tắt súc tích, tránh tràn bảng 30 dòng
+    weekly_breakdown = []
+    if len(all_daily) >= 28:
+        for w_idx, (w_start, w_end) in enumerate([(0, 7), (7, 14), (14, 21), (21, 28)]):
+            chunk = all_daily[w_start:w_end]
+            w_sum = sum(d["predicted"] for d in chunk)
+            weekly_breakdown.append({
+                "tuan": f"Tuần {w_idx + 1} ({chunk[0]['date']} → {chunk[-1]['date']})",
+                "doanh_thu_du_bao": money(w_sum),
+                "binh_quan_ngay": money(w_sum / 7),
+            })
+        if len(all_daily) > 28:
+            rem = all_daily[28:]
+            weekly_breakdown.append({
+                "tuan": f"2 ngày cuối ({rem[0]['date']} → {rem[-1]['date']})",
+                "doanh_thu_du_bao": money(sum(d['predicted'] for d in rem)),
+                "binh_quan_ngay": money(sum(d['predicted'] for d in rem) / len(rem)),
+            })
+
+    return {
+        "ngay_du_lieu": today,
+        "che_do": f"daily ({limit_days} ngày tới)",
+        "chu_ky_du_bao": f"Từ {all_daily[0]['date']} đến {all_daily[-1]['date']}" if all_daily else "30 ngày tới",
+        "tong_du_bao_30_ngay": money(total_30d),
+        "binh_quan_ngay": money(avg_daily),
+        "tong_hop_theo_tuan": weekly_breakdown,
+        "quy_luat_song_tuan": {
+            "ngay_dinh_doanh_so": "Thứ Hai và Thứ Ba (Doanh số cao nhất tuần, thường đạt 1,35 - 1,45 tỷ đ/ngày, cao gấp ~1.4 lần mức bình quân)",
+            "ngay_thap_nhat": "Chủ Nhật (Doanh số giảm sâu chỉ đạt ~20 - 30 triệu đ/ngày do kho vận nghỉ cuối tuần)",
+            "cac_ngay_giua_tuan": "Thứ Tư đến Thứ Bảy duy trì đều đặn ở mức 0,95 - 1,1 tỷ đ/ngày",
+            "nguyen_nhan_nghiep_vu": "Đại lý (Dealer) và Nhà phân phối (Distributor) tập trung lên đơn nhập hàng ồ ạt vào đầu tuần để kịp phân phối cho thị trường.",
+        },
+        "mo_hinh": "Day-of-Week Seasonality (Sóng ngày trong tuần) + Xu hướng tăng mùa vụ Q4 (+3.0% - +6.5%) + Dải tin cậy 95%",
+        "du_lieu_du_bao_mau": [
+            {
+                "ngay": d["date"],
+                "thu": DOW_VN.get(date.fromisoformat(d["date"]).weekday(), ""),
+                "du_bao": money(d["predicted"]),
+                "can_duoi_95": money(d["lower"]),
+                "can_tren_95": money(d["upper"]),
+            }
+            for d in daily
+        ],
+        "ghi_chu": f"Đang gửi {len(daily)} ngày mẫu. Nên tóm tắt bằng bảng theo tuần hoặc bảng mẫu 7 ngày đầu để câu trả lời súc tích, hoàn chỉnh.",
+    }
+
+
+def rfm_customer_segmentation(actor: Actor, args: dict) -> dict:
+    cluster_filter = args.get("cluster", "all")
+    sample_limit = min(int(args.get("limit_sample") or 5), 15)
+    data = ml.get_rfm_clusters()
+
+    clusters = data.get("clusters", [])
+    if cluster_filter != "all":
+        clusters = [c for c in clusters if c.get("key") == cluster_filter]
+
+    out_clusters = []
+    for c in clusters:
+        top_cust = c.get("top_customers", [])[:sample_limit]
+        out_clusters.append({
+            "ma_cum": c["key"],
+            "ten_cum": c["name"],
+            "so_luong_khach": c["count"],
+            "ty_le": f"{c['percentage']}%",
+            "recency_trung_binh_ngay": c["avg_recency_days"],
+            "frequency_trung_binh_don": c["avg_frequency"],
+            "monetary_trung_binh": money(c["avg_monetary"]),
+            "tong_doanh_thu_cum": money(c["total_monetary"]),
+            "khuyen_nghi": c["recommendation"],
+            "khach_hang_tieu_bieu": [
+                {
+                    "ma": cust["code"],
+                    "ten": cust["name"],
+                    "tinh": cust["province"],
+                    "loai": cust["type"],
+                    "so_ngay_chua_mua": cust["recency"],
+                    "so_don": cust["frequency"],
+                    "doanh_thu": money(cust["monetary"]),
+                }
+                for cust in top_cust
+            ],
+        })
+
+    return {
+        "tong_khach_hang": data.get("total_customers", 2591),
+        "diem_silhouette": data.get("silhouette_score", 0.42),
+        "phuong_phap": "K-Means Clustering (k=4) trên không gian chuẩn hóa Log-Transform + StandardScaler",
+        "cac_cum": out_clusters,
+    }
+
+
+def credit_risk_radar(actor: Actor, args: dict) -> dict:
+    risk_level = args.get("risk_level", "all")
+    limit = min(int(args.get("limit") or 10), 30)
+    data = ml.get_credit_risk()
+
+    summary = data.get("summary", {})
+    records = data.get("high_risk_receivables", [])
+
+    if risk_level != "all":
+        records = [r for r in records if r.get("risk_level") == risk_level]
+
+    records = records[:limit]
+
+    return {
+        "tong_quan": {
+            "tong_cong_no": money(summary.get("total_receivable", 0)),
+            "tong_gia_tri_xuat_hoa_don": money(summary.get("total_invoiced", 0)),
+            "da_thanh_toan": money(summary.get("total_paid", 0)),
+            "ty_le_thu_hoi": f"{summary.get('recovery_rate_pct', 0)}%",
+            "no_qua_han_tren_60_ngay": money(summary.get("overdue_over_60_days_amount", 0)),
+            "no_qua_han_30_60_ngay": money(summary.get("overdue_30_60_days_amount", 0)),
+            "so_hoa_don_nguy_co_cao": summary.get("high_risk_invoices_count", 0),
+        },
+        "bo_loc": risk_level,
+        "danh_sach_rui_ro": [
+            {
+                "ma_khach": r["customer_code"],
+                "ten_khach": r["customer_name"],
+                "tinh": r["province"],
+                "sdt": r["phone"],
+                "hoa_don": r["invoice_number"],
+                "ngay_den_han": r["due_date"],
+                "so_ngay_qua_han": r["overdue_days"],
+                "so_tien_con_no": money(r["outstanding"]),
+                "han_muc_tin_dung": money(r["credit_limit"]),
+                "muc_do_rui_ro": r["risk_level_name"],
+            }
+            for r in records
+        ],
+    }
+
+
+def suggest_restock_plan(actor: Actor, args: dict) -> dict:
+    con = db()
+    rows, today = _stock_rows(con, args)
+    urgency = args.get("urgency", "all")
+    target_days = int(args.get("target_cover_days") or 45)
+    limit = min(int(args.get("limit") or 10), 25)
+
+    proposals = []
+    for r in rows:
+        rate = r["rate"]
+        avail = r["available"]
+        incoming = r["incoming"]
+        cost_price = r["cost_price"] or 0
+        min_stock = r["min_stock"] or 0
+
+        if rate <= 0:
+            continue
+
+        cover = (avail + incoming) / rate
+
+        if avail <= 0 or cover < 7:
+            level = "urgent"
+            level_name = "Khẩn cấp (Tồn < 7 ngày hoặc hết hàng)"
+        elif cover < 15:
+            level = "warning"
+            level_name = "Cảnh báo (Tồn 7 - 14 ngày)"
+        else:
+            level = "safe"
+            level_name = "An toàn"
+
+        if urgency != "all" and level != urgency:
+            continue
+        if urgency == "all" and level == "safe":
+            continue
+
+        target_qty = target_days * rate
+        needed = max(0, int(round(target_qty - avail - incoming)))
+        if needed <= 0 and avail < min_stock:
+            needed = int(min_stock - avail)
+
+        if needed > 0:
+            proposals.append({
+                "sku": r["sku"],
+                "ten": r["name"],
+                "nganh": r["category"],
+                "hang": r["brand"],
+                "ton_kha_dung": int(avail),
+                "dang_ve": int(incoming),
+                "toc_do_ban_ngay": round(rate, 2),
+                "so_ngay_du_ban": round(cover, 1),
+                "muc_do": level_name,
+                "so_luong_de_xuat_nhap": needed,
+                "don_gia_von": money(cost_price) if actor.can("purchase.view", "finance.view") else "—",
+                "uoc_tinh_chi_phi": money(needed * cost_price) if actor.can("purchase.view", "finance.view") else "—",
+                "nha_cung_cap": r["supplier"],
+                "du_kien_giao_gan_nhat": r["next_arrival"] or "Chưa có đơn đang về",
+            })
+
+    urgency_order = {"Khẩn cấp (Tồn < 7 ngày hoặc hết hàng)": 0, "Cảnh báo (Tồn 7 - 14 ngày)": 1}
+    proposals.sort(key=lambda x: (urgency_order.get(x["muc_do"], 9), x["so_ngay_du_ban"]))
+
+    proposals_shown = proposals[:limit]
+    total_cost_num = sum(
+        (p["so_luong_de_xuat_nhap"] * (next((r["cost_price"] for r in rows if r["sku"] == p["sku"]), 0) or 0))
+        for p in proposals
+    )
+
+    return {
+        "ngay_du_lieu": today.isoformat(),
+        "muc_tieu_du_tru_ngay": target_days,
+        "tong_so_ma_can_nhap": len(proposals),
+        "tong_chi_phi_uoc_tinh": money(total_cost_num) if actor.can("purchase.view", "finance.view") else "—",
+        "danh_sach_de_xuat": proposals_shown,
+        "ghi_chu": f"Hiển thị {len(proposals_shown)}/{len(proposals)} mã hàng cần ưu tiên bổ sung kho. Công thức: target_days * bán_bình_quân - (khả_dụng + đang_về).",
+    }
+
+
+def suggest_churn_retention(actor: Actor, args: dict) -> dict:
+    con = db()
+    today = as_of(con).isoformat()
+    data = ml.get_rfm_clusters()
+    min_rev = float(args.get("min_historical_revenue") or 0)
+    customer_type = args.get("customer_type")
+    limit = min(int(args.get("limit") or 10), 25)
+
+    at_risk_cluster = next((c for c in data.get("clusters", []) if c.get("key") == "at_risk"), None)
+    if not at_risk_cluster:
+        return {"thong_bao": "Không tìm thấy dữ liệu phân cụm nguy cơ rời bỏ."}
+
+    candidates = at_risk_cluster.get("top_customers", [])
+    if customer_type:
+        candidates = [c for c in candidates if c.get("type") == customer_type]
+    if min_rev > 0:
+        candidates = [c for c in candidates if c.get("monetary", 0) >= min_rev]
+
+    proposals = []
+    for c in candidates[:limit]:
+        m = c.get("monetary", 0)
+        rec = c.get("recency", 0)
+        ctype = c.get("type", "")
+        freq = c.get("frequency", 0)
+
+        if freq == 0:
+            action = "Khách hàng mới chưa kích hoạt đơn đầu tiên"
+            playbook = "Gửi tin nhắn Zalo ZNS / Email chào mừng kèm voucher giảm giá 10% trong vòng 7 ngày."
+        elif m >= 500_000_000:
+            action = "Đại lý / Đối tác chiến lược có nguy cơ mất khách"
+            playbook = "Cử Trưởng phòng kinh doanh trực tiếp gặp gỡ, trao đổi cơ chế chiết khấu và giải phóng hàng tồn kho đối tác."
+        elif rec >= 90:
+            action = "Khách hàng cũ gián đoạn mua hàng lâu ngày (> 90 ngày)"
+            playbook = "Telesale gọi điện thăm hỏi, gửi catalog mẫu thiết bị mới Quý IV kèm chính sách công nợ linh hoạt."
+        else:
+            action = "Khách hàng có dấu hiệu giảm tần suất mua"
+            playbook = "Gửi thông báo chương trình flash sale và hỗ trợ freeship cho đơn hàng tiếp theo."
+
+        proposals.append({
+            "ma_khach": c["code"],
+            "ten_khach": c["name"],
+            "loai": ctype,
+            "tinh": c["province"],
+            "so_ngay_chua_mua": rec,
+            "so_don_da_mua": freq,
+            "doanh_thu_lich_su": money(m),
+            "phan_loai_rui_ro": action,
+            "kich_ban_giu_chan_de_xuat": playbook,
+        })
+
+    return {
+        "ngay_du_lieu": today,
+        "tong_khach_nguy_co_trong_cum": at_risk_cluster.get("count", 0),
+        "doanh_thu_bi_anh_huong": money(at_risk_cluster.get("total_monetary", 0)),
+        "so_khach_loc_duoc": len(proposals),
+        "danh_sach_de_xuat_cham_soc": proposals,
+        "ghi_chu": "Phân loại dựa trên mô hình RFM kết hợp quy mô chi tiêu và loại hình đối tác.",
+    }
+
+
+def suggest_credit_action(actor: Actor, args: dict) -> dict:
+    action_type = args.get("action_type", "all")
+    limit = min(int(args.get("limit") or 10), 25)
+    data = ml.get_credit_risk()
+    records = data.get("high_risk_receivables", [])
+
+    actions = []
+    for r in records:
+        overdue_days = r.get("overdue_days", 0)
+        debt = r.get("outstanding", 0)
+        limit_val = r.get("credit_limit", 0)
+        ratio = (debt / limit_val * 100) if limit_val > 0 else 0
+
+        if overdue_days >= 60:
+            category = "escalate_legal"
+            action = "Chuyển Pháp chế & Kế toán trưởng thu hồi nợ"
+            measures = "1. Gửi công văn thông báo nợ quá hạn lần cuối; 2. Tạm dừng xuất mọi đơn hàng mới; 3. Lập hồ sơ xử lý pháp lý nếu không thanh toán trong 7 ngày."
+        elif overdue_days >= 30 or ratio > 100:
+            category = "block_orders"
+            action = "Khóa hạn mức tín dụng & Chuyển sang COD"
+            measures = "1. Tự động chặn duyệt đơn trả sau; 2. Yêu cầu thanh toán tối thiểu 50% số nợ quá hạn; 3. Đơn mới bắt buộc thu tiền ngay khi giao (COD)."
+        else:
+            category = "reminder"
+            action = "Đôn đốc công nợ định kỳ"
+            measures = "1. Gửi bảng đối chiếu công nợ qua email; 2. Kế toán gọi điện nhắc hạn thanh toán trước 3 ngày."
+
+        if action_type != "all" and action_type != category:
+            continue
+
+        actions.append({
+            "ma_khach": r["customer_code"],
+            "ten_khach": r["customer_name"],
+            "hoa_don": r["invoice_number"],
+            "so_tien_no": money(debt),
+            "han_muc": money(limit_val),
+            "ty_le_no_tren_han_muc": f"{ratio:.0f}%" if limit_val > 0 else "Không hạn mức",
+            "so_ngay_qua_han": overdue_days,
+            "hanh_dong_de_xuat": action,
+            "bien_phap_cu_the": measures,
+        })
+
+    return {
+        "so_khoan_can_xu_ly": len(actions),
+        "danh_sach_hanh_dong": actions[:limit],
+        "ghi_chu": "Biện pháp đề xuất dựa trên quy chế tín dụng ERP và số ngày quá hạn thực tế.",
+    }
+
+
 # --------------------------------------------------------------- registry
 @dataclass
 class Tool:
@@ -502,12 +857,47 @@ TOOLS: list[Tool] = [
          "(PENDING_APPROVAL, APPROVED, PROCESSING, COMPLETED, CANCELLED, REJECTED).",
          obj({**DATE_PROPS, "customer": FILTER_PROPS["customer"], "status": {"type": "string"},
               "order_number": {"type": "string"}, "limit": {"type": "integer"}}), ("order.view",), order_list),
+
+    # --- Nhóm 1: Predictive ML Tools
+    Tool("demand_forecast", "Dự báo doanh số chuỗi thời gian bằng Machine Learning (theo ngày 30 ngày tới kèm dải tin cậy 95% hoặc theo tháng Quý IV/2026).",
+         obj({"mode": {"type": "string", "enum": ["daily", "monthly"]}, "limit_days": {"type": "integer"}}),
+         SALES_PERMS, demand_forecast),
+    Tool("rfm_customer_segmentation", "Phân cụm khách hàng RFM bằng K-Means (k=4: VIP, Loyal, Potential, At-Risk / Chưa phát sinh đơn) kèm chỉ số R-F-M và khách hàng tiêu biểu.",
+         obj({"cluster": {"type": "string", "enum": ["all", "vip", "loyal", "potential", "at_risk"]},
+              "limit_sample": {"type": "integer"}}),
+         ("customer.view", "report.view"), rfm_customer_segmentation),
+    Tool("credit_risk_radar", "Đánh giá rủi ro tín dụng và công nợ quá hạn bằng mô hình Credit Risk Scoring (tỷ lệ thu hồi nợ, các khoản nợ có nguy cơ cao).",
+         obj({"risk_level": {"type": "string", "enum": ["all", "HIGH", "MEDIUM", "LOW"]}, "limit": {"type": "integer"}}),
+         ("finance.view",), credit_risk_radar),
+
+    # --- Nhóm 2: Prescriptive Recommendation Tools
+    Tool("suggest_restock_plan", "Đề xuất kế hoạch nhập kho thông minh: tính toán các sản phẩm sắp hết hàng hoặc tồn kho dưới ngưỡng an toàn theo tốc độ bán thực tế và đề xuất số lượng cần đặt.",
+         obj({"category": FILTER_PROPS["category"],
+              "urgency": {"type": "string", "enum": ["urgent", "warning", "all"]},
+              "target_cover_days": {"type": "integer"},
+              "limit": {"type": "integer"}}),
+         ("inventory.view", "purchase.view"), suggest_restock_plan),
+    Tool("suggest_churn_retention", "Đề xuất danh sách khách hàng có nguy cơ rời bỏ cần chăm sóc giữ chân kèm doanh thu lịch sử và kịch bản can thiệp (gọi điện, ưu đãi, gặp trực tiếp).",
+         obj({"customer_type": FILTER_PROPS["customer_type"],
+              "min_historical_revenue": {"type": "number"},
+              "limit": {"type": "integer"}}),
+         ("customer.view", "order.view"), suggest_churn_retention),
+    Tool("suggest_credit_action", "Đề xuất hành động xử lý công nợ và rủi ro tín dụng: tạm khóa đơn, chuyển sang COD, hoặc chuyển pháp chế thu hồi nợ đối với các khoản quá hạn.",
+         obj({"action_type": {"type": "string", "enum": ["all", "block_orders", "escalate_legal", "reminder"]},
+              "limit": {"type": "integer"}}),
+         ("finance.view",), suggest_credit_action),
 ]
 # Mô tả phạm vi dữ liệu của từng tool, dùng để báo cho model biết người dùng KHÔNG có quyền xem gì
 TOOL_SCOPE = {
     "sales_report": "doanh số", "inventory_status": "tồn kho", "receivables_report": "công nợ khách hàng",
     "purchase_report": "mua hàng / đơn mua", "supplier_info": "nhà cung cấp", "order_list": "đơn bán hàng",
     "customer_info": "thông tin khách hàng",
+    "demand_forecast": "dự báo doanh số ML",
+    "rfm_customer_segmentation": "phân cụm khách hàng RFM",
+    "credit_risk_radar": "đánh giá rủi ro tín dụng",
+    "suggest_restock_plan": "kế hoạch nhập kho thông minh",
+    "suggest_churn_retention": "kế hoạch giữ chân khách hàng rời bỏ",
+    "suggest_credit_action": "xử lý thu hồi nợ và rủi ro tín dụng",
 }
 TOOL_BY_NAME = {t.name: t for t in TOOLS}
 

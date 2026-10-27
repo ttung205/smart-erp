@@ -17,7 +17,7 @@ export async function enqueueEmail(rabbitmq, job) {
     });
     await channel.waitForConfirms();
   } finally {
-    await connection.close().catch(() => {});
+    await connection.close().catch(() => { });
   }
 }
 
@@ -43,7 +43,7 @@ export function startEmailConsumer({ rabbitmq, handle, onFailed, logger = consol
       conn.on('error', (error) => logger.error('[Email AMQP] Connection error:', error));
       conn.on('close', () => reconnect('Connection closed'));
       const channel = await conn.createConfirmChannel();
-      channel.on('close', () => { if (!stopped) conn.close().catch(() => {}); });
+      channel.on('close', () => { if (!stopped) conn.close().catch(() => { }); });
       await channel.assertExchange(rabbitmq.deadLetterExchange, 'topic', { durable: true });
       await channel.assertQueue(rabbitmq.emailQueue, {
         durable: true,
@@ -93,7 +93,7 @@ export function startEmailConsumer({ rabbitmq, handle, onFailed, logger = consol
       });
       logger.log(`[Email AMQP] Listening on ${rabbitmq.emailQueue}`);
     } catch (error) {
-      await connection?.close().catch(() => {});
+      await connection?.close().catch(() => { });
       reconnect(error.message);
     }
   }
@@ -103,7 +103,7 @@ export function startEmailConsumer({ rabbitmq, handle, onFailed, logger = consol
     async stop() {
       stopped = true;
       clearTimeout(reconnectTimer);
-      await connection?.close().catch(() => {});
+      await connection?.close().catch(() => { });
     },
   };
 }

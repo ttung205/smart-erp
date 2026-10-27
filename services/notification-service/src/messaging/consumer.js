@@ -34,19 +34,24 @@ export function startConsumer({ rabbitmq, handle, logger = console }) {
   let stopped = false;
   let connection = null;
   let reconnectTimer = null;
+  let hasLoggedWarning = false;
 
   function scheduleReconnect(reason) {
     if (stopped || reconnectTimer) return;
-    logger.warn(`[AMQP] ${reason}, thử lại sau 5s`);
+    if (!hasLoggedWarning) {
+      logger.warn(`[AMQP] ${reason}, sẽ tự động thử lại trong nền.`);
+      hasLoggedWarning = true;
+    }
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null;
       connectLoop();
-    }, 5000);
+    }, 15000);
   }
 
   async function setup() {
     const conn = await amqp.connect(rabbitmq.url);
     connection = conn;
+    hasLoggedWarning = false;
     conn.on('error', (error) => logger.error('[AMQP] Lỗi kết nối:', error.message));
     conn.on('close', () => scheduleReconnect('Mất kết nối RabbitMQ'));
 

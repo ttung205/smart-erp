@@ -65,3 +65,24 @@ def current_actor(authorization: str = Header(default="")) -> Actor:
     if not actor.can(config.REQUIRED_PERMISSION):
         raise HTTPException(403, detail="Bạn chưa được cấp quyền sử dụng trợ lý AI")
     return actor
+
+
+def optional_actor(authorization: str = Header(default="")) -> Actor | None:
+    """Trả về Actor nếu token hợp lệ, hoặc None nếu không có token (hỗ trợ public analytics / dev mode)."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None
+    try:
+        return verify_token(authorization[7:].strip())
+    except HTTPException:
+        return None
+
+
+def require_analytics_actor(authorization: str = Header(default="")) -> Actor:
+    """Xác thực JWT token cho module Analytics & BI Dashboard.
+    Yêu cầu token hợp lệ và có quyền ai.use hoặc finance.view hoặc SUPER_ADMIN."""
+    if not authorization.lower().startswith("bearer "):
+        raise HTTPException(401, detail="Thiếu token xác thực JWT (Bearer token)")
+    actor = verify_token(authorization[7:].strip())
+    if not (actor.can("ai.use", "finance.view") or "SUPER_ADMIN" in actor.roles):
+        raise HTTPException(403, detail="Tài khoản của bạn chưa được cấp quyền truy cập Dashboard Phân tích & BI")
+    return actor

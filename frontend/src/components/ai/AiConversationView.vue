@@ -102,7 +102,13 @@ const TOOL_LABELS = {
   receivables_report: 'Công nợ',
   purchase_report: 'Mua hàng',
   supplier_info: 'Nhà cung cấp',
-  order_list: 'Đơn bán hàng'
+  order_list: 'Đơn bán hàng',
+  demand_forecast: 'Dự báo doanh số ML',
+  rfm_customer_segmentation: 'Phân cụm khách hàng RFM',
+  credit_risk_radar: 'Đánh giá rủi ro tín dụng',
+  suggest_restock_plan: 'Kế hoạch nhập kho tự động',
+  suggest_churn_retention: 'Kế hoạch giữ chân khách hàng',
+  suggest_credit_action: 'Đề xuất xử lý công nợ'
 };
 
 const ai = useAiStore();

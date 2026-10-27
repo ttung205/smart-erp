@@ -46,7 +46,7 @@ public class RabbitMqConsumerWorker : BackgroundService
                 break;
             }
 
-            await Task.Delay(5000, stoppingToken);
+            await Task.Delay(20000, stoppingToken);
         }
 
         if (stoppingToken.IsCancellationRequested) return;

@@ -14,6 +14,7 @@ public class RabbitMqConnection : IDisposable
     private IConnection? _connection;
     private readonly object _lock = new();
     private bool _disposed;
+    private bool _hasLoggedWarning;
 
     public const string ExchangeName = "erp.events";
 
@@ -62,11 +63,20 @@ public class RabbitMqConnection : IDisposable
                 // và bind inventory.goods.* vào queue không ai đọc sẽ làm message tồn đọng.
 
                 _logger.LogInformation("Đã kết nối thành công tới RabbitMQ Broker tại {Host}:{Port}", factory.HostName, factory.Port);
+                _hasLoggedWarning = false;
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning("Chưa thể kết nối tới RabbitMQ Broker ({Message}). Các tác vụ Outbox sẽ tạm hoãn và tự động thử lại.", ex.Message);
+                if (!_hasLoggedWarning)
+                {
+                    _logger.LogWarning("Chưa thể kết nối tới RabbitMQ Broker ({Message}). Các tác vụ Outbox sẽ tạm hoãn và tự động thử lại âm thầm.", ex.Message);
+                    _hasLoggedWarning = true;
+                }
+                else
+                {
+                    _logger.LogDebug("Thử kết nối lại RabbitMQ thất bại: {Message}", ex.Message);
+                }
                 return false;
             }
         }

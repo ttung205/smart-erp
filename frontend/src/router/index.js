@@ -23,6 +23,7 @@ import InventoryView from '../pages/inventory/InventoryView.vue';
 import ServiceStatusPage from '../pages/system/ServiceStatusPage.vue';
 import ChatPage from '../pages/chat/index.vue';
 import AiAssistantPage from '../pages/ai/index.vue';
+import AnalyticsPage from '../pages/analytics/index.vue';
 
 // Sales sub-pages
 import QuotationPage from '../pages/quotation/index.vue';
@@ -120,6 +121,16 @@ export const routes = [
       requiresAuth: true,
       permission: 'ai.use',
       title: 'Trợ Lý AI'
+    }
+  },
+  {
+    path: '/analytics',
+    name: 'analytics-dashboard',
+    component: AnalyticsPage,
+    meta: {
+      requiresAuth: true,
+      permission: 'ai.use',
+      title: 'Phân Tích & Dự Báo BI'
     }
   },
   {
