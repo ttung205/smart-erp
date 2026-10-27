@@ -19,6 +19,11 @@ Kong provides:
 - per-service connect/read timeouts and 2 retries (nginx never retries non-idempotent methods);
 - Prometheus metrics on the status listener (`gateway:8100/metrics`) and an access log that includes
   `correlation_id`.
+- real client IP: browsers reach Kong through the frontend's nginx, so Kong trusts `X-Forwarded-For` from private
+  networks (`KONG_TRUSTED_IPS`, `KONG_REAL_IP_HEADER`) and rate limiting counts per user instead of per nginx container.
+  nginx overwrites `X-Forwarded-For` with the connecting address, so a client cannot choose its own IP. If a load
+  balancer is ever placed in front of nginx, switch that header back to `$proxy_add_x_forwarded_for` and trust the
+  balancer's address range.
 
 ## First deployment
 
