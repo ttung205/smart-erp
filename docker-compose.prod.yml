@@ -67,6 +67,7 @@ services:
       ConnectionStrings__MySqlConnection: "Server=mysql;Port=3306;Database=erp_inventory_db;User=erp_user;Password=${MYSQL_PASSWORD:?MYSQL_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)};"
       RabbitMQ__Password: *rabbit-password
       Jwt__Secret: *jwt-secret
+      Services__InternalKey: *internal-key
 
   sales-service:
     ports: !reset []
@@ -76,6 +77,12 @@ services:
       JWT_SECRET: *jwt-secret
       INTERNAL_SERVICE_KEY: *internal-key
       RABBITMQ_PASSWORD: *rabbit-password
+
+  sales-scheduler:
+    environment:
+      APP_KEY: ${SALES_APP_KEY:?SALES_APP_KEY chưa đặt trong .env/môi trường (xem .env.example)}
+      DB_PASSWORD: *mysql-password
+      INTERNAL_SERVICE_KEY: *internal-key
 
   sales-relay:
     environment:

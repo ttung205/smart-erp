@@ -234,6 +234,7 @@ public class OutboxReliabilityTests : IDisposable
         public Task<IReadOnlyList<StockOperationResult>> BatchReserveStockAsync(BatchReserveStockCommand command, CancellationToken ct = default) => _inner.BatchReserveStockAsync(command, ct);
         public Task<StockOperationResult> ReleaseStockAsync(ReleaseStockCommand command, CancellationToken ct = default) => _inner.ReleaseStockAsync(command, ct);
         public Task<IReadOnlyList<StockOperationResult>> ReleaseDocumentReservationAsync(string documentId, long? userId = null, CancellationToken ct = default) => _inner.ReleaseDocumentReservationAsync(documentId, userId, ct);
+        public Task<IReadOnlyList<OpenDocumentReservation>> GetOpenDocumentReservationsAsync(DateTime reservedFrom, DateTime reservedTo, CancellationToken ct = default) => _inner.GetOpenDocumentReservationsAsync(reservedFrom, reservedTo, ct);
         public Task<StockOperationResult> IssueStockAsync(IssueStockCommand command, CancellationToken ct = default) => _inner.IssueStockAsync(command, ct);
         public Task<InventoryStock?> GetPhysicalStockAsync(long productId, long warehouseId, CancellationToken ct = default) => _inner.GetPhysicalStockAsync(productId, warehouseId, ct);
         public Task<InventoryStockReservation?> GetReservationStockAsync(long productId, long warehouseId, CancellationToken ct = default) => _inner.GetReservationStockAsync(productId, warehouseId, ct);

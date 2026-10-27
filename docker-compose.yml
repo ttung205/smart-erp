@@ -262,6 +262,7 @@ services:
       RabbitMQ__Password: ${RABBITMQ_PASSWORD:-rabbit_secret}
       RabbitMQ__ExchangeName: erp.events
       Jwt__Secret: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
+      Services__InternalKey: ${INTERNAL_SERVICE_KEY:-smart_erp_internal_2026}
       AUTO_SEED: "false"
     depends_on:
       mysql:
@@ -355,6 +356,31 @@ services:
       sales-service:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+    networks:
+      - erp-network
+
+  # 2.5c Sales Scheduler: đối soát hàng treo ở Inventory mỗi 5 phút (php artisan sales:reconcile-reservations)
+  sales-scheduler:
+    image: smart-erp-sales-service:latest
+    container_name: erp-sales-scheduler
+    restart: unless-stopped
+    command: ["php", "artisan", "schedule:work"]
+    environment:
+      APP_ENV: production
+      LOG_CHANNEL: stderr
+      CACHE_STORE: file
+      APP_KEY: ${SALES_APP_KEY:-base64:YQ3WeaKMGlYTZX19my0YQLtZHLp33997iRpj5YdjY7Y=}
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: erp_sales_db
+      DB_USERNAME: erp_user
+      DB_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
+      INVENTORY_SERVICE_URL: http://inventory-service:8004
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-smart_erp_internal_2026}
+    depends_on:
+      sales-service:
         condition: service_healthy
     networks:
       - erp-network
@@ -596,6 +622,7 @@ services:
     restart: unless-stopped
     environment:
       KONG_DATABASE: "off"
+      KONG_NGINX_WORKER_PROCESSES: "2"
       KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
       KONG_PROXY_LISTEN: "0.0.0.0:8000"
       KONG_ADMIN_LISTEN: "off"

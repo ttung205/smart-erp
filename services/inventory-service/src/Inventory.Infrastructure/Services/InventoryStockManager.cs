@@ -119,6 +119,32 @@ public class InventoryStockManager : IInventoryStockManager
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        try
+        {
+            return await BatchReserveOnceAsync(command, ct);
+        }
+        catch (Exception ex) when (ex is DbUpdateException or InsufficientStockException)
+        {
+            // Hai request giữ hàng cùng chứng từ chạy song song (vd Sales retry khi lần đầu chưa trả lời):
+            // request về sau bị rollback, do đụng unique index của sổ cái hoặc do request kia vừa lấy hết hàng.
+            // Nếu chứng từ đã được giữ thì đọc lại để trả kết quả idempotent; còn lại là hết hàng thật.
+            _context.ChangeTracker.Clear();
+            if (ex is InsufficientStockException && !await IsDocumentReservedAsync(command.OrderId, ct))
+            {
+                throw;
+            }
+
+            return await BatchReserveOnceAsync(command, ct);
+        }
+    }
+
+    private Task<bool> IsDocumentReservedAsync(string documentId, CancellationToken ct) =>
+        _context.InventoryStockReservationTransactions.AsNoTracking()
+            .AnyAsync(t => t.DocumentType == ReserveDocumentType && t.DocumentId == documentId, ct);
+
+    private async Task<IReadOnlyList<StockOperationResult>> BatchReserveOnceAsync(BatchReserveStockCommand command, CancellationToken ct)
+    {
+
         var lines = command.Items
             .GroupBy(i => (i.WarehouseId, i.ProductId))
             .Select(g => new ReserveStockItem(g.Key.WarehouseId, g.Key.ProductId, g.Sum(i => i.Quantity)))
@@ -198,6 +224,35 @@ public class InventoryStockManager : IInventoryStockManager
 
         await tx.CommitAsync(ct);
         return results;
+    }
+
+    public async Task<IReadOnlyList<OpenDocumentReservation>> GetOpenDocumentReservationsAsync(DateTime reservedFrom, DateTime reservedTo, CancellationToken ct = default)
+    {
+        var reserved = await _context.InventoryStockReservationTransactions
+            .AsNoTracking()
+            .Where(t => t.DocumentType == ReserveDocumentType && t.CreatedAt >= reservedFrom && t.CreatedAt <= reservedTo)
+            .Select(t => new { t.DocumentId, t.WarehouseId, t.ProductId, t.QuantityDelta, t.CreatedAt })
+            .ToListAsync(ct);
+        if (reserved.Count == 0) return [];
+
+        var documentIds = reserved.Select(t => t.DocumentId).Distinct().ToList();
+        var released = (await _context.InventoryStockReservationTransactions
+                .AsNoTracking()
+                .Where(t => t.DocumentType == ReleaseDocumentType && documentIds.Contains(t.DocumentId))
+                .Select(t => t.DocumentId)
+                .Distinct()
+                .ToListAsync(ct))
+            .ToHashSet();
+
+        return reserved
+            .Where(t => !released.Contains(t.DocumentId))
+            .GroupBy(t => t.DocumentId)
+            .Select(g => new OpenDocumentReservation(
+                g.Key,
+                g.Min(t => t.CreatedAt),
+                g.Select(t => new OpenDocumentReservationLine(t.WarehouseId, t.ProductId, -t.QuantityDelta)).ToList()))
+            .OrderBy(d => d.ReservedAt)
+            .ToList();
     }
 
     /// <summary>

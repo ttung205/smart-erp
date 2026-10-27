@@ -1,5 +1,7 @@
 using System.Net;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Inventory.Application.Common.Models;
 using Inventory.Application.Interfaces;
@@ -9,12 +11,15 @@ namespace Inventory.Api.Middlewares;
 /// <summary>
 /// Lớp HTTP của xác thực: bỏ qua route công khai, lấy Bearer token và gắn ClaimsPrincipal vào HttpContext.
 /// Việc kiểm tra token thuộc về IAccessTokenValidator (Infrastructure).
+/// Lời gọi nội bộ không có người dùng (job đối soát của sales-service) xác thực bằng X-Internal-Service-Key;
+/// Kong xoá header này nếu client gửi lên.
 /// </summary>
 public class JwtAuthMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<JwtAuthMiddleware> _logger;
     private readonly bool _isEnabled;
+    private readonly string? _internalKey;
 
     private static readonly string[] AnonymousPaths =
     [
@@ -35,6 +40,7 @@ public class JwtAuthMiddleware
         _next = next;
         _logger = logger;
         _isEnabled = configuration.GetValue<bool?>("Jwt:Enabled") ?? true;
+        _internalKey = configuration["Services:InternalKey"];
     }
 
     public async Task InvokeAsync(HttpContext context, IAccessTokenValidator validator)
@@ -53,6 +59,21 @@ public class JwtAuthMiddleware
         var correlationId = context.Items["CorrelationId"]?.ToString()
             ?? context.Request.Headers["X-Correlation-ID"].FirstOrDefault()
             ?? $"req_corr_{Guid.NewGuid():N}";
+
+        var serviceKey = context.Request.Headers["X-Internal-Service-Key"].FirstOrDefault();
+        if (!string.IsNullOrEmpty(_internalKey) && !string.IsNullOrEmpty(serviceKey))
+        {
+            if (!CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(serviceKey), Encoding.UTF8.GetBytes(_internalKey)))
+            {
+                _logger.LogWarning("[{CorrelationId}] Rejected internal service key for {Path}", correlationId, path);
+                await WriteErrorResponseAsync(context, "UNAUTHORIZED", "Khóa dịch vụ nội bộ không hợp lệ.", correlationId);
+                return;
+            }
+
+            context.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.Name, "internal-service")], "InternalServiceKey"));
+            await _next(context);
+            return;
+        }
 
         var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
         if (string.IsNullOrWhiteSpace(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
