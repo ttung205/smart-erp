@@ -1,0 +1,2 @@
+# Cảnh báo lấy từ Prometheus (prometheus/alerts.yml), không định nghĩa thêm rule trong Grafana.
+apiVersion: 1

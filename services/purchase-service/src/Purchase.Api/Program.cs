@@ -1,3 +1,6 @@
+using Polly;
+using Microsoft.Extensions.Http.Resilience;
+using Purchase.Api.Controllers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Purchase.Api.Middlewares;
@@ -18,7 +21,23 @@ builder.Services.AddControllers()
 // 2. Đăng ký Application Services & Infrastructure (EF Core hỗ trợ Dual Provider)
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddHttpClient();
+// Gọi catalog / identity / notification-service: timeout, retry (chỉ GET), circuit breaker riêng cho từng service đích
+builder.Services.AddHttpClient(ItemInquiriesController.InternalClient)
+    .AddStandardResilienceHandler(options =>
+    {
+        options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(10);
+        options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(30);
+        options.Retry.MaxRetryAttempts = 2;
+        // Chỉ retry GET: POST (gửi email, ghi kết quả hỏi hàng) không retry để không gửi trùng
+        var shouldRetry = options.Retry.ShouldHandle;
+        options.Retry.ShouldHandle = args => args.Context.GetRequestMessage()?.Method == HttpMethod.Get
+            ? shouldRetry(args)
+            : ValueTask.FromResult(false);
+        options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30);
+        options.CircuitBreaker.MinimumThroughput = 5;
+        options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(30);
+    })
+    .SelectPipelineByAuthority();
 
 // 3. Cấu hình CORS cho API Gateway (:8000) và Frontend (:5173 / :5174)
 builder.Services.AddCors(options =>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Infrastructure\Clients\InternalHttp;
 use App\Models\SaleReturn;
 use App\Models\SaleReturnRequest;
 use App\Support\DocumentNumberGenerator;
@@ -9,7 +10,6 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 
 class SaleReturnController extends Controller
 {
@@ -44,8 +44,7 @@ class SaleReturnController extends Controller
         $acceptedItems = $saleReturnRequest->items()->where('accepted_quantity', '>', 0)->get();
         abort_if($acceptedItems->isEmpty(), 409, 'Yêu cầu không có hàng đạt chất lượng để ghi sổ.');
         $reference = "{$saleReturnRequest->request_number}-MAIN";
-        $response = Http::withToken((string) $request->bearerToken())
-            ->timeout(config('services.inventory.timeout', 3))
+        $response = InternalHttp::inventory($request->bearerToken(), retry: false)
             ->post(config('services.inventory.url').'/api/v1/inventory/sales-returns/transfer', [
                 'reference_doc' => $reference,
                 'source_warehouse_id' => $saleReturnRequest->technical_warehouse_id,

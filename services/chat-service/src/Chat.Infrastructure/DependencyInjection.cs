@@ -22,7 +22,17 @@ public static class DependencyInjection
         services.AddSingleton<IChatRepository, MongoChatRepository>();
 
         services.AddMemoryCache();
-        services.AddHttpClient<IUserDirectory, IdentityUserDirectory>(client => client.Timeout = TimeSpan.FromSeconds(10));
+        // Polly: timeout 5s mỗi lần, retry 2 lần, circuit breaker mở 30s khi identity-service lỗi liên tục
+        services.AddHttpClient<IUserDirectory, IdentityUserDirectory>()
+            .AddStandardResilienceHandler(options =>
+            {
+                options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(5);
+                options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(15);
+                options.Retry.MaxRetryAttempts = 2;
+                options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30);
+                options.CircuitBreaker.MinimumThroughput = 5;
+                options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(30);
+            });
         services.AddSingleton<IFileStorage, LocalFileStorage>();
         services.AddSingleton<IAccessTokenValidator, HmacJwtTokenValidator>();
 

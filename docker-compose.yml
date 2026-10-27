@@ -42,6 +42,7 @@ services:
     volumes:
       - ./infrastructure/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - ./infrastructure/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+      - ./infrastructure/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
       - erp-network
@@ -100,6 +101,8 @@ services:
     environment:
       APP_NAME: "Identity Service"
       APP_ENV: production
+      # Log ra stderr để docker logs / Loki đọc được
+      LOG_CHANNEL: stderr
       APP_KEY: ${IDENTITY_APP_KEY:-base64:VFpnyI3eKcgG8lexKsNk2jHG/AgO+uEwhEYI4x3pLuU=}
       APP_DEBUG: "false"
       APP_URL: http://localhost:8000
@@ -137,6 +140,8 @@ services:
     environment:
       APP_NAME: "Catalog Service"
       APP_ENV: production
+      # Log ra stderr để docker logs / Loki đọc được
+      LOG_CHANNEL: stderr
       APP_KEY: ${CATALOG_APP_KEY:-base64:euw8kQxu75uK2ZhGn53tDb6eKZOh+eroRkUdbWzOxi8=}
       APP_DEBUG: "false"
       APP_URL: http://localhost:8000
@@ -176,6 +181,8 @@ services:
     command: ["php", "artisan", "outbox:relay"]
     environment:
       APP_ENV: production
+      # Log ra stderr để docker logs / Loki đọc được
+      LOG_CHANNEL: stderr
       APP_KEY: ${CATALOG_APP_KEY:-base64:euw8kQxu75uK2ZhGn53tDb6eKZOh+eroRkUdbWzOxi8=}
       DB_CONNECTION: mysql
       DB_HOST: mysql
@@ -282,6 +289,8 @@ services:
     environment:
       APP_NAME: "Sales Service"
       APP_ENV: production
+      # Log ra stderr để docker logs / Loki đọc được
+      LOG_CHANNEL: stderr
       APP_KEY: ${SALES_APP_KEY:-base64:YQ3WeaKMGlYTZX19my0YQLtZHLp33997iRpj5YdjY7Y=}
       APP_DEBUG: "false"
       APP_URL: http://localhost:8000
@@ -289,6 +298,8 @@ services:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_DATABASE: erp_sales_db
+      # Trạng thái circuit breaker (Sales chưa có bảng cache trong MySQL; chỉ cần sống trong container)
+      CACHE_STORE: file
       DB_USERNAME: erp_user
       DB_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
       JWT_SECRET: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
@@ -325,6 +336,8 @@ services:
     command: ["php", "artisan", "outbox:relay"]
     environment:
       APP_ENV: production
+      # Log ra stderr để docker logs / Loki đọc được
+      LOG_CHANNEL: stderr
       APP_KEY: ${SALES_APP_KEY:-base64:YQ3WeaKMGlYTZX19my0YQLtZHLp33997iRpj5YdjY7Y=}
       DB_CONNECTION: mysql
       DB_HOST: mysql
@@ -397,6 +410,8 @@ services:
     environment:
       APP_NAME: "EOffice Service"
       APP_ENV: production
+      # Log ra stderr để docker logs / Loki đọc được
+      LOG_CHANNEL: stderr
       APP_KEY: ${EOFFICE_APP_KEY:-base64:jHXlSUdhe4qBaRcDvaryub9jekkytDbPeoKhhcLP/TM=}
       APP_DEBUG: "false"
       APP_URL: http://localhost:8000
@@ -438,6 +453,8 @@ services:
     command: ["php", "artisan", "outbox:relay"]
     environment:
       APP_ENV: production
+      # Log ra stderr để docker logs / Loki đọc được
+      LOG_CHANNEL: stderr
       APP_KEY: ${EOFFICE_APP_KEY:-base64:jHXlSUdhe4qBaRcDvaryub9jekkytDbPeoKhhcLP/TM=}
       DB_CONNECTION: mysql
       DB_HOST: mysql
@@ -471,6 +488,8 @@ services:
     environment:
       APP_NAME: "Finance Service"
       APP_ENV: production
+      # Log ra stderr để docker logs / Loki đọc được
+      LOG_CHANNEL: stderr
       APP_KEY: ${FINANCE_APP_KEY:-base64:DAaj+IsuNHmTL6+d5VrR8I0y8D7Xvno1pi8LhmKgR4E=}
       APP_DEBUG: "false"
       APP_URL: http://localhost:8000
@@ -582,6 +601,11 @@ services:
       KONG_STATUS_LISTEN: "0.0.0.0:8100"
       KONG_NGINX_HTTP_CLIENT_MAX_BODY_SIZE: 210m
       KONG_LOG_LEVEL: notice
+      # Docker DNS trả TTL 600s: service bị tạo lại (IP mới) sẽ 502 tới 10 phút. Ép Kong phân giải lại sau 10s
+      KONG_DNS_VALID_TTL: "10"
+      # Access log kèm correlation id và thời gian xử lý, để tìm một request trong Loki (dashboard Logs)
+      KONG_NGINX_HTTP_LOG_FORMAT: "erp '$$remote_addr \"$$request\" $$status $${request_time}s upstream=$$upstream_addr correlation_id=$$http_x_correlation_id'"
+      KONG_PROXY_ACCESS_LOG: "/dev/stdout erp"
     ports:
       - "8000:8000"
     volumes:
@@ -661,6 +685,95 @@ services:
     networks:
       - erp-network
 
+  # =========================================================================
+  # 5. GIÁM SÁT (profile "monitoring"): docker compose --profile monitoring up -d
+  # =========================================================================
+
+  # Gom log mọi container
+  loki:
+    profiles: ["monitoring"]
+    image: grafana/loki:3.5.3
+    container_name: erp-loki
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/config.yml"]
+    volumes:
+      - ./infrastructure/monitoring/loki/config.yml:/etc/loki/config.yml:ro
+      - loki_data:/loki
+    networks:
+      - erp-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3100/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # Đọc log stdout của container qua Docker API rồi đẩy vào Loki
+  alloy:
+    profiles: ["monitoring"]
+    image: grafana/alloy:v1.10.2
+    container_name: erp-alloy
+    restart: unless-stopped
+    command: ["run", "--server.http.listen-addr=0.0.0.0:12345", "--storage.path=/var/lib/alloy/data", "/etc/alloy/config.alloy"]
+    volumes:
+      - ./infrastructure/monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      loki:
+        condition: service_healthy
+    networks:
+      - erp-network
+
+  # Metrics: Kong, RabbitMQ; luật cảnh báo trong alerts.yml
+  prometheus:
+    profiles: ["monitoring"]
+    image: prom/prometheus:v3.5.0
+    container_name: erp-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./infrastructure/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - erp-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/-/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  # Dashboard: ERP Overview, RabbitMQ, Logs (tự nạp từ infrastructure/monitoring/grafana)
+  grafana:
+    profiles: ["monitoring"]
+    image: grafana/grafana:12.1.1
+    container_name: erp-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/erp-overview.json
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./infrastructure/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+    networks:
+      - erp-network
+
 # =========================================================================
 # NETWORKS & VOLUMES
 # =========================================================================
@@ -672,4 +785,7 @@ volumes:
   mysql_data:
   rabbitmq_data:
   mongo_data:
+  loki_data:
+  prometheus_data:
+  grafana_data:
   chat_files:

@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 /**
- * Gọi REST sang service khác theo architecture.md §6: timeout, retry khi lỗi kết nối,
+ * Gọi REST sang service khác theo architecture.md §6: timeout, retry khi lỗi kết nối, circuit breaker,
  * chuyển tiếp JWT người dùng (hoặc khóa nội bộ khi chạy job/command) và X-Correlation-ID.
  */
 abstract class ServiceClient
@@ -44,7 +44,8 @@ abstract class ServiceClient
         $incoming = request();
         $request = Http::acceptJson()
             ->timeout($this->timeout)
-            ->retry(2, 200, fn ($e) => $e instanceof ConnectionException, throw: false)
+            ->withMiddleware(CircuitBreaker::for($this->service)->middleware())
+            ->retry(2, 200, fn ($e) => InternalHttp::isRetryable($e), throw: false)
             ->withHeaders(['X-Correlation-ID' => $incoming->header('X-Correlation-ID') ?: (string) Str::uuid()]);
 
         $token = $incoming->bearerToken();

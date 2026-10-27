@@ -262,7 +262,7 @@ Bảng chứng từ có cột `version`. Cập nhật `WHERE id = :id AND versio
 ## 12. VẬN HÀNH & QUAN SÁT
 
 * Mỗi service: `GET /health` (liveness) và kiểm tra DB/RabbitMQ (readiness).
-* Log có cấu trúc (JSON) kèm `correlation_id`, `service`, `user_id`.
+* Log có cấu trúc (JSON) kèm `correlation_id`, `service`, `user_id`. Hiện trạng: mọi container log ra stdout/stderr, Grafana Alloy gom vào Loki; Kong ghi `correlation_id` trong access log. Metrics: Prometheus (Kong, RabbitMQ), dashboard Grafana. Chạy bằng `docker compose --profile monitoring up -d`.
 * Mỗi service có `Dockerfile` riêng; `docker-compose.yml` chạy được toàn hệ thống. Cấu hình qua biến môi trường, không có đường dẫn file trỏ sang thư mục service khác.
 * Không commit file DB (`*.db`, `*.sqlite`, `erp_*_db`), `.venv`, `bin/obj`, `vendor`, `node_modules`.
 
@@ -280,7 +280,7 @@ Cập nhật: 2026-10-20. Đánh dấu ✅ khi xong.
 | 4 | ✅ | ~~`catalog-service` publish RabbitMQ thẳng trong controller; thư viện AMQP chưa cài nên `ProductCreated` chưa từng được gửi; import Excel và kết quả hỏi hàng không phát event~~ | Đã xong 2026-10-20: cả 3 đường tạo sản phẩm ghi `ProductCreated` qua outbox trong cùng transaction; relay `php artisan outbox:relay` (có trong `start_dev`) |
 | 5 | 🟠 | Customer/Supplier nằm trong catalog | Tách `partner-service` (§2.1); trước đó các service khác chỉ gọi qua API, không đọc DB |
 | 6 | 🟠 | `ItemInquiriesController` (purchase) chứa logic + gọi `DbContext` + HTTP hardcode `localhost` | Chuyển logic vào Application, HTTP vào typed client ở Infrastructure (§3, §6) |
-| 7 | 🟠 | Gọi REST nội bộ thiếu timeout/retry, URL mặc định hardcode | Áp §6 |
+| 7 | 🟡 | ~~Gọi REST nội bộ thiếu timeout/retry~~, URL mặc định hardcode | Timeout + retry (chỉ lệnh idempotent) + circuit breaker đã có từ 2026-10-27 (Sales, E-Office, Chat, Purchase; xem docs/deployment.md "Resilience"). Còn: URL mặc định `localhost` trong `ItemInquiriesController` |
 | 8 | 🟠 | Laravel services (catalog, identity) logic nằm trong controller | Tách `Services/Actions` (§3) khi sửa tới module đó |
 | 9 | 🟠 | JWT HS256 dùng chung secret; `X-Internal-Service-Key` dùng chung | RS256 + service token (§9) |
 | 10 | ✅ | ~~`docker-compose.yml` chỉ có hạ tầng, gateway trỏ tới container không tồn tại~~ | Đã xong 2026-10-24: Đã viết toàn bộ Dockerfile (10 microservices, relay workers, gateway, frontend SPA) + docker-compose.yml hoàn chỉnh (§12) |

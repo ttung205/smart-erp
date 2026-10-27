@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Infrastructure\Clients\InternalHttp;
 use App\Models\RevenueReportItem;
 use App\Models\SaleReturn;
 use App\Models\VatInvoice;
@@ -10,7 +11,6 @@ use App\Models\VatInvoiceItem;
 use App\Support\DocumentNumberGenerator;
 use App\Support\VatInvoiceNumberGenerator;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 
 class VatInvoiceAdjustmentService
@@ -268,7 +268,7 @@ class VatInvoiceAdjustmentService
             );
             $adjustment->originalInvoice->update(['finance_synced_at' => now()]);
         }
-        Http::withToken($token)->acceptJson()->timeout(config('services.finance.timeout'))
+        InternalHttp::finance($token)
             ->post(config('services.finance.url').'/api/invoice-adjustments/sync', [
                 'adjustment_id' => $adjustment->id,
                 'original_vat_invoice_id' => $adjustment->original_vat_invoice_id,

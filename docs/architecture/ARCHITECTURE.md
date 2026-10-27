@@ -426,6 +426,19 @@ Evidence: `SalesOrderController.store:56-230`; `SalesOrderController.submitAppro
 - `AUTO_SEED=true` is set for Identity, Catalog, Sales, E-Office, and Finance; entrypoint behavior determines whether production startup mutates seed data. Evidence: Compose and each `docker-entrypoint.sh`.
 - Compose pins Kong (`3.9.1`), MySQL (`8.0`), RabbitMQ (`3.13-management-alpine`), Node (`22-alpine`), Python (`3.12-slim`), and .NET (`10.0`); frontend/runtime Nginx and Mailpit use floating tags.
 
+### Observability and resilience — IMPLEMENTED (2026-10-27)
+
+| Area | Implementation | Evidence |
+|---|---|---|
+| Logs | Grafana Alloy tails every `smart-erp` container into Loki (label `service`, structured metadata `correlation_id`); Laravel services log to stderr | `infrastructure/monitoring/alloy/config.alloy`; Compose `LOG_CHANNEL` |
+| Metrics | Prometheus scrapes Kong (`prometheus` plugin) and RabbitMQ (`rabbitmq_prometheus`); no container CPU/RAM | `infrastructure/monitoring/prometheus/prometheus.yml` |
+| Dashboards / alerts | Grafana: ERP Overview, RabbitMQ, Logs; alerts dead letter, 5xx ratio, target down | `infrastructure/monitoring/grafana`, `prometheus/alerts.yml` |
+| Edge protection | Kong rate limiting (IP), per-service timeouts/retries, DNS TTL 10 s | `infrastructure/kong/kong.yml`; Compose `KONG_DNS_VALID_TTL` |
+| Circuit breakers | Laravel cache-based Guzzle middleware (Sales, E-Office); Polly standard handler (Chat, Purchase) | `sales-service/app/Infrastructure/Clients/CircuitBreaker.php`; `Chat.Infrastructure.DependencyInjection`; `Purchase.Api/Program.cs` |
+| Dead letters | Alert + `scripts/replay-dead-letters.ps1` | `scripts/replay-dead-letters.ps1` |
+
+Not implemented: distributed tracing (OpenTelemetry), log/metric alert delivery (no Alertmanager), circuit breaker on Notification → Identity (that consumer relies on the RabbitMQ retry queue instead).
+
 ## 13. Risks, bottlenecks, and inconsistencies
 
 | Priority | Finding | Impact | Evidence / status |
