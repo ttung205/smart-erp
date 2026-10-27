@@ -66,6 +66,7 @@ class OutboxEventsTest extends TestCase
         $failing->shouldReceive('close');
         $this->artisan('outbox:relay', ['--once' => true])->assertSuccessful();
         $this->assertDatabaseHas('outbox_events', ['status' => 'FAILED', 'retry_count' => 1, 'last_error' => 'broker down']);
+        $this->travel(3)->seconds();
 
         $publisher = $this->mock(RabbitMqPublisher::class);
         $publisher->shouldReceive('publish')->once()->withArgs(fn ($key, $body, $id) => $key === 'sales.order.submitted'

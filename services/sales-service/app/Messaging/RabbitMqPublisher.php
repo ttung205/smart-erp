@@ -52,7 +52,7 @@ class RabbitMqPublisher
         $this->channel->confirm_select();
         // Không có queue nào bind routing key thì RabbitMQ trả message về: coi là lỗi để không mất event
         $this->channel->set_return_listener(function (): void {
-            throw new \RuntimeException('Không có queue nào nhận routing key này (unroutable).');
+            throw new UnroutableMessageException;
         });
         $this->channel->set_nack_handler(function (): void {
             throw new \RuntimeException('RabbitMQ từ chối message (nack).');
