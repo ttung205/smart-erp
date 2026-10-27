@@ -14,7 +14,7 @@
         <div class="space-y-1">
           <p class="font-semibold m-0">Hệ thống sẽ gửi email kèm file PDF báo giá chính thức</p>
           <p class="text-[11px] text-blue-700 m-0 leading-relaxed">
-            Trong môi trường thử nghiệm Local, bạn có thể kiểm tra email và tải file PDF đính kèm tại <strong class="font-mono underline">http://localhost:8025 (Mailpit)</strong>.
+            Trong môi trường thử nghiệm Local, bạn có thể kiểm tra email và tải file PDF đính kèm tại <strong class="font-mono underline">http://localhost:8125 (Mailpit)</strong>.
           </p>
         </div>
       </div>

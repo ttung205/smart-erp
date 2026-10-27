@@ -159,5 +159,5 @@ Write-Host " - Finance Service      : http://127.0.0.1:8008" -ForegroundColor Gr
 Write-Host " - Chat Service         : http://127.0.0.1:8009" -ForegroundColor Gray
 Write-Host " - AI Service           : http://127.0.0.1:8010 (Swagger: http://127.0.0.1:8010/docs)" -ForegroundColor Gray
 Write-Host " - Frontend Web UI      : http://localhost:5175" -ForegroundColor Cyan
-Write-Host " - Mailpit Email UI     : http://localhost:8025" -ForegroundColor Cyan
+Write-Host " - Mailpit Email UI     : http://localhost:8125" -ForegroundColor Cyan
 Write-Host "`nHay mo trinh duyet truy cap: http://localhost:5175" -ForegroundColor Yellow

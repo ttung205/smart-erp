@@ -80,7 +80,8 @@ services:
     restart: unless-stopped
     ports:
       - "1025:1025"     # SMTP Port cho Notification Service
-      - "${MAILPIT_UI_PORT:-8025}:8025"     # Web UI xem trước email & file đính kèm
+      # Cổng host mặc định 8125 (8025 hay bị project khác dùng); đổi bằng MAILPIT_UI_PORT trong .env
+      - "${MAILPIT_UI_PORT:-8125}:8025"     # Web UI xem trước email & file đính kèm
     networks:
       - erp-network
 

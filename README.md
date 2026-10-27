@@ -172,7 +172,7 @@ Tiến trình nào đang chạy rồi sẽ được bỏ qua. Dùng `.\start_dev
 | :--- | :--- |
 | http://localhost:5175 | **Giao diện web** |
 | http://localhost:15672 | RabbitMQ Management (`erp_rabbit` / `rabbit_secret`) |
-| http://localhost:8025 | Mailpit, xem email đã gửi |
+| http://localhost:8125 | Mailpit, xem email đã gửi |
 | http://127.0.0.1:8003/swagger · http://127.0.0.1:8004/swagger | Swagger của purchase / inventory |
 
 > Khi dev, frontend gọi thẳng các service qua Vite proxy (`frontend/vite.config.js`). Kong gateway (`:8000`) được cấu hình cho môi trường container, nơi mỗi service chạy với hostname riêng.
