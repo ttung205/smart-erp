@@ -127,3 +127,10 @@ services:
 
   gateway-legacy:
     ports: !reset []
+
+  prometheus:
+    ports: !reset []
+
+  grafana:
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)}

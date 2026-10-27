@@ -1,0 +1,49 @@
+// Grafana Alloy: đọc log stdout của mọi container trong project smart-erp và đẩy vào Loki.
+// Label `service` = tên service trong docker-compose (vd sales-service), dùng để lọc trên Grafana.
+
+discovery.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "10s"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "containers" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.relabel.containers.output
+  relabel_rules = discovery.relabel.containers.rules
+  forward_to    = [loki.process.erp.receiver]
+}
+
+loki.process "erp" {
+  // Bắt correlation id nếu dòng log có (req_corr_..., X-Correlation-ID: <uuid>, "correlation_id":"...").
+  // Lưu dạng structured metadata (không phải label) để không làm nổ số lượng stream.
+  stage.regex {
+    expression = "(?i)(?:correlation[_-]?id\"?\\s*[:=]\\s*\"?|\\[)(?P<correlation_id>req_corr_[0-9a-f]+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"
+  }
+
+  stage.structured_metadata {
+    values = { correlation_id = "" }
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

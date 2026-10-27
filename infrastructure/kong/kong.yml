@@ -112,3 +112,12 @@ plugins:
     config:
       remove:
         headers: [X-Internal-Service-Key]
+
+  # Metrics cho Prometheus, đọc qua status listener :8100/metrics (không qua cổng proxy :8000)
+  - name: prometheus
+    config:
+      per_consumer: false
+      status_code_metrics: true
+      latency_metrics: true
+      bandwidth_metrics: false
+      upstream_health_metrics: true

@@ -1,0 +1,29 @@
+groups:
+  - name: smart-erp
+    rules:
+      - alert: DeadLetterNotEmpty
+        expr: max(rabbitmq_queue_messages{queue="erp.dead_letters"}) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Có message trong erp.dead_letters"
+          description: "Consumer đã thử lại 5 lần mà vẫn lỗi. Xem log rồi chạy scripts/replay-dead-letters.ps1."
+
+      - alert: ServiceHigh5xx
+        expr: |
+          sum by (service) (rate(kong_http_requests_total{code=~"5.."}[5m]))
+            / sum by (service) (rate(kong_http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.service }} trả lỗi 5xx > 5%"
+
+      - alert: ScrapeTargetDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} không phản hồi metrics"
