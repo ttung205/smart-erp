@@ -20,13 +20,3 @@ scrape_configs:
     metrics_path: /metrics/per-object
     static_configs:
       - targets: ["rabbitmq:15692"]
-
-  # CPU / RAM từng container
-  - job_name: cadvisor
-    static_configs:
-      - targets: ["cadvisor:8080"]
-    metric_relabel_configs:
-      # Chỉ giữ container của docker-compose để giảm số series
-      - source_labels: [container_label_com_docker_compose_service]
-        regex: ""
-        action: drop

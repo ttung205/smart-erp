@@ -583,6 +583,9 @@ services:
       KONG_STATUS_LISTEN: "0.0.0.0:8100"
       KONG_NGINX_HTTP_CLIENT_MAX_BODY_SIZE: 210m
       KONG_LOG_LEVEL: notice
+      # Access log kèm correlation id và thời gian xử lý, để tìm một request trong Loki (dashboard Logs)
+      KONG_NGINX_HTTP_LOG_FORMAT: "erp '$$remote_addr \"$$request\" $$status $${request_time}s upstream=$$upstream_addr correlation_id=$$http_x_correlation_id'"
+      KONG_PROXY_ACCESS_LOG: "/dev/stdout erp"
     ports:
       - "8000:8000"
     volumes:
@@ -701,7 +704,7 @@ services:
     networks:
       - erp-network
 
-  # Metrics: Kong, RabbitMQ, cAdvisor; luật cảnh báo trong alerts.yml
+  # Metrics: Kong, RabbitMQ; luật cảnh báo trong alerts.yml
   prometheus:
     profiles: ["monitoring"]
     image: prom/prometheus:v3.5.0
@@ -724,22 +727,6 @@ services:
       interval: 15s
       timeout: 5s
       retries: 10
-
-  # CPU / RAM từng container
-  cadvisor:
-    profiles: ["monitoring"]
-    image: gcr.io/cadvisor/cadvisor:v0.52.1
-    container_name: erp-cadvisor
-    restart: unless-stopped
-    privileged: true
-    command: ["--docker_only=true", "--housekeeping_interval=15s", "--store_container_labels=true"]
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-    networks:
-      - erp-network
 
   # Dashboard: ERP Overview, RabbitMQ, Logs (tự nạp từ infrastructure/monitoring/grafana)
   grafana:

@@ -29,6 +29,13 @@ loki.source.docker "containers" {
 }
 
 loki.process "erp" {
+  // Lần đầu chạy Alloy đọc lại toàn bộ log cũ của container; Loki từ chối log quá cũ so với stream,
+  // nên chỉ lấy log trong 1 giờ gần nhất.
+  stage.drop {
+    older_than          = "1h"
+    drop_counter_reason = "too_old"
+  }
+
   // Bắt correlation id nếu dòng log có (req_corr_..., X-Correlation-ID: <uuid>, "correlation_id":"...").
   // Lưu dạng structured metadata (không phải label) để không làm nổ số lượng stream.
   stage.regex {
