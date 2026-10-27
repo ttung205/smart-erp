@@ -39,13 +39,14 @@
           <!-- Số chứng từ -->
           <div class="flex flex-col gap-1">
             <label class="text-xs font-semibold text-slate-700">
-              Số chứng từ <span class="text-rose-500">*</span>
+              Số chứng từ
             </label>
             <InputText
               v-model="form.invoice_number"
-              class="w-full rounded-[6px] font-mono text-xs font-bold text-indigo-700"
+              readonly
+              class="w-full rounded-[6px] bg-slate-50 font-mono text-xs font-bold text-indigo-700"
               size="small"
-              placeholder="INV-2026-XXXX"
+              placeholder="Tự sinh khi lưu (INV-mã khách-ngày)"
             />
           </div>
 
@@ -333,11 +334,6 @@ const form = ref({
   items: []
 });
 
-const generateRandomInvoiceNumber = () => {
-  const rand = Math.floor(1000 + Math.random() * 9000);
-  return `INV-2026-${rand}`;
-};
-
 watch(
   () => [props.deliveryRequest, props.visible],
   ([newDr, isVis]) => {
@@ -347,7 +343,7 @@ watch(
       const order = newDr.order || {};
 
       form.value = {
-        invoice_number: generateRandomInvoiceNumber(),
+        invoice_number: '',
         invoice_date: today,
         currency: order.currency || newDr.currency || 'VND',
         exchange_rate: Number(order.exchange_rate) || 1.0,
@@ -379,13 +375,8 @@ const calculatedTotal = computed(() => {
 });
 
 const handleSubmit = (sendImmediately = false) => {
-  if (!form.value.invoice_number) {
-    alert('Vui lòng nhập số chứng từ bán hàng!');
-    return;
-  }
-
+  // Số chứng từ do server cấp (INV-{mã khách}-{ddmmyy}), không gửi số từ trình duyệt
   const payload = {
-    invoice_number: form.value.invoice_number,
     delivery_request_id: props.deliveryRequest.id,
     delivery_request_number: props.deliveryRequest.request_number || props.deliveryRequest.id,
     order_number: props.deliveryRequest.order_number || props.deliveryRequest.order_id,

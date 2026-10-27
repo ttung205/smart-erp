@@ -214,6 +214,10 @@ Người lập chứng từ cần biết **ngay** đủ hàng hay không (§4.1 
 * Inventory giữ **cả lô trong một transaction**: thiếu một dòng → rollback, trả `409 INSUFFICIENT_STOCK`. Dòng trùng sản phẩm được gộp; khóa theo thứ tự (kho, sản phẩm) để tránh deadlock.
 * **Idempotent** theo (số chứng từ, kho, sản phẩm): gọi lại không giữ hai lần, dòng đã giữ được bỏ qua. Cùng chứng từ mà khác số lượng → `422 DOCUMENT_ALREADY_POSTED`.
 * **Không giữ được hàng thì không có chứng từ**: sales gọi giữ hàng bên trong transaction lập chứng từ; thiếu hàng (409) hoặc Inventory sập (503) → rollback, yêu cầu giao vẫn ở `APPROVED` để lập lại. Ví dụ kho còn 3, hai yêu cầu giao mỗi cái 2: chứng từ đầu giữ 2 (còn 1), chứng từ thứ hai bị từ chối. Nếu đã giữ hàng mà lưu chứng từ lỗi → sales nhả lại (bù trừ).
+* **Số chứng từ** do server cấp theo quy tắc chung `INV-{mã khách}-{ddmmyy}[-A..]` và được giữ chỗ trong `document_number_claims` **ngoài** transaction: lập thất bại thì số không bao giờ bị cấp lại (Inventory nhận diện việc giữ hàng theo số chứng từ, cấp lại số cũ sẽ khiến Inventory tưởng đã giữ).
+* **Kết quả không chắc chắn** (timeout, Inventory 5xx: có thể Inventory đã giữ xong): sales nhả hàng của số đó ngay (bù trừ). Thiếu hàng (409) là kết quả chắc chắn, không cần nhả.
+* **Đối soát**: `php artisan sales:reconcile-reservations` (container `sales-scheduler`, mỗi 5 phút) lấy danh sách chứng từ đang giữ hàng từ Inventory (`GET /stocks/reservations/documents`, khóa nội bộ) và nhả hàng của chứng từ không tồn tại / đã hủy ở Sales. Cứu cả trường hợp Sales chết giữa chừng hoặc lời gọi nhả bù trừ cũng lỗi.
+* Inventory: nhiều request giữ hàng **cùng chứng từ** chạy song song (Sales retry khi lần đầu chưa trả lời) đều nhận kết quả idempotent, chỉ giữ một lần.
 * Chứng từ cũ ở trạng thái `FAILED` (lập trước khi có quy tắc trên) → **Đồng bộ giữ chỗ** (`POST /invoices/{id}/sync-reserve`), an toàn vì idempotent.
 * Kho chỉ được ghi sổ xuất khi chứng từ đã `RESERVED`; xuất kho gọi `POST /stocks/issue` từng dòng, idempotent theo `{số chứng từ}:{id dòng}`.
 

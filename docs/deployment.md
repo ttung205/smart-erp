@@ -93,6 +93,17 @@ Container CPU/RAM is not collected: cAdvisor cannot read containers on Docker De
 
 `GET /api/v1/sales/health` reports the state of each Sales circuit breaker (`CLOSED`, `OPEN`, `HALF_OPEN`).
 
+Stock reservations left behind by a failed invoice creation (Sales timed out or crashed after Inventory had
+already reserved) are released by `sales:reconcile-reservations`, scheduled every 5 minutes in the
+`sales-scheduler` container. Run it by hand with `--dry-run` to only list them:
+
+```powershell
+docker compose exec sales-scheduler php artisan sales:reconcile-reservations --dry-run
+```
+
+Outbox relays (Sales, E-Office, Catalog in PHP; Purchase, Inventory in .NET) never drop an event while RabbitMQ
+is down: they back off up to 60 s and resume in order once the broker is back.
+
 Dead letters: after fixing the cause, list and replay them with
 
 ```powershell
