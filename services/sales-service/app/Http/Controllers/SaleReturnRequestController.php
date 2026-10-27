@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\InspectSaleReturnRequest;
 use App\Http\Requests\StoreSaleReturnRequest;
+use App\Infrastructure\Clients\InternalHttp;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\SaleReturnRequest;
@@ -13,7 +14,6 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 
 class SaleReturnRequestController extends Controller
@@ -206,8 +206,7 @@ class SaleReturnRequestController extends Controller
             throw ValidationException::withMessages(['items' => 'Không có mặt hàng đủ điều kiện nhập kho kỹ thuật.']);
         }
         $reference = "{$saleReturnRequest->request_number}-TECH";
-        $response = Http::withToken((string) $request->bearerToken())
-            ->timeout(config('services.inventory.timeout', 3))
+        $response = InternalHttp::inventory($request->bearerToken(), retry: false)
             ->post(config('services.inventory.url').'/api/v1/inventory/sales-returns/receive', [
                 'reference_doc' => $reference,
                 'warehouse_id' => $data['warehouse_id'],
@@ -277,8 +276,7 @@ class SaleReturnRequestController extends Controller
     /** @return array<string, mixed> */
     private function ensureWarehouseType(int $warehouseId, bool $mustBeSellable, ?string $token): array
     {
-        $response = Http::withToken((string) $token)
-            ->timeout(config('services.inventory.timeout', 3))
+        $response = InternalHttp::inventory($token)
             ->get(config('services.inventory.url').'/api/v1/inventory/warehouses');
         $this->ensureInventorySuccess($response);
         $warehouse = collect($response->json('data', []))->firstWhere('id', $warehouseId);

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreDeliveryRequest;
 use App\Http\Requests\UpdateStatusRequest;
+use App\Infrastructure\Clients\InternalHttp;
 use App\Models\DeliveryRequest;
 use App\Models\DeliveryRequestItem;
 use App\Models\SalesOrder;
@@ -14,7 +15,6 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 
 class DeliveryController extends Controller
@@ -136,8 +136,7 @@ class DeliveryController extends Controller
     private function sellableWarehouse(int $warehouseId, string $token): array
     {
         try {
-            $response = Http::withToken($token)->acceptJson()
-                ->timeout(config('services.inventory.timeout', 3))
+            $response = InternalHttp::inventory($token)
                 ->get(config('services.inventory.url').'/api/v1/inventory/warehouses');
         } catch (ConnectionException) {
             throw ValidationException::withMessages(['warehouse_id' => 'Không kết nối được Inventory Service để kiểm tra kho xuất.']);

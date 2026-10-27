@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Infrastructure\Clients\CircuitBreaker;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -44,6 +45,9 @@ class HealthController extends Controller
                     'database' => $databaseHealthy ? 'UP' : 'DOWN',
                     'inventory_service' => $inventoryHealthy ? 'UP' : 'DOWN',
                 ],
+                'circuit_breakers' => collect(['inventory-service', 'finance-service', 'identity-service', 'catalog-service', 'partner-service'])
+                    ->mapWithKeys(fn (string $service): array => [$service => CircuitBreaker::for($service)->state()])
+                    ->all(),
                 'timestamp' => now()->toIso8601String(),
             ],
         ], $healthy ? 200 : 503);

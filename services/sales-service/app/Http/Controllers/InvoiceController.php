@@ -7,6 +7,7 @@ use App\Http\Requests\StoreInvoiceRequest;
 use App\Infrastructure\Clients\CatalogClient;
 use App\Infrastructure\Clients\DependencyUnavailableException;
 use App\Infrastructure\Clients\IdentityClient;
+use App\Infrastructure\Clients\InternalHttp;
 use App\Models\DeliveryRequest;
 use App\Models\DeliveryRequestItem;
 use App\Models\Invoice;
@@ -22,7 +23,6 @@ use App\Support\Outbox;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class InvoiceController extends Controller
@@ -789,8 +789,7 @@ class InvoiceController extends Controller
         $inventoryUrl = config('services.inventory.url', 'http://127.0.0.1:8004');
         try {
             // Inventory Service yêu cầu JWT: chuyển tiếp token của người dùng đang thao tác
-            $response = Http::withToken((string) $token)->acceptJson()
-                ->timeout(config('services.inventory.timeout', 3))
+            $response = InternalHttp::inventory($token)
                 ->post("{$inventoryUrl}/api/v1/inventory/stocks/reserve/batch", [
                     'order_id' => $inv->invoice_number,
                     'items' => array_map(fn (array $i): array => array_diff_key($i, ['sku' => true]), $items),
@@ -826,8 +825,7 @@ class InvoiceController extends Controller
     {
         $inventoryUrl = config('services.inventory.url', 'http://127.0.0.1:8004');
         try {
-            $response = Http::withToken((string) $token)->acceptJson()
-                ->timeout(config('services.inventory.timeout', 3))
+            $response = InternalHttp::inventory($token)
                 ->post("{$inventoryUrl}/api/v1/inventory/stocks/release/document", ['order_id' => $invoiceNumber]);
         } catch (\Throwable $e) {
             Log::warning("[InvoiceController] Lỗi gọi Inventory Service release/document ({$inventoryUrl}): ".$e->getMessage());
@@ -871,7 +869,6 @@ class InvoiceController extends Controller
         $items = $inv->items ?: [];
         $orderNumber = $inv->deliveryRequest?->order_number ?: $inv->invoice_number;
         $inventoryUrl = config('services.inventory.url', 'http://127.0.0.1:8004');
-        $timeout = config('services.inventory.timeout', 3);
 
         foreach ($items as $item) {
             $productId = $item->product_id ?: $item->orderItem?->product_id ?: $item->deliveryRequestItem?->product_id;
@@ -881,7 +878,7 @@ class InvoiceController extends Controller
 
             if ($productId && (float) $item->quantity > 0) {
                 try {
-                    $response = Http::withToken((string) $token)->acceptJson()->timeout($timeout)->post("{$inventoryUrl}/api/v1/inventory/stocks/issue", [
+                    $response = InternalHttp::inventory($token)->post("{$inventoryUrl}/api/v1/inventory/stocks/issue", [
                         'reference_doc' => "{$inv->invoice_number}:{$item->id}",
                         'order_id' => $orderNumber,
                         'warehouse_id' => $warehouseId,

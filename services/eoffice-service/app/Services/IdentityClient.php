@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Support\CircuitBreaker;
+use App\Support\CircuitOpenException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
@@ -51,7 +53,10 @@ class IdentityClient
         try {
             $response = Http::baseUrl((string) config('services.identity.url'))
                 ->withHeaders(['X-Internal-Service-Key' => (string) config('services.internal.key')])
-                ->acceptJson()->timeout(5)->get($path);
+                ->acceptJson()->timeout(5)
+                ->withMiddleware(CircuitBreaker::for('identity-service')->middleware())
+                ->retry(2, 200, fn ($e): bool => $e instanceof ConnectionException && ! $e instanceof CircuitOpenException, throw: false)
+                ->get($path);
         } catch (ConnectionException) {
             throw ValidationException::withMessages(['identity' => 'Không kết nối được identity-service.']);
         }

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\PayrollPeriod;
+use App\Support\CircuitBreaker;
 use App\Support\Outbox;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\ConnectionException;
@@ -106,7 +107,9 @@ class FinancePayrollService
 
     private function client(string $token): PendingRequest
     {
-        return Http::baseUrl((string) config('services.finance.url'))->withToken($token)->acceptJson()->timeout(20);
+        // Không retry: tạo/ghi sổ phiếu chi lương không được chạy hai lần
+        return Http::baseUrl((string) config('services.finance.url'))->withToken($token)->acceptJson()->timeout(20)
+            ->withMiddleware(CircuitBreaker::for('finance-service')->middleware());
     }
 
     /** Gọi finance; lỗi thì ghi lại vào kỳ lương (để kế toán thấy lý do và chi lại) rồi báo cho người dùng. */

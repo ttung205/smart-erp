@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
+use App\Infrastructure\Clients\InternalHttp;
 use App\Models\Invoice;
 use App\Models\VatInvoice;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Http;
 
 class CustomerReceivableService
 {
@@ -15,9 +15,7 @@ class CustomerReceivableService
         $paymentTermDays = isset($matches[1]) ? max((int) $matches[1], 0) : 30;
         $invoiceDate = Carbon::parse($vatInvoice->invoice_date);
 
-        Http::withToken((string) $bearerToken)
-            ->acceptJson()
-            ->timeout(config('services.finance.timeout'))
+        InternalHttp::finance($bearerToken)
             ->post(config('services.finance.url').'/api/customer-receivables/sync', [
                 'vat_invoice_id' => $vatInvoice->id,
                 'sales_invoice_id' => $vatInvoice->sales_invoice_id,
