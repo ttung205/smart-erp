@@ -225,6 +225,10 @@ services:
       RabbitMQ__Password: ${RABBITMQ_PASSWORD:-rabbit_secret}
       RabbitMQ__ExchangeName: erp.events
       Jwt__Secret: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
+      # Địa chỉ service khác (hỏi hàng gọi Catalog, Identity; tra trạng thái email ở Notification)
+      Services__Catalog: http://catalog-service:8002
+      Services__Identity: http://identity-service:8001
+      Services__Notification: http://notification-service:8006
       Services__InternalKey: ${INTERNAL_SERVICE_KEY:-smart_erp_internal_2026}
       AUTO_SEED: "false"
     depends_on:
@@ -404,6 +408,9 @@ services:
       MAIL_FROM_NAME: "Smart ERP"
       JWT_SECRET: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
       IDENTITY_SERVICE_URL: http://identity-service:8001
+      # Tải tệp đính kèm email từ service sở hữu (khóa nội bộ) lúc gửi
+      SALES_SERVICE_URL: http://sales-service:8005
+      PURCHASE_SERVICE_URL: http://purchase-service:8003
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-erp_rabbit}:${RABBITMQ_PASSWORD:-rabbit_secret}@rabbitmq:5672
       MONGODB_URI: mongodb://mongo:27017/?replicaSet=rs0
       NOTIFICATION_DB_NAME: erp_notification_db

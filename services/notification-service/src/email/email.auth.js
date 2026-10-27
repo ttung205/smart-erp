@@ -2,20 +2,20 @@ import { timingSafeEqual } from 'node:crypto';
 import { bearerToken, verifyToken } from '../auth/jwt.js';
 
 /**
- * Phân quyền API email. Hai loại người gọi:
+ * Phân quyền API tra cứu email (không còn API gửi: email chỉ được gửi qua event). Hai loại người gọi:
  * - Người dùng: JWT hợp lệ + ít nhất một quyền nghiệp vụ có nhu cầu gửi mail (báo giá, hỏi hàng).
  * - Internal: service khác trong mạng Docker gửi X-Internal-Service-Key (Kong luôn xoá header này từ client bên ngoài).
  */
-export const EMAIL_SEND_PERMISSIONS = [
+
+/** Xem trạng thái một email job (purchase-service đọc lại kết quả gửi hỏi hàng bằng token người dùng). */
+export const EMAIL_STATUS_PERMISSIONS = [
   'quotation.create',
   'quotation.update',
   'quotation.manage',
   'item-inquiry.create',
   'item-inquiry.process',
+  'item-inquiry.view',
 ];
-
-/** Xem trạng thái một email job (purchase-service đọc lại kết quả gửi hỏi hàng bằng token người dùng). */
-export const EMAIL_STATUS_PERMISSIONS = [...EMAIL_SEND_PERMISSIONS, 'item-inquiry.view'];
 
 /** Danh sách toàn bộ email đã gửi (lộ người nhận của người khác) chỉ dành cho người quản trị nghiệp vụ. */
 export const EMAIL_LOG_LIST_PERMISSIONS = ['quotation.manage', 'item-inquiry.process', 'users.manage'];

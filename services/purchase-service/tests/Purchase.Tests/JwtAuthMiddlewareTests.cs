@@ -97,6 +97,60 @@ public class JwtAuthMiddlewareTests
         Assert.True(isNextCalled);
     }
 
+    private static async Task<(bool NextCalled, int Status)> CallAsync(string path, string? serviceKey, string? configuredKey, string? bearer = null)
+    {
+        var nextCalled = false;
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Jwt:Secret"] = TestSecret, ["Jwt:Enabled"] = "True", ["Services:InternalKey"] = configuredKey
+        }).Build();
+        var middleware = new JwtAuthMiddleware(_ => { nextCalled = true; return Task.CompletedTask; }, NullLogger<JwtAuthMiddleware>.Instance, configuration);
+        var context = new DefaultHttpContext();
+        context.Request.Path = path;
+        context.Response.Body = new MemoryStream();
+        if (serviceKey != null) context.Request.Headers["X-Internal-Service-Key"] = serviceKey;
+        if (bearer != null) context.Request.Headers.Authorization = "Bearer " + bearer;
+
+        await middleware.InvokeAsync(context, new HmacJwtTokenValidator(configuration));
+        return (nextCalled, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_InternalPath_AcceptsOnlyTheServiceKey()
+    {
+        var ok = await CallAsync("/internal/inquiry-attachments/1", "secret-key", "secret-key");
+        Assert.True(ok.NextCalled);
+
+        var wrong = await CallAsync("/internal/inquiry-attachments/1", "other", "secret-key");
+        Assert.False(wrong.NextCalled);
+        Assert.Equal(401, wrong.Status);
+
+        var missing = await CallAsync("/internal/inquiry-attachments/1", null, "secret-key");
+        Assert.False(missing.NextCalled);
+
+        // Chưa cấu hình khóa thì không chấp nhận lời gọi nội bộ nào, kể cả khóa rỗng
+        var unconfigured = await CallAsync("/internal/inquiry-attachments/1", "anything", "");
+        Assert.False(unconfigured.NextCalled);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_InternalPath_DoesNotAcceptAUserJwt()
+    {
+        var result = await CallAsync("/internal/inquiry-attachments/1", null, "secret-key", GenerateJwt());
+
+        Assert.False(result.NextCalled);
+        Assert.Equal(401, result.Status);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_ServiceKeyDoesNotOpenUserEndpoints()
+    {
+        var result = await CallAsync("/api/v1/purchase/orders", "secret-key", "secret-key");
+
+        Assert.False(result.NextCalled);
+        Assert.Equal(401, result.Status);
+    }
+
     [Fact]
     public async Task InvokeAsync_MissingAuthorizationHeader_ShouldReturn401Unauthorized()
     {

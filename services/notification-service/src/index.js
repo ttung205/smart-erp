@@ -3,6 +3,8 @@ import { createApp } from './app.js';
 import { config } from './config.js';
 import { openDatabase } from './db.js';
 import { startConsumer } from './messaging/consumer.js';
+import { createAttachmentFetcher } from './email/attachment.fetcher.js';
+import { EmailEventHandler } from './email/email.events.js';
 import { enqueueEmail, startEmailConsumer } from './email/email.queue.js';
 import { markEmailFailed, sendQueuedEmail } from './email/email.routes.js';
 import { NotificationRepository } from './notifications/notification.repository.js';
@@ -33,7 +35,6 @@ const app = createApp({
   publisher,
   jwtSecret: config.jwtSecret,
   internalServiceKey: config.internalServiceKey,
-  enqueueEmail: (job) => enqueueEmail(config.rabbitmq, job),
   smtpInfo: {
     host: process.env.SMTP_HOST || '127.0.0.1',
     port: Number(process.env.SMTP_PORT) || 1025,
@@ -42,6 +43,8 @@ const app = createApp({
 });
 const server = createServer(app);
 realtime = createRealtime(server, { jwtSecret: config.jwtSecret });
+
+const emailEvents = new EmailEventHandler({ database, enqueue: (job) => enqueueEmail(config.rabbitmq, job) });
 
 const notificationService = new NotificationService({
   repository,
@@ -52,11 +55,13 @@ const notificationService = new NotificationService({
   }),
   rules,
   publisher,
+  emailEvents,
 });
+const fetchAttachment = createAttachmentFetcher({ services: config.services, internalServiceKey: config.internalServiceKey });
 const consumer = startConsumer({ rabbitmq: config.rabbitmq, handle: (envelope) => notificationService.handleEvent(envelope) });
 const emailConsumer = startEmailConsumer({
   rabbitmq: config.rabbitmq,
-  handle: (job) => sendQueuedEmail(database, job),
+  handle: (job) => sendQueuedEmail(database, job, undefined, fetchAttachment),
   onFailed: (job, error) => markEmailFailed(database, job, error),
 });
 

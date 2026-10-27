@@ -26,6 +26,8 @@ public class ItemInquiriesController(PurchaseDbContext db, IOutboxService outbox
     private string Base(string name, string fallback) => (config[$"Services:{name}"] ?? fallback).TrimEnd('/');
     private string InternalKey() => config["Services:InternalKey"] is { Length: > 0 } key ? key : throw new InvalidOperationException("Services:InternalKey chưa được cấu hình.");
     public const string InternalClient = "internal";
+    /// <summary>Thời gian chờ Notification xử lý event gửi mail trước khi cho phép gửi lại.</summary>
+    private static readonly TimeSpan EmailEventGracePeriod = TimeSpan.FromMinutes(10);
     private HttpClient Client() { var client = clients.CreateClient(InternalClient); client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Request.Headers.Authorization.ToString().Replace("Bearer ", "", StringComparison.OrdinalIgnoreCase)); return client; }
     private static object OkData(object data) => new { success = true, data };
     private static string Code(string source) => new string(source.Where(ch => char.IsLetterOrDigit(ch) || ch == '-').Select(char.ToUpperInvariant).ToArray()).Trim('-');
@@ -348,30 +350,45 @@ public class ItemInquiriesController(PurchaseDbContext db, IOutboxService outbox
         if (i.EmailJobId != null)
         {
             var previous = await Client().GetAsync($"{Base("Notification", "http://localhost:8006")}/api/v1/notifications/email/logs/{i.EmailJobId}", ct);
-            if (!previous.IsSuccessStatusCode) return StatusCode(502);
-            using var previousDoc = JsonDocument.Parse(await previous.Content.ReadAsStringAsync(ct));
-            if (previousDoc.RootElement.GetProperty("data").GetProperty("status").GetString() != "FAILED") return Bad("Email đang được gửi hoặc đã gửi. Hãy kiểm tra trạng thái email.");
+            if (previous.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                // Notification chưa xử lý event gửi mail trước đó. Quá lâu mà vẫn chưa có thì coi như event thất lạc (vd vào dead letter) và cho gửi lại.
+                if (DateTime.UtcNow - i.UpdatedAt < EmailEventGracePeriod) return Bad("Yêu cầu gửi email trước đó đang chờ xử lý. Hãy kiểm tra trạng thái email.");
+            }
+            else
+            {
+                if (!previous.IsSuccessStatusCode) return StatusCode(502);
+                using var previousDoc = JsonDocument.Parse(await previous.Content.ReadAsStringAsync(ct));
+                if (previousDoc.RootElement.GetProperty("data").GetProperty("status").GetString() != "FAILED") return Bad("Email đang được gửi hoặc đã gửi. Hãy kiểm tra trạng thái email.");
+            }
         }
         var r = await FindRequest(i.RequestId, ct);
         if (r == null) return NotFound();
+        // Tệp không đi trong event: chỉ tham chiếu, notification-service tải về từ GET /internal/inquiry-attachments/{id}
         var files = new List<object>();
         foreach (var link in i.Attachments)
         {
             var a = r.Attachments.First(x => x.Id == link.RequestAttachmentId);
             var path = Path.Combine(env.ContentRootPath, "inquiry-attachments", a.StorageName);
             if (!System.IO.File.Exists(path)) return Bad($"Thiếu tệp {a.FileName}.");
-            files.Add(new { filename = a.FileName, content = Convert.ToBase64String(await System.IO.File.ReadAllBytesAsync(path, ct)), encoding = "base64", contentType = a.ContentType });
+            files.Add(new { source = "purchase", id = a.Id, filename = a.FileName, content_type = a.ContentType });
         }
         var body = new StringBuilder($"Kính gửi {i.SupplierName},\n\nVui lòng phản hồi thông tin hỏi hàng {i.Code}:\n");
         foreach (var item in i.Items) body.AppendLine($"- {item.Designation} ({item.Sku ?? "chưa có SKU"}), SL {item.Quantity} {item.Unit}; brand {item.BrandName}; category {item.Category}; COM {item.Com}; mô tả {item.ItemDescription}; spec {item.Spec}; lead time {item.LeadTime}; ghi chú {item.Note}; giá mua dự kiến {item.BuyingPrice:N2}; VAT {item.Vat}%; tax {item.Tax}%");
         body.AppendLine("\nTrân trọng,");
-        var payload = JsonSerializer.Serialize(new { to = i.SupplierEmail, subject = $"Hỏi hàng {i.Code}", text = body.ToString(), attachments = files });
-        var response = await Client().PostAsync($"{Base("Notification", "http://localhost:8006")}/api/v1/notifications/email/send", new StringContent(payload, Encoding.UTF8, "application/json"), ct);
-        if (!response.IsSuccessStatusCode) return StatusCode(502, new { success = false, error = new { message = "Notification Service chưa nhận email. Có thể gửi lại." } });
-        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
-        i.EmailJobId = doc.RootElement.GetProperty("data").GetProperty("id").GetString();
+        // Lưu mã job và ghi event trong cùng một lần SaveChanges (outbox): hoặc cả hai cùng có, hoặc không có gì
+        var jobId = Guid.NewGuid().ToString();
+        i.EmailJobId = jobId;
         i.UpdatedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(ct);
+        await outbox.SaveEventAsync("purchase.inquiry.email_requested", "SupplierInquiryEmailRequested", "SupplierInquiry", i.Id.ToString(), new
+        {
+            inquiry_id = i.Id,
+            code = i.Code,
+            request_id = i.RequestId,
+            email = new { job_id = jobId, to = new[] { i.SupplierEmail }, cc = Array.Empty<string>(), subject = $"Hỏi hàng {i.Code}", body = body.ToString(), sender_name = (string?)null },
+            attachments = files,
+            actor = new { id = UserId, name = User.Identity?.Name }
+        }, ct: ct);
         return Accepted(OkData(InquiryView(i)));
     }
 
@@ -384,6 +401,8 @@ public class ItemInquiriesController(PurchaseDbContext db, IOutboxService outbox
         if (i.Status == "SENT") return Ok(OkData(InquiryView(i)));
         if (i.EmailJobId == null) return Bad("Phiếu chưa được đưa vào hàng đợi email.");
         var response = await Client().GetAsync($"{Base("Notification", "http://localhost:8006")}/api/v1/notifications/email/logs/{i.EmailJobId}", ct);
+        // Notification chưa xử lý event: chưa có bản ghi email nào
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return Ok(OkData(new { inquiry = InquiryView(i), email_status = "REQUESTED", email_error = (string?)null }));
         if (!response.IsSuccessStatusCode) return StatusCode(502);
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
         var job = doc.RootElement.GetProperty("data");
