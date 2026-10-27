@@ -4,13 +4,28 @@ _transform: true
 services:
   - name: identity-service
     url: http://identity-service:8001/api
+    connect_timeout: 5000
+    read_timeout: 30000
+    write_timeout: 30000
+    retries: 2
     routes:
       - name: identity-api
         paths: [/api/v1/auth]
         strip_path: true
+        plugins:
+          # Chống dò mật khẩu: 20 request/phút mỗi IP cho toàn bộ /api/v1/auth
+          - name: rate-limiting
+            config:
+              minute: 20
+              limit_by: ip
+              policy: local
 
   - name: catalog-service
     url: http://catalog-service:8002/api
+    connect_timeout: 5000
+    read_timeout: 30000
+    write_timeout: 30000
+    retries: 2
     routes:
       - name: catalog-api
         paths: [/api/v1/catalog]
@@ -18,6 +33,10 @@ services:
 
   - name: purchase-service
     url: http://purchase-service:8003
+    connect_timeout: 5000
+    read_timeout: 30000
+    write_timeout: 30000
+    retries: 2
     routes:
       - name: purchase-api
         paths: [/api/v1/purchase]
@@ -25,6 +44,10 @@ services:
 
   - name: inventory-service
     url: http://inventory-service:8004
+    connect_timeout: 5000
+    read_timeout: 30000
+    write_timeout: 30000
+    retries: 2
     routes:
       - name: inventory-api
         paths: [/api/v1/inventory]
@@ -32,6 +55,10 @@ services:
 
   - name: sales-service
     url: http://sales-service:8005/api
+    connect_timeout: 5000
+    read_timeout: 30000
+    write_timeout: 30000
+    retries: 2
     routes:
       - name: sales-api
         paths: [/api/v1/sales]
@@ -48,6 +75,10 @@ services:
 
   - name: eoffice-service
     url: http://eoffice-service:8007/api
+    connect_timeout: 5000
+    read_timeout: 30000
+    write_timeout: 30000
+    retries: 2
     routes:
       - name: eoffice-api
         paths: [/api/v1/eoffice]
@@ -55,6 +86,10 @@ services:
 
   - name: finance-service
     url: http://finance-service:8008/api
+    connect_timeout: 5000
+    read_timeout: 30000
+    write_timeout: 30000
+    retries: 2
     routes:
       - name: finance-api
         paths: [/api/v1/finance]
@@ -77,6 +112,13 @@ services:
       - name: ai-api
         paths: [/api/v1/ai]
         strip_path: false
+        plugins:
+          # Mỗi câu hỏi gọi Groq (hạn mức miễn phí có giới hạn)
+          - name: rate-limiting
+            config:
+              minute: 10
+              limit_by: ip
+              policy: local
 
   - name: gateway-health
     url: http://127.0.0.1:1
@@ -93,6 +135,15 @@ services:
               body: '{"status":"UP","gateway":"Kong"}'
 
 plugins:
+  # Giới hạn chung mỗi IP; route nào khai báo rate-limiting riêng thì dùng giới hạn của route đó.
+  # policy local: đếm trong bộ nhớ của Kong (DB-less), đủ cho một instance gateway.
+  - name: rate-limiting
+    config:
+      minute: 600
+      limit_by: ip
+      policy: local
+      hide_client_headers: false
+
   - name: correlation-id
     config:
       header_name: X-Correlation-ID
