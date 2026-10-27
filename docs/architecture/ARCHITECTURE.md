@@ -106,7 +106,7 @@ flowchart TB
 
     MYSQL[(MySQL 8\n9 initialized schemas)]
     RMQ[(RabbitMQ 3.13\nerp.events + erp.dlx)]
-    SMTP[Mailpit :1025/:8025]
+    SMTP[Mailpit SMTP :1025 · UI :8125]
     NSQL[(MongoDB erp_notification_db)]
     CSQL[(MongoDB erp_chat_db + chat-files volume)]
     ASQL[(MySQL erp_analytics_db)]

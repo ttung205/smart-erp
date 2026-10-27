@@ -82,15 +82,13 @@ class InvoiceController extends Controller
         $warehouseName = $request->input('warehouse_name') ?: ($dr?->warehouse_name ?: 'Kho Tổng Miền Bắc (Hà Nội)');
         $warehouseId = $dr?->warehouse_id ?: $this->resolveWarehouseId($warehouseName);
 
+        // Số do server cấp theo quy tắc chung (như báo giá, đơn bán) và được giữ chỗ NGOÀI transaction:
+        // lập chứng từ thất bại thì số không bị cấp lại, nên Inventory không nhầm việc giữ hàng của số này.
+        $invNumber = DocumentNumberGenerator::claimForCustomer('invoice', 'INV', $order?->customer_code);
         $reservation = null;
-        $reservedNumber = null;
+        $reservationAttempted = false;
         try {
-            $inv = DB::transaction(function () use ($request, $drId, $drNumber, $dr, $order, $currency, $exchangeRate, $createdBy, $sendImmediately, $warehouseId, &$reservation, &$reservedNumber) {
-                $invNumber = $request->input('invoice_number') ?: DocumentNumberGenerator::next(
-                    'invoice-'.now()->format('Y'),
-                    'INV-'.now()->format('Y').'-',
-                    6
-                );
+            $inv = DB::transaction(function () use ($request, $invNumber, $drId, $drNumber, $dr, $order, $currency, $exchangeRate, $createdBy, $sendImmediately, $warehouseId, &$reservation, &$reservationAttempted) {
                 $inv = Invoice::create([
                     'invoice_number' => $invNumber,
                     'delivery_request_id' => $drId,
@@ -223,21 +221,22 @@ class InvoiceController extends Controller
 
                 // Nghiệp vụ: giữ hàng ngay khi lập chứng từ (architecture.md §8).
                 // Không giữ được (thiếu hàng, Inventory lỗi) → rollback, chứng từ không được tạo.
+                $reservationAttempted = true;
                 $reservation = $this->reserveStockForInvoice($inv, $warehouseId, $request->bearerToken());
                 if (! $reservation['reserved']) {
                     throw new StockReservationFailedException($reservation['error']);
                 }
-                $reservedNumber = $inv->invoice_number;
                 $this->applyReservationResult($inv, $warehouseId, $reservation);
 
                 return $inv;
             });
-        } catch (StockReservationFailedException $e) {
-            throw $e;
         } catch (\Throwable $e) {
-            // Đã giữ hàng nhưng lưu chứng từ thất bại → nhả lại để hàng không bị treo
-            if ($reservedNumber) {
-                $this->releaseStockForInvoice($reservedNumber, $request->bearerToken());
+            // Chứng từ bị rollback. Nếu đã gọi giữ hàng mà kết quả không chắc chắn (timeout / Inventory lỗi 5xx:
+            // có thể Inventory đã giữ xong) hoặc lưu chứng từ lỗi sau khi giữ, nhả hàng của số này để không treo.
+            // Nhả là idempotent và số không bao giờ được cấp lại, nên an toàn. Nhả cũng lỗi thì lệnh đối soát
+            // sales:reconcile-reservations xử lý sau.
+            if ($reservationAttempted && ! self::isDefinitiveReservationFailure($reservation)) {
+                $this->releaseStockForInvoice($invNumber, $request->bearerToken());
             }
             throw $e;
         }
@@ -814,6 +813,20 @@ class InvoiceController extends Controller
         }
 
         return ['reserved' => false, 'items' => $items, 'error' => $error];
+    }
+
+    /**
+     * Inventory đã trả lời rõ ràng là không giữ (thiếu hàng, dữ liệu sai): không có gì để nhả.
+     *
+     * @param  array{reserved: bool, error: array<string, mixed>|null}|null  $reservation
+     */
+    private static function isDefinitiveReservationFailure(?array $reservation): bool
+    {
+        if ($reservation === null || $reservation['reserved']) {
+            return false;
+        }
+
+        return in_array($reservation['error']['code'] ?? null, ['INSUFFICIENT_STOCK', 'PRODUCT_UNRESOLVED', 'DOCUMENT_ALREADY_POSTED', 'VALIDATION_FAILED'], true);
     }
 
     /**

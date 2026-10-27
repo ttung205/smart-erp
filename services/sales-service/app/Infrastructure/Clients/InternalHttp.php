@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\Http;
 use Throwable;
 
 /**
- * Http client gọi service nội bộ: chuyển tiếp JWT, timeout, circuit breaker theo service đích.
+ * Http client gọi service nội bộ: chuyển tiếp JWT (không có người dùng, vd job đối soát, thì dùng khóa nội bộ),
+ * timeout, circuit breaker theo service đích.
  * Retry chỉ dùng cho lời gọi an toàn khi gọi lại (đọc, hoặc lệnh kho idempotent theo số chứng từ).
  */
 final class InternalHttp
@@ -30,7 +31,7 @@ final class InternalHttp
 
     public static function client(string $service, ?string $token, int $timeout, bool $retry): PendingRequest
     {
-        $request = Http::withToken((string) $token)
+        $request = ($token ? Http::withToken($token) : Http::withHeaders(['X-Internal-Service-Key' => (string) config('services.internal.key')]))
             ->acceptJson()
             ->timeout($timeout)
             ->withMiddleware(CircuitBreaker::for($service)->middleware());

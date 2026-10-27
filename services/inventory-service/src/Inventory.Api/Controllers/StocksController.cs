@@ -295,6 +295,31 @@ public class StocksController : ControllerBase
         return Ok(ApiEnvelope<object>.Ok(orders));
     }
 
+    /// <summary>
+    /// Chứng từ đang giữ hàng (giữ chỗ chưa nhả) trong khoảng thời gian, để service bán hàng đối soát
+    /// và nhả hàng của chứng từ không còn tồn tại / đã hủy. Mặc định: giữ từ 7 ngày trước tới 5 phút trước
+    /// (bỏ qua chứng từ đang lập dở).
+    /// </summary>
+    [HttpGet("reservations/documents")]
+    public async Task<IActionResult> GetOpenDocumentReservations(
+        [FromQuery] DateTime? reservedFrom,
+        [FromQuery] DateTime? reservedTo,
+        CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        var documents = await _stockManager.GetOpenDocumentReservationsAsync(
+            reservedFrom?.ToUniversalTime() ?? now.AddDays(-7),
+            reservedTo?.ToUniversalTime() ?? now.AddMinutes(-5),
+            ct);
+
+        return Ok(ApiEnvelope<object>.Ok(documents.Select(d => new
+        {
+            document_id = d.DocumentId,
+            reserved_at = d.ReservedAt,
+            lines = d.Lines.Select(l => new { warehouse_id = l.WarehouseId, product_id = l.ProductId, quantity = l.Quantity })
+        })));
+    }
+
     #endregion
 
     #region Command Side (Atomic Operations)

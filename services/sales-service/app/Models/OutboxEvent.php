@@ -12,8 +12,6 @@ class OutboxEvent extends Model
 
     public const FAILED = 'FAILED';
 
-    public const MAX_RETRIES = 10;
-
     protected $table = 'outbox_events';
 
     protected $fillable = [

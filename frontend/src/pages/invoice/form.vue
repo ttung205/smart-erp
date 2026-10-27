@@ -63,11 +63,11 @@
           <!-- Số chứng từ -->
           <div class="md:col-span-6 flex flex-col gap-1.5 min-w-0">
             <label class="text-xs font-bold text-slate-700 uppercase tracking-wide">
-              Số chứng từ <span class="text-red-500">*</span>
+              Số chứng từ
             </label>
-            <InputText v-model="form.invoice_number"
-              class="w-full text-xs font-mono font-bold text-indigo-700 rounded-[6px]" size="small"
-              placeholder="INV-2026-XXXX" />
+            <InputText v-model="form.invoice_number" readonly
+              class="w-full text-xs font-mono font-bold text-indigo-700 rounded-[6px] bg-slate-50" size="small"
+              placeholder="Tự sinh khi lưu (INV-mã khách-ngày)" />
           </div>
 
           <!-- Ngày chứng từ (Ngày tạo chứng từ) -->
@@ -279,11 +279,6 @@ const getWarehouseStatusMeta = (st) => {
   return map[st] || { label: st || 'Chờ gửi kho', severity: 'secondary' };
 };
 
-const generateRandomInvoiceNumber = () => {
-  const rand = Math.floor(1000 + Math.random() * 9000);
-  return `INV-2026-${rand}`;
-};
-
 const calculatedTotal = computed(() => {
   return form.value.items.reduce((acc, it) => acc + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0), 0);
 });
@@ -414,7 +409,7 @@ const applyDeliveryRequest = async (dr, creator = 'admin', pendingItems = null) 
   form.value = {
     ...form.value,
     id: null,
-    invoice_number: form.value.invoice_number || generateRandomInvoiceNumber(),
+    invoice_number: form.value.invoice_number || '',
     invoice_date: form.value.invoice_date || new Date().toISOString().split('T')[0],
     currency: order.currency || dr.currency || 'VND',
     exchange_rate: Number(order.exchange_rate) || 1.0,
@@ -459,9 +454,6 @@ const initFormData = async () => {
   const user = props.currentUser || JSON.parse(localStorage.getItem('user') || '{}');
   const userCreator = user.name || user.email || 'admin';
   form.value.created_by = userCreator;
-  if (!form.value.invoice_number) {
-    form.value.invoice_number = generateRandomInvoiceNumber();
-  }
 
   // Tải danh sách Yêu Cầu Giao Hàng để sẵn sàng chọn
   try {
@@ -606,15 +598,10 @@ const handleSyncReserve = async () => {
 };
 
 const saveInvoice = async (sendImmediately = false) => {
-  if (!form.value.invoice_number) {
-    toast.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Vui lòng nhập số chứng từ!', life: 3000 });
-    return;
-  }
-
   saving.value = true;
   try {
+    // Số chứng từ do server cấp (INV-{mã khách}-{ddmmyy}), không gửi số từ trình duyệt
     const payload = {
-      invoice_number: form.value.invoice_number,
       delivery_request_id: form.value.delivery_request_id,
       delivery_request_number: form.value.delivery_request_number,
       order_number: form.value.order_number,
