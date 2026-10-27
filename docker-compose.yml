@@ -101,6 +101,8 @@ services:
     environment:
       APP_NAME: "Identity Service"
       APP_ENV: production
+      # Log ra stderr để docker logs / Loki đọc được
+      LOG_CHANNEL: stderr
       APP_KEY: ${IDENTITY_APP_KEY:-base64:VFpnyI3eKcgG8lexKsNk2jHG/AgO+uEwhEYI4x3pLuU=}
       APP_DEBUG: "false"
       APP_URL: http://localhost:8000
@@ -138,6 +140,8 @@ services:
     environment:
       APP_NAME: "Catalog Service"
       APP_ENV: production
+      # Log ra stderr để docker logs / Loki đọc được
+      LOG_CHANNEL: stderr
       APP_KEY: ${CATALOG_APP_KEY:-base64:euw8kQxu75uK2ZhGn53tDb6eKZOh+eroRkUdbWzOxi8=}
       APP_DEBUG: "false"
       APP_URL: http://localhost:8000
@@ -177,6 +181,8 @@ services:
     command: ["php", "artisan", "outbox:relay"]
     environment:
       APP_ENV: production
+      # Log ra stderr để docker logs / Loki đọc được
+      LOG_CHANNEL: stderr
       APP_KEY: ${CATALOG_APP_KEY:-base64:euw8kQxu75uK2ZhGn53tDb6eKZOh+eroRkUdbWzOxi8=}
       DB_CONNECTION: mysql
       DB_HOST: mysql
@@ -283,6 +289,8 @@ services:
     environment:
       APP_NAME: "Sales Service"
       APP_ENV: production
+      # Log ra stderr để docker logs / Loki đọc được
+      LOG_CHANNEL: stderr
       APP_KEY: ${SALES_APP_KEY:-base64:YQ3WeaKMGlYTZX19my0YQLtZHLp33997iRpj5YdjY7Y=}
       APP_DEBUG: "false"
       APP_URL: http://localhost:8000
@@ -328,6 +336,8 @@ services:
     command: ["php", "artisan", "outbox:relay"]
     environment:
       APP_ENV: production
+      # Log ra stderr để docker logs / Loki đọc được
+      LOG_CHANNEL: stderr
       APP_KEY: ${SALES_APP_KEY:-base64:YQ3WeaKMGlYTZX19my0YQLtZHLp33997iRpj5YdjY7Y=}
       DB_CONNECTION: mysql
       DB_HOST: mysql
@@ -400,6 +410,8 @@ services:
     environment:
       APP_NAME: "EOffice Service"
       APP_ENV: production
+      # Log ra stderr để docker logs / Loki đọc được
+      LOG_CHANNEL: stderr
       APP_KEY: ${EOFFICE_APP_KEY:-base64:jHXlSUdhe4qBaRcDvaryub9jekkytDbPeoKhhcLP/TM=}
       APP_DEBUG: "false"
       APP_URL: http://localhost:8000
@@ -441,6 +453,8 @@ services:
     command: ["php", "artisan", "outbox:relay"]
     environment:
       APP_ENV: production
+      # Log ra stderr để docker logs / Loki đọc được
+      LOG_CHANNEL: stderr
       APP_KEY: ${EOFFICE_APP_KEY:-base64:jHXlSUdhe4qBaRcDvaryub9jekkytDbPeoKhhcLP/TM=}
       DB_CONNECTION: mysql
       DB_HOST: mysql
@@ -474,6 +488,8 @@ services:
     environment:
       APP_NAME: "Finance Service"
       APP_ENV: production
+      # Log ra stderr để docker logs / Loki đọc được
+      LOG_CHANNEL: stderr
       APP_KEY: ${FINANCE_APP_KEY:-base64:DAaj+IsuNHmTL6+d5VrR8I0y8D7Xvno1pi8LhmKgR4E=}
       APP_DEBUG: "false"
       APP_URL: http://localhost:8000
@@ -585,6 +601,8 @@ services:
       KONG_STATUS_LISTEN: "0.0.0.0:8100"
       KONG_NGINX_HTTP_CLIENT_MAX_BODY_SIZE: 210m
       KONG_LOG_LEVEL: notice
+      # Docker DNS trả TTL 600s: service bị tạo lại (IP mới) sẽ 502 tới 10 phút. Ép Kong phân giải lại sau 10s
+      KONG_DNS_VALID_TTL: "10"
       # Access log kèm correlation id và thời gian xử lý, để tìm một request trong Loki (dashboard Logs)
       KONG_NGINX_HTTP_LOG_FORMAT: "erp '$$remote_addr \"$$request\" $$status $${request_time}s upstream=$$upstream_addr correlation_id=$$http_x_correlation_id'"
       KONG_PROXY_ACCESS_LOG: "/dev/stdout erp"
