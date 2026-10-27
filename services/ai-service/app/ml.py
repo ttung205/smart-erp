@@ -531,7 +531,8 @@ def load_datasets() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     from . import config
     import sqlite3
 
-    if config.ANALYTICS_DB.exists():
+    analytics_db = getattr(config, "ANALYTICS_DB", None)
+    if analytics_db and analytics_db.exists():
         try:
             with sqlite3.connect(f"file:{config.ANALYTICS_DB}?mode=ro", uri=True) as conn:
                 fact_sales = pd.read_sql_query("SELECT * FROM fact_sales", conn)
