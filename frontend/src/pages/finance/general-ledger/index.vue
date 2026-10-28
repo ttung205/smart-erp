@@ -20,7 +20,7 @@
     </div>
     <CommonDataTable :value="rows" :columns="columns" :rows="rowsPerPage" :first="(page - 1) * rowsPerPage"
       :total-records="totalRecords" :loading="loading" lazy empty-title="Chưa có phát sinh cho tài khoản này" @page="changePage">
-      <template #col-entry_date="{ data }">{{ data.entry_date }}</template>
+      <template #col-entry_date="{ data }">{{ formatDate(data.entry_date) }}</template>
       <template #col-document_number="{ data }"><span class="font-mono font-semibold text-sky-700">{{ data.document_number }}</span></template>
       <template #col-counter_account_code="{ data }"><span class="font-mono">{{ data.counter_account_code }}</span></template>
       <template #col-debit="{ data }"><div class="text-right font-mono">{{ data.debit ? money(data.debit) : '' }}</div></template>
@@ -44,6 +44,7 @@ import { salesApi } from '../../../api/sales.api';
 import { storage } from '../../../utils/storage';
 import { parseJwt } from '../../../utils/jwt';
 import { hasPermission } from '../../../utils/rbac';
+import { formatDate } from '../../../utils/format';
 
 const toast = useToast();
 const accounts = ref([]);
