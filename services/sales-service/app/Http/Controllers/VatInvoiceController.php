@@ -13,10 +13,24 @@ use App\Support\VatInvoiceNumberGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use OpenApi\Attributes as OA;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class VatInvoiceController extends Controller
 {
+    #[OA\Post(
+        path: '/vat-invoices/sync-finance',
+        summary: 'Đồng bộ lại hóa đơn GTGT chưa ghi công nợ',
+        description: 'Yêu cầu quyền finance.approve. Gửi lại sang finance-service các hóa đơn đã phát hành nhưng chưa đồng bộ công nợ. Trả 207 nếu có hóa đơn đồng bộ thất bại.',
+        tags: ['Hóa đơn GTGT'],
+        security: [['bearerAuth' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Số hóa đơn đã đồng bộ'),
+            new OA\Response(response: 207, description: 'Một phần thất bại; failed liệt kê số hóa đơn lỗi'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền finance.approve'),
+        ]
+    )]
     public function syncFinance(Request $request, CustomerReceivableService $service): JsonResponse
     {
         $synced = 0;
@@ -42,6 +56,19 @@ class VatInvoiceController extends Controller
     /**
      * Tự động sinh số hóa đơn tiếp theo: 8 số tăng dần (VD: 00000001, 00000002, 00000123)
      */
+    #[OA\Get(
+        path: '/vat-invoices/next-number',
+        summary: 'Xem trước số hóa đơn GTGT tiếp theo',
+        description: 'Yêu cầu quyền invoice.create. Số gồm 8 chữ số tăng dần theo ký hiệu (series).',
+        tags: ['Hóa đơn GTGT'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'series', in: 'query', required: false, description: 'Mặc định 1C + 2 số cuối năm + TBB', schema: new OA\Schema(type: 'string', example: '1C26TBB'))],
+        responses: [
+            new OA\Response(response: 200, description: 'next_number và series'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền invoice.create'),
+        ]
+    )]
     public function getNextInvoiceNumber(Request $request)
     {
         $series = $request->input('series', '1C'.now()->format('y').'TBB');
@@ -57,6 +84,23 @@ class VatInvoiceController extends Controller
     /**
      * Lấy danh sách các hóa đơn VAT đã lập
      */
+    #[OA\Get(
+        path: '/vat-invoices',
+        summary: 'Danh sách hóa đơn GTGT',
+        description: 'Yêu cầu quyền invoice.view.',
+        tags: ['Hóa đơn GTGT'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'search', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'customer_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Hóa đơn GTGT và phân trang'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền invoice.view'),
+        ]
+    )]
     public function index(Request $request)
     {
         $query = VatInvoice::with(['items', 'salesInvoice', 'adjustment.originalInvoice'])->where('status', 'ISSUED')->orderBy('id', 'desc');
@@ -94,6 +138,24 @@ class VatInvoiceController extends Controller
      * Lấy danh sách các mặt hàng đã xuất kho nhưng CHƯA xuất hóa đơn VAT (hoặc còn số lượng chưa xuất HĐ)
      * Dùng cho Tab / Dialog chọn mặt hàng lập hóa đơn VAT
      */
+    #[OA\Get(
+        path: '/vat-invoices/unbilled-items',
+        summary: 'Dòng doanh thu chưa xuất hóa đơn GTGT',
+        description: 'Yêu cầu quyền invoice.view. Dùng để chọn dòng khi lập hóa đơn GTGT.',
+        tags: ['Hóa đơn GTGT'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'invoice_id', in: 'query', required: false, description: 'Chứng từ bán', schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'customer_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'search', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Dòng doanh thu còn số lượng chưa xuất hóa đơn'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền invoice.view'),
+        ]
+    )]
     public function getUnbilledItems(Request $request)
     {
         $query = RevenueReportItem::with(['invoice', 'order'])
@@ -136,6 +198,53 @@ class VatInvoiceController extends Controller
     /**
      * Lập hóa đơn VAT mới (cho phép xuất toàn bộ hoặc 1 phần các mặt hàng đã xuất kho)
      */
+    #[OA\Post(
+        path: '/vat-invoices',
+        summary: 'Phát hành hóa đơn GTGT',
+        description: 'Yêu cầu quyền finance.approve hoặc invoice.manage. Lập từ các dòng doanh thu của một chứng từ bán; số lượng không vượt số còn chưa xuất hóa đơn. '
+            .'Sau khi phát hành, ghi công nợ phải thu sang finance-service.',
+        tags: ['Hóa đơn GTGT'],
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['invoice_date', 'sales_invoice_id', 'items'],
+                properties: [
+                    new OA\Property(property: 'invoice_number', type: 'string', nullable: true, maxLength: 50, description: 'Bỏ trống thì tự sinh'),
+                    new OA\Property(property: 'invoice_series', type: 'string', nullable: true, maxLength: 30),
+                    new OA\Property(property: 'invoice_date', type: 'string', format: 'date'),
+                    new OA\Property(property: 'sales_invoice_id', type: 'integer'),
+                    new OA\Property(property: 'customer_id', type: 'integer', nullable: true),
+                    new OA\Property(property: 'customer_name', type: 'string', nullable: true),
+                    new OA\Property(property: 'customer_tax_code', type: 'string', nullable: true),
+                    new OA\Property(property: 'customer_address', type: 'string', nullable: true),
+                    new OA\Property(property: 'currency', type: 'string', nullable: true, example: 'VND'),
+                    new OA\Property(property: 'exchange_rate', type: 'number', nullable: true),
+                    new OA\Property(property: 'notes', type: 'string', nullable: true),
+                    new OA\Property(
+                        property: 'items',
+                        type: 'array',
+                        minItems: 1,
+                        items: new OA\Items(
+                            required: ['revenue_report_item_id', 'sales_invoice_item_id', 'quantity'],
+                            properties: [
+                                new OA\Property(property: 'revenue_report_item_id', type: 'integer'),
+                                new OA\Property(property: 'sales_invoice_item_id', type: 'integer'),
+                                new OA\Property(property: 'quantity', type: 'number', exclusiveMinimum: 0),
+                            ],
+                            type: 'object'
+                        )
+                    ),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: 'Hóa đơn GTGT đã phát hành'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền finance.approve hoặc invoice.manage'),
+            new OA\Response(response: 422, description: 'Dòng doanh thu không thuộc chứng từ, đã xuất hóa đơn hoặc vượt số lượng còn lại'),
+        ]
+    )]
     public function store(StoreVatInvoiceRequest $request, CustomerReceivableService $receivableService): JsonResponse
     {
         try {
@@ -265,6 +374,20 @@ class VatInvoiceController extends Controller
     /**
      * Xem chi tiết hóa đơn VAT
      */
+    #[OA\Get(
+        path: '/vat-invoices/{vat_invoice}',
+        summary: 'Chi tiết hóa đơn GTGT',
+        description: 'Yêu cầu quyền invoice.view.',
+        tags: ['Hóa đơn GTGT'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'vat_invoice', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Hóa đơn kèm dòng hàng'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền invoice.view'),
+            new OA\Response(response: 404, description: 'Không tìm thấy hóa đơn VAT'),
+        ]
+    )]
     public function show($id)
     {
         $inv = VatInvoice::with(['items', 'salesInvoice', 'adjustment.originalInvoice'])->find($id);

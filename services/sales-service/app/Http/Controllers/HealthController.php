@@ -7,9 +7,18 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use OpenApi\Attributes as OA;
 
 class HealthController extends Controller
 {
+    #[OA\Get(
+        path: '/health',
+        summary: 'Kiểm tra trạng thái dịch vụ',
+        description: 'Kèm trạng thái kết nối DB và các service phụ thuộc.',
+        tags: ['Hệ thống'],
+        security: [],
+        responses: [new OA\Response(response: 200, description: 'Dịch vụ đang hoạt động')]
+    )]
     public function check(): JsonResponse
     {
         $databaseHealthy = false;

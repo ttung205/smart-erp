@@ -11,13 +11,61 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use OpenApi\Attributes as OA;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
+#[OA\Schema(
+    schema: 'OfficeRequestInput',
+    required: ['category', 'purpose', 'items'],
+    properties: [
+        new OA\Property(property: 'category', type: 'string', description: 'purchase: OFFICE_SUPPLIES, EQUIPMENT, OTHER; payment: HOSPITALITY, TRAVEL, OTHER', enum: ['OFFICE_SUPPLIES', 'EQUIPMENT', 'HOSPITALITY', 'TRAVEL', 'OTHER']),
+        new OA\Property(property: 'supplier_name', type: 'string', nullable: true, maxLength: 200),
+        new OA\Property(property: 'purpose', type: 'string', maxLength: 2000),
+        new OA\Property(property: 'notes', type: 'string', nullable: true, maxLength: 2000),
+        new OA\Property(
+            property: 'items',
+            type: 'array',
+            maxItems: 30,
+            minItems: 1,
+            items: new OA\Items(
+                required: ['name', 'unit', 'quantity', 'unit_price'],
+                properties: [
+                    new OA\Property(property: 'name', type: 'string', maxLength: 255),
+                    new OA\Property(property: 'unit', type: 'string', maxLength: 50),
+                    new OA\Property(property: 'quantity', type: 'number', exclusiveMinimum: 0),
+                    new OA\Property(property: 'unit_price', type: 'number', minimum: 0),
+                    new OA\Property(property: 'notes', type: 'string', nullable: true, maxLength: 1000),
+                ],
+                type: 'object'
+            )
+        ),
+    ],
+    type: 'object'
+)]
 class OfficeRequestController extends Controller
 {
     public function __construct(private readonly OfficeRequestService $service) {}
 
+    #[OA\Get(
+        path: '/{kind}-requests',
+        summary: 'Danh sách đề nghị mua sắm hoặc thanh toán',
+        description: 'kind = purchase (đề nghị mua sắm) hoặc payment (đề nghị thanh toán). Người dùng thấy đơn của mình, nhân viên dưới quyền (trừ nháp) và đơn mình được gán duyệt; SUPER_ADMIN hoặc eoffice.manage thấy tất cả.',
+        tags: ['Đề nghị mua sắm và thanh toán'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'kind', in: 'path', required: true, schema: new OA\Schema(type: 'string', enum: ['purchase', 'payment'])),
+            new OA\Parameter(name: 'scope', in: 'query', required: false, schema: new OA\Schema(type: 'string', default: 'all', enum: ['all', 'mine', 'team', 'to_approve'])),
+            new OA\Parameter(name: 'status', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['DRAFT', 'PENDING', 'APPROVED', 'REJECTED', 'RETURNED', 'CANCELLED'])),
+            new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 20, maximum: 100, minimum: 1)),
+            new OA\Parameter(name: 'page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', minimum: 1)),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Danh sách đơn, tổng số và số đơn chờ tôi duyệt'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 422, description: self::DOC_422),
+        ]
+    )]
     public function index(Request $request, string $kind, IdentityClient $identity): JsonResponse
     {
         $type = $this->kind($kind);
@@ -52,6 +100,23 @@ class OfficeRequestController extends Controller
         ]);
     }
 
+    #[OA\Get(
+        path: '/{kind}-requests/{officeRequest}',
+        summary: 'Chi tiết đề nghị mua sắm hoặc thanh toán',
+        description: 'Kèm dòng hàng, tệp đính kèm, bước và lịch sử duyệt. Đơn khác loại kind trả 404.',
+        tags: ['Đề nghị mua sắm và thanh toán'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'kind', in: 'path', required: true, schema: new OA\Schema(type: 'string', enum: ['purchase', 'payment'])),
+            new OA\Parameter(name: 'officeRequest', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Đơn đề nghị đầy đủ'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: self::DOC_403),
+            new OA\Response(response: 404, description: self::DOC_404),
+        ]
+    )]
     public function show(Request $request, string $kind, OfficeRequest $officeRequest, IdentityClient $identity): JsonResponse
     {
         $this->ensureKind($kind, $officeRequest);
@@ -60,6 +125,21 @@ class OfficeRequestController extends Controller
         return response()->json(['success' => true, 'data' => $officeRequest->load(['items', 'attachments', 'approvalSteps', 'approvalHistories'])]);
     }
 
+    #[OA\Post(
+        path: '/{kind}-requests',
+        summary: 'Tạo đề nghị mua sắm hoặc thanh toán',
+        description: 'Tạo đơn nháp của chính mình. category phải thuộc nhóm của kind.',
+        tags: ['Đề nghị mua sắm và thanh toán'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'kind', in: 'path', required: true, schema: new OA\Schema(type: 'string', enum: ['purchase', 'payment']))],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/OfficeRequestInput')),
+        responses: [
+            new OA\Response(response: 201, description: 'Đơn đề nghị mới'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 404, description: 'kind không hợp lệ'),
+            new OA\Response(response: 422, description: self::DOC_422),
+        ]
+    )]
     public function store(Request $request, string $kind): JsonResponse
     {
         $type = $this->kind($kind);
@@ -68,6 +148,25 @@ class OfficeRequestController extends Controller
         return response()->json(['success' => true, 'data' => $created], 201);
     }
 
+    #[OA\Put(
+        path: '/{kind}-requests/{officeRequest}',
+        summary: 'Sửa đề nghị mua sắm hoặc thanh toán',
+        description: 'Chỉ chủ đơn, khi đơn ở trạng thái DRAFT hoặc RETURNED. Thay toàn bộ dòng hàng.',
+        tags: ['Đề nghị mua sắm và thanh toán'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'kind', in: 'path', required: true, schema: new OA\Schema(type: 'string', enum: ['purchase', 'payment'])),
+            new OA\Parameter(name: 'officeRequest', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/OfficeRequestInput')),
+        responses: [
+            new OA\Response(response: 200, description: 'Đơn sau khi sửa'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: self::DOC_403),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 422, description: self::DOC_422),
+        ]
+    )]
     public function update(Request $request, string $kind, OfficeRequest $officeRequest): JsonResponse
     {
         $this->ensureKind($kind, $officeRequest);
@@ -77,6 +176,24 @@ class OfficeRequestController extends Controller
         )]);
     }
 
+    #[OA\Delete(
+        path: '/{kind}-requests/{officeRequest}',
+        summary: 'Xóa đề nghị mua sắm hoặc thanh toán',
+        description: 'Chỉ chủ đơn, khi đơn còn sửa được. Xóa luôn các tệp đính kèm.',
+        tags: ['Đề nghị mua sắm và thanh toán'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'kind', in: 'path', required: true, schema: new OA\Schema(type: 'string', enum: ['purchase', 'payment'])),
+            new OA\Parameter(name: 'officeRequest', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Đã xóa'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: self::DOC_403),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 422, description: self::DOC_422),
+        ]
+    )]
     public function destroy(Request $request, string $kind, OfficeRequest $officeRequest): JsonResponse
     {
         $this->ensureKind($kind, $officeRequest);
@@ -87,6 +204,24 @@ class OfficeRequestController extends Controller
         return response()->json(['success' => true]);
     }
 
+    #[OA\Post(
+        path: '/{kind}-requests/{officeRequest}/submit',
+        summary: 'Gửi duyệt đề nghị mua sắm hoặc thanh toán',
+        description: 'Chỉ chủ đơn. Đơn chuyển sang PENDING và sinh các bước duyệt.',
+        tags: ['Đề nghị mua sắm và thanh toán'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'kind', in: 'path', required: true, schema: new OA\Schema(type: 'string', enum: ['purchase', 'payment'])),
+            new OA\Parameter(name: 'officeRequest', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Đơn sau khi gửi duyệt'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: self::DOC_403),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 422, description: self::DOC_422),
+        ]
+    )]
     public function submit(Request $request, string $kind, OfficeRequest $officeRequest): JsonResponse
     {
         $this->ensureKind($kind, $officeRequest);
@@ -94,6 +229,27 @@ class OfficeRequestController extends Controller
         return response()->json(['success' => true, 'data' => $this->service->submit($officeRequest, $request->attributes->get('actor'))]);
     }
 
+    #[OA\Post(
+        path: '/{kind}-requests/{officeRequest}/cancel',
+        summary: 'Hủy đề nghị mua sắm hoặc thanh toán',
+        tags: ['Đề nghị mua sắm và thanh toán'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'kind', in: 'path', required: true, schema: new OA\Schema(type: 'string', enum: ['purchase', 'payment'])),
+            new OA\Parameter(name: 'officeRequest', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: false,
+            content: new OA\JsonContent(properties: [new OA\Property(property: 'reason', type: 'string', nullable: true, maxLength: 1000)])
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Đơn sau khi hủy'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: self::DOC_403),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 422, description: self::DOC_422),
+        ]
+    )]
     public function cancel(Request $request, string $kind, OfficeRequest $officeRequest): JsonResponse
     {
         $this->ensureKind($kind, $officeRequest);
@@ -104,6 +260,31 @@ class OfficeRequestController extends Controller
         )]);
     }
 
+    #[OA\Post(
+        path: '/{kind}-requests/{officeRequest}/attachments',
+        summary: 'Đính kèm tệp vào đề nghị',
+        description: 'Chỉ chủ đơn, khi đơn còn sửa được. Tối đa 10 tệp mỗi đơn, mỗi tệp 10 MB: pdf, png, jpg, jpeg, doc, docx, xls, xlsx.',
+        tags: ['Đề nghị mua sắm và thanh toán'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'kind', in: 'path', required: true, schema: new OA\Schema(type: 'string', enum: ['purchase', 'payment'])),
+            new OA\Parameter(name: 'officeRequest', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\MediaType(
+                mediaType: 'multipart/form-data',
+                schema: new OA\Schema(required: ['file'], properties: [new OA\Property(property: 'file', type: 'string', format: 'binary')], type: 'object')
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: 'Tệp đính kèm mới'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: self::DOC_403),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 422, description: 'Tệp sai định dạng, quá 10 MB, hoặc đơn đã đủ 10 tệp'),
+        ]
+    )]
     public function upload(Request $request, string $kind, OfficeRequest $officeRequest): JsonResponse
     {
         $this->ensureKind($kind, $officeRequest);
@@ -128,6 +309,28 @@ class OfficeRequestController extends Controller
         return response()->json(['success' => true, 'data' => $attachment], 201);
     }
 
+    #[OA\Get(
+        path: '/{kind}-requests/{officeRequest}/attachments/{attachment}',
+        summary: 'Tải tệp đính kèm',
+        description: 'Người xem được đơn thì tải được tệp.',
+        tags: ['Đề nghị mua sắm và thanh toán'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'kind', in: 'path', required: true, schema: new OA\Schema(type: 'string', enum: ['purchase', 'payment'])),
+            new OA\Parameter(name: 'officeRequest', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'attachment', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Nội dung tệp',
+                content: new OA\MediaType(mediaType: 'application/octet-stream', schema: new OA\Schema(type: 'string', format: 'binary'))
+            ),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: self::DOC_403),
+            new OA\Response(response: 404, description: 'Không tìm thấy đơn hoặc tệp'),
+        ]
+    )]
     public function download(Request $request, string $kind, OfficeRequest $officeRequest, OfficeRequestAttachment $attachment, IdentityClient $identity)
     {
         $this->ensureKind($kind, $officeRequest);
@@ -139,6 +342,24 @@ class OfficeRequestController extends Controller
         return Storage::disk('local')->download($attachment->disk_path, $attachment->file_name);
     }
 
+    #[OA\Delete(
+        path: '/{kind}-requests/{officeRequest}/attachments/{attachment}',
+        summary: 'Xóa tệp đính kèm',
+        description: 'Chỉ chủ đơn, khi đơn còn sửa được.',
+        tags: ['Đề nghị mua sắm và thanh toán'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'kind', in: 'path', required: true, schema: new OA\Schema(type: 'string', enum: ['purchase', 'payment'])),
+            new OA\Parameter(name: 'officeRequest', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'attachment', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Đã xóa'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: self::DOC_403),
+            new OA\Response(response: 404, description: 'Không tìm thấy đơn hoặc tệp'),
+        ]
+    )]
     public function removeAttachment(Request $request, string $kind, OfficeRequest $officeRequest, OfficeRequestAttachment $attachment): JsonResponse
     {
         $this->ensureKind($kind, $officeRequest);

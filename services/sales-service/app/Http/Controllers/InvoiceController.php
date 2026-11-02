@@ -24,6 +24,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use OpenApi\Attributes as OA;
 
 class InvoiceController extends Controller
 {
@@ -32,6 +33,19 @@ class InvoiceController extends Controller
         private readonly IdentityClient $identity,
     ) {}
 
+    #[OA\Get(
+        path: '/invoices',
+        summary: 'Danh sách chứng từ bán hàng',
+        description: 'Yêu cầu quyền invoice.view.',
+        tags: ['Chứng từ bán hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Chứng từ và phân trang'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền invoice.view'),
+        ]
+    )]
     public function index(Request $request): JsonResponse
     {
         $invoices = Invoice::with([
@@ -53,6 +67,56 @@ class InvoiceController extends Controller
         ]);
     }
 
+    #[OA\Post(
+        path: '/invoices',
+        summary: 'Lập chứng từ bán hàng và giữ hàng',
+        description: 'Yêu cầu quyền sale-invoice.create. Chỉ từ yêu cầu giao hàng đã duyệt; số lượng không vượt số còn phải giao. '
+            .'Giữ hàng cả chứng từ bằng một lần gọi inventory-service (reserve/batch): thiếu một dòng thì không giữ dòng nào. '
+            .'Số chứng từ theo quy tắc INV-{mã khách}-{ddmmyy}[-A..].',
+        tags: ['Chứng từ bán hàng'],
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['delivery_request_id', 'invoice_date', 'items'],
+                properties: [
+                    new OA\Property(property: 'delivery_request_id', type: 'integer'),
+                    new OA\Property(property: 'invoice_date', type: 'string', format: 'date'),
+                    new OA\Property(property: 'currency', type: 'string', nullable: true, maxLength: 3, minLength: 3, example: 'VND'),
+                    new OA\Property(property: 'exchange_rate', type: 'number', nullable: true, exclusiveMinimum: 0),
+                    new OA\Property(property: 'payment_terms', type: 'string', nullable: true, maxLength: 100),
+                    new OA\Property(property: 'notes', type: 'string', nullable: true),
+                    new OA\Property(property: 'send_to_warehouse', type: 'boolean', nullable: true, description: 'Gửi xuống kho ngay sau khi giữ hàng thành công'),
+                    new OA\Property(
+                        property: 'items',
+                        type: 'array',
+                        minItems: 1,
+                        items: new OA\Items(
+                            required: ['delivery_request_item_id', 'order_item_id', 'sku', 'quantity', 'unit_price'],
+                            properties: [
+                                new OA\Property(property: 'delivery_request_item_id', type: 'integer'),
+                                new OA\Property(property: 'order_item_id', type: 'integer'),
+                                new OA\Property(property: 'product_id', type: 'integer', nullable: true),
+                                new OA\Property(property: 'sku', type: 'string', maxLength: 100),
+                                new OA\Property(property: 'quantity', type: 'number', exclusiveMinimum: 0),
+                                new OA\Property(property: 'unit_price', type: 'number', minimum: 0),
+                            ],
+                            type: 'object'
+                        )
+                    ),
+                    new OA\Property(property: 'attachment_ids', type: 'array', nullable: true, items: new OA\Items(type: 'integer')),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: 'Chứng từ mới, đã giữ hàng'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền sale-invoice.create'),
+            new OA\Response(response: 409, description: 'INVALID_DELIVERY_STATUS (yêu cầu giao chưa duyệt) hoặc INSUFFICIENT_STOCK (tồn khả dụng không đủ)'),
+            new OA\Response(response: 422, description: 'Dữ liệu không hợp lệ, mặt hàng không thuộc yêu cầu giao, vượt số còn phải giao, hoặc PRODUCT_UNRESOLVED'),
+            new OA\Response(response: 503, description: 'DEPENDENCY_UNAVAILABLE: inventory-service không phản hồi; chứng từ không được tạo và hàng của số chứng từ được nhả'),
+        ]
+    )]
     public function store(StoreInvoiceRequest $request): JsonResponse
     {
         $drId = $request->input('delivery_request_id');
@@ -249,6 +313,20 @@ class InvoiceController extends Controller
         ], 201);
     }
 
+    #[OA\Get(
+        path: '/invoices/{invoice}',
+        summary: 'Chi tiết chứng từ bán hàng',
+        description: 'Yêu cầu quyền invoice.view.',
+        tags: ['Chứng từ bán hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'invoice', in: 'path', required: true, description: 'Id hoặc số chứng từ', schema: new OA\Schema(type: 'string'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Chứng từ kèm dòng hàng'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền invoice.view'),
+            new OA\Response(response: 404, description: self::DOC_404),
+        ]
+    )]
     public function show($id)
     {
         $inv = Invoice::with([
@@ -268,6 +346,27 @@ class InvoiceController extends Controller
     /**
      * Đồng bộ giữ chỗ tồn kho cho chứng từ bán hàng đã tạo
      */
+    #[OA\Post(
+        path: '/invoices/{id}/sync-reserve',
+        summary: 'Giữ hàng lại cho chứng từ',
+        description: 'Yêu cầu quyền invoice.manage. Dùng khi lần giữ hàng trước thất bại. Gọi lại an toàn: chứng từ đã giữ thì trả về ngay.',
+        tags: ['Chứng từ bán hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, description: 'Id hoặc số chứng từ', schema: new OA\Schema(type: 'string'))],
+        requestBody: new OA\RequestBody(
+            required: false,
+            content: new OA\JsonContent(properties: [new OA\Property(property: 'warehouse_name', type: 'string', nullable: true, description: 'Mặc định lấy kho của yêu cầu giao')])
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Đã giữ hàng (hoặc đã giữ từ trước)'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền invoice.manage'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: 'INSUFFICIENT_STOCK hoặc INVOICE_CANCELLED'),
+            new OA\Response(response: 422, description: 'PRODUCT_UNRESOLVED'),
+            new OA\Response(response: 503, description: 'DEPENDENCY_UNAVAILABLE: inventory-service không phản hồi'),
+        ]
+    )]
     public function syncReserve(Request $request, $id)
     {
         $inv = Invoice::with(['items', 'deliveryRequest'])->where('id', $id)->orWhere('invoice_number', $id)->first();
@@ -308,6 +407,21 @@ class InvoiceController extends Controller
     /**
      * Gửi chứng từ bán hàng xuống phòng logistics (Trang warehouse-request-sale)
      */
+    #[OA\Post(
+        path: '/invoices/{id}/send-to-warehouse',
+        summary: 'Gửi chứng từ xuống kho',
+        description: 'Yêu cầu quyền invoice.manage. Chỉ chứng từ đã giữ hàng thành công và chưa gửi.',
+        tags: ['Chứng từ bán hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, description: 'Id hoặc số chứng từ', schema: new OA\Schema(type: 'string'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Chứng từ đã gửi xuống kho'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền invoice.manage'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: 'STOCK_NOT_RESERVED, INVALID_WAREHOUSE_STATUS hoặc INVOICE_CANCELLED'),
+        ]
+    )]
     public function sendToWarehouse(Request $request, $id)
     {
         $inv = Invoice::where('id', $id)->orWhere('invoice_number', $id)->first();
@@ -372,6 +486,39 @@ class InvoiceController extends Controller
     /**
      * Cập nhật tiến độ kho / điều phối logistics (Soạn hàng, đóng gói, giao hàng)
      */
+    #[OA\Put(
+        path: '/invoices/{id}/assign-logistics',
+        summary: 'Phân công soạn hàng, đóng gói và giao hàng',
+        description: 'Yêu cầu quyền invoice.manage. Tên nhân viên được snapshot vào chứng từ.',
+        tags: ['Chứng từ bán hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, description: 'Id hoặc số chứng từ', schema: new OA\Schema(type: 'string'))],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['shipping_method'],
+                properties: [
+                    new OA\Property(property: 'shipping_method', type: 'string', enum: ['CUSTOMER_PICKUP', 'WAREHOUSE_DELIVERY', 'THIRD_PARTY']),
+                    new OA\Property(property: 'picker_id', type: 'integer', nullable: true),
+                    new OA\Property(property: 'picker_name', type: 'string', nullable: true),
+                    new OA\Property(property: 'packer_id', type: 'integer', nullable: true),
+                    new OA\Property(property: 'packer_name', type: 'string', nullable: true),
+                    new OA\Property(property: 'shipper_id', type: 'integer', nullable: true),
+                    new OA\Property(property: 'shipper_name', type: 'string', nullable: true),
+                    new OA\Property(property: 'status', type: 'string', nullable: true, enum: ['SENT_TO_WAREHOUSE', 'PROCESSING', 'PROCESSED', 'READY_TO_SHIP']),
+                    new OA\Property(property: 'shipping_note', type: 'string', nullable: true, maxLength: 2000),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Chứng từ sau khi phân công'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền invoice.manage'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: 'INVOICE_CANCELLED'),
+            new OA\Response(response: 422, description: self::DOC_422),
+        ]
+    )]
     public function assignLogistics(Request $request, $id)
     {
         $inv = Invoice::where('id', $id)->orWhere('invoice_number', $id)->first();
@@ -459,6 +606,28 @@ class InvoiceController extends Controller
      * - Cập nhật số lượng đã giao trên DeliveryRequestItems & SalesOrderItems
      * - Cập nhật status DeliveryRequest & SalesOrder (Giao đủ / Giao một phần)
      */
+    #[OA\Post(
+        path: '/invoices/{id}/warehouse-post',
+        summary: 'Ghi sổ xuất kho cho chứng từ',
+        description: 'Yêu cầu quyền inventory.issue hoặc invoice.manage. Chỉ chứng từ đã giữ hàng, xuất tại đúng kho đã giữ. '
+            .'Gọi inventory-service giảm tồn thực tế cho từng dòng; chỉ khi đủ mọi dòng thì chứng từ mới được ghi sổ và sinh dòng doanh thu.',
+        tags: ['Chứng từ bán hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, description: 'Id hoặc số chứng từ', schema: new OA\Schema(type: 'string'))],
+        requestBody: new OA\RequestBody(
+            required: false,
+            content: new OA\JsonContent(properties: [new OA\Property(property: 'warehouse_id', type: 'integer', nullable: true, description: 'Phải trùng kho đã giữ hàng')])
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Chứng từ đã ghi sổ xuất kho'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền inventory.issue hoặc invoice.manage'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: 'STOCK_NOT_RESERVED hoặc INVOICE_CANCELLED'),
+            new OA\Response(response: 422, description: 'WAREHOUSE_MISMATCH: xuất khác kho đã giữ hàng'),
+            new OA\Response(response: 502, description: 'INVENTORY_ISSUE_FAILED: inventory-service chưa xuất đủ hoặc không phản hồi, chứng từ chưa được ghi sổ'),
+        ]
+    )]
     public function warehousePost(Request $request, $id)
     {
         $inv = Invoice::with(['items', 'deliveryRequest.items', 'deliveryRequest.order.items'])
@@ -656,6 +825,27 @@ class InvoiceController extends Controller
      * - phần còn phải giao của yêu cầu giao về 0 và đóng yêu cầu → số lượng chưa giao của đơn bán tăng lại,
      *   có thể lập yêu cầu giao mới.
      */
+    #[OA\Post(
+        path: '/invoices/{id}/cancel',
+        summary: 'Hủy chứng từ bán hàng',
+        description: 'Yêu cầu quyền invoice.manage. Chỉ hủy khi chưa xuất kho; nhả toàn bộ hàng đang giữ của số chứng từ qua inventory-service. Đã xuất kho thì phải lập yêu cầu trả hàng.',
+        tags: ['Chứng từ bán hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, description: 'Id hoặc số chứng từ', schema: new OA\Schema(type: 'string'))],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(required: ['reason'], properties: [new OA\Property(property: 'reason', type: 'string', maxLength: 1000)])
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Chứng từ đã hủy và nhả hàng'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền invoice.manage'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: 'INVOICE_ALREADY_ISSUED: chứng từ đã xuất kho'),
+            new OA\Response(response: 422, description: self::DOC_422),
+            new OA\Response(response: 503, description: 'DEPENDENCY_UNAVAILABLE: không nhả được hàng do inventory-service không phản hồi'),
+        ]
+    )]
     public function cancel(Request $request, $id): JsonResponse
     {
         $validated = $request->validate(['reason' => ['required', 'string', 'max:1000']]);
@@ -707,6 +897,29 @@ class InvoiceController extends Controller
         ]);
     }
 
+    #[OA\Put(
+        path: '/invoices/{id}/warehouse-status',
+        summary: 'Cập nhật trạng thái xử lý tại kho',
+        description: 'Yêu cầu quyền invoice.manage.',
+        tags: ['Chứng từ bán hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, description: 'Id hoặc số chứng từ', schema: new OA\Schema(type: 'string'))],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['status'],
+                properties: [new OA\Property(property: 'status', type: 'string', enum: ['SENT_TO_WAREHOUSE', 'PROCESSING', 'PROCESSED', 'READY_TO_SHIP'])]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Chứng từ sau cập nhật'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền invoice.manage'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: 'INVOICE_CANCELLED'),
+            new OA\Response(response: 422, description: self::DOC_422),
+        ]
+    )]
     public function updateWarehouseStatus(Request $request, $id)
     {
         $inv = Invoice::where('id', $id)->orWhere('invoice_number', $id)->first();
@@ -725,6 +938,27 @@ class InvoiceController extends Controller
         return response()->json(['success' => true, 'data' => $inv]);
     }
 
+    #[OA\Post(
+        path: '/invoices/{id}/post-accounting',
+        summary: 'Ghi sổ chứng từ (kế toán)',
+        description: 'Yêu cầu quyền finance.approve. Cùng xử lý với /invoices/{id}/warehouse-post: xuất kho qua inventory-service rồi ghi sổ chứng từ.',
+        tags: ['Chứng từ bán hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, description: 'Id hoặc số chứng từ', schema: new OA\Schema(type: 'string'))],
+        requestBody: new OA\RequestBody(
+            required: false,
+            content: new OA\JsonContent(properties: [new OA\Property(property: 'warehouse_id', type: 'integer', nullable: true)])
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Chứng từ đã ghi sổ'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền finance.approve'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: 'STOCK_NOT_RESERVED hoặc INVOICE_CANCELLED'),
+            new OA\Response(response: 422, description: 'WAREHOUSE_MISMATCH'),
+            new OA\Response(response: 502, description: 'INVENTORY_ISSUE_FAILED: inventory-service chưa xuất đủ hoặc không phản hồi'),
+        ]
+    )]
     public function postAccounting(Request $request, $id)
     {
         return $this->warehousePost($request, $id);

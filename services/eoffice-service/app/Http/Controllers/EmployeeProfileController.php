@@ -9,10 +9,42 @@ use App\Support\ActorPermissions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use OpenApi\Attributes as OA;
 
 /** Hồ sơ nhân sự phục vụ chấm công / lương và danh mục ca làm việc (HR). */
+#[OA\Schema(
+    schema: 'ShiftInput',
+    required: ['code', 'name', 'start_time', 'end_time', 'grace_minutes', 'full_day_minutes', 'half_day_minutes', 'saturday_mode'],
+    properties: [
+        new OA\Property(property: 'code', type: 'string', maxLength: 30),
+        new OA\Property(property: 'name', type: 'string', maxLength: 100),
+        new OA\Property(property: 'start_time', type: 'string', example: '08:00'),
+        new OA\Property(property: 'end_time', type: 'string', example: '17:30', description: 'Sau start_time'),
+        new OA\Property(property: 'break_start', type: 'string', nullable: true, example: '12:00'),
+        new OA\Property(property: 'break_end', type: 'string', nullable: true, example: '13:30'),
+        new OA\Property(property: 'grace_minutes', type: 'integer', maximum: 120, minimum: 0, description: 'Số phút đi muộn được bỏ qua'),
+        new OA\Property(property: 'full_day_minutes', type: 'integer', maximum: 720, minimum: 60),
+        new OA\Property(property: 'half_day_minutes', type: 'integer', minimum: 30, description: 'Không lớn hơn full_day_minutes'),
+        new OA\Property(property: 'saturday_mode', type: 'string', enum: ['OFF', 'HALF', 'FULL']),
+        new OA\Property(property: 'is_default', type: 'boolean', description: 'Đặt làm ca mặc định thì ca mặc định cũ bị bỏ'),
+        new OA\Property(property: 'is_active', type: 'boolean'),
+    ],
+    type: 'object'
+)]
 class EmployeeProfileController extends Controller
 {
+    #[OA\Get(
+        path: '/employee-profiles',
+        summary: 'Danh sách hồ sơ nhân sự',
+        description: 'Yêu cầu quyền attendance.view hoặc attendance.manage. Lương và tài khoản ngân hàng chỉ hiện với người có payroll.manage.',
+        tags: ['Hồ sơ nhân sự và ca'],
+        security: [['bearerAuth' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Hồ sơ kèm ca làm việc, sắp xếp theo mã nhân viên'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền attendance.view hoặc attendance.manage'),
+        ]
+    )]
     public function index(Request $request): JsonResponse
     {
         $actor = $request->attributes->get('actor');
@@ -25,6 +57,19 @@ class EmployeeProfileController extends Controller
     }
 
     /** Tạo hồ sơ còn thiếu cho mọi tài khoản đang hoạt động bên identity-service (mã NV mặc định NV0001…). */
+    #[OA\Post(
+        path: '/employee-profiles/sync',
+        summary: 'Đồng bộ hồ sơ từ identity-service',
+        description: 'Yêu cầu quyền attendance.manage. Tạo hồ sơ còn thiếu cho mọi tài khoản đang hoạt động, mã nhân viên mặc định NV + id 4 chữ số, gán ca mặc định.',
+        tags: ['Hồ sơ nhân sự và ca'],
+        security: [['bearerAuth' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Số hồ sơ mới được tạo'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền attendance.manage'),
+            new OA\Response(response: 422, description: 'Không kết nối được identity-service'),
+        ]
+    )]
     public function sync(IdentityClient $identity): JsonResponse
     {
         $created = 0;
@@ -43,6 +88,40 @@ class EmployeeProfileController extends Controller
         return response()->json(['success' => true, 'data' => ['created' => $created]]);
     }
 
+    #[OA\Put(
+        path: '/employee-profiles/{profile}',
+        summary: 'Cập nhật hồ sơ nhân sự',
+        description: 'Yêu cầu quyền attendance.manage. Các trường lương và ngân hàng (base_salary, insurance_salary, fixed_allowance, dependents, bank_name, bank_account) chỉ người có payroll.manage được sửa.',
+        tags: ['Hồ sơ nhân sự và ca'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'profile', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: 'employee_code', type: 'string', maxLength: 30),
+                    new OA\Property(property: 'hire_date', type: 'string', format: 'date', nullable: true),
+                    new OA\Property(property: 'termination_date', type: 'string', format: 'date', nullable: true),
+                    new OA\Property(property: 'work_mode', type: 'string', enum: ['ONSITE', 'REMOTE', 'HYBRID']),
+                    new OA\Property(property: 'shift_id', type: 'integer', nullable: true),
+                    new OA\Property(property: 'is_active', type: 'boolean'),
+                    new OA\Property(property: 'base_salary', type: 'number', minimum: 0),
+                    new OA\Property(property: 'insurance_salary', type: 'number', nullable: true, minimum: 0),
+                    new OA\Property(property: 'fixed_allowance', type: 'number', minimum: 0),
+                    new OA\Property(property: 'dependents', type: 'integer', maximum: 20, minimum: 0),
+                    new OA\Property(property: 'bank_name', type: 'string', nullable: true, maxLength: 100),
+                    new OA\Property(property: 'bank_account', type: 'string', nullable: true, maxLength: 50),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Hồ sơ sau cập nhật'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền attendance.manage, hoặc sửa lương khi thiếu payroll.manage'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 422, description: self::DOC_422),
+        ]
+    )]
     public function update(Request $request, EmployeeProfile $profile): JsonResponse
     {
         $actor = $request->attributes->get('actor');
@@ -72,11 +151,51 @@ class EmployeeProfileController extends Controller
         return response()->json(['success' => true, 'data' => $profile->fresh('shift')]);
     }
 
+    #[OA\Get(
+        path: '/shifts',
+        summary: 'Danh mục ca làm việc',
+        tags: ['Hồ sơ nhân sự và ca'],
+        security: [['bearerAuth' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Các ca làm việc, sắp xếp theo mã'),
+            new OA\Response(response: 401, description: self::DOC_401),
+        ]
+    )]
     public function shifts(): JsonResponse
     {
         return response()->json(['success' => true, 'data' => Shift::orderBy('code')->get()]);
     }
 
+    #[OA\Post(
+        path: '/shifts',
+        summary: 'Tạo ca làm việc',
+        description: 'Yêu cầu quyền attendance.manage.',
+        tags: ['Hồ sơ nhân sự và ca'],
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/ShiftInput')),
+        responses: [
+            new OA\Response(response: 201, description: 'Ca mới'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền attendance.manage'),
+            new OA\Response(response: 422, description: self::DOC_422),
+        ]
+    )]
+    #[OA\Put(
+        path: '/shifts/{shift}',
+        summary: 'Cập nhật ca làm việc',
+        description: 'Yêu cầu quyền attendance.manage.',
+        tags: ['Hồ sơ nhân sự và ca'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'shift', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/ShiftInput')),
+        responses: [
+            new OA\Response(response: 200, description: 'Ca sau cập nhật'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền attendance.manage'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 422, description: self::DOC_422),
+        ]
+    )]
     public function saveShift(Request $request, ?Shift $shift = null): JsonResponse
     {
         $data = $request->validate([

@@ -53,7 +53,7 @@ flowchart LR
         GW[Kong API Gateway]
         Core[10 service backend]
         MQ[(RabbitMQ)]
-        DB[(MySQL + SQLite cục bộ của service)]
+        DB[(MySQL + MongoDB theo từng service)]
     end
 
     User -->|HTTPS/HTTP UI| FE
@@ -161,8 +161,8 @@ Ghi chú:
 |---|---|---|---|
 | Identity | MySQL `erp_identity_db` | departments, permissions, roles, role_permissions, users, user_roles, company_profiles | `identity-service/database/migrations/*` |
 | Catalog | MySQL `erp_catalog_db` | categories, brands, products, partners, customers, customer_contacts, suppliers, product_price_histories, outbox_events | `catalog-service/database/migrations/*`; migration sau cùng xóa bảng warehouse của Catalog |
-| Purchase | MySQL `erp_purchase_db` (dùng SQLite cho dev/test) | requisitions/items, orders/items/PR allocations, receipts/items, invoices/items, returns/items, aggregate hỏi hàng, outbox_events, processed_events | `Purchase.Infrastructure.Persistence.Configurations.*`; `DependencyInjection.AddInfrastructure` |
-| Inventory | MySQL `erp_inventory_db` (dùng SQLite cho dev/test) | warehouses, inventory_stocks, sổ giữ chỗ/giao dịch, outbox_events, processed_events | `InventoryDbContext.OnModelCreating`; `DependencyInjection.AddInfrastructure` |
+| Purchase | MySQL `erp_purchase_db` | requisitions/items, orders/items/PR allocations, receipts/items, invoices/items, returns/items, aggregate hỏi hàng, outbox_events, processed_events | `Purchase.Infrastructure.Persistence.Configurations.*`; `DependencyInjection.AddInfrastructure` |
+| Inventory | MySQL `erp_inventory_db` | warehouses, inventory_stocks, sổ giữ chỗ/giao dịch, outbox_events, processed_events | `InventoryDbContext.OnModelCreating`; `DependencyInjection.AddInfrastructure` |
 | Sales | MySQL `erp_sales_db` | quotations/orders/deliveries/invoices và dòng, dispatches, chứng từ/điều chỉnh VAT, trả hàng bán, đính kèm, báo cáo, sequences, outbox_events | `sales-service/database/migrations/*` |
 | E-Office | MySQL `erp_eoffice_db` | leave types/balances/requests, holidays, các bước/lịch sử phê duyệt, office requests/items/attachments, outbox_events | `eoffice-service/database/migrations/*` |
 | Finance | MySQL `erp_finance_db` | chart_of_accounts, cash_funds, bank_accounts, customer_receivables, vouchers/lines, allocations, GL entries, receivable_adjustments | `finance-service/database/migrations/*` |
@@ -203,7 +203,7 @@ Bằng chứng: `infrastructure/kong/kong.yml`.
 | Notification → Identity | Xác định người nhận theo quyền | `X-Internal-Service-Key` | **IMPLEMENTED** — `RecipientResolver`; được nối trong `src/index.js:48-52` |
 | Chat → Identity | Danh bạ người dùng, cache 60 giây | `X-Internal-Service-Key` | **IMPLEMENTED** — `IdentityUserDirectory.GetUsersAsync` |
 | Purchase → Identity/Catalog/Notification | Kiểm tra người dùng khi hỏi hàng, áp dụng kết quả hỏi hàng, quy trình email nhà cung cấp | Internal key hoặc JWT tùy phương thức | **IMPLEMENTED**, tập trung trong `ItemInquiriesController` |
-| AI → các API khác | Không tìm thấy | Không áp dụng | **UNKNOWN/ABSENT**; AI đọc kho SQLite của nó thay vì gọi API nghiệp vụ |
+| AI → các API khác | Không tìm thấy | Không áp dụng | **UNKNOWN/ABSENT**; AI đọc kho phân tích MySQL của nó thay vì gọi API nghiệp vụ |
 
 Kong chỉ xóa `X-Internal-Service-Key` ở gateway công khai. Các bên gọi nội bộ truy cập trực tiếp qua DNS của service, nên header được giữ nguyên. Bằng chứng: `kong.yml — request-transformer`; base URL của service trong Compose.
 
@@ -236,7 +236,7 @@ flowchart LR
     EX -.->|inventory.stock.* đã cấu hình| SQ[erp.sales.events]
     SQ -.->|không tìm thấy consumer| UNUSED[không có consumer Sales]
 
-    NAPI[POST notification email/send] --> EQ[erp.email.send]
+    NAPI[Sự kiện *EmailRequested từ Sales/Purchase] --> EQ[erp.email.send]
     EQ --> EC[Consumer email] --> SMTP[Mailpit SMTP]
 
     NQ & EQ -->|hết lượt retry / nack| DLX{{erp.dlx}} --> DLQ[erp.dead_letters]
@@ -259,7 +259,7 @@ flowchart LR
 | Queue / binding | Consumer trong mã hiện tại | Hành vi thực tế |
 |---|---|---|
 | `erp.inventory.events`: `purchase.goods.*`, `catalog.product.*` | `RabbitMqConsumerWorker` | Chỉ xử lý `GoodsReceived` và `ProductCreated`; idempotency được giao cho `IEventConsumerHandler`/`processed_events`. **IMPLEMENTED**. |
-| `erp.notification.events`: duyệt/giao/điều phối đơn bán, E-Office, hỏi hàng, sản phẩm, `inventory.stock.*` | `startConsumer` của Notification | Tra cứu rule, xác định người nhận, ghi SQLite có idempotent, đẩy Socket.IO. Loại sự kiện không có rule được đánh dấu đã xử lý với `NO_RULE`. **IMPLEMENTED**. |
+| `erp.notification.events`: duyệt/giao/điều phối đơn bán, E-Office, hỏi hàng, sản phẩm, `inventory.stock.*` | `startConsumer` của Notification | Tra cứu rule, xác định người nhận, ghi MongoDB có idempotent (processed_events), đẩy Socket.IO. Loại sự kiện không có rule được đánh dấu đã xử lý với `NO_RULE`. **IMPLEMENTED**. |
 | `erp.email.send` | `startEmailConsumer` của Notification | Gửi SMTP, có hàng đợi retry và DLX. **IMPLEMENTED**. |
 | `erp.analytics.events`: `*.*.*` | Không tìm thấy | Chỉ có queue và binding. **CONFIGURED_ONLY**; khi chạy, message có thể tích lũy. |
 | `erp.sales.events`: `inventory.stock.*` | Không tìm thấy trong Sales | Chỉ có queue và binding. **CONFIGURED_ONLY**. |
@@ -274,6 +274,6 @@ flowchart LR
 | Kênh | Đường dẫn | Chiều dữ liệu và nguồn chuẩn | Bằng chứng |
 |---|---|---|---|
 | SignalR của Chat | `/api/v1/chat/hub` | Server → client: sự kiện hội thoại/tin nhắn/đã đọc/trạng thái online. Client → server: chỉ đang gõ. Ghi dữ liệu đi qua REST. JWT được truyền qua `access_token` của SignalR. | `ChatHub`; `JwtAuthMiddleware.HubPath`; `chatStore.buildConnection` |
-| Socket.IO của Notification | `/api/v1/notifications/socket.io` | Tín hiệu thông báo theo phòng người dùng và broadcast catalog/tồn kho. Nguồn chuẩn vẫn là REST/SQLite của Notification. JWT trong `auth.token` của handshake. | `createRealtime`; `useNotifications.connect` |
+| Socket.IO của Notification | `/api/v1/notifications/socket.io` | Tín hiệu thông báo theo phòng người dùng và broadcast catalog/tồn kho. Nguồn chuẩn vẫn là REST/MongoDB của Notification. JWT trong `auth.token` của handshake. | `createRealtime`; `useNotifications.connect` |
 
 Không có bằng chứng nào cho thấy Notification dùng SignalR hay Chat dùng Socket.IO. Cũng không có liên kết trực tiếp giữa Chat và Notification.

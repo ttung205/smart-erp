@@ -4,12 +4,48 @@ namespace App\Http\Controllers;
 
 use App\Models\SaleReportItem;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 class SaleReportController extends Controller
 {
     /**
      * Lấy danh sách báo cáo mặt hàng bán (sale_report_items)
      */
+    #[OA\Get(
+        path: '/reports/sale-items',
+        summary: 'Báo cáo dòng hàng bán',
+        description: 'Yêu cầu quyền order.view. Mỗi dòng là một mặt hàng trên đơn bán, kèm số lượng đã giao và còn lại.',
+        tags: ['Báo cáo'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'order_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'order_number', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'product_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'sku', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'customer_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'salesperson_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'status', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'search', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Các dòng báo cáo và phân trang'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền order.view'),
+        ]
+    )]
+    #[OA\Get(
+        path: '/sale-report-items',
+        summary: 'Báo cáo dòng hàng bán (đường dẫn cũ)',
+        description: 'Giống /reports/sale-items, giữ lại cho client cũ.',
+        tags: ['Báo cáo'],
+        security: [['bearerAuth' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Các dòng báo cáo và phân trang'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền order.view'),
+        ]
+    )]
     public function index(Request $request)
     {
         $query = SaleReportItem::with(['order'])->orderBy('id', 'desc');
@@ -92,6 +128,33 @@ class SaleReportController extends Controller
     /**
      * Lấy chi tiết 1 dòng báo cáo
      */
+    #[OA\Get(
+        path: '/reports/sale-items/{id}',
+        summary: 'Chi tiết một dòng báo cáo bán hàng',
+        description: 'Yêu cầu quyền order.view.',
+        tags: ['Báo cáo'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Dòng báo cáo'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền order.view'),
+            new OA\Response(response: 404, description: 'Không tìm thấy dòng báo cáo'),
+        ]
+    )]
+    #[OA\Get(
+        path: '/sale-report-items/{id}',
+        summary: 'Chi tiết một dòng báo cáo bán hàng (đường dẫn cũ)',
+        description: 'Giống /reports/sale-items/{id}.',
+        tags: ['Báo cáo'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Dòng báo cáo'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 404, description: 'Không tìm thấy dòng báo cáo'),
+        ]
+    )]
     public function show($id)
     {
         $item = SaleReportItem::with(['order'])->find($id);

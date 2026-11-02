@@ -15,12 +15,64 @@ use App\Support\SalesWorkflow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use OpenApi\Attributes as OA;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
+#[OA\Schema(
+    schema: 'SalesDocumentItem',
+    required: ['product_id', 'sku', 'quantity', 'selling_price'],
+    properties: [
+        new OA\Property(property: 'product_id', type: 'integer', description: 'Sản phẩm bên catalog; tên, đơn vị, giá niêm yết được snapshot vào dòng'),
+        new OA\Property(property: 'sku', type: 'string', maxLength: 100),
+        new OA\Property(property: 'quantity', type: 'number', exclusiveMinimum: 0),
+        new OA\Property(property: 'selling_price', type: 'number', minimum: 0),
+        new OA\Property(property: 'vat_percent', type: 'number', default: 10, maximum: 100, minimum: 0),
+        new OA\Property(property: 'discount_percent', type: 'number', default: 0),
+        new OA\Property(property: 'gross_price', type: 'number', nullable: true, description: 'Mặc định lấy giá niêm yết từ catalog'),
+        new OA\Property(property: 'description', type: 'string', nullable: true),
+        new OA\Property(property: 'lead_time', type: 'string', default: 'Có sẵn'),
+        new OA\Property(property: 'status', type: 'string', default: 'WIN', description: 'Kết quả dòng báo giá'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'QuotationInput',
+    required: ['customer_id', 'items'],
+    properties: [
+        new OA\Property(property: 'customer_id', type: 'integer', description: 'Mã, tên, mã số thuế khách hàng được snapshot từ catalog'),
+        new OA\Property(property: 'contact_id', type: 'integer', nullable: true),
+        new OA\Property(property: 'quotation_number', type: 'string', nullable: true, description: 'Bỏ trống thì tự sinh'),
+        new OA\Property(property: 'quotation_date', type: 'string', nullable: true, description: 'Y-m-d hoặc d/m/Y, mặc định hôm nay', example: '2026-11-03'),
+        new OA\Property(property: 'currency', type: 'string', nullable: true, example: 'VND'),
+        new OA\Property(property: 'exchange_rate', type: 'number', nullable: true, exclusiveMinimum: 0),
+        new OA\Property(property: 'assigned_to', type: 'integer', nullable: true, description: 'Nhân viên phụ trách'),
+        new OA\Property(property: 'notes', type: 'string', nullable: true),
+        new OA\Property(property: 'attachment_ids', type: 'array', nullable: true, items: new OA\Items(type: 'integer')),
+        new OA\Property(property: 'items', type: 'array', minItems: 1, items: new OA\Items(ref: '#/components/schemas/SalesDocumentItem')),
+    ],
+    type: 'object'
+)]
 class QuotationController extends Controller
 {
     public function __construct(private readonly ReferenceSnapshot $snapshots) {}
 
+    #[OA\Get(
+        path: '/quotations',
+        summary: 'Danh sách báo giá',
+        description: 'Yêu cầu quyền quotation.view.',
+        tags: ['Báo giá'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'search', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'status', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Báo giá và phân trang'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền quotation.view'),
+        ]
+    )]
     public function index(Request $request)
     {
         $search = trim($request->input('search', ''));
@@ -78,6 +130,20 @@ class QuotationController extends Controller
         ]);
     }
 
+    #[OA\Get(
+        path: '/quotations/{quotation}',
+        summary: 'Chi tiết báo giá',
+        description: 'Yêu cầu quyền quotation.view.',
+        tags: ['Báo giá'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'quotation', in: 'path', required: true, description: 'Id hoặc số báo giá', schema: new OA\Schema(type: 'string'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Báo giá kèm dòng hàng'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền quotation.view'),
+            new OA\Response(response: 404, description: self::DOC_404),
+        ]
+    )]
     public function show($id)
     {
         $q = Quotation::with(['items', 'attachments'])
@@ -92,6 +158,21 @@ class QuotationController extends Controller
         return response()->json(['success' => true, 'data' => $q]);
     }
 
+    #[OA\Post(
+        path: '/quotations',
+        summary: 'Tạo báo giá',
+        description: 'Yêu cầu quyền quotation.create. Báo giá tạo ở trạng thái DRAFT; thông tin khách hàng và sản phẩm được snapshot tại thời điểm tạo.',
+        tags: ['Báo giá'],
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/QuotationInput')),
+        responses: [
+            new OA\Response(response: 201, description: 'Báo giá mới'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền quotation.create'),
+            new OA\Response(response: 422, description: self::DOC_422),
+            new OA\Response(response: 500, description: 'STORE_FAILED: không tạo được báo giá'),
+        ]
+    )]
     public function store(Request $request)
     {
         $request->validate([
@@ -195,6 +276,24 @@ class QuotationController extends Controller
         }
     }
 
+    #[OA\Put(
+        path: '/quotations/{quotation}',
+        summary: 'Sửa báo giá',
+        description: 'Yêu cầu quyền quotation.update. Chỉ báo giá DRAFT hoặc REJECTED. Chấp nhận cả PUT và PATCH; gửi items thì thay toàn bộ dòng hàng.',
+        tags: ['Báo giá'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'quotation', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/QuotationInput')),
+        responses: [
+            new OA\Response(response: 200, description: 'Báo giá sau khi sửa'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền quotation.update'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: 'DOCUMENT_LOCKED: chỉ được sửa báo giá nháp hoặc bị từ chối'),
+            new OA\Response(response: 422, description: self::DOC_422),
+            new OA\Response(response: 500, description: 'UPDATE_FAILED: không cập nhật được báo giá'),
+        ]
+    )]
     public function update(Request $request, $id)
     {
         $q = Quotation::where('id', $id)->orWhere('quotation_number', $id)->first();
@@ -305,6 +404,21 @@ class QuotationController extends Controller
         }
     }
 
+    #[OA\Post(
+        path: '/quotations/{id}/submit-approval',
+        summary: 'Gửi duyệt báo giá',
+        description: 'Yêu cầu quyền quotation.update.',
+        tags: ['Báo giá'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Báo giá chờ duyệt'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền quotation.update'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: self::DOC_409_STATUS),
+        ]
+    )]
     public function submitApproval(Request $request, $id)
     {
         $q = Quotation::where('id', $id)->orWhere('quotation_number', $id)->first();
@@ -332,6 +446,36 @@ class QuotationController extends Controller
      * (cùng transaction), notification-service nhận event, lấy tệp đính kèm từ Sales rồi đưa vào hàng đợi gửi mail.
      * Tệp PDF phải được upload trước (POST /attachments/upload, attachable_type = quotation) rồi truyền attachment_ids.
      */
+    #[OA\Post(
+        path: '/quotations/{id}/send-email',
+        summary: 'Gửi báo giá qua email',
+        description: 'Yêu cầu quyền quotation.create, quotation.update hoặc quotation.manage. Ghi event QuotationEmailRequested (sales.quotation.email_requested) trong cùng transaction; '
+            .'notification-service nhận event, tải tệp đính kèm bằng khóa nội bộ và gửi email. Trả về email_job_id để theo dõi.',
+        tags: ['Báo giá'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['to', 'subject'],
+                properties: [
+                    new OA\Property(property: 'to', type: 'array', maxItems: 50, minItems: 1, items: new OA\Items(type: 'string', format: 'email')),
+                    new OA\Property(property: 'cc', type: 'array', nullable: true, maxItems: 50, items: new OA\Items(type: 'string', format: 'email')),
+                    new OA\Property(property: 'subject', type: 'string', maxLength: 255),
+                    new OA\Property(property: 'body', type: 'string', nullable: true, maxLength: 50000),
+                    new OA\Property(property: 'sender_name', type: 'string', nullable: true, maxLength: 100),
+                    new OA\Property(property: 'attachment_ids', type: 'array', nullable: true, maxItems: 10, items: new OA\Items(type: 'integer'), description: 'Tệp phải thuộc báo giá này'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 202, description: 'Đã đưa email vào hàng đợi'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 422, description: 'Dữ liệu không hợp lệ, TOO_MANY_RECIPIENTS hoặc ATTACHMENT_NOT_FOUND'),
+        ]
+    )]
     public function sendEmail(Request $request, $id)
     {
         $q = Quotation::where('id', $id)->orWhere('quotation_number', $id)->first();
@@ -391,6 +535,21 @@ class QuotationController extends Controller
         ], 202);
     }
 
+    #[OA\Post(
+        path: '/quotations/{id}/approve',
+        summary: 'Duyệt báo giá',
+        description: 'Yêu cầu quyền quotation.approve.',
+        tags: ['Báo giá'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Báo giá đã duyệt'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền quotation.approve'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: self::DOC_409_STATUS),
+        ]
+    )]
     public function approve(Request $request, $id)
     {
         $q = Quotation::where('id', $id)->orWhere('quotation_number', $id)->first();
@@ -418,6 +577,26 @@ class QuotationController extends Controller
         ]);
     }
 
+    #[OA\Post(
+        path: '/quotations/{id}/reject',
+        summary: 'Từ chối báo giá',
+        description: 'Yêu cầu quyền quotation.approve. Bắt buộc ghi lý do.',
+        tags: ['Báo giá'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(required: ['reason'], properties: [new OA\Property(property: 'reason', type: 'string')])
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Báo giá bị từ chối'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền quotation.approve'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: self::DOC_409_STATUS),
+            new OA\Response(response: 422, description: 'REJECTION_REASON_REQUIRED: thiếu lý do'),
+        ]
+    )]
     public function reject(Request $request, $id)
     {
         $q = Quotation::where('id', $id)->orWhere('quotation_number', $id)->first();
@@ -447,6 +626,37 @@ class QuotationController extends Controller
         ]);
     }
 
+    #[OA\Post(
+        path: '/quotations/{id}/create-so',
+        summary: 'Chuyển báo giá thành đơn bán',
+        description: 'Yêu cầu quyền order.create. Chỉ báo giá đã duyệt. Mặc định lấy các dòng thắng (WIN); gửi items để chọn dòng cụ thể. '
+            .'Gọi lại khi báo giá đã chuyển thì trả về đơn bán đã tạo trước đó.',
+        tags: ['Báo giá'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        requestBody: new OA\RequestBody(
+            required: false,
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(
+                        property: 'items',
+                        type: 'array',
+                        items: new OA\Items(properties: [new OA\Property(property: 'quotation_item_id', type: 'integer')], type: 'object')
+                    ),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: 'Đơn bán mới'),
+            new OA\Response(response: 200, description: 'Báo giá đã được chuyển trước đó, trả về đơn bán cũ'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền order.create'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: 'INVALID_STATUS_TRANSITION: báo giá chưa duyệt'),
+            new OA\Response(response: 422, description: 'Dòng hàng không thuộc báo giá hoặc không có dòng thắng'),
+            new OA\Response(response: 500, description: 'SO_FAILED: không tạo được đơn bán'),
+        ]
+    )]
     public function createSO(Request $request, $id)
     {
         $q = Quotation::with('items')->where('id', $id)->orWhere('quotation_number', $id)->first();
@@ -581,6 +791,21 @@ class QuotationController extends Controller
         }
     }
 
+    #[OA\Delete(
+        path: '/quotations/{quotation}',
+        summary: 'Xóa báo giá',
+        description: 'Yêu cầu quyền quotation.cancel. Chỉ báo giá DRAFT hoặc REJECTED.',
+        tags: ['Báo giá'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'quotation', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Đã xóa'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền quotation.cancel'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: 'DOCUMENT_LOCKED: báo giá đã gửi duyệt hoặc đã duyệt'),
+        ]
+    )]
     public function destroy($id)
     {
         $q = Quotation::where('id', $id)->orWhere('quotation_number', $id)->first();

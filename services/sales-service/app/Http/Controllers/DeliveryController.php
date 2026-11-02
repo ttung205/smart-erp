@@ -16,9 +16,23 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use OpenApi\Attributes as OA;
 
 class DeliveryController extends Controller
 {
+    #[OA\Get(
+        path: '/deliveries',
+        summary: 'Danh sách yêu cầu giao hàng',
+        description: 'Yêu cầu quyền delivery.view.',
+        tags: ['Yêu cầu giao hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Yêu cầu giao kèm dòng hàng và đơn bán'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền delivery.view'),
+        ]
+    )]
     public function index(Request $request): JsonResponse
     {
         $deliveries = DeliveryRequest::with(['items.orderItem', 'order'])
@@ -37,6 +51,50 @@ class DeliveryController extends Controller
         ]);
     }
 
+    #[OA\Post(
+        path: '/deliveries',
+        summary: 'Tạo yêu cầu giao hàng',
+        description: 'Yêu cầu quyền delivery.create. Chỉ cho đơn bán đã duyệt; chọn kho bán và số lượng từng dòng không vượt số còn phải giao.',
+        tags: ['Yêu cầu giao hàng'],
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['order_id', 'warehouse_id', 'warehouse_name', 'shipping_address', 'items'],
+                properties: [
+                    new OA\Property(property: 'order_id', type: 'integer'),
+                    new OA\Property(property: 'request_number', type: 'string', nullable: true, maxLength: 50, description: 'Bỏ trống thì hệ thống tự sinh'),
+                    new OA\Property(property: 'warehouse_id', type: 'integer', minimum: 1),
+                    new OA\Property(property: 'warehouse_name', type: 'string', maxLength: 150),
+                    new OA\Property(property: 'shipping_address', type: 'string', maxLength: 2000),
+                    new OA\Property(property: 'contact_phone', type: 'string', nullable: true, maxLength: 50),
+                    new OA\Property(property: 'expected_delivery_date', type: 'string', format: 'date', nullable: true),
+                    new OA\Property(
+                        property: 'items',
+                        type: 'array',
+                        minItems: 1,
+                        items: new OA\Items(
+                            required: ['order_item_id', 'sku', 'quantity'],
+                            properties: [
+                                new OA\Property(property: 'order_item_id', type: 'integer'),
+                                new OA\Property(property: 'product_id', type: 'integer', nullable: true),
+                                new OA\Property(property: 'sku', type: 'string', maxLength: 100),
+                                new OA\Property(property: 'quantity', type: 'number', exclusiveMinimum: 0),
+                            ],
+                            type: 'object'
+                        )
+                    ),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: 'Yêu cầu giao mới kèm dòng hàng'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền delivery.create'),
+            new OA\Response(response: 409, description: 'INVALID_ORDER_STATUS: đơn bán chưa được duyệt'),
+            new OA\Response(response: 422, description: 'Dữ liệu không hợp lệ, mặt hàng không thuộc đơn hoặc vượt số lượng còn lại'),
+        ]
+    )]
     public function store(StoreDeliveryRequest $request): JsonResponse
     {
         $order = SalesOrder::with('items')->findOrFail($request->integer('order_id'));
@@ -102,6 +160,26 @@ class DeliveryController extends Controller
         return response()->json(['success' => true, 'data' => $delivery->load(['items.orderItem'])], 201);
     }
 
+    #[OA\Put(
+        path: '/deliveries/{id}/status',
+        summary: 'Cập nhật trạng thái yêu cầu giao hàng',
+        description: 'Yêu cầu quyền delivery.manage. Chỉ cho phép chuyển trạng thái theo luồng giao hàng.',
+        tags: ['Yêu cầu giao hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, description: 'Id hoặc số yêu cầu giao', schema: new OA\Schema(type: 'string'))],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(required: ['status'], properties: [new OA\Property(property: 'status', type: 'string', maxLength: 50)])
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Yêu cầu giao sau cập nhật'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền delivery.manage'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: 'INVALID_STATUS_TRANSITION: không được chuyển sang trạng thái này'),
+            new OA\Response(response: 422, description: self::DOC_422),
+        ]
+    )]
     public function updateStatus(UpdateStatusRequest $request, int|string $id): JsonResponse
     {
         $dr = DeliveryRequest::with('items.orderItem')->where('id', $id)->orWhere('request_number', $id)->first();

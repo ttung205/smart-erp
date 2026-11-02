@@ -4,12 +4,15 @@ import { requireAuth } from './auth/jwt.js';
 import { authenticateEmailCaller } from './email/email.auth.js';
 import { createEmailRouter } from './email/email.routes.js';
 import { notificationRoutes } from './notifications/notification.routes.js';
+import { isDocsEnabled, mountSwagger } from './swagger.js';
 
 /** Express app tách riêng khỏi http server / broker để test độc lập. */
-export function createApp({ database, repository, publisher, jwtSecret, internalServiceKey = '', smtpInfo }) {
+export function createApp({ database, repository, publisher, jwtSecret, internalServiceKey = '', smtpInfo, docsEnabled = isDocsEnabled() }) {
   const app = express();
 
   app.use(cors());
+  // Trước requireAuth: tài liệu API không cần đăng nhập
+  mountSwagger(app, { docsEnabled });
   // Xác thực email TRƯỚC khi parse body để request không có credentials bị từ chối sớm
   app.use('/api/v1/notifications/email', authenticateEmailCaller({ jwtSecret, internalServiceKey }));
   app.use(express.json({ limit: '1mb' }));

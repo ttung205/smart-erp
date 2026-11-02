@@ -2,14 +2,56 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Supplier;
+use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
+#[OA\Schema(
+    schema: 'SupplierInput',
+    properties: [
+        new OA\Property(property: 'name', type: 'string'),
+        new OA\Property(property: 'code', type: 'string', nullable: true, description: 'Bỏ trống thì sinh TS-xxxx (TRADING) hoặc MS-xxxx (MANUFACTURER)'),
+        new OA\Property(property: 'supplier_type', type: 'string', default: 'TRADING', enum: ['TRADING', 'MANUFACTURER', 'MS']),
+        new OA\Property(property: 'supplier_group', type: 'string', default: 'Vật tư & Thiết bị'),
+        new OA\Property(property: 'tax_code', type: 'string', nullable: true),
+        new OA\Property(property: 'phone', type: 'string', nullable: true),
+        new OA\Property(property: 'email', type: 'string', nullable: true),
+        new OA\Property(property: 'address', type: 'string', nullable: true),
+        new OA\Property(property: 'contact_person', type: 'string', nullable: true),
+        new OA\Property(property: 'contact_phone', type: 'string', nullable: true),
+        new OA\Property(property: 'contact_email', type: 'string', nullable: true),
+        new OA\Property(property: 'bank_name', type: 'string', nullable: true),
+        new OA\Property(property: 'bank_account_number', type: 'string', nullable: true),
+        new OA\Property(property: 'bank_account_holder', type: 'string', nullable: true),
+        new OA\Property(property: 'bank_branch', type: 'string', nullable: true),
+        new OA\Property(property: 'payment_terms', type: 'string', default: 'Net 30'),
+        new OA\Property(property: 'credit_limit', type: 'number', default: 0),
+        new OA\Property(property: 'status', type: 'string', default: 'ACTIVE'),
+        new OA\Property(property: 'notes', type: 'string', nullable: true),
+    ],
+    type: 'object'
+)]
 class SupplierController extends Controller
 {
     /**
      * Danh sách nhà cung cấp (hỗ trợ tìm kiếm theo tên, mã, MST, SĐT)
      */
+    #[OA\Get(
+        path: '/suppliers',
+        summary: 'Danh sách nhà cung cấp',
+        tags: ['Nhà cung cấp'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'search', in: 'query', required: false, description: 'Tìm theo mã, tên, mã số thuế, điện thoại hoặc người liên hệ', schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'status', in: 'query', required: false, schema: new OA\Schema(type: 'string', example: 'ACTIVE')),
+            new OA\Parameter(name: 'supplier_group', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'supplier_type', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['TRADING', 'MANUFACTURER'])),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Danh sách nhà cung cấp, mới nhất trước'),
+            new OA\Response(response: 401, description: 'UNAUTHENTICATED hoặc AUTH_TOKEN_MISSING: thiếu hoặc sai token'),
+        ]
+    )]
     public function index(Request $request)
     {
         $search = trim($request->input('search', ''));
@@ -21,23 +63,23 @@ class SupplierController extends Controller
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
                 $q->where('code', 'like', "%{$search}%")
-                  ->orWhere('name', 'like', "%{$search}%")
-                  ->orWhere('tax_code', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%")
-                  ->orWhere('contact_person', 'like', "%{$search}%");
+                    ->orWhere('name', 'like', "%{$search}%")
+                    ->orWhere('tax_code', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%")
+                    ->orWhere('contact_person', 'like', "%{$search}%");
             });
         }
 
-        if (!empty($status)) {
+        if (! empty($status)) {
             $query->where('status', strtoupper($status));
         }
 
-        if (!empty($group)) {
+        if (! empty($group)) {
             $query->where('supplier_group', $group);
         }
 
         $type = $request->input('supplier_type');
-        if (!empty($type)) {
+        if (! empty($type)) {
             $query->where('supplier_type', strtoupper($type));
         }
 
@@ -52,6 +94,21 @@ class SupplierController extends Controller
      * - Trading Supplier: TS-xxxx (4 chữ số ngẫu nhiên)
      * - Manufacturer Supplier: MS-xxxx (4 chữ số ngẫu nhiên)
      */
+    #[OA\Get(
+        path: '/suppliers/generate-code',
+        summary: 'Sinh mã nhà cung cấp chưa dùng',
+        description: 'Yêu cầu quyền supplier.view. TRADING sinh TS-xxxx, MANUFACTURER sinh MS-xxxx.',
+        tags: ['Nhà cung cấp'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'supplier_type', in: 'query', required: false, schema: new OA\Schema(type: 'string', default: 'TRADING', enum: ['TRADING', 'MANUFACTURER', 'MS'])),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Mã mới và loại nhà cung cấp'),
+            new OA\Response(response: 401, description: 'UNAUTHENTICATED hoặc AUTH_TOKEN_MISSING: thiếu hoặc sai token'),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền supplier.view'),
+        ]
+    )]
     public function generateCode(Request $request)
     {
         $rawType = strtoupper(trim($request->input('supplier_type', $request->input('type', 'TRADING'))));
@@ -59,7 +116,7 @@ class SupplierController extends Controller
         $prefix = ($supplierType === 'MANUFACTURER') ? 'MS-' : 'TS-';
 
         do {
-            $code = $prefix . str_pad((string)mt_rand(1000, 9999), 4, '0', STR_PAD_LEFT);
+            $code = $prefix.str_pad((string) mt_rand(1000, 9999), 4, '0', STR_PAD_LEFT);
         } while (Supplier::where('code', $code)->exists());
 
         return response()->json([
@@ -74,17 +131,29 @@ class SupplierController extends Controller
     /**
      * Chi tiết nhà cung cấp
      */
+    #[OA\Get(
+        path: '/suppliers/{id}',
+        summary: 'Chi tiết nhà cung cấp',
+        tags: ['Nhà cung cấp'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, description: 'Id hoặc mã nhà cung cấp', schema: new OA\Schema(type: 'string'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Thông tin nhà cung cấp'),
+            new OA\Response(response: 401, description: 'UNAUTHENTICATED hoặc AUTH_TOKEN_MISSING: thiếu hoặc sai token'),
+            new OA\Response(response: 404, description: 'SUPPLIER_NOT_FOUND'),
+        ]
+    )]
     public function show($id)
     {
         $supplier = Supplier::where('id', $id)->orWhere('code', $id)->first();
 
-        if (!$supplier) {
+        if (! $supplier) {
             return response()->json([
                 'success' => false,
                 'error' => [
                     'code' => 'SUPPLIER_NOT_FOUND',
-                    'message' => "Không tìm thấy nhà cung cấp với định danh {$id}."
-                ]
+                    'message' => "Không tìm thấy nhà cung cấp với định danh {$id}.",
+                ],
             ], 404);
         }
 
@@ -97,6 +166,20 @@ class SupplierController extends Controller
     /**
      * Thêm mới nhà cung cấp chuẩn
      */
+    #[OA\Post(
+        path: '/suppliers',
+        summary: 'Tạo nhà cung cấp',
+        description: 'Yêu cầu quyền supplier.view. Bắt buộc có name.',
+        tags: ['Nhà cung cấp'],
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/SupplierInput')),
+        responses: [
+            new OA\Response(response: 201, description: 'Nhà cung cấp mới'),
+            new OA\Response(response: 401, description: 'UNAUTHENTICATED hoặc AUTH_TOKEN_MISSING: thiếu hoặc sai token'),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền supplier.view'),
+            new OA\Response(response: 422, description: 'VALIDATION_FAILED (thiếu tên) hoặc DUPLICATE_CODE'),
+        ]
+    )]
     public function store(Request $request)
     {
         $name = trim($request->input('name', ''));
@@ -105,8 +188,8 @@ class SupplierController extends Controller
                 'success' => false,
                 'error' => [
                     'code' => 'VALIDATION_FAILED',
-                    'message' => 'Tên nhà cung cấp không được để trống.'
-                ]
+                    'message' => 'Tên nhà cung cấp không được để trống.',
+                ],
             ], 422);
         }
 
@@ -120,7 +203,7 @@ class SupplierController extends Controller
             // Manufacturer Supplier -> MS-xxxx (4 số ngẫu nhiên)
             $prefix = ($supplierType === 'MANUFACTURER') ? 'MS-' : 'TS-';
             do {
-                $code = $prefix . str_pad((string)mt_rand(1000, 9999), 4, '0', STR_PAD_LEFT);
+                $code = $prefix.str_pad((string) mt_rand(1000, 9999), 4, '0', STR_PAD_LEFT);
             } while (Supplier::where('code', $code)->exists());
         } else {
             if (Supplier::where('code', $code)->exists()) {
@@ -128,8 +211,8 @@ class SupplierController extends Controller
                     'success' => false,
                     'error' => [
                         'code' => 'DUPLICATE_CODE',
-                        'message' => "Mã nhà cung cấp '{$code}' đã tồn tại trong hệ thống."
-                    ]
+                        'message' => "Mã nhà cung cấp '{$code}' đã tồn tại trong hệ thống.",
+                    ],
                 ], 422);
             }
         }
@@ -151,7 +234,7 @@ class SupplierController extends Controller
             'bank_account_holder' => trim($request->input('bank_account_holder', '')) ?: null,
             'bank_branch' => trim($request->input('bank_branch', '')) ?: null,
             'payment_terms' => trim($request->input('payment_terms', 'Net 30')) ?: 'Net 30',
-            'credit_limit' => (float)$request->input('credit_limit', 0),
+            'credit_limit' => (float) $request->input('credit_limit', 0),
             'status' => strtoupper($request->input('status', 'ACTIVE')) ?: 'ACTIVE',
             'notes' => trim($request->input('notes', '')) ?: null,
         ]);
@@ -159,23 +242,39 @@ class SupplierController extends Controller
         return response()->json([
             'success' => true,
             'data' => $supplier,
-            'message' => "Đã tạo nhà cung cấp {$supplier->name} ({$supplier->code}) thành công."
+            'message' => "Đã tạo nhà cung cấp {$supplier->name} ({$supplier->code}) thành công.",
         ], 201);
     }
 
     /**
      * Cập nhật thông tin nhà cung cấp
      */
+    #[OA\Put(
+        path: '/suppliers/{id}',
+        summary: 'Cập nhật nhà cung cấp',
+        description: 'Yêu cầu quyền supplier.view. Bắt buộc có name. Chấp nhận cả PUT và PATCH. Các trường liên hệ và ngân hàng không gửi sẽ bị đặt về rỗng.',
+        tags: ['Nhà cung cấp'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/SupplierInput')),
+        responses: [
+            new OA\Response(response: 200, description: 'Nhà cung cấp sau cập nhật'),
+            new OA\Response(response: 401, description: 'UNAUTHENTICATED hoặc AUTH_TOKEN_MISSING: thiếu hoặc sai token'),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền supplier.view'),
+            new OA\Response(response: 404, description: 'SUPPLIER_NOT_FOUND'),
+            new OA\Response(response: 422, description: 'VALIDATION_FAILED (thiếu tên) hoặc DUPLICATE_CODE'),
+        ]
+    )]
     public function update(Request $request, $id)
     {
         $supplier = Supplier::find($id);
-        if (!$supplier) {
+        if (! $supplier) {
             return response()->json([
                 'success' => false,
                 'error' => [
                     'code' => 'SUPPLIER_NOT_FOUND',
-                    'message' => "Không tìm thấy nhà cung cấp ID {$id}."
-                ]
+                    'message' => "Không tìm thấy nhà cung cấp ID {$id}.",
+                ],
             ], 404);
         }
 
@@ -185,20 +284,20 @@ class SupplierController extends Controller
                 'success' => false,
                 'error' => [
                     'code' => 'VALIDATION_FAILED',
-                    'message' => 'Tên nhà cung cấp không được để trống.'
-                ]
+                    'message' => 'Tên nhà cung cấp không được để trống.',
+                ],
             ], 422);
         }
 
         $code = trim($request->input('code', ''));
-        if (!empty($code) && $code !== $supplier->code) {
+        if (! empty($code) && $code !== $supplier->code) {
             if (Supplier::where('code', $code)->where('id', '!=', $id)->exists()) {
                 return response()->json([
                     'success' => false,
                     'error' => [
                         'code' => 'DUPLICATE_CODE',
-                        'message' => "Mã nhà cung cấp '{$code}' đã được sử dụng."
-                    ]
+                        'message' => "Mã nhà cung cấp '{$code}' đã được sử dụng.",
+                    ],
                 ], 422);
             }
             $supplier->code = $code;
@@ -225,7 +324,7 @@ class SupplierController extends Controller
         $supplier->bank_branch = trim($request->input('bank_branch', '')) ?: null;
         $supplier->payment_terms = trim($request->input('payment_terms', $supplier->payment_terms)) ?: 'Net 30';
         if ($request->has('credit_limit')) {
-            $supplier->credit_limit = (float)$request->input('credit_limit', 0);
+            $supplier->credit_limit = (float) $request->input('credit_limit', 0);
         }
         if ($request->has('status')) {
             $supplier->status = strtoupper($request->input('status', 'ACTIVE'));
@@ -239,23 +338,37 @@ class SupplierController extends Controller
         return response()->json([
             'success' => true,
             'data' => $supplier,
-            'message' => "Đã cập nhật nhà cung cấp {$supplier->name} thành công."
+            'message' => "Đã cập nhật nhà cung cấp {$supplier->name} thành công.",
         ]);
     }
 
     /**
      * Xóa nhà cung cấp
      */
+    #[OA\Delete(
+        path: '/suppliers/{id}',
+        summary: 'Xóa nhà cung cấp',
+        description: 'Yêu cầu quyền supplier.view.',
+        tags: ['Nhà cung cấp'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Đã xóa'),
+            new OA\Response(response: 401, description: 'UNAUTHENTICATED hoặc AUTH_TOKEN_MISSING: thiếu hoặc sai token'),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền supplier.view'),
+            new OA\Response(response: 404, description: 'SUPPLIER_NOT_FOUND'),
+        ]
+    )]
     public function destroy($id)
     {
         $supplier = Supplier::find($id);
-        if (!$supplier) {
+        if (! $supplier) {
             return response()->json([
                 'success' => false,
                 'error' => [
                     'code' => 'SUPPLIER_NOT_FOUND',
-                    'message' => "Không tìm thấy nhà cung cấp ID {$id}."
-                ]
+                    'message' => "Không tìm thấy nhà cung cấp ID {$id}.",
+                ],
             ], 404);
         }
 
@@ -263,7 +376,7 @@ class SupplierController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => "Đã xóa nhà cung cấp {$supplier->name}."
+            'message' => "Đã xóa nhà cung cấp {$supplier->name}.",
         ]);
     }
 }
