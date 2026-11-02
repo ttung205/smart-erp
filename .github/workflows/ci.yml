@@ -25,7 +25,7 @@ jobs:
   # 1. Xác định service nào có file thay đổi
   # ---------------------------------------------------------------------------
   changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       php: ${{ steps.pick.outputs.php }}
@@ -97,7 +97,7 @@ jobs:
     name: php-tests (${{ matrix.service }})
     needs: changes
     if: needs.changes.outputs.php != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -154,7 +154,7 @@ jobs:
     name: dotnet-tests (${{ matrix.service }})
     needs: changes
     if: needs.changes.outputs.dotnet != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -203,7 +203,7 @@ jobs:
   notification-tests:
     needs: changes
     if: needs.changes.outputs.notification == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     services:
       mongo:
@@ -231,7 +231,7 @@ jobs:
   frontend:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
@@ -267,7 +267,7 @@ jobs:
   ai-check:
     needs: changes
     if: needs.changes.outputs.ai == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
@@ -290,7 +290,7 @@ jobs:
   ci-gate:
     if: always()
     needs: [changes, php-tests, dotnet-tests, notification-tests, frontend, ai-check]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Kiểm tra kết quả các job
         env:
