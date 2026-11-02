@@ -65,8 +65,19 @@ def ua(expr: str) -> str:
 
 
 def as_of(con: database.Connection) -> date:
-    value = con.execute("select meta_value from meta where meta_key = 'as_of'").fetchone()
-    return date.fromisoformat(value[0]) if value and value[0] else date.today()
+    try:
+        value = con.execute("select meta_value from meta where meta_key = 'as_of'").fetchone()
+        if value and value[0]:
+            return date.fromisoformat(value[0])
+    except Exception:
+        pass
+    try:
+        value = con.execute("select value from meta where key = 'as_of'").fetchone()
+        if value and value[0]:
+            return date.fromisoformat(value[0])
+    except Exception:
+        pass
+    return date.today()
 
 
 def period(con, start: str | None, end: str | None, default_days: int = 30) -> tuple[str, str]:
@@ -431,6 +442,495 @@ def order_list(actor: Actor, args: dict) -> dict:
                       "gia_tri_gom_vat": money(r["total"]), "khach": r["customer"], "nv_kinh_doanh": r["salesperson"],
                       "da_giao": f"{int(r['delivered'] or 0)}/{int(r['qty'] or 0)}"} for r in rows]}
 
+
+
+
+
+
+# ------------------------------------------------------------------- Actionable Procurement Copilot
+def procurement_fast_order(actor: Actor, args: dict) -> dict:
+    """Truy cứu lịch sử nguồn hàng, so sánh giá NCC và phân tích nhu cầu theo mô hình Machine Learning theo MÃ CODE SKU ĐẦY ĐỦ của sản phẩm (và mã NCC đầy đủ nếu có) để đề xuất kế hoạch nhập kho nhanh kèm giao diện tương tác (Action Card)."""
+    raw_sku = (args.get("sku") or args.get("product_code") or "").strip()
+    if not raw_sku:
+        return {
+            "loi": "Vui lòng cung cấp chính xác mã code SKU đầy đủ của sản phẩm cần đặt mua (Ví dụ: DAIKIN-FTKF25XVMV, RT38CG6584B1SV-SAM). Hệ thống yêu cầu mã đầy đủ để đảm bảo tính toàn vẹn và truy vết chứng từ trong ERP."
+        }
+
+    supplier_code_filter = (args.get("supplier_code") or args.get("supplier") or "").strip()
+
+    user_qty = args.get("quantity") or args.get("target_quantity")
+    try:
+        custom_qty = int(user_qty) if user_qty is not None and int(user_qty) > 0 else None
+    except (ValueError, TypeError):
+        custom_qty = None
+
+    con = db()
+    today = as_of(con).isoformat()
+
+    # 1. Tìm kiếm sản phẩm CHÍNH XÁC theo mã SKU đầy đủ (Không dùng LIKE mơ hồ nhằm bảo đảm tính truy vết)
+    clean_sku = raw_sku.strip()
+    prod_row = con.execute("""
+        SELECT p.id, p.sku, p.name, p.category, p.brand, p.unit, p.gross_price, p.cost_price, p.min_stock,
+               p.supplier_id as default_supplier_id,
+               coalesce(k.on_hand, 0) as on_hand, coalesce(k.available, 0) as available
+        FROM dim_product p
+        LEFT JOIN stock k ON k.product_id = p.id
+        WHERE lower(p.sku) = lower(?)
+        LIMIT 1
+    """, [clean_sku]).fetchone()
+
+    if not prod_row:
+        return {
+            "loi": (
+                f"Không tìm thấy sản phẩm có mã SKU chính xác là '{clean_sku}'. "
+                "Để đảm bảo tính toàn vẹn dữ liệu và truy vết chứng từ trong hệ thống ERP, "
+                "vui lòng nhập đúng MÃ CODE SKU ĐẦY ĐỦ (Ví dụ: DAIKIN-FTKF25XVMV, RT38CG6584B1SV-SAM, CFS-13VDM-COM...)."
+            )
+        }
+
+    prod = dict(prod_row)
+    product_id = prod["id"]
+    sku = prod["sku"]
+    available_stock = int(prod["available"])
+    min_stock = int(prod["min_stock"] or 0)
+    gross_price = float(prod["gross_price"] or 0.0)
+    cost_price = float(prod["cost_price"] or 0.0)
+
+    # 2. Kiểm tra hàng đang trên đường về từ các PO mở (Approved / PartiallyReceived)
+    incoming_row = con.execute("""
+        SELECT coalesce(sum(qty_ordered - qty_received), 0) as incoming_qty,
+               min(expected_date) as next_arrival_date
+        FROM fact_po_line
+        WHERE product_id = ? AND status in ('Approved', 'PartiallyReceived')
+    """, [product_id]).fetchone()
+    incoming_qty = int(incoming_row["incoming_qty"]) if incoming_row else 0
+    next_arrival = incoming_row["next_arrival_date"] if incoming_row else None
+
+    # 3. Kéo insight từ mô hình Machine Learning (Holt-Winters + SCM Safety Stock)
+    ml_insight = ml.get_sku_procurement_ml_insight(
+        sku=sku,
+        available_stock=available_stock,
+        min_stock=min_stock
+    )
+
+    # 4. Truy vấn lịch sử các Nhà Cung Cấp từng giao mã hàng này
+    po_rows = con.execute("""
+        SELECT s.id as supplier_id, s.code as supplier_code, s.name as supplier_name,
+               s.payment_terms, s.email, s.phone,
+               po.unit_cost as latest_price, po.date as latest_order_date, po.po_code as latest_po_code,
+               po.qty_ordered as latest_qty
+        FROM fact_po_line po
+        JOIN dim_supplier s ON s.id = po.supplier_id
+        WHERE po.product_id = ?
+        ORDER BY po.date DESC
+    """, [product_id]).fetchall()
+
+    suppliers_list = []
+    seen_suppliers = set()
+    for r in po_rows:
+        sup_id = r["supplier_id"]
+        sup_code = r["supplier_code"]
+        # Nếu có lọc theo mã NCC thì chỉ lấy đúng mã NCC đó
+        if supplier_code_filter and sup_code.lower() != supplier_code_filter.lower():
+            continue
+
+        if sup_id not in seen_suppliers:
+            seen_suppliers.add(sup_id)
+            unit_price = float(r["latest_price"])
+            # Tính biên lãi gộp kỳ vọng dựa trên giá niêm yết bán
+            margin_pct = round(((gross_price - unit_price) / gross_price) * 100, 1) if gross_price > 0 else 0.0
+            suppliers_list.append({
+                "supplier_id": sup_id,
+                "supplier_code": sup_code,
+                "supplier_name": r["supplier_name"],
+                "payment_terms": r["payment_terms"] or "Thỏa thuận",
+                "phone": r["phone"] or "—",
+                "latest_price": unit_price,
+                "latest_price_formatted": money(unit_price),
+                "expected_margin_pct": margin_pct,
+                "latest_order_date": r["latest_order_date"],
+                "latest_po_code": r["latest_po_code"],
+                "latest_qty": int(r["latest_qty"]),
+                "is_best_price": False,
+            })
+            if len(suppliers_list) >= 4:
+                break
+
+    # Nếu chưa từng có PO trong fact_po_line, lấy nhà cung cấp liên kết mặc định trong dim_supplier
+    if not suppliers_list:
+        if supplier_code_filter:
+            def_sup = con.execute("""
+                SELECT id, code, name, payment_terms, email, phone
+                FROM dim_supplier
+                WHERE lower(code) = lower(?)
+            """, [supplier_code_filter]).fetchone()
+        elif prod.get("default_supplier_id"):
+            def_sup = con.execute("""
+                SELECT id, code, name, payment_terms, email, phone
+                FROM dim_supplier
+                WHERE id = ?
+            """, [prod["default_supplier_id"]]).fetchone()
+        else:
+            def_sup = None
+
+        if def_sup:
+            margin_pct = round(((gross_price - cost_price) / gross_price) * 100, 1) if gross_price > 0 else 0.0
+            suppliers_list.append({
+                "supplier_id": def_sup["id"],
+                "supplier_code": def_sup["code"],
+                "supplier_name": def_sup["name"],
+                "payment_terms": def_sup["payment_terms"] or "Thỏa thuận",
+                "phone": def_sup["phone"] or "—",
+                "latest_price": cost_price,
+                "latest_price_formatted": money(cost_price),
+                "expected_margin_pct": margin_pct,
+                "latest_order_date": "Chưa có đơn cũ",
+                "latest_po_code": "—",
+                "latest_qty": 0,
+                "is_best_price": True,
+            })
+
+    if supplier_code_filter and not suppliers_list:
+        return {
+            "loi": f"Không tìm thấy dữ liệu nguồn hàng cho sản phẩm '{sku}' với Nhà Cung Cấp có mã code '{supplier_code_filter}'. Vui lòng kiểm tra lại mã NCC."
+        }
+
+    # Đánh dấu Nhà Cung Cấp có giá nhập tốt nhất
+    if suppliers_list:
+        min_price = min(s["latest_price"] for s in suppliers_list)
+        for s in suppliers_list:
+            if s["latest_price"] == min_price:
+                s["is_best_price"] = True
+
+    # 5. Xác định số lượng đặt mua đề xuất
+    ml_suggested_qty = ml_insight.get("suggested_procurement_qty", 0)
+    final_default_qty = custom_qty if custom_qty is not None else (ml_suggested_qty if ml_suggested_qty > 0 else 10)
+    default_supplier_id = suppliers_list[0]["supplier_id"] if suppliers_list else None
+    default_supplier_code = suppliers_list[0]["supplier_code"] if suppliers_list else ""
+
+    # Quyền tạo đơn mua PO
+    can_create_po = actor.can("purchase.create")
+
+    # 6. Đóng gói Action Schema cho Generative UI (Vue 3 Action Card) với ĐẦY ĐỦ MÃ CODE TRUY VẾT
+    action_schema = {
+        "action_type": "ACTION_CARD_PROCUREMENT",
+        "action_title": f"Tạo Đơn Mua Hàng Nhanh (Draft PO) - {sku}",
+        "can_execute": can_create_po,
+        "required_permission": "purchase.create",
+        "product_id": product_id,
+        "sku": sku,
+        "product_name": prod["name"],
+        "unit": prod.get("unit") or "Bộ",
+        "default_supplier_id": default_supplier_id,
+        "default_supplier_code": default_supplier_code,
+        "default_quantity": final_default_qty,
+        "suggested_quantity": ml_suggested_qty,
+        "suppliers": suppliers_list,
+    }
+
+    return {
+        "ngay_du_lieu": today,
+        "san_pham": {
+            "id": product_id,
+            "sku": sku,
+            "ten_san_pham": prod["name"],
+            "nganh_hang": prod.get("category"),
+            "thuong_hieu": prod.get("brand"),
+            "gia_niem_yet": money(gross_price),
+            "gia_von_hien_hanh": money(cost_price),
+            "ton_thuc_te": prod["on_hand"],
+            "ton_kha_dung": available_stock,
+            "ton_an_toan": min_stock,
+            "hang_dang_ve": incoming_qty,
+            "ngay_ve_du_kien": next_arrival,
+        },
+        "phan_tich_hoc_may_ml": {
+            "toc_do_ban_ngay": ml_insight.get("daily_velocity", 0),
+            "nhu_cau_du_bao_30_ngay": ml_insight.get("predicted_demand_30d", 0),
+            "so_ngay_ton_dap_ung": ml_insight.get("coverage_days", 0),
+            "so_luong_khuyen_nghi_nhap": ml_suggested_qty,
+            "muc_do_cap_bach": ml_insight.get("urgency_label", "Bình thường"),
+            "bien_loi_nhuan_lich_su": f"{ml_insight.get('historical_margin_pct', 0)}%",
+            "loi_khuyen_kinh_doanh": ml_insight.get("recommendation_note", ""),
+        },
+        "danh_sach_nha_cung_cap": suppliers_list,
+        "action_schema": action_schema,
+    }
+
+
+# ------------------------------------------------------------------- Actionable Sales Copilot
+def instant_quote_check(actor: Actor, args: dict) -> dict:
+    """Báo giá sỉ nhanh, tra cứu tồn khả dụng, kiểm tra chính sách chiết khấu theo phân hạng đối tác, kiểm tra hạn mức công nợ và sàn biên lợi nhuận gộp theo MÃ CODE SKU ĐẦY ĐỦ và MÃ KHÁCH HÀNG ĐẦY ĐỦ."""
+    raw_sku = (args.get("sku") or args.get("product_code") or "").strip()
+    if not raw_sku:
+        return {
+            "loi": (
+                "Vui lòng cung cấp chính xác MÃ CODE SKU ĐẦY ĐỦ của sản phẩm cần báo giá "
+                "(Ví dụ: RT38CG6584B1SV-SAM, CFS-13VDM-COM, DAIKIN-FTKF25XVMV). "
+                "Hệ thống yêu cầu mã đầy đủ để đảm bảo tính toàn vẹn và truy vết chứng từ trong ERP."
+            )
+        }
+
+    raw_customer_code = (args.get("customer_code") or args.get("customer") or "").strip()
+    if not raw_customer_code:
+        return {
+            "loi": (
+                "Vui lòng cung cấp chính xác MÃ KHÁCH HÀNG ĐẦY ĐỦ để áp dụng chính sách chiết khấu và kiểm tra hạn mức công nợ "
+                "(Ví dụ: DI-14998, DE-00123, PR-00045, RE-00012). "
+                "Hệ thống yêu cầu mã đầy đủ để đảm bảo truy vết trong ERP."
+            )
+        }
+
+    user_qty = args.get("quantity") or args.get("target_quantity") or 1
+    try:
+        quantity = int(user_qty)
+        if quantity <= 0:
+            quantity = 1
+    except (ValueError, TypeError):
+        quantity = 1
+
+    custom_discount_raw = args.get("custom_discount_percent") or args.get("discount_percent")
+    try:
+        custom_discount_pct = float(custom_discount_raw) if custom_discount_raw is not None else None
+    except (ValueError, TypeError):
+        custom_discount_pct = None
+
+    con = db()
+    today = as_of(con).isoformat()
+
+    # 1. Tìm sản phẩm CHÍNH XÁC theo mã SKU đầy đủ (Không dùng LIKE mơ hồ nhằm bảo đảm tính truy vết)
+    clean_sku = raw_sku.strip()
+    prod_row = con.execute("""
+        SELECT p.id, p.sku, p.name, p.category, p.brand, p.unit, p.gross_price, p.cost_price, p.min_stock,
+               coalesce(k.on_hand, 0) as on_hand, coalesce(k.available, 0) as available
+        FROM dim_product p
+        LEFT JOIN stock k ON k.product_id = p.id
+        WHERE lower(p.sku) = lower(?)
+        LIMIT 1
+    """, [clean_sku]).fetchone()
+
+    if not prod_row:
+        return {
+            "loi": (
+                f"Không tìm thấy sản phẩm có mã SKU chính xác là '{clean_sku}'. "
+                "Để đảm bảo tính toàn vẹn dữ liệu và truy vết chứng từ trong hệ thống ERP, "
+                "vui lòng nhập đúng MÃ CODE SKU ĐẦY ĐỦ (Ví dụ: RT38CG6584B1SV-SAM, CFS-13VDM-COM, DAIKIN-FTKF25XVMV...)."
+            )
+        }
+
+    prod = dict(prod_row)
+    product_id = prod["id"]
+    sku = prod["sku"]
+    gross_price = float(prod["gross_price"] or 0.0)
+    cost_price = float(prod["cost_price"] or 0.0)
+    on_hand = int(prod["on_hand"])
+    available = int(prod["available"])
+
+    # 2. Tìm khách hàng CHÍNH XÁC theo mã khách hàng đầy đủ
+    clean_cust_code = raw_customer_code.strip()
+    cust_row = con.execute("""
+        SELECT c.id, c.code, c.name, c.type, c.province, c.credit_limit, c.phone, c.status
+        FROM dim_customer c
+        WHERE lower(c.code) = lower(?)
+        LIMIT 1
+    """, [clean_cust_code]).fetchone()
+
+    if not cust_row:
+        return {
+            "loi": (
+                f"Không tìm thấy khách hàng có mã code chính xác là '{clean_cust_code}'. "
+                "Để đảm bảo tính toàn vẹn dữ liệu và truy vết chứng từ trong hệ thống ERP, "
+                "vui lòng nhập đúng MÃ KHÁCH HÀNG ĐẦY ĐỦ (Ví dụ: DI-14998, DE-00123, PR-00045, RE-00012...)."
+            )
+        }
+
+    cust = dict(cust_row)
+    customer_id = cust["id"]
+    customer_code = cust["code"]
+    customer_name = cust["name"]
+    customer_type = cust["type"]
+    credit_limit = float(cust["credit_limit"] or 0.0)
+
+    # 3. Kiểm tra tình hình công nợ thực tế của khách hàng từ kho phân tích
+    rec_row = con.execute("""
+        SELECT coalesce(sum(outstanding), 0) as total_debt,
+               coalesce(sum(case when due_date < ? and outstanding > 0 then outstanding else 0 end), 0) as overdue_debt
+        FROM receivable
+        WHERE customer_id = ? AND outstanding > 0
+    """, [today, customer_id]).fetchone()
+
+    total_debt = float(rec_row["total_debt"]) if rec_row else 0.0
+    overdue_debt = float(rec_row["overdue_debt"]) if rec_row else 0.0
+    remaining_credit = credit_limit - total_debt
+
+    # 4. Lịch sử mua hàng của khách đối với mã này và tổng quan
+    hist_order_row = con.execute("""
+        SELECT o.order_number, o.date as last_order_date, ol.quantity as last_qty,
+               ol.price as last_price, ol.discount as last_discount
+        FROM fact_order o
+        JOIN fact_order_line ol ON ol.order_id = o.id
+        WHERE o.customer_id = ? AND ol.product_id = ?
+        ORDER BY o.date DESC
+        LIMIT 1
+    """, [customer_id, product_id]).fetchone()
+
+    hist_total_row = con.execute("""
+        SELECT count(distinct o.id) as total_orders,
+               coalesce(sum(o.total), 0) as lifetime_spend
+        FROM fact_order o
+        WHERE o.customer_id = ? AND o.status in ('COMPLETED', 'APPROVED', 'PROCESSING')
+    """, [customer_id]).fetchone()
+    lifetime_spend = float(hist_total_row["lifetime_spend"]) if hist_total_row else 0.0
+    total_orders = int(hist_total_row["total_orders"]) if hist_total_row else 0
+
+    # 5. Chính sách chiết khấu theo phân hạng khách hàng (Distributor: 18%, Dealer: 12%, Project: 10%, Retail: 0%)
+    tier_base_discount = {
+        "Distributor": 18.0,
+        "Dealer": 12.0,
+        "Project / Business": 10.0,
+        "Retail": 0.0,
+    }
+    base_discount = tier_base_discount.get(customer_type, 0.0)
+
+    # Thưởng số lượng (Volume Bonus)
+    volume_bonus = 0.0
+    if customer_type == "Distributor" and quantity >= 20:
+        volume_bonus = 2.0
+    elif customer_type == "Dealer" and quantity >= 10:
+        volume_bonus = 2.0
+    elif customer_type == "Project / Business" and quantity >= 15:
+        volume_bonus = 2.0
+    elif customer_type == "Retail" and quantity >= 5:
+        volume_bonus = 2.0
+
+    system_discount_pct = round(base_discount + volume_bonus, 1)
+
+    if custom_discount_pct is not None:
+        final_discount_pct = custom_discount_pct
+        policy_applied = f"Chiết khấu thương lượng ({custom_discount_pct}%)"
+    else:
+        final_discount_pct = system_discount_pct
+        policy_applied = f"Chính sách {customer_type} ({base_discount}%)" + (f" + Thưởng số lượng ({volume_bonus}%)" if volume_bonus > 0 else "")
+
+    # Đơn giá bán, doanh thu và thuế VAT
+    unit_price = round(gross_price * (1.0 - (final_discount_pct / 100.0)), 0)
+    subtotal = round(unit_price * quantity, 0)
+    vat_rate = 0.08  # Chuẩn VAT 8% ngành gia dụng, điện máy
+    vat_amount = round(subtotal * vat_rate, 0)
+    total_amount = subtotal + vat_amount
+
+    # 6. Kiểm tra biên lợi nhuận gộp & sàn an toàn giá vốn
+    unit_profit = unit_price - cost_price
+    total_profit = unit_profit * quantity
+    gross_margin_pct = round((unit_profit / unit_price * 100.0), 1) if unit_price > 0 else 0.0
+
+    margin_status = "AN_TOAN"
+    margin_note = f"Biên lãi gộp {gross_margin_pct}% (Đạt tiêu chuẩn an toàn)"
+    if unit_price < cost_price:
+        margin_status = "LO_VON"
+        margin_note = f"NGUY HIỂM: Đơn giá bán ({money(unit_price)}) thấp hơn giá vốn ({money(cost_price)}). Bán lỗ {money(abs(unit_profit))}/sản phẩm!"
+    elif gross_margin_pct < 5.0:
+        margin_status = "CANH_BAO_BIEN_THAP"
+        margin_note = f"CẢNH BÁO: Biên lợi nhuận gộp {gross_margin_pct}% thấp hơn ngưỡng sàn an toàn 5.0%. Cần Trưởng phòng kinh doanh duyệt ngoại lệ."
+
+    # 7. Kiểm tra tình trạng tồn kho khả dụng
+    is_stock_sufficient = available >= quantity
+    stock_deficit = (quantity - available) if quantity > available else 0
+    stock_note = "Đủ tồn kho khả dụng để xuất ngay" if is_stock_sufficient else f"Thiếu hụt {stock_deficit} {prod.get('unit', 'Bộ')} (Tồn khả dụng hiện tại: {available})"
+
+    # 8. Kiểm tra thẩm định tín dụng & hạn mức công nợ
+    post_order_debt = total_debt + total_amount
+    is_credit_ok = (post_order_debt <= credit_limit) and (overdue_debt == 0)
+    credit_warnings = []
+    if overdue_debt > 0:
+        credit_warnings.append(f"Khách hàng đang có {money(overdue_debt)} nợ QUÁ HẠN chưa thanh toán.")
+    if post_order_debt > credit_limit:
+        exceed_amt = post_order_debt - credit_limit
+        credit_warnings.append(f"Đơn hàng mới ({money(total_amount)}) khiến tổng nợ ({money(post_order_debt)}) vượt hạn mức ({money(credit_limit)}) một khoản {money(exceed_amt)}.")
+    credit_note = "; ".join(credit_warnings) if credit_warnings else f"Hạn mức tín dụng tốt (Dư mức nợ còn lại sau đơn: {money(credit_limit - post_order_debt)})"
+
+    # 9. Quyền hạn khởi tạo Đơn bán hàng (Draft SO)
+    can_create_so = actor.can("order.create")
+
+    # 10. Đóng gói Action Schema cho Generative UI (Sales Action Card)
+    action_schema = {
+        "action_type": "ACTION_CARD_SALES_ORDER",
+        "action_title": f"Tạo Báo Giá / Đơn Bán Hàng (Draft SO) - {customer_code}",
+        "can_execute": can_create_so,
+        "required_permission": "order.create",
+        "customer_id": customer_id,
+        "customer_code": customer_code,
+        "customer_name": customer_name,
+        "customer_type": customer_type,
+        "product_id": product_id,
+        "sku": sku,
+        "product_name": prod["name"],
+        "unit": prod.get("unit") or "Bộ",
+        "quantity": quantity,
+        "list_price": gross_price,
+        "discount_percent": final_discount_pct,
+        "unit_price": unit_price,
+        "subtotal": subtotal,
+        "vat_rate": vat_rate,
+        "vat_amount": vat_amount,
+        "total_amount": total_amount,
+        "gross_margin_pct": gross_margin_pct,
+        "is_stock_sufficient": is_stock_sufficient,
+        "is_credit_ok": is_credit_ok,
+        "margin_status": margin_status,
+    }
+
+    return {
+        "ngay_du_lieu": today,
+        "san_pham": {
+            "id": product_id,
+            "sku": sku,
+            "ten_san_pham": prod["name"],
+            "don_vi_tinh": prod.get("unit") or "Bộ",
+            "gia_niem_yet": money(gross_price),
+            "gia_von": money(cost_price),
+            "ton_kho_thuc_te": on_hand,
+            "ton_kha_dung": available,
+            "tinh_trang_kho": stock_note,
+            "so_luong_yeu_cau": quantity,
+            "thieu_hut_kho": stock_deficit,
+        },
+        "khach_hang": {
+            "id": customer_id,
+            "ma_khach_hang": customer_code,
+            "ten_khach_hang": customer_name,
+            "phan_hang": customer_type,
+            "han_muc_tin_dung": money(credit_limit),
+            "tong_no_hien_tai": money(total_debt),
+            "no_qua_han": money(overdue_debt),
+            "han_muc_con_lai": money(remaining_credit),
+            "danh_gia_cong_no": credit_note,
+            "tong_doanh_thu_lich_su": money(lifetime_spend),
+            "so_don_da_mua": total_orders,
+        },
+        "chinh_sach_gia_va_chiet_khau": {
+            "chinh_sach_ap_dung": policy_applied,
+            "ty_le_chiet_khau": f"{final_discount_pct}%",
+            "don_gia_chot_chua_vat": money(unit_price),
+            "thanh_tien_chua_vat": money(subtotal),
+            "thue_vat_8_pct": money(vat_amount),
+            "tong_thanh_toan": money(total_amount),
+        },
+        "danh_gia_hieu_qua_kinh_doanh": {
+            "loi_nhuan_gop_moi_chiec": money(unit_profit),
+            "tong_loi_nhuan_gop_don_hang": money(total_profit),
+            "bien_loi_nhuan_gop_pct": f"{gross_margin_pct}%",
+            "trang_thai_bien_lai": margin_status,
+            "nhan_xet_gia_von": margin_note,
+        },
+        "lich_su_mua_ma_hang_nay": {
+            "da_tung_mua": hist_order_row is not None,
+            "ngay_mua_gan_nhat": hist_order_row["last_order_date"] if hist_order_row else "Chưa từng mua",
+            "don_gia_lan_truoc": money(float(hist_order_row["last_price"])) if hist_order_row else "—",
+            "chiet_khau_lan_truoc": f"{float(hist_order_row['last_discount'])}%" if hist_order_row else "—",
+        },
+        "action_schema": action_schema,
+    }
 
 
 # ------------------------------------------------------------------- ML & Recommendations (Nhóm 1 & Nhóm 2)
@@ -886,9 +1386,27 @@ TOOLS: list[Tool] = [
          obj({"action_type": {"type": "string", "enum": ["all", "block_orders", "escalate_legal", "reminder"]},
               "limit": {"type": "integer"}}),
          ("finance.view",), suggest_credit_action),
+    # --- Nhóm 3: Actionable Copilot Tools
+    Tool("procurement_fast_order",
+         "Truy cứu lịch sử giá mua và phân tích nhu cầu nhập hàng theo MÃ CODE SKU ĐẦY ĐỦ của sản phẩm (và mã NCC đầy đủ nếu có) để lập đơn mua nhanh.",
+         obj({"sku": {"type": "string", "description": "Bắt buộc: Mã SKU đầy đủ của sản phẩm cần đặt mua (ví dụ: RT38CG6584B1SV-SAM, DAIKIN-FTKF25XVMV)"},
+              "supplier_code": {"type": "string", "description": "Tùy chọn: Mã Nhà Cung Cấp đầy đủ nếu muốn chỉ định đích danh (ví dụ: NCC-008)"},
+              "quantity": {"type": "integer", "description": "Số lượng muốn đặt mua (nếu người dùng có nêu cụ thể)"}},
+             ["sku"]),
+         ("purchase.view",), procurement_fast_order),
+    Tool("instant_quote_check",
+         "Báo giá sỉ nhanh, tra cứu tồn khả dụng, kiểm tra chính sách chiết khấu theo phân hạng đối tác, kiểm tra hạn mức công nợ và sàn biên lợi nhuận gộp theo MÃ SKU ĐẦY ĐỦ và MÃ KHÁCH HÀNG ĐẦY ĐỦ.",
+         obj({"sku": {"type": "string", "description": "Bắt buộc: Mã code SKU đầy đủ của sản phẩm cần báo giá (ví dụ: RT38CG6584B1SV-SAM, CFS-13VDM-COM)"},
+              "customer_code": {"type": "string", "description": "Bắt buộc: Mã khách hàng đầy đủ để kiểm tra công nợ và áp chiết khấu phân hạng (ví dụ: DI-14998, DE-00123)"},
+              "quantity": {"type": "integer", "description": "Số lượng đặt mua hoặc báo giá (mặc định 1)"},
+              "custom_discount_percent": {"type": "number", "description": "Tùy chọn: Tỷ lệ chiết khấu thương lượng riêng (%) nếu muốn kiểm tra đàm phán giá"}},
+             ["sku", "customer_code"]),
+         ("order.view", "catalog.view"), instant_quote_check),
 ]
 # Mô tả phạm vi dữ liệu của từng tool, dùng để báo cho model biết người dùng KHÔNG có quyền xem gì
 TOOL_SCOPE = {
+    "procurement_fast_order": "truy cứu nguồn hàng & đặt mua nhanh",
+    "instant_quote_check": "báo giá sỉ & lập đơn bán hàng",
     "sales_report": "doanh số", "inventory_status": "tồn kho", "receivables_report": "công nợ khách hàng",
     "purchase_report": "mua hàng / đơn mua", "supplier_info": "nhà cung cấp", "order_list": "đơn bán hàng",
     "customer_info": "thông tin khách hàng",

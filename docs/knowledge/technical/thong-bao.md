@@ -1,3 +1,12 @@
+---
+title: Kiến trúc thông báo
+group: technical
+audience: developer
+source: docs/notification-architecture.md
+verified_by: null
+verified_at: null
+---
+
 # Kiến Trúc Thông Báo Hệ Thống (Notification via Message Queue)
 
 > **Dự án:** Smart Distributed ERP · **Ngày lập:** 15/10/2026 · **Trạng thái:** Giai đoạn 1 đã triển khai

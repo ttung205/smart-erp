@@ -40,6 +40,19 @@
               <i class="pi pi-exclamation-circle mt-0.5"></i><span>{{ m.content }}</span>
             </div>
             <div v-else class="leading-relaxed" :class="large ? 'ai-answer-lg' : ''" v-html="renderMarkdown(m.content)"></div>
+
+            <!-- Generative UI Action Cards -->
+            <ProcurementActionCard
+              v-if="m.action_schema && m.action_schema.action_type === 'ACTION_CARD_PROCUREMENT' && !m.action_dismissed"
+              :action="m.action_schema"
+              @dismiss="m.action_dismissed = true"
+            />
+            <SalesActionCard
+              v-else-if="m.action_schema && m.action_schema.action_type === 'ACTION_CARD_SALES_ORDER' && !m.action_dismissed"
+              :action="m.action_schema"
+              @dismiss="m.action_dismissed = true"
+            />
+
             <div v-if="m.tools?.length" class="mt-1.5 text-slate-400" :class="large ? 'text-xs' : 'text-[10px]'">
               Nguồn: {{ m.tools.map((t) => TOOL_LABELS[t] || t).join(', ') }}
             </div>
@@ -86,6 +99,8 @@ import Button from 'primevue/button';
 import { useAiStore } from '../../stores/aiStore';
 import { hasPermission, canView } from '../../utils/rbac';
 import { renderMarkdown } from './aiMarkdown';
+import ProcurementActionCard from './ProcurementActionCard.vue';
+import SalesActionCard from './SalesActionCard.vue';
 
 const props = defineProps({
   currentUser: { type: Object, default: null },
@@ -108,7 +123,9 @@ const TOOL_LABELS = {
   credit_risk_radar: 'Đánh giá rủi ro tín dụng',
   suggest_restock_plan: 'Kế hoạch nhập kho tự động',
   suggest_churn_retention: 'Kế hoạch giữ chân khách hàng',
-  suggest_credit_action: 'Đề xuất xử lý công nợ'
+  suggest_credit_action: 'Đề xuất xử lý công nợ',
+  procurement_fast_order: 'Nguồn hàng & Đặt mua nhanh',
+  instant_quote_check: 'Báo giá sỉ & Kiểm tra tín dụng'
 };
 
 const ai = useAiStore();
