@@ -1,4 +1,3 @@
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Purchase.Domain.Entities;
@@ -12,7 +11,7 @@ namespace Purchase.Tests;
 public class OutboxDispatcherTests : IDisposable
 {
     private readonly PurchaseDbContext _context;
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _connection;
 
     public OutboxDispatcherTests()
     {

@@ -239,7 +239,7 @@ public class PurchaseOrderService : IPurchaseOrderService
                 affectedPrIds.Add(alloc.PurchaseRequisitionId);
 
                 await _context.ExecuteSqlInterpolatedAsync(
-                    $"UPDATE purchase_requisition_items SET quantity_ordered = MAX(0, quantity_ordered - {alloc.AllocatedQuantity}) WHERE id = {alloc.PurchaseRequisitionItemId}",
+                    $"UPDATE purchase_requisition_items SET quantity_ordered = GREATEST(0, quantity_ordered - {alloc.AllocatedQuantity}) WHERE id = {alloc.PurchaseRequisitionItemId}",
                     ct);
 
                 // Đồng bộ entity trong bộ nhớ nếu đang được EF theo dõi
@@ -331,7 +331,7 @@ public class PurchaseOrderService : IPurchaseOrderService
                     affectedPrIds.Add(alloc.PurchaseRequisitionId);
 
                     await _context.ExecuteSqlInterpolatedAsync(
-                        $"UPDATE purchase_requisition_items SET quantity_ordered = MAX(0, quantity_ordered - {releaseQty}) WHERE id = {alloc.PurchaseRequisitionItemId}",
+                        $"UPDATE purchase_requisition_items SET quantity_ordered = GREATEST(0, quantity_ordered - {releaseQty}) WHERE id = {alloc.PurchaseRequisitionItemId}",
                         ct);
 
                     var trackedItem = _context.PurchaseRequisitionItems.Local.FirstOrDefault(x => x.Id == alloc.PurchaseRequisitionItemId);

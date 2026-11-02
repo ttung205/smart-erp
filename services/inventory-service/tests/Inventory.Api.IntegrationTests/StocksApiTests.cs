@@ -10,12 +10,12 @@ using Xunit;
 
 namespace Inventory.Api.IntegrationTests;
 
-public class StocksApiTests : IClassFixture<WebApplicationFactory<Program>>
+public class StocksApiTests : IClassFixture<InventoryApiFactory>
 {
     private readonly HttpClient _client;
     private readonly JsonSerializerOptions _jsonOptions;
 
-    public StocksApiTests(WebApplicationFactory<Program> factory)
+    public StocksApiTests(InventoryApiFactory factory)
     {
         _client = factory.WithWebHostBuilder(builder =>
         {

@@ -3,7 +3,6 @@ using Inventory.Application.Common.Commands;
 using Inventory.Domain.Entities;
 using Inventory.Infrastructure.Persistence;
 using Inventory.Infrastructure.Services;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -17,37 +16,22 @@ public class DocumentReservationRecoveryTests : IDisposable
 {
     private const long WarehouseId = 1;
     private const long ProductId = 501;
-    private readonly string _dbPath;
+    private readonly TestDatabase _database;
     private readonly DbContextOptions<InventoryDbContext> _dbOptions;
 
     public DocumentReservationRecoveryTests()
     {
-        _dbPath = Path.Combine(Path.GetTempPath(), $"inv_recovery_test_{Guid.NewGuid():N}.db");
-        _dbOptions = new DbContextOptionsBuilder<InventoryDbContext>()
-            .UseSqlite($"Data Source={_dbPath};Default Timeout=30")
-            .Options;
+        _database = new TestDatabase();
+        _dbOptions = _database.Options;
 
         using var context = new InventoryDbContext(_dbOptions);
-        context.Database.EnsureCreated();
-        context.Database.ExecuteSqlRaw("PRAGMA journal_mode=WAL;");
         context.Warehouses.Add(new Warehouse { Id = WarehouseId, Code = "WH-01", Name = "Kho 1", Location = "HN", IsActive = true });
         context.InventoryStocks.Add(new InventoryStock(WarehouseId, ProductId, 100));
         context.InventoryStockReservations.Add(new InventoryStockReservation(WarehouseId, ProductId, 100));
         context.SaveChanges();
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            SqliteConnection.ClearAllPools();
-            File.Delete(_dbPath);
-        }
-        catch
-        {
-            // Bỏ qua lỗi xóa file tạm
-        }
-    }
+    public void Dispose() => _database.Dispose();
 
     private static BatchReserveStockCommand Reserve(string documentId, int quantity) =>
         new(documentId, [new ReserveStockItem(WarehouseId, ProductId, quantity)], null);
