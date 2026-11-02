@@ -12,20 +12,10 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var dbProvider = configuration["DatabaseProvider"] ?? "Sqlite";
-
         services.AddDbContext<InventoryDbContext>(options =>
         {
-            if (dbProvider.Equals("MySql", StringComparison.OrdinalIgnoreCase))
-            {
-                var mySqlConn = configuration.GetConnectionString("MySqlConnection");
-                options.UseMySql(mySqlConn, ServerVersion.AutoDetect(mySqlConn));
-            }
-            else
-            {
-                var sqliteConn = configuration.GetConnectionString("SqliteConnection") ?? "Data Source=inventory.db";
-                options.UseSqlite(sqliteConn);
-            }
+            var mySqlConn = configuration.GetConnectionString("MySqlConnection");
+            options.UseMySql(mySqlConn, ServerVersion.AutoDetect(mySqlConn));
         });
 
         services.AddScoped<IInventoryStockManager, InventoryStockManager>();
