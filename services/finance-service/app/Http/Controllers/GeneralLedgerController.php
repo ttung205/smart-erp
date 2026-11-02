@@ -6,9 +6,31 @@ use App\Models\ChartOfAccount;
 use App\Models\GeneralLedgerEntry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 class GeneralLedgerController extends Controller
 {
+    #[OA\Get(
+        path: '/general-ledger',
+        summary: 'Sổ cái theo tài khoản',
+        description: 'Yêu cầu quyền finance.view. Trả về số dư đầu kỳ, phát sinh nợ/có, số dư lũy kế từng dòng và số dư cuối kỳ.',
+        tags: ['Sổ cái'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'account_id', in: 'query', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'from', in: 'query', required: false, description: 'Từ ngày', schema: new OA\Schema(type: 'string', format: 'date')),
+            new OA\Parameter(name: 'to', in: 'query', required: false, description: 'Đến ngày, phải sau hoặc bằng from', schema: new OA\Schema(type: 'string', format: 'date')),
+            new OA\Parameter(name: 'currency', in: 'query', required: false, schema: new OA\Schema(type: 'string', default: 'VND', maxLength: 10)),
+            new OA\Parameter(name: 'page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', minimum: 1)),
+            new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 20, maximum: 100, minimum: 1)),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Thông tin tài khoản, các dòng sổ cái, tổng hợp và phân trang'),
+            new OA\Response(response: 401, description: 'UNAUTHENTICATED: thiếu hoặc sai token'),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền finance.view'),
+            new OA\Response(response: 422, description: 'VALIDATION_FAILED: thiếu account_id, tài khoản không tồn tại hoặc khoảng ngày sai'),
+        ]
+    )]
     public function index(Request $request): JsonResponse
     {
         $data = $request->validate([

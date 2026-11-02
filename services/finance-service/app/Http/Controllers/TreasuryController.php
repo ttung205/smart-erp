@@ -7,9 +7,22 @@ use App\Models\CashFund;
 use App\Models\FinanceVoucher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 class TreasuryController extends Controller
 {
+    #[OA\Get(
+        path: '/master-data',
+        summary: 'Danh mục quỹ tiền mặt và tài khoản ngân hàng',
+        description: 'Yêu cầu quyền finance.view. Chỉ trả về quỹ và tài khoản đang hoạt động.',
+        tags: ['Quỹ và ngân hàng'],
+        security: [['bearerAuth' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'cash_funds và bank_accounts kèm tài khoản kế toán liên kết'),
+            new OA\Response(response: 401, description: 'UNAUTHENTICATED: thiếu hoặc sai token'),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền finance.view'),
+        ]
+    )]
     public function masterData(): JsonResponse
     {
         return response()->json(['success' => true, 'data' => [
@@ -18,6 +31,22 @@ class TreasuryController extends Controller
         ]]);
     }
 
+    #[OA\Get(
+        path: '/cash-book',
+        summary: 'Sổ quỹ tiền mặt',
+        description: 'Yêu cầu quyền finance.view. Chỉ tính chứng từ đã ghi sổ (POSTED). Không truyền cash_fund_id thì lấy quỹ đang hoạt động đầu tiên.',
+        tags: ['Quỹ và ngân hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'cash_fund_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Các dòng thu/chi kèm số dư lũy kế, số dư đầu và cuối'),
+            new OA\Response(response: 401, description: 'UNAUTHENTICATED: thiếu hoặc sai token'),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền finance.view'),
+            new OA\Response(response: 404, description: 'Không tìm thấy quỹ tiền mặt'),
+        ]
+    )]
     public function cashBook(Request $request): JsonResponse
     {
         $fundId = $request->integer('cash_fund_id') ?: CashFund::where('is_active', true)->value('id');
@@ -35,6 +64,22 @@ class TreasuryController extends Controller
         return response()->json(['success' => true, 'data' => $rows, 'summary' => ['opening_balance' => (float) $fund->opening_balance, 'closing_balance' => $balance]]);
     }
 
+    #[OA\Get(
+        path: '/bank-book',
+        summary: 'Sổ tiền gửi ngân hàng',
+        description: 'Yêu cầu quyền finance.view. Chỉ tính chứng từ đã ghi sổ (POSTED), gồm cả chuyển khoản nội bộ. Không truyền bank_account_id thì lấy tài khoản đang hoạt động đầu tiên.',
+        tags: ['Quỹ và ngân hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'bank_account_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Các dòng thu/chi kèm số dư lũy kế, số dư đầu và cuối'),
+            new OA\Response(response: 401, description: 'UNAUTHENTICATED: thiếu hoặc sai token'),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền finance.view'),
+            new OA\Response(response: 404, description: 'Không tìm thấy tài khoản ngân hàng'),
+        ]
+    )]
     public function bankBook(Request $request): JsonResponse
     {
         $accountId = $request->integer('bank_account_id') ?: BankAccount::where('is_active', true)->value('id');

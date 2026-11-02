@@ -10,9 +10,26 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use OpenApi\Attributes as OA;
 
 class SaleReturnController extends Controller
 {
+    #[OA\Get(
+        path: '/sale-returns',
+        summary: 'Danh sách phiếu trả hàng đã ghi sổ',
+        description: 'Yêu cầu quyền sale_return.view.',
+        tags: ['Trả hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'search', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Phiếu trả hàng và phân trang'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền sale_return.view'),
+        ]
+    )]
     public function index(Request $request): JsonResponse
     {
         $query = SaleReturn::with(['request.documents', 'items'])->latest('id');
@@ -29,11 +46,41 @@ class SaleReturnController extends Controller
         ]]);
     }
 
+    #[OA\Get(
+        path: '/sale-returns/{saleReturn}',
+        summary: 'Chi tiết phiếu trả hàng',
+        description: 'Yêu cầu quyền sale_return.view.',
+        tags: ['Trả hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'saleReturn', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Phiếu trả hàng kèm dòng hàng'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền sale_return.view'),
+            new OA\Response(response: 404, description: self::DOC_404),
+        ]
+    )]
     public function show(SaleReturn $saleReturn): JsonResponse
     {
         return response()->json(['success' => true, 'data' => $saleReturn->load(['request.documents', 'request.attachments', 'items', 'vatInvoiceAdjustments'])]);
     }
 
+    #[OA\Post(
+        path: '/sale-return-requests/{saleReturnRequest}/post',
+        summary: 'Ghi sổ trả hàng',
+        description: 'Yêu cầu quyền sale_return.post. Tạo phiếu trả hàng và gọi inventory-service điều chuyển tồn kho cho hàng nhận lại.',
+        tags: ['Trả hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'saleReturnRequest', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Phiếu trả hàng đã ghi sổ'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền sale_return.post'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: 'Yêu cầu chưa được duyệt để ghi sổ, hoặc không có hàng đạt chất lượng'),
+            new OA\Response(response: 502, description: 'inventory-service không điều chuyển được tồn kho'),
+        ]
+    )]
     public function post(Request $request, SaleReturnRequest $saleReturnRequest): JsonResponse
     {
         abort_unless($saleReturnRequest->status === SaleReturnRequest::PENDING_POSTING, 409, 'Yêu cầu chưa được duyệt để ghi sổ.');

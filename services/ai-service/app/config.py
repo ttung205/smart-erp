@@ -23,6 +23,8 @@ def _load_dotenv() -> None:
 _load_dotenv()
 
 PORT = int(os.getenv("AI_SERVICE_PORT", "8010"))
+# Swagger UI (/docs, /redoc) và /openapi.json: tắt ở production bằng APP_DOCS_ENABLED=false
+DOCS_ENABLED = os.getenv("APP_DOCS_ENABLED", "true").lower() in {"1", "true", "yes", "on"}
 
 # Groq: API tương thích OpenAI, có gói miễn phí (https://console.groq.com)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")

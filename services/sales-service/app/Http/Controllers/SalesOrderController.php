@@ -16,11 +16,62 @@ use App\Support\Outbox;
 use App\Support\SalesWorkflow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use OpenApi\Attributes as OA;
 
+#[OA\Schema(
+    schema: 'SalesOrderInput',
+    required: ['customer_id', 'items'],
+    properties: [
+        new OA\Property(property: 'customer_id', type: 'integer', description: 'Mã, tên, mã số thuế khách hàng được snapshot từ catalog'),
+        new OA\Property(property: 'contact_id', type: 'integer', nullable: true),
+        new OA\Property(property: 'quotation_id', type: 'integer', nullable: true, description: 'Báo giá đã duyệt và chưa chuyển đơn; không đổi được sau khi tạo'),
+        new OA\Property(property: 'quotation_number', type: 'string', nullable: true),
+        new OA\Property(property: 'customer_order_number', type: 'string', nullable: true, description: 'Số PO của khách hàng'),
+        new OA\Property(property: 'order_date', type: 'string', nullable: true, description: 'Y-m-d hoặc d/m/Y, mặc định hôm nay', example: '2026-11-03'),
+        new OA\Property(property: 'currency', type: 'string', nullable: true, example: 'VND'),
+        new OA\Property(property: 'exchange_rate', type: 'number', nullable: true, exclusiveMinimum: 0),
+        new OA\Property(property: 'assigned_to', type: 'integer', nullable: true, description: 'Nhân viên phụ trách'),
+        new OA\Property(property: 'shipping_address', type: 'string', nullable: true),
+        new OA\Property(property: 'notes', type: 'string', nullable: true),
+        new OA\Property(property: 'attachment_ids', type: 'array', nullable: true, items: new OA\Items(type: 'integer')),
+        new OA\Property(
+            property: 'items',
+            type: 'array',
+            minItems: 1,
+            items: new OA\Items(
+                allOf: [
+                    new OA\Schema(ref: '#/components/schemas/SalesDocumentItem'),
+                    new OA\Schema(
+                        properties: [
+                            new OA\Property(property: 'quotation_item_id', type: 'integer', nullable: true),
+                            new OA\Property(property: 'product_name', type: 'string', nullable: true),
+                            new OA\Property(property: 'delivery_date', type: 'string', format: 'date', nullable: true),
+                        ],
+                        type: 'object'
+                    ),
+                ]
+            )
+        ),
+    ],
+    type: 'object'
+)]
 class SalesOrderController extends Controller
 {
     public function __construct(private readonly ReferenceSnapshot $snapshots) {}
 
+    #[OA\Get(
+        path: '/orders',
+        summary: 'Danh sách đơn bán hàng',
+        description: 'Yêu cầu quyền order.view.',
+        tags: ['Đơn bán hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Đơn bán và phân trang'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền order.view'),
+        ]
+    )]
     public function index(Request $request)
     {
         $orders = SalesOrder::with(['items', 'quotation'])
@@ -39,6 +90,20 @@ class SalesOrderController extends Controller
         ]);
     }
 
+    #[OA\Get(
+        path: '/orders/{order}',
+        summary: 'Chi tiết đơn bán hàng',
+        description: 'Yêu cầu quyền order.view.',
+        tags: ['Đơn bán hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'order', in: 'path', required: true, description: 'Id hoặc số đơn', schema: new OA\Schema(type: 'string'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Đơn bán kèm dòng hàng'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền order.view'),
+            new OA\Response(response: 404, description: self::DOC_404),
+        ]
+    )]
     public function show($id)
     {
         $so = SalesOrder::with(['items', 'quotation', 'attachments'])
@@ -53,6 +118,22 @@ class SalesOrderController extends Controller
         return response()->json(['success' => true, 'data' => $so]);
     }
 
+    #[OA\Post(
+        path: '/orders',
+        summary: 'Tạo đơn bán hàng',
+        description: 'Yêu cầu quyền order.create. Đơn tạo ở trạng thái DRAFT; thông tin khách hàng và sản phẩm được snapshot tại thời điểm tạo.',
+        tags: ['Đơn bán hàng'],
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/SalesOrderInput')),
+        responses: [
+            new OA\Response(response: 201, description: 'Đơn bán mới'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền order.create'),
+            new OA\Response(response: 409, description: 'QUOTATION_NOT_APPROVED hoặc QUOTATION_ALREADY_CONVERTED'),
+            new OA\Response(response: 422, description: self::DOC_422),
+            new OA\Response(response: 500, description: 'Không tạo được đơn bán'),
+        ]
+    )]
     public function store(Request $request)
     {
         $request->validate([
@@ -230,6 +311,24 @@ class SalesOrderController extends Controller
         }
     }
 
+    #[OA\Put(
+        path: '/orders/{order}',
+        summary: 'Sửa đơn bán hàng',
+        description: 'Yêu cầu quyền order.update. Chỉ đơn DRAFT hoặc REJECTED. Chấp nhận cả PUT và PATCH; gửi items thì thay toàn bộ dòng hàng. Không đổi được báo giá liên kết.',
+        tags: ['Đơn bán hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'order', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/SalesOrderInput')),
+        responses: [
+            new OA\Response(response: 200, description: 'Đơn bán sau khi sửa'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền order.update'),
+            new OA\Response(response: 404, description: 'Không tìm thấy đơn bán hàng'),
+            new OA\Response(response: 409, description: 'DOCUMENT_LOCKED (đơn đã gửi duyệt) hoặc QUOTATION_LINK_IMMUTABLE'),
+            new OA\Response(response: 422, description: self::DOC_422),
+            new OA\Response(response: 500, description: 'Không cập nhật được đơn bán'),
+        ]
+    )]
     public function update(Request $request, $id)
     {
         $so = SalesOrder::find($id);
@@ -407,6 +506,21 @@ class SalesOrderController extends Controller
         }
     }
 
+    #[OA\Post(
+        path: '/orders/{id}/submit-approval',
+        summary: 'Gửi duyệt đơn bán hàng',
+        description: 'Yêu cầu quyền order.update.',
+        tags: ['Đơn bán hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Đơn chờ duyệt'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền order.update'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: self::DOC_409_STATUS),
+        ]
+    )]
     public function submitApproval(Request $request, $id)
     {
         $so = SalesOrder::where('id', $id)->orWhere('order_number', $id)->first();
@@ -429,6 +543,21 @@ class SalesOrderController extends Controller
         ]);
     }
 
+    #[OA\Post(
+        path: '/orders/{id}/approve',
+        summary: 'Duyệt đơn bán hàng',
+        description: 'Yêu cầu quyền order.approve. Đơn đã duyệt mới tạo được yêu cầu giao hàng.',
+        tags: ['Đơn bán hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Đơn đã duyệt'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền order.approve'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: self::DOC_409_STATUS),
+        ]
+    )]
     public function approve(Request $request, $id)
     {
         $so = SalesOrder::where('id', $id)->orWhere('order_number', $id)->first();
@@ -460,6 +589,26 @@ class SalesOrderController extends Controller
         ]);
     }
 
+    #[OA\Post(
+        path: '/orders/{id}/reject',
+        summary: 'Từ chối đơn bán hàng',
+        description: 'Yêu cầu quyền order.approve. Bắt buộc ghi lý do.',
+        tags: ['Đơn bán hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(required: ['reason'], properties: [new OA\Property(property: 'reason', type: 'string')])
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Đơn bị từ chối'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền order.approve'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: self::DOC_409_STATUS),
+            new OA\Response(response: 422, description: 'REJECTION_REASON_REQUIRED: thiếu lý do'),
+        ]
+    )]
     public function reject(Request $request, $id)
     {
         $so = SalesOrder::where('id', $id)->orWhere('order_number', $id)->first();
@@ -491,6 +640,21 @@ class SalesOrderController extends Controller
         ]);
     }
 
+    #[OA\Delete(
+        path: '/orders/{order}',
+        summary: 'Xóa đơn bán hàng',
+        description: 'Yêu cầu quyền order.cancel. Chỉ đơn DRAFT hoặc REJECTED; xóa luôn các dòng báo cáo bán hàng của đơn.',
+        tags: ['Đơn bán hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'order', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Đã xóa'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền order.cancel'),
+            new OA\Response(response: 404, description: 'Không tìm thấy đơn hàng'),
+            new OA\Response(response: 409, description: 'DOCUMENT_LOCKED: đơn đã gửi duyệt hoặc đã duyệt'),
+        ]
+    )]
     public function destroy($id)
     {
         $so = SalesOrder::find($id);

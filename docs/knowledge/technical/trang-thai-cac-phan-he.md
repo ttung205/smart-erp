@@ -66,7 +66,7 @@ Bằng chứng: `finance-service/routes/api.php`; migration của Finance; `Cust
 
 ### 10.7 Notification — IMPLEMENTED
 
-- Consumer nghiệp vụ xác định người nhận, ghi thông báo và trạng thái idempotency của sự kiện trong một transaction SQLite, rồi đẩy sự kiện qua Socket.IO.
+- Consumer nghiệp vụ xác định người nhận, ghi thông báo và trạng thái idempotency của sự kiện trong MongoDB (processed_events có TTL), rồi đẩy sự kiện qua Socket.IO.
 - Retry dùng hàng đợi TTL 10 giây, tối đa 5 lần; message hết lượt hoặc không hợp lệ được chuyển sang DLX.
 - API gửi email đưa job vào `erp.email.send`; consumer email gửi qua Nodemailer/Mailpit và theo dõi trạng thái job.
 - Các route email được mount trước các route Notification có JWT và không thấy `requireAuth` trong `app.js`. Chưa xác định được việc phân quyền bên trong `email.routes.js` từ cách mount route. Cần coi việc gửi email công khai là rủi ro bảo mật cần kiểm tra.

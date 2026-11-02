@@ -2,10 +2,10 @@
 title: Lập và duyệt báo giá
 group: business
 audience: nhân viên kinh doanh, trưởng phòng kinh doanh
-status: verified
+status: draft
 source: services/sales-service/app/Support/SalesWorkflow.php; services/sales-service/app/Http/Controllers/QuotationController.php (store, update, submitApproval, approve, reject, destroy); services/sales-service/routes/api.php (quotations); docs/bao_cao/02 kịch bản 1 bước 1–2
-verified_by: DuyAnh
-verified_at: 2026-11-02
+verified_by: null
+verified_at: null
 ---
 
 # Lập và duyệt báo giá
@@ -27,6 +27,7 @@ Báo giá **chưa giữ hàng** trong kho. Hàng chỉ được giữ khi lập 
 | Duyệt, từ chối | `quotation.approve` |
 | Xóa báo giá | `quotation.cancel` |
 | Chuyển thành đơn bán | `order.create` |
+| Gửi báo giá cho khách qua email | `quotation.create`, `quotation.update` hoặc `quotation.manage` |
 
 Vai trò tham khảo trong báo cáo: Nhân viên kinh doanh (`SALE`) lập và gửi duyệt; Trưởng phòng kinh doanh (`SALE_MANAGER`) duyệt. Ánh xạ vai trò sang quyền nằm ở Identity, cần admin xác nhận lại.
 
@@ -46,7 +47,10 @@ Vai trò tham khảo trong báo cáo: Nhân viên kinh doanh (`SALE`) lập và 
    - Bấm "Duyệt": báo giá chuyển sang **Đã duyệt (`APPROVED`)**. Hệ thống ghi tên người duyệt và thời điểm duyệt.
    - Bấm "Từ chối": **bắt buộc nhập lý do**. Nếu bỏ trống, hệ thống báo lỗi và không từ chối. Báo giá chuyển sang **Bị từ chối (`REJECTED`)**, lý do được ghi vào ghi chú của báo giá.
 4. **Sửa lại khi bị từ chối.** Báo giá bị từ chối được đưa về **Nháp (`DRAFT`)** để nhân viên sửa và gửi duyệt lại.
-5. **Chuyển thành đơn bán.** Khi báo giá đã duyệt, người có quyền `order.create` bấm "Tạo đơn bán hàng":
+5. **Gửi báo giá cho khách qua email (tùy chọn).** Nhân viên nhập người nhận (tối đa 50 địa chỉ gồm cả CC), tiêu đề, nội dung và chọn tệp đính kèm thuộc báo giá (tối đa 10 tệp). Hệ thống không tự đổi trạng thái báo giá.
+   - Email được gửi qua hàng đợi nền. Trạng thái gửi được theo dõi bằng mã job (`REQUESTED` khi đã nhận yêu cầu).
+   - Tệp đính kèm không thuộc báo giá này sẽ bị từ chối (`ATTACHMENT_NOT_FOUND`).
+6. **Chuyển thành đơn bán.** Khi báo giá đã duyệt, người có quyền `order.create` bấm "Tạo đơn bán hàng":
    - Chỉ các dòng được đánh dấu thắng được đưa vào đơn. Nếu không có dòng nào, hệ thống báo lỗi và không tạo đơn.
    - Báo giá chuyển sang **Đã chuyển đổi (`CONVERTED`)**.
    - Nếu báo giá đã được chuyển trước đó, hệ thống không tạo đơn thứ hai mà trả về đơn đã có.
@@ -67,6 +71,10 @@ Vai trò tham khảo trong báo cáo: Nhân viên kinh doanh (`SALE`) lập và 
 - **Không sửa được báo giá:** báo giá đang chờ duyệt, đã duyệt hoặc đã chuyển đơn. Đây là thiết kế: phải chờ trưởng phòng từ chối, hoặc nhờ người có quyền đưa về nháp.
 - **Không từ chối được:** chưa nhập lý do. Nhập lý do rồi thử lại.
 - **Không tạo được đơn bán từ báo giá:** báo giá chưa ở trạng thái **Đã duyệt**, hoặc không có dòng nào được đánh dấu thắng.
+
+## Chưa xác nhận lại sau khi cập nhật
+
+- **Gửi email báo giá khi báo giá chưa được duyệt:** code hiện không kiểm tra trạng thái báo giá khi gửi email, nên báo giá ở trạng thái nháp vẫn gửi được. Cần người nghiệp vụ quyết định đây là hành vi mong muốn hay phải thêm điều kiện "chỉ gửi báo giá đã duyệt".
 
 ## Chưa triển khai
 

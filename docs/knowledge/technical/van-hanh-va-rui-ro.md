@@ -13,7 +13,7 @@ verified_at: null
 - Các cổng công khai trên host mở trực tiếp mọi backend (`8001`–`8010`) song song với Kong `8000`; vì vậy gateway không phải là ranh giới mạng duy nhất trên host.
 - MySQL và RabbitMQ có named volume và health check. Dữ liệu Notification/Chat/AI và file chat có named volume. Dữ liệu Laravel/Purchase/Inventory được lưu trong MySQL.
 - Gateway chờ health check của cả 10 service. Một service AI/Chat tùy chọn bị suy giảm sẽ làm gateway mặc định không khởi động được, tạo ra sự phụ thuộc khi khởi động trên diện rộng.
-- Các container Laravel chạy `php artisan serve`, không dùng PHP-FPM; đây là server phát triển nhưng vẫn được dùng trong môi trường production của Compose.
+- Các container Laravel chạy Nginx + PHP-FPM (`docker/start-web` của từng service). Không còn dùng `php artisan serve`.
 - `AUTO_SEED=true` được đặt cho Identity, Catalog, Sales, E-Office và Finance; hành vi entrypoint quyết định việc khởi động production có thay đổi dữ liệu seed hay không. Bằng chứng: Compose và `docker-entrypoint.sh` của từng service.
 - Compose ghim phiên bản Kong (`3.9.1`), MySQL (`8.0`), RabbitMQ (`3.13-management-alpine`), Node (`22-alpine`), Python (`3.12-slim`) và .NET (`10.0`); frontend/Nginx runtime và Mailpit dùng tag không cố định.
 
@@ -43,7 +43,7 @@ Chưa triển khai: distributed tracing (OpenTelemetry), gửi cảnh báo log/m
 | Cao | Router email của Notification được mount ngoài `requireAuth`. | Có thể enqueue email hoặc truy cập log email mà không cần xác thực, nếu router không tự kiểm tra và không có lớp bảo vệ mạng. | `notification-service/src/app.js:19-21`; cần kiểm tra `email.routes.js` — **cần rà soát bảo mật** |
 | Trung bình | Khởi động gateway phụ thuộc health của cả 10 service. | Một service tùy chọn lỗi có thể chặn điểm vào API duy nhất. | `docker-compose.yml — gateway.depends_on` |
 | Trung bình | Cách triển khai outbox khác nhau: Laravel có confirm + mandatory, worker .NET đánh dấu đã publish sau `BasicPublish` mà không có confirm. | Đảm bảo giao sự kiện không nhất quán và yếu hơn ở Purchase/Inventory. | `RabbitMqPublisher.publish` của Laravel; worker relay .NET |
-| Trung bình | Container API PHP dùng `artisan serve` với môi trường production. | Giới hạn thông lượng và quản lý tiến trình; không phù hợp với mô hình phục vụ production. | Dockerfile Laravel và `APP_ENV=production` trong Compose |
+| Đã khắc phục | Container API PHP đã chuyển từ `artisan serve` sang Nginx + PHP-FPM | Không còn áp dụng | Dockerfile và `docker/start-web` của từng service Laravel |
 | Trung bình | File đính kèm của Chat lưu trên volume cục bộ; MongoDB chạy replica set một node không xác thực (bind 127.0.0.1 khi phát triển, không publish khi production). | Chat không thể mở rộng sang nhiều node (thiếu lưu trữ dùng chung và backplane cho SignalR); bất kỳ ai trong `erp-network` đều truy cập được MongoDB. | Compose `mongo`, `chat_files` |
 | Trung bình | Secret JWT đối xứng dùng chung cho mọi service. | Bất kỳ verifier nào bị lộ đều có thể tạo token; không có bằng chứng về xoay khóa hay thu hồi. | Compose `JWT_SECRET`; implementation verifier/issuer |
 | Trung bình | Khai báo Rabbit bị trùng giữa định nghĩa tĩnh và mã khởi động consumer. | Lệch đối số hoặc binding có thể làm đóng channel hoặc thay đổi topology thực tế. | `definitions.json`; `RabbitMqConnection.TryConnect`; `consumer.setup` của Notification |
