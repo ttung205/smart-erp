@@ -8,12 +8,12 @@ use Tests\TestCase;
 class ExampleTest extends TestCase
 {
     /**
-     * A basic test example.
+     * Service chỉ phục vụ API nên không có trang chủ; kiểm tra endpoint health thay cho route `/` mặc định của Laravel.
      */
     public function test_the_application_returns_a_successful_response(): void
     {
-        $response = $this->get('/');
+        $response = $this->getJson('/api/health');
 
-        $response->assertStatus(200);
+        $response->assertOk()->assertJsonPath('data.service', 'catalog-service');
     }
 }

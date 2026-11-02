@@ -34,7 +34,8 @@ return new class extends Migration
         Schema::create('vat_invoice_adjustment_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('vat_invoice_adjustment_id')->constrained('vat_invoice_adjustments')->cascadeOnDelete();
-            $table->foreignId('original_vat_invoice_item_id')->constrained('vat_invoice_items')->restrictOnDelete();
+            // Tên mặc định dài 66 ký tự, vượt giới hạn 64 của MySQL nên phải đặt tên ngắn.
+            $table->foreignId('original_vat_invoice_item_id')->constrained('vat_invoice_items', indexName: 'vat_adj_items_original_item_fk')->restrictOnDelete();
             $table->decimal('original_quantity', 12, 2);
             $table->decimal('original_unit_price', 18, 2);
             $table->decimal('original_vat_percent', 5, 2);
