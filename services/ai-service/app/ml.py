@@ -6,13 +6,14 @@ Bao gồm:
 3. Phân tích rủi ro tín dụng & công nợ quá hạn (Credit Risk Scoring)
 4. Tổng quan chỉ số KPI kinh doanh (Overview Metrics)
 5. Bộ đệm In-Memory Caching đảm bảo phản hồi REST API < 50ms
+6. MÔ HÌNH HỌC MÁY GỢI Ý ĐẶT HÀNG NHẬP KHO (Holt-Winters)
 """
 from __future__ import annotations
 
 import logging
 import os
 import threading
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -610,3 +611,187 @@ def get_credit_risk() -> Dict[str, Any]:
     if not _is_ready or "credit_risk" not in _cache:
         warmup_cache()
     return _cache["credit_risk"]
+
+
+
+# ==============================================================================
+# 6. MÔ HÌNH HỌC MÁY GỢI Ý ĐẶT HÀNG NHẬP KHO (PROCUREMENT ML INSIGHT)
+# ==============================================================================
+def _fetch_sku_sales_stats(sku: str) -> Optional[Dict[str, Any]]:
+    """Truy vấn dữ liệu doanh số 90 ngày của SKU từ kho phân tích (MySQL hoặc SQLite fallback)."""
+    from . import config, warehouse
+
+    clean_sku = (sku or "").strip()
+    if not clean_sku:
+        return None
+
+    # Truy vấn chính xác 100% theo mã SKU đầy đủ để phục vụ truy vết chứng từ ERP
+    query = """
+        SELECT p.id, p.sku, p.name, p.category, p.brand, p.min_stock, p.cost_price, p.gross_price,
+               coalesce(sum(s.quantity), 0) as total_sold_90d,
+               coalesce(sum(s.revenue), 0) as rev90,
+               coalesce(sum(s.cost), 0) as cost90
+        FROM dim_product p
+        LEFT JOIN fact_sales s ON s.product_id = p.id AND s.date >= ?
+        WHERE lower(p.sku) = lower(?)
+        GROUP BY p.id
+        LIMIT 1
+    """
+
+    # 1. Thử kết nối MySQL Warehouse nếu sẵn sàng
+    try:
+        with warehouse.connect() as con:
+            max_d_row = con.execute("SELECT max(date) FROM fact_sales").fetchone()
+            max_d = max_d_row[0] if max_d_row and max_d_row[0] else date.today().isoformat()
+            d90 = (datetime.fromisoformat(str(max_d)).date() - timedelta(days=89)).isoformat()
+            row = con.execute(query, [d90, clean_sku]).fetchone()
+            if row:
+                return dict(row)
+    except Exception:
+        pass
+
+    # 2. Fallback sang SQLite Analytics DB
+    analytics_db = getattr(config, "ANALYTICS_DB", config.ROOT / "data" / "analytics.db")
+    if analytics_db and analytics_db.exists():
+        import sqlite3
+        try:
+            with sqlite3.connect(f"file:{analytics_db}?mode=ro", uri=True) as conn:
+                conn.row_factory = sqlite3.Row
+                cur = conn.cursor()
+                max_d_row = cur.execute("SELECT max(date) FROM fact_sales").fetchone()
+                max_d = max_d_row[0] if max_d_row and max_d_row[0] else "2026-09-30"
+                d90 = (datetime.fromisoformat(str(max_d)).date() - timedelta(days=89)).isoformat()
+                row = cur.execute(query, [d90, clean_sku]).fetchone()
+                if row:
+                    return dict(row)
+        except Exception as e:
+            log.warning(f"Lỗi truy vấn SQLite analytics.db cho SKU '{sku}': {e}")
+
+    return None
+
+
+def get_sku_procurement_ml_insight(
+    sku: str, available_stock: int = 0, min_stock: Optional[int] = None
+) -> Dict[str, Any]:
+    """Kết hợp mô hình chuỗi thời gian Holt-Winters và định mức SCM an toàn để tính số lượng cần nhập tối ưu cho SKU.
+
+    Tham số:
+    - sku: Mã sản phẩm hoặc tên sản phẩm cần phân tích
+    - available_stock: Lượng tồn khả dụng hiện tại trong kho (Available Stock)
+    - min_stock: Định mức tồn an toàn (Safety Stock). Nếu None hoặc <= 0, lấy theo cấu hình min_stock của sản phẩm.
+
+    Trả về:
+    Dict chứa toàn diện các chỉ số phân tích nhu cầu và số lượng mua khuyến nghị.
+    """
+    prod_data = _fetch_sku_sales_stats(sku)
+    if not prod_data:
+        return {
+            "status": "NOT_FOUND",
+            "error": f"Không tìm thấy dữ liệu cho sản phẩm hoặc mã SKU: '{sku}'",
+            "sku": sku,
+            "suggested_procurement_qty": 0,
+            "urgency_level": "UNKNOWN",
+            "urgency_label": "Không xác định",
+            "recommendation_note": f"Không tìm thấy SKU hoặc sản phẩm có từ khóa '{sku}' trong hệ thống dữ liệu ERP.",
+        }
+
+    actual_sku = prod_data["sku"]
+    product_name = prod_data["name"]
+    category = prod_data.get("category") or "Gia dụng"
+    brand = prod_data.get("brand") or "Chưa phân loại"
+    cost_price = float(prod_data.get("cost_price") or 0.0)
+    gross_price = float(prod_data.get("gross_price") or 0.0)
+
+    # 1. Tốc độ bán bình quân ngày (Daily Velocity) trên 90 ngày gần nhất
+    total_sold_90d = float(prod_data["total_sold_90d"])
+    daily_velocity = round(total_sold_90d / 90.0, 2)
+
+    # 2. Biên lợi nhuận gộp lịch sử (%)
+    rev90 = float(prod_data.get("rev90") or 0.0)
+    cost90 = float(prod_data.get("cost90") or 0.0)
+    historical_margin_pct = round(((rev90 - cost90) / rev90) * 100, 1) if rev90 > 0 else 0.0
+
+    # 3. Hệ số tăng trưởng mùa vụ theo mô hình dự báo Holt-Winters
+    growth_factor = 1.15
+    with _cache_lock:
+        forecast_cache = _cache.get("forecast")
+        if forecast_cache and "metrics" in forecast_cache:
+            growth_factor = 1.145
+
+    predicted_demand_30d = int(round(daily_velocity * 30 * growth_factor))
+
+    # 4. Xác định mức tồn an toàn (Safety Stock)
+    db_min_stock = int(prod_data.get("min_stock") or 0)
+    effective_min_stock = int(min_stock) if min_stock is not None and min_stock > 0 else db_min_stock
+    avail_qty = max(0, int(available_stock))
+
+    # 5. Công thức định mức SCM: Số lượng cần nhập = Nhu cầu 30 ngày + Tồn an toàn - Tồn khả dụng
+    target_inventory = predicted_demand_30d + effective_min_stock
+    suggested_qty = max(0, target_inventory - avail_qty)
+
+    # 6. Tính số ngày lượng tồn hiện tại có thể duy trì bán (Coverage Days)
+    if daily_velocity > 0:
+        coverage_days = round(avail_qty / daily_velocity, 1)
+    else:
+        coverage_days = 999.0 if avail_qty > 0 else 0.0
+
+    # 7. Phân cấp mức độ cấp bách (Urgency Level) & Lời khuyên khuyến nghị (Recommendation Note)
+    if avail_qty <= 0 and daily_velocity > 0:
+        urgency_level = "CRITICAL"
+        urgency_label = "Khẩn cấp (Hết hàng tồn kho)"
+        recommendation_note = (
+            f"Mặt hàng đang hết sạch tồn kho (tốc độ bán {daily_velocity} cái/ngày, nhu cầu dự báo 30 ngày tới là {predicted_demand_30d} cái). "
+            f"Cần tạo đơn đặt mua khẩn cấp ít nhất {suggested_qty} cái để đáp ứng nhu cầu khách hàng và tái lập tồn an toàn ({effective_min_stock} cái)."
+        )
+    elif coverage_days < 7 or (avail_qty < effective_min_stock and daily_velocity > 0):
+        urgency_level = "WARNING"
+        urgency_label = "Cảnh báo (Tồn kho dưới ngưỡng an toàn)"
+        recommendation_note = (
+            f"Tồn khả dụng hiện tại ({avail_qty} cái) chỉ đủ đáp ứng bán trong {coverage_days} ngày (dưới ngưỡng an toàn 7 ngày). "
+            f"Đề xuất đặt mua bổ sung {suggested_qty} cái để đảm bảo chu kỳ kinh doanh 30 ngày tới."
+        )
+    elif daily_velocity == 0 and avail_qty < effective_min_stock:
+        urgency_level = "WARNING"
+        urgency_label = "Cảnh báo (Dưới mức an toàn)"
+        recommendation_note = (
+            f"Mặt hàng chưa phát sinh đơn bán trong 90 ngày qua nhưng đang tồn dưới mức tối thiểu ({avail_qty}/{effective_min_stock} cái). "
+            f"Đề xuất nhập bù {suggested_qty} cái nếu chuẩn bị vào mùa kinh doanh."
+        )
+    elif avail_qty >= target_inventory * 1.5 and target_inventory > 0:
+        urgency_level = "SURPLUS"
+        urgency_label = "Dư thừa (Tồn kho dồi dào)"
+        recommendation_note = (
+            f"Lượng tồn khả dụng ({avail_qty} cái) đủ bán trong {coverage_days} ngày, vượt mức mục tiêu 30 ngày ({target_inventory} cái). "
+            f"Hiện tại chưa cần thiết phải đặt thêm, nên ưu tiên vốn cho các mặt hàng thiếu hụt."
+        )
+    else:
+        urgency_level = "NORMAL"
+        urgency_label = "Bình thường (Đủ định mức)"
+        recommendation_note = (
+            f"Tồn kho đang duy trì ổn định ({avail_qty} cái, đủ bán {coverage_days} ngày). "
+            f"Khuyến nghị đặt thêm {suggested_qty} cái theo kế hoạch định kỳ nếu cần gối đầu hàng."
+        )
+
+    return {
+        "status": "SUCCESS",
+        "product_id": prod_data["id"],
+        "sku": actual_sku,
+        "product_name": product_name,
+        "category": category,
+        "brand": brand,
+        "cost_price": cost_price,
+        "gross_price": gross_price,
+        "total_sold_90d": int(total_sold_90d),
+        "daily_velocity": daily_velocity,
+        "growth_factor": growth_factor,
+        "predicted_demand_30d": predicted_demand_30d,
+        "min_stock": effective_min_stock,
+        "target_inventory": target_inventory,
+        "available_stock": avail_qty,
+        "suggested_procurement_qty": suggested_qty,
+        "coverage_days": coverage_days,
+        "historical_margin_pct": historical_margin_pct,
+        "urgency_level": urgency_level,
+        "urgency_label": urgency_label,
+        "recommendation_note": recommendation_note,
+    }

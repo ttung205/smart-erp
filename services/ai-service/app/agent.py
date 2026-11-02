@@ -31,16 +31,18 @@ Quy tắc:
 2. Công cụ báo không có quyền thì nói rõ người dùng không có quyền xem phần đó; không suy đoán.
 3. Trả lời bằng tiếng Việt, ngắn gọn, đi thẳng vào câu hỏi, luôn nêu kỳ dữ liệu. Liệt kê nhiều dòng thì dùng bảng markdown gọn gàng (tối đa khoảng 7-10 dòng; ví dụ: tóm tắt theo tuần hoặc top nổi bật, KHÔNG in 30 dòng ngày đơn lẻ để tránh câu trả lời bị tràn và cắt ngắn).
 4. Sau số liệu có thể thêm 1-2 nhận xét hoặc gợi ý hành động ngắn, dựa trên chính dữ liệu đó.
-5. Bạn chỉ đọc dữ liệu, không tạo hay sửa được chứng từ. Nếu được nhờ thao tác, hướng dẫn người dùng làm trên màn hình tương ứng của ERP.
+5. Bạn không tự ghi đè thay đổi dữ liệu vào cơ sở dữ liệu khi chưa có sự xác nhận của người dùng. Với các tác vụ tạo đơn mua hàng hoặc đơn bán hàng, hệ thống sẽ tự sinh Thẻ tương tác (Action Card) đính kèm ở khung chat để người dùng kiểm tra thông tin và bấm xác nhận tạo chứng từ trực tiếp một chạm an toàn.
 6. Câu hỏi không liên quan công việc: trả lời rất ngắn hoặc từ chối lịch sự.
 7. Người dùng này KHÔNG có quyền xem: {denied}. Nếu được hỏi về các phần này, trả lời rằng tài khoản của họ chưa được cấp quyền xem (không nói là hệ thống không hỗ trợ).
 8. Sử dụng công cụ Học máy & Đề xuất hành động thông minh:
-   - demand_forecast: Dự báo nhu cầu doanh thu theo ngày (30 ngày tới kèm dải tin cậy 95%) hoặc theo tháng Quý IV/2026. Khi trả lời về 30 ngày tới, hãy nêu tổng dự báo (~30.2 tỷ), bình quân ngày (~1.0 tỷ), bảng tóm tắt theo tuần (từ tong_hop_theo_tuan) và trích dẫn đầy đủ trường quy_luat_song_tuan (Thứ Hai & Thứ Ba đạt đỉnh ~1.4x, Chủ Nhật thấp nhất do kho nghỉ). Luôn viết hoàn chỉnh câu kết luận.
+   - demand_forecast: Dự báo nhu cầu doanh thu theo ngày (30 ngày tới kèm dải tin cậy 95%) hoặc theo tháng Quý IV/2026. Khi trả lời về 30 ngày tới, hãy trích xuất chính xác tổng dự báo (tong_du_bao_30_ngay), bình quân ngày (binh_quan_ngay), bảng tóm tắt theo tuần (từ tong_hop_theo_tuan) và quy luật sóng tuần từ dữ liệu do công cụ trả về. Luôn viết hoàn chỉnh câu kết luận, tuyệt đối không tự bịa số.
    - rfm_customer_segmentation: Phân cụm khách hàng RFM (VIP, Loyal, Potential, At-Risk / Chưa phát sinh đơn).
    - credit_risk_radar: Đánh giá rủi ro tín dụng, tỷ lệ nợ quá hạn và các khoản nợ báo động.
    - suggest_restock_plan: Đề xuất kế hoạch nhập kho, cảnh báo SKU sắp hết hoặc thiếu hụt dựa trên tốc độ bán thực tế.
    - suggest_churn_retention: Đề xuất danh sách khách hàng nguy cơ rời bỏ kèm kịch bản chăm sóc và ưu đãi giữ chân.
    - suggest_credit_action: Đề xuất biện pháp xử lý nợ quá hạn (chuyển COD, khóa hạn mức, chuyển pháp chế thu hồi).
+   - procurement_fast_order: Tra cứu nguồn hàng, lịch sử giá NCC và phân tích nhu cầu nhập hàng. YÊU CẦU BẮT BUỘC VỀ TRUY VẾT: Người dùng phải cung cấp chính xác MÃ CODE SKU ĐẦY ĐỦ của sản phẩm (ví dụ: RT38CG6584B1SV-SAM, DAIKIN-FTKF25XVMV) và có thể kèm MÃ NHÀ CUNG CẤP ĐẦY ĐỦ (ví dụ: NCC-008). Nếu người dùng chỉ nói tên chung chung hoặc mã rút gọn, hãy yêu cầu họ cung cấp đúng mã SKU đầy đủ để đảm bảo tính toàn vẹn và truy vết chứng từ trong ERP.
+   - instant_quote_check: Báo giá sỉ nhanh, tra cứu tồn khả dụng, áp chính sách chiết khấu phân hạng khách hàng (Distributor, Dealer, Project, Retail), thẩm định hạn mức nợ và bảo vệ biên lợi nhuận gộp. YÊU CẦU BẮT BUỘC VỀ TRUY VẾT: Bắt buộc phải có MÃ CODE SKU ĐẦY ĐỦ của sản phẩm (ví dụ: RT38CG6584B1SV-SAM, CFS-13VDM-COM) VÀ MÃ KHÁCH HÀNG ĐẦY ĐỦ (ví dụ: DI-14998, DE-00123, PR-00045, RE-00012). Nếu người dùng chỉ nói tên mập mờ hoặc mã rút gọn, hãy giải thích và yêu cầu cung cấp đúng mã đầy đủ để đảm bảo truy vết trong ERP. Khi kết quả trả về, tóm tắt rõ số lượng tồn, giá niêm yết, chiết khấu, giá chốt, trạng thái công nợ và biên lãi gộp.
 Thuật ngữ: Dealer = đại lý, Distributor = nhà phân phối, Project / Business = khách dự án, Retail = khách lẻ."""
 
 
@@ -50,11 +52,22 @@ class Answer:
     answer: str
     tools_used: list[str] = field(default_factory=list)
     as_of: str | None = None
+    action_schema: dict | None = None
 
 
 def _system_prompt(actor: Actor) -> tuple[str, str]:
-    with warehouse.connect() as con:
-        meta = dict(con.execute("select meta_key, meta_value from meta").fetchall())
+    meta = {}
+    try:
+        with warehouse.connect() as con:
+            try:
+                meta = dict(con.execute("select meta_key, meta_value from meta").fetchall())
+            except Exception:
+                try:
+                    meta = dict(con.execute("select key, value from meta").fetchall())
+                except Exception:
+                    pass
+    except Exception:
+        pass
     roles = ", ".join(ROLE_LABELS.get(r, r) for r in actor.roles) or "nhân viên"
     denied = [TOOL_SCOPE[t.name] for t in TOOLS if t.name in TOOL_SCOPE and not actor.can(*t.permissions)]
     prompt = SYSTEM_PROMPT.format(name=actor.name, roles=roles, today=date.today().isoformat(),
@@ -72,6 +85,7 @@ async def ask(actor: Actor, message: str, conversation_id: int | None) -> Answer
     store.add_message(conv_id, "user", message)
 
     calls_log: list[dict] = []
+    latest_action_schema: dict | None = None
     answer = ""
     for _ in range(config.MAX_TOOL_ROUNDS):
         reply = await llm.chat(messages, [t.schema() for t in tools])
@@ -88,6 +102,8 @@ async def ask(actor: Actor, message: str, conversation_id: int | None) -> Answer
                 args = {}
             started = time.perf_counter()
             result = await asyncio.to_thread(run_tool, actor, name, args)
+            if isinstance(result, dict) and "action_schema" in result:
+                latest_action_schema = result["action_schema"]
             content = json.dumps(result, ensure_ascii=False, default=str)
             calls_log.append({"tool": name, "arguments": args, "ok": "loi" not in result,
                               "result_chars": len(content), "duration_ms": int((time.perf_counter() - started) * 1000)})
@@ -101,4 +117,4 @@ async def ask(actor: Actor, message: str, conversation_id: int | None) -> Answer
     if calls_log:
         store.log_tool_calls(conv_id, message_id, actor.id, calls_log)
     log.info("user=%s conv=%s tools=%s", actor.id, conv_id, [c["tool"] for c in calls_log])
-    return Answer(conv_id, answer, list(dict.fromkeys(c["tool"] for c in calls_log)), as_of)
+    return Answer(conv_id, answer, list(dict.fromkeys(c["tool"] for c in calls_log)), as_of, latest_action_schema)

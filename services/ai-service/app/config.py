@@ -44,6 +44,7 @@ MYSQL_HOST = os.getenv("MYSQL_HOST", "127.0.0.1")
 MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
 MYSQL_USER = os.getenv("MYSQL_USER", "erp_user")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "erp_secret")
+ANALYTICS_DB = Path(os.getenv("ANALYTICS_DB_PATH", ROOT / "data" / "analytics.db"))
 ANALYTICS_DB_NAME = os.getenv("ANALYTICS_DB_NAME", "erp_analytics_db")
 SYNC_INTERVAL_SECONDS = int(os.getenv("SYNC_INTERVAL_SECONDS", "300"))
 WAREHOUSE_SYNC_ENABLED = os.getenv("WAREHOUSE_SYNC_ENABLED", "true").lower() in {"1", "true", "yes", "on"}

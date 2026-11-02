@@ -1,4 +1,5 @@
-# KẾ HOẠCH TRIỂN KHAI BỘ CÔNG CỤ AI AGENT TƯƠNG TÁC (ACTIONABLE AI AGENT TOOLS & ML INTEGRATION)
+# KẾ HOẠCH TRIỂN KHAI HOÀN THIỆN AI-SERVICE THEO KIẾN TRÚC ENTERPRISE AI AGENT 8 TẦNG
+## (8-LAYER ACTIONABLE AI AGENT ARCHITECTURE & ML INTEGRATION)
 
 > **Tài liệu tham chiếu chuẩn**: Tuân thủ nghiêm ngặt các quy chuẩn kiến trúc và lập trình tại:
 > - [AGENTS.md](file:///g:/Do_an_lien_nganh/smart-erp/docs/Ai_rule/AGENTS.md) (Master Architecture & 7 nguyên tắc tự vấn)
@@ -9,15 +10,38 @@
 
 ---
 
-## 1. TỔNG QUAN & MỤC TIÊU KIẾN TRÚC
+## 1. TỔNG QUAN KIẾN TRÚC ENTERPRISE AI AGENT 8 TẦNG (FULL-STACK AGENT ARCHITECTURE)
+
+Nhằm chuẩn hóa `ai-service` thành nền tảng AI doanh nghiệp toàn diện phục vụ đồ án liên ngành và vận hành thực tế, hệ thống được quy hoạch và hoàn thiện theo **Kiến trúc AI Agent 8 tầng tiêu chuẩn công nghiệp (Production-Grade Enterprise AI Stack)**:
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                    KIẾN TRÚC AI-SERVICE ENTERPRISE 8 TẦNG (AI AGENT FULL STACK)                 │
+├─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ [08] OBSERVABILITY   │ Giám sát, Tracing (Langfuse/OpenTelemetry), Audit Tool Calls & Chi phí   │
+├──────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+│ [07] CACHE + ROUTER  │ In-memory ML Cache, Semantic Response Cache & Smart Intent Router        │
+├──────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+│ [06] GUARDRAILS      │ Phòng vệ an toàn: Chặn Prompt Injection, Masking PII, Hallucination Check│
+├──────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+│ [05] PHÂN QUYỀN      │ RBAC hạt mịn: Kiểm soát Token JWT, Tiền lọc Tool & Thẩm tra Runtime      │
+├──────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+│ [04] TOOLS • MCP     │ 24 Actionable Tools kết hợp Scikit-Learn ML & Chuẩn hóa MCP Server       │
+├──────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+│ [03] RAG             │ Tri thức phi cấu trúc: Vector Search (Chroma/PgVector) cho Quy chế & SOP │
+├──────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+│ [02] SYSTEM PROMPT   │ Ngữ cảnh động: Dynamic Injection vai trò, as_of, quyền hạn (Zero-Hardcode)│
+├──────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+│ [01] MODEL           │ Groq Cloud API (gpt-oss-120b) + Fallback, hỗ trợ Local LLM (vLLM/Ollama) │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
 
 ### 1.1. Bối cảnh & Bước chuyển đổi
-Hệ thống `ai-service` hiện tại đã có mô hình phân tích dữ liệu và học máy mạnh mẽ (`ml.py`: K-Means RFM, Holt-Winters kết hợp ngoại sinh thời tiết, Credit Risk Scoring) và bộ công cụ AI chỉ-đọc (`app/tools.py`). 
+Hệ thống `ai-service` sở hữu kho phân tích dữ liệu và học máy mạnh mẽ (`ml.py`: K-Means RFM, Holt-Winters kết hợp ngoại sinh thời tiết, Credit Risk Scoring) và bộ công cụ AI chỉ-đọc (`app/tools.py`). 
 
-Mục tiêu của task này là nâng cấp hệ thống từ **Trợ lý AI thụ động (Passive Read-Only Bot)** thành **Trợ lý AI hành động thế hệ mới (Actionable & Generative Agent)**:
-1. **Truy vấn thông minh theo mã SKU**: Khi người dùng gửi mã sản phẩm vào Chatbox, Agent lập tức bóc tách lịch sử mua hàng từ các Nhà cung cấp (đơn giá, ngày mua, số lượng).
-2. **Hợp nhất sức mạnh Machine Learning**: Tự động gọi mô hình dự báo **Holt-Winters** và tham chiếu định mức tồn kho để gợi ý số lượng đặt mua tối ưu, tính toán biên lợi nhuận kỳ vọng.
-3. **Generative UI & Thao tác tức thì (One-Click Action)**: Trả về thẻ tương tác (Interactive Action Card) ngay trong khung Chat, cho phép người dùng chọn NCC, chỉnh số lượng và bấm `[Xác nhận Tạo Đơn Mua PO]` mà không cần rời màn hình.
+Mục tiêu cốt lõi:
+1. **Chuyển đổi từ Passive Read-Only sang Actionable & Generative Agent**: Cho phép người dùng ra lệnh bằng ngôn ngữ tự nhiên $\rightarrow$ Agent tự gọi tool tính toán $\rightarrow$ Trả về thẻ tương tác (Action Card) trên Web $\rightarrow$ Người dùng bấm 1 nút để thực thi ngay (tạo Draft PO, tạo Draft SO, lập Báo giá).
+2. **Tuân thủ nghiêm ngặt 8 tầng kiến trúc**: Đảm bảo phân quyền hạt mịn, bảo vệ dữ liệu với Guardrails, tối ưu tốc độ bằng Cache + Router, và giám sát minh bạch qua Observability.
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -27,399 +51,327 @@ Mục tiêu của task này là nâng cấp hệ thống từ **Trợ lý AI th�
 │                                                             │                                   │
 │  ┌──────────────────────────────────────────────────────────┴────────────────────────────────┐  │
 │  │ Vòng lặp Agent (Function Calling):                                                        │  │
-│  │ 1. LLM nhận diện SKU & Intent ──► Gọi Tool: lookup_product_procurement(sku)               │  │
-│  │ 2. Tool truy vấn giá cũ (purchase) + Tồn kho (inventory) + Dự báo 30 ngày (ml.py)        │  │
-│  │ 3. Trả về Action Schema Payload: { action_type: 'CREATE_PO_CARD', suppliers, ml_data }   │  │
+│  │ 1. LLM nhận diện SKU & Intent ──► Gọi Tool Copilot: procurement_fast_order / instant_quote│  │
+│  │ 2. Tool truy vấn giá + Tồn kho + Phân tích ML + Kiểm tra nợ/biên lãi                      │  │
+│  │ 3. Trả về Action Schema Payload: { action_type: 'ACTION_CARD_...', can_execute, ... }    │  │
 │  └──────────────────────────────────────────────────────────┬────────────────────────────────┘  │
 │                                                             │                                   │
 │  [ Vue 3 Chat Drawer ] ◄── Render Interactive Card ◄────────┘                                   │
 │            │                                                                                    │
-│            └─► Người dùng bấm [Xác nhận Đặt Mua] ──► [ Gateway :8000 ] ──► [ purchase-service ] │
-│                                                                             (Tạo Draft PO)      │
+│            ├─► Người dùng bấm [Xác nhận Tạo PO] ──► [ Gateway :8000 ] ──► [ purchase-service ]   │
+│            └─► Người dùng bấm [Xác nhận Tạo SO] ──► [ Gateway :8000 ] ──► [ sales-service ]      │
 └─────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. BẢNG QUY HOẠCH TOP 10 TOOL AI AGENT HÀNG ĐẦU CHO HỆ THỐNG
+## 2. KẾ HOẠCH TRIỂN KHAI CHI TIẾT TUÂN THỦ 8 TẦNG KIẾN TRÚC
 
-Tuân thủ phân định quyền hạn hạt mịn (RBAC) và ranh giới Bounded Context giữa các service:
+### 🟢 TẦNG 01: MODEL (Nền tảng Mô hình Ngôn ngữ Lớn)
+* **Hiện trạng**: Đã cấu hình Groq API (`openai/gpt-oss-120b`) với cơ chế Fallback tự động sang `openai/gpt-oss-20b` và `qwen/qwen3.8-27b` khi bị Rate Limit (HTTP 429).
+* **Các bước triển khai**:
+  1. **Bước 1.1 - Hoàn thiện Module LLM Client (`app/llm.py`)**: Tối ưu hóa timeout, cơ chế exponential backoff khi gọi completions, chuẩn hóa cấu trúc message gửi và nhận.
+  2. **Bước 1.2 - Hỗ trợ Local LLM Engine (On-Premise)**: Cho phép chuyển đổi linh hoạt qua biến môi trường `GROQ_BASE_URL` trỏ về máy chủ nội bộ chạy **vLLM** hoặc **Ollama** (`Qwen-2.5-14B-Instruct` hoặc `Llama-3.1-8B`), đáp ứng yêu cầu vận hành bảo mật dữ liệu offline 100%.
 
-| STT | Mã Tool & Tên gọi | Phân hệ & Quyền hạn | Dịch vụ & Mô hình ML kết nối | Mô tả & Thao tác tương tác trực tiếp (Generative UI) |
-| :-: | :--- | :--- | :--- | :--- |
-| **1** | `procurement_fast_order`<br>**Truy cứu giá & Đặt mua nhanh** | Mua hàng<br>`purchase.create` | `purchase-service`<br>`catalog-service`<br>`ml.py` (Holt-Winters) | Nhập SKU $\rightarrow$ So sánh giá các NCC, gợi ý SL nhập theo ML $\rightarrow$ Thẻ tương tác chọn giá và nút `[Tạo Đơn mua PO]`. |
-| **2** | `smart_restock_plan`<br>**Đề xuất kế hoạch nhập kho** | Kho vận & Mua hàng<br>`inventory.view`, `purchase.view` | `inventory-service`<br>`ml.py` (Dự báo 30 ngày & Nhiệt độ) | Quét mã hàng $\text{Available} \le \text{MinStock}$, phân tích tốc độ tiêu thụ $\rightarrow$ Thẻ cảnh báo thiếu hàng kèm nút `[Tạo PO khuyến nghị]`. |
-| **3** | `instant_quote_check`<br>**Báo giá sỉ & Check kho nhanh** | Kinh doanh<br>`order.view`, `catalog.view` | `inventory-service`<br>`catalog-service`<br>`sales-service` | Tra nhanh tồn khả dụng và tự áp chính sách chiết khấu đại lý $\rightarrow$ Trả về giá chốt bán sỉ kèm nút `[Lập Báo giá B2B]`. |
-| **4** | `smart_margin_guard`<br>**Bảo vệ biên lãi & Đàm phán** | Kinh doanh<br>`order.create`, `report.view` | `catalog-service`<br>`sales-service`<br>`FactSales` (Giá vốn) | Khi khách mặc cả, kiểm tra sàn biên lợi nhuận gộp (Gross Margin) $\rightarrow$ Cảnh báo bán lỗ, gợi ý kịch bản đổi khối lượng hoặc gửi duyệt ngoại lệ. |
-| **5** | `create_sales_order_nlp`<br>**Lên đơn bán bằng câu chat** | Kinh doanh<br>`order.create` | `sales-service`<br>`catalog-service`<br>LLM Entity Extraction | Đọc câu lệnh tự nhiên (chat/voice) $\rightarrow$ Tự map khách hàng, SKU, áp giá sỉ $\rightarrow$ Trả về thẻ xem trước đơn kèm nút `[Xác nhận Duyệt SO]`. |
-| **6** | `credit_risk_precheck`<br>**Thẩm định tín dụng & Nợ xấu** | Kinh doanh & Kế toán<br>`finance.view` | `finance-service`<br>`ml.py` (Credit Risk Scoring) | Check hạn mức nợ còn trống và ngày quá hạn trước khi lên đơn $\rightarrow$ Khuyến nghị cho nợ tiếp hay bắt buộc thu tiền mặt/COD. |
-| **7** | `suggest_accessory_bundle`<br>**Gợi ý bán chéo phụ kiện** | Kinh doanh<br>`catalog.view` | `catalog-service`<br>`inventory-service`<br>Association Rules | Khi đơn có điều hòa/tivi, tự gợi ý combo phụ kiện (ống đồng, giá treo, aptomat) biên lãi cao (25-35%) $\rightarrow$ Nút `[➕ Thêm vào Đơn]`. |
-| **8** | `at_risk_winback_action`<br>**Kích hoạt đại lý At-Risk** | CSKH & Giám đốc KD<br>`customer.view`, `order.create` | `sales-service`<br>`ml.py` (K-Means RFM: At-Risk) | Lọc đại lý lớn $> 60$ ngày chưa mua $\rightarrow$ Đề xuất kịch bản chăm sóc (cấp voucher 2%, nới hạn nợ) kèm nút `[Gửi Email/Zalo Tri ân]`. |
-| **9** | `resolve_matching_discrepancy`<br>**Xử lý sai lệch Three-Way** | Kho & Mua hàng<br>`purchase.view`, `inventory.view` | `purchase-service`<br>`inventory-service` | Đối soát PO vs GRN thực tế phát hiện lệch hàng $\rightarrow$ Chỉ rõ số lượng thiếu/thừa và hiển thị nút `[Lập Biên bản Sai lệch DN]`. |
-| **10** | `executive_root_cause_bi`<br>**Diễn giải nguyên nhân tài chính** | Ban Giám Đốc<br>`SUPER_ADMIN`, `report.view` | `ai-service`<br>`FactSales` Data Warehouse | Giám đốc hỏi lý do biến động lãi/doanh thu $\rightarrow$ Phân tích dịch chuyển cơ cấu hàng (Product Mix) & mức chiết khấu bằng ngôn ngữ tự nhiên. |
+### 🟢 TẦNG 02: SYSTEM PROMPT (Ngữ cảnh & Chỉ thị Vận hành Động)
+* **Hiện trạng**: `SYSTEM_PROMPT` trong `app/agent.py` đã loại bỏ hoàn toàn các con số hardcode mẫu. Tự động inject động danh tính `name`, danh sách vai trò `roles`, ngày chốt dữ liệu `as_of`, thời điểm đồng bộ `synced_at`, và danh sách quyền bị cấm `denied`.
+* **Các bước triển khai**:
+  1. **Bước 2.1 - Chỉ thị Zero-Hardcode & Dynamic Data Extraction**: Bắt buộc mọi số liệu doanh thu, tồn kho, công nợ và dự báo ML phải trích xuất trực tiếp từ kết quả công cụ trả về.
+  2. **Bước 2.2 - Hướng dẫn định dạng Markdown & Bảng biểu**: Hạn chế in bảng dài quá 7-10 dòng (tóm tắt theo tuần hoặc top nổi bật) để chống tràn token và cắt cụt câu trả lời.
+  3. **Bước 2.3 - Chỉ thị sinh Action Schema (Generative UI Directive)**: Dạy model cách nhận diện ý định muốn tạo đơn/thao tác để trả về cấu trúc payload JSON `action_schema`, kích hoạt thẻ tương tác trên giao diện người dùng.
+
+### 🟡 TẦNG 03: RAG (Retrieval-Augmented Generation - Tri thức phi cấu trúc)
+* **Hiện trạng**: Hệ thống đang sử dụng cơ chế Text-to-Data SQL trên kho phân tích `analytics.db`. Chưa có khả năng tra cứu tài liệu dạng văn bản tự do (SOP quy trình, chính sách bảo hành, điều khoản chiết khấu).
+* **Các bước triển khai**:
+  1. **Bước 3.1 - Tích hợp Vector Database nội bộ**: Nhúng **ChromaDB** ở chế độ chạy trong tiến trình (embedded, lưu ra thư mục cục bộ) vào `ai-service`. Không dùng container riêng. Embedding model chạy cục bộ (ví dụ bge-m3 hỗ trợ tiếng Việt), LLM sinh câu trả lời vẫn dùng Groq.
+  2. **Bước 3.2 - Xây dựng Pipeline Nạp & Phân mảnh tài liệu (Document Ingestion)**: Tài liệu nằm trong `docs/knowledge/`, chia theo 4 nhóm:
+     - *Nghiệp vụ* (`business/`): Các luồng ERP như tạo đơn bán, duyệt báo giá, nhập kho, hàng trả, đối soát 3 bên (3-Way Matching). Nguồn: code các service, người nghiệp vụ xác nhận.
+     - *Kỹ thuật* (`technical/`): Kiến trúc, API, sự kiện, triển khai. Nguồn: `docs/architecture/`, `docs/contracts/`, `docs/deployment.md`.
+     - *FAQ & xử lý lỗi* (`faq/`): Lỗi thường gặp kèm thông báo nguyên văn và cách xử lý. Nguồn: lỗi thực tế khi kiểm thử.
+     - *Chính sách* (`policy/`): Hạn mức công nợ theo nhóm đại lý, quy chế chiết khấu doanh số, chính sách bảo hành và đổi trả (ví dụ đổi mới trong 30 ngày, bảo hành máy nén điều hòa 5 năm). Nguồn: văn bản do người có thẩm quyền ban hành, **không** sinh tự động từ code. Bot không được tự suy ra nội dung nhóm này.
+     - Bản nháp sinh tự động đặt ở `docs/knowledge/_draft/`, chỉ được index sau khi người duyệt xác nhận (có `verified_by`, `verified_at` trong frontmatter).
+  3. **Bước 3.3 - Khởi tạo Tool RAG**: Bổ sung Tool `search_company_policy(query, category)` vào `app/tools.py`, với `category` nhận một trong bốn giá trị `business`, `technical`, `faq`, `policy`. LLM tự kết hợp dữ liệu giao dịch SQL và tài liệu nội bộ, và mỗi đoạn trả về kèm đường dẫn nguồn để đối chiếu ở Tầng 06.2.
+
+### 🟢 TẦNG 04: TOOLS • MCP (Actionable Function Calling & Chuẩn hóa MCP)
+* **Hiện trạng**: Đã có 10 tool SQL chỉ đọc, 6 tool Machine Learning, và 2 Tool Copilot Hành động hoàn chỉnh (`procurement_fast_order` & `instant_quote_check`).
+* **Các bước triển khai**:
+  1. **Bước 4.1 - Triển khai Top Actionable Tools**: Xây dựng các tool tương tác 2 chiều (tra cứu giá NCC $\rightarrow$ gợi ý số lượng theo ML $\rightarrow$ tạo Draft PO/SO) theo Bảng quy hoạch Mục 3.
+  2. **Bước 4.2 - Chuẩn hóa giao thức Model Context Protocol (MCP)**:
+     - Đóng gói các tool ERP thành một **MCP Server** chuẩn (`mcp-server-erp`).
+     - Cung cấp chuẩn MCP Resources (đọc danh mục, tồn kho) và MCP Tools (tạo đơn, chạy dự báo) để tích hợp liền mạch với các trợ lý AI chuẩn công nghiệp (Claude Desktop, Antigravity IDE, Cursor).
+
+### 🟢 TẦNG 05: PHÂN QUYỀN (Fine-grained RBAC & Bảo mật Thực thi)
+* **Hiện trạng**: Kiểm tra Token JWT (HS256) từ `identity-service`, tiền lọc công cụ khả dụng (`available_tools`), và kiểm tra thẩm quyền lần 2 tại thời điểm chạy (`run_tool`).
+* **Các bước triển khai**:
+  1. **Bước 5.1 - Mở rộng Scope quyền hạn hạt mịn**: Bổ sung các quyền tác vụ: `purchase.create`, `order.create`, `quotation.create`, `finance.approve`.
+  2. **Bước 5.2 - Gắn cờ quyền hạn vào Action Card Payload**:
+     - Trường `can_execute: actor.can('purchase.create')` hoặc `actor.can('order.create')` được đính kèm vào payload gửi xuống Vue 3.
+     - Nếu người dùng thiếu quyền, giao diện hiển thị Action Card ở chế độ xem thông tin (Read-only Preview) với nút xác nhận bị vô hiệu hóa kèm icon khóa và thông báo yêu cầu cấp quyền.
+
+### 🟡 TẦNG 06: GUARDRAILS (Lớp phòng vệ An toàn Đầu vào & Đầu ra)
+* **Hiện trạng**: Pydantic kiểm tra độ dài tin nhắn input (min_length=1, max_length=2000). Bộ lọc Strict Code Traceability chặn các truy vấn mã rút gọn hoặc mơ hồ.
+* **Các bước triển khai**:
+  1. **Bước 6.1 - Input Guardrail (Bảo vệ Đầu vào)**:
+     - *Phát hiện Prompt Injection / Jailbreak*: Bộ lọc regex & semantic check phát hiện các hành vi yêu cầu bỏ qua System Prompt, tiết lộ JWT Secret hoặc can thiệp trái phép.
+     - *Strict Code Traceability*: Bắt buộc người dùng cung cấp chính xác SKU đầy đủ và Mã đối tác đầy đủ để bảo toàn tính toàn vẹn chứng từ ERP.
+  2. **Bước 6.2 - Output Guardrail (Kiểm soát Đầu ra)**:
+     - *Bảo mật thông tin nhạy cảm (PII Masking)*: Tự động che số CCCD, mật khẩu băm, số thẻ ngân hàng cá nhân trước khi trả về Client.
+     - *Xác thực tính trung thực (Hallucination Checker)*: Đối chiếu các con số chính (doanh thu, tiền nợ, số lượng tồn) trong câu trả lời văn bản với kết quả thô của tool.
+
+### 🟡 TẦNG 07: CACHE + ROUTER (Tối ưu Hiệu năng & Định tuyến Thông minh)
+* **Hiện trạng**: Đã có In-memory Cache cho ML (`ml.warmup_cache()`) giúp phản hồi thuật toán < 50ms và Fallback Router khi gặp lỗi 429.
+* **Các bước triển khai**:
+  1. **Bước 7.1 - Xây dựng Semantic Response Cache**:
+     - Lưu trữ embedding các câu hỏi phổ biến và câu trả lời tương ứng trong ngày vào In-memory Cache.
+     - Khi nhận câu hỏi mới có cosine similarity $\ge 93\%$ với câu hỏi đã có, trả ngay kết quả trong < 30ms mà không tốn token Groq API.
+  2. **Bước 7.2 - Xây dựng Smart Intent Router**:
+     - *Phân luồng Chitchat*: Nhận diện câu chào hỏi xã giao $\rightarrow$ Trả về mẫu câu chào tiêu chuẩn ngay lập tức.
+     - *Phân luồng SQL*: Nhận diện câu hỏi số liệu tồn kho, doanh số $\rightarrow$ Kích hoạt bộ tool SQL trên `analytics.db`.
+     - *Phân luồng Machine Learning*: Nhận diện câu hỏi dự báo, phân nhóm khách hàng, cảnh báo nợ $\rightarrow$ Kích hoạt bộ tool `ml.py`.
+
+### 🟡 TẦNG 08: OBSERVABILITY (Giám sát Toàn diện, Tracing & Đánh giá)
+* **Hiện trạng**: Lưu log hội thoại và log gọi tool vào bảng `conversations`, `messages`, `tool_calls` trong database phân tích.
+* **Các bước triển khai**:
+  1. **Bước 8.1 - Tích hợp Nền tảng Tracing Langfuse**:
+     - Cài đặt SDK langfuse vào `ai-service`.
+     - Tự động ghi nhận vết (Trace) từng request: thời gian intent classification, thời gian LLM sinh token, thời gian tool chạy, tổng token in/out.
+  2. **Bước 8.2 - Dashboard Quản trị & Feedback Loop**:
+     - Xây dựng bảng theo dõi chi phí API hàng ngày, tỷ lệ lỗi HTTP 429/500, và độ trễ P95/P99.
+     - Bổ sung tính năng đánh giá câu trả lời (Like/Dislike) từ người dùng trên khung chat để làm dữ liệu tinh chỉnh Prompt.
 
 ---
 
-## 3. CÁC BƯỚC TRIỂN KHAI CHI TIẾT (STEP-BY-STEP ROADMAP)
+## 3. BẢNG QUY HOẠCH HỆ THỐNG 24 CÔNG CỤ AI CHUẨN MCP (MODEL CONTEXT PROTOCOL)
 
-Triển khai thí điểm hoàn chỉnh cho **Tool 1 (`procurement_fast_order`)** và **Tool 3/4 (`instant_quote_check` & `smart_margin_guard`)** theo 5 giai đoạn:
+Toàn bộ công cụ của `ai-service` được phân chia thành 3 cấu phần cốt lõi:
+* **MCP Tools**: 24 công cụ thực thi có Schema đầu vào chuẩn JSON Schema, kiểm tra RBAC và trả về dữ liệu hoặc Action Card.
+* **MCP Resources**: Các URI tài nguyên dữ liệu chuẩn của ERP (`erp://catalog/products/{sku}`, `erp://inventory/stock-summary`, `erp://finance/customers/{id}/debt`).
+* **MCP Prompts**: Bộ kịch bản mẫu định hướng xử lý nghiệp vụ (`procurement_negotiation_prompt`, `margin_guard_prompt`, `debt_recovery_prompt`).
+
+### BẢNG DANH MỤC 24 CÔNG CỤ MCP THEO 5 PHÂN HỆ CỐT LÕI CỦA ERP
+
+#### 📦 PHÂN HỆ 1: MUA HÀNG & QUẢN LÝ NHÀ CUNG CẤP (PROCUREMENT & SOURCING)
+| STT | Mã Tool MCP | Quyền hạn RBAC | Dịch vụ & ML liên kết | Mô tả nghiệp vụ & Giao diện tương tác (Generative UI) | Trạng thái |
+| :-: | :--- | :--- | :--- | :--- | :---: |
+| **01** | `procurement_fast_order` | `purchase.create` | `purchase-service`<br>`catalog-service`<br>`ml.py` (Holt-Winters) | **Truy cứu giá NCC & Tạo Draft PO**: Nhập SKU $\rightarrow$ So sánh giá các NCC, gợi ý SL nhập theo ML $\rightarrow$ Thẻ tương tác chọn giá và nút `[Tạo Đơn mua PO]`. | ✅ **HOÀN THÀNH (PILOT)** |
+| **02** | `smart_restock_plan` | `purchase.view`<br>`inventory.view` | `inventory-service`<br>`ml.py` (Dự báo nhu cầu) | **Đề xuất kế hoạch nhập kho thông minh**: Quét mã hàng $\text{Available} \le \text{MinStock}$, tính tốc độ bán $\rightarrow$ Cảnh báo thiếu hàng kèm nút `[Tạo PO khuyến nghị]`. | 🚀 Sprint 1 |
+| **03** | `supplier_scorecard_evaluate` | `purchase.view` | `purchase-service`<br>`FactPurchase` | **Đánh giá xếp hạng KPI/SLA Nhà cung cấp**: Tổng hợp tỷ lệ giao trễ, tỷ lệ hàng lỗi phải hoàn trả, thời gian giao hàng (Lead Time) và độ biến động giá. | 🚀 Sprint 2 |
+| **04** | `purchase_price_variance_alert` | `purchase.view`<br>`report.view` | `purchase-service`<br>`ProductPriceHistories` | **Cảnh báo biến động giá mua (PPV)**: Phát hiện đơn mua có đơn giá tăng bất thường so với hợp đồng khung hoặc so với giá nhập trung bình 3 tháng gần nhất. | 🚀 Sprint 2 |
+| **05** | `resolve_matching_discrepancy` | `purchase.view`<br>`inventory.view` | `purchase-service`<br>`inventory-service` | **Đối soát sai lệch 3 bên (3-Way Matching)**: So khớp Đơn mua PO $\leftrightarrow$ Phiếu nhập kho GRN $\leftrightarrow$ Hóa đơn VAT, tự sinh biên bản chênh lệch số lượng/giá. | 🚀 Sprint 3 |
+
+#### 🏭 PHÂN HỆ 2: KHO VẬN & QUẢN TRỊ TỒN KHO (WAREHOUSE & LOGISTICS)
+| STT | Mã Tool MCP | Quyền hạn RBAC | Dịch vụ & ML liên kết | Mô tả nghiệp vụ & Giao diện tương tác (Generative UI) | Trạng thái |
+| :-: | :--- | :--- | :--- | :--- | :---: |
+| **06** | `stock_card_trace` | `inventory.view` | `inventory-service`<br>`StockMove` Table | **Truy vết thẻ kho theo dòng thời gian**: Tra cứu lịch sử nhập, xuất, giữ chỗ (Reservation) của SKU theo từng số phiếu và nhân viên thực hiện. | 🚀 Sprint 1 |
+| **07** | `slow_moving_deadstock_radar` | `inventory.view`<br>`report.view` | `inventory-service`<br>`ml.py` (Velocity scoring) | **Nhận diện hàng tồn kho chậm luân chuyển (Dead Stock)**: Quét các SKU $>90$ ngày không phát sinh đơn bán, tính chi phí ứ đọng vốn và gợi ý kịch bản xả hàng. | 🚀 Sprint 1 |
+| **08** | `inter_warehouse_transfer_plan` | `inventory.create` | `inventory-service`<br>`catalog-service` | **Đề xuất điều chuyển hàng liên kho**: Phân tích kho dư thừa và kho thiếu hụt cục bộ $\rightarrow$ Trả về thẻ điều chuyển kèm nút `[Tạo Phiếu Xuất Điều Chuyển]`. | 🚀 Sprint 1 |
+| **09** | `warehouse_slotting_rebalance` | `inventory.view` | `inventory-service`<br>ABC Classification | **Khuyến nghị sắp xếp vị trí kho (Slotting)**: Đề xuất chuyển các mặt hàng bán chạy (Nhóm A) về gần cửa xuất hàng để tối ưu quãng đường di chuyển. | 🚀 Sprint 3 |
+| **10** | `cycle_count_dispatcher` | `inventory.create` | `inventory-service` | **Khởi tạo lệnh kiểm kê đột xuất**: Phát hiện các SKU có tỷ lệ hủy đơn cao hoặc có nghi vấn sai lệch tồn $\rightarrow$ Tự động tạo phiếu phân công kiểm kho ngẫu nhiên. | 🚀 Sprint 3 |
+
+#### 💰 PHÂN HỆ 3: BÁN HÀNG & PHÂN PHỐI B2B (SALES & DISTRIBUTION)
+| STT | Mã Tool MCP | Quyền hạn RBAC | Dịch vụ & ML liên kết | Mô tả nghiệp vụ & Giao diện tương tác (Generative UI) | Trạng thái |
+| :-: | :--- | :--- | :--- | :--- | :---: |
+| **11** | `instant_quote_check` | `order.view`<br>`catalog.view` | `inventory-service`<br>`catalog-service`<br>`sales-service` | **Báo giá sỉ & Check kho nhanh**: Tra tồn khả dụng, tự động áp chính sách chiết khấu theo phân hạng đại lý $\rightarrow$ Trả về giá chốt bán sỉ kèm nút `[Lập Báo giá / SO]`. | ✅ **HOÀN THÀNH (PILOT)** |
+| **12** | `smart_margin_guard` | `order.create`<br>`report.view` | `catalog-service`<br>`sales-service`<br>`FactSales` (Giá vốn) | **Bảo vệ biên lãi & Đàm phán giá**: Khi khách mặc cả, kiểm tra sàn biên lãi gộp $\rightarrow$ Cảnh báo nguy cơ bán lỗ, gợi ý tăng số lượng để bù lãi. | ✅ **TÍCH HỢP TRONG TOOL 11** |
+| **13** | `create_sales_order_nlp` | `order.create` | `sales-service`<br>`catalog-service`<br>LLM Entity Extraction | **Lên đơn bán hàng từ câu chat/voice**: Đọc văn bản tự nhiên $\rightarrow$ Tự bóc tách khách hàng, mã hàng, số lượng $\rightarrow$ Trả về thẻ xem trước đơn kèm nút `[Xác nhận SO]`. | 🚀 Sprint 2 |
+| **14** | `suggest_accessory_bundle` | `catalog.view` | `catalog-service`<br>`inventory-service`<br>Association Rules | **Gợi ý bán kèm phụ kiện biên lãi cao**: Khi lên đơn điều hòa/tủ lạnh, tự gợi ý combo (ống đồng, giá treo, aptomat) có lãi gộp 25-35% kèm nút `[➕ Thêm vào Đơn]`. | 🚀 Sprint 2 |
+| **15** | `at_risk_winback_action` | `customer.view`<br>`order.create` | `sales-service`<br>`ml.py` (K-Means RFM: At-Risk) | **Kích hoạt đại lý nguy cơ rời bỏ**: Lọc khách hàng VIP/Loyal $>60$ ngày chưa mua $\rightarrow$ Đề xuất kịch bản chăm sóc (tặng voucher chiết khấu 2%) kèm nút `[Gửi Tri Ân]`. | 🚀 Sprint 2 |
+
+#### 📊 PHÂN HỆ 4: TÀI CHÍNH, KẾ TOÁN & CÔNG NỢ (FINANCE & CREDIT)
+| STT | Mã Tool MCP | Quyền hạn RBAC | Dịch vụ & ML liên kết | Mô tả nghiệp vụ & Giao diện tương tác (Generative UI) | Trạng thái |
+| :-: | :--- | :--- | :--- | :--- | :---: |
+| **16** | `credit_risk_precheck` | `finance.view` | `finance-service`<br>`ml.py` (Credit Risk Scoring) | **Thẩm định tín dụng & Kiểm tra nợ xấu**: Kiểm tra hạn mức nợ còn trống và số ngày quá hạn trước khi cho phép xuất kho $\rightarrow$ Đề xuất nới hạn mức hoặc chặn đơn hàng. | 🚀 Sprint 3 |
+| **17** | `receivables_aging_audit` | `finance.view` | `finance-service`<br>`receivable` Table | **Kiểm toán phân bổ tuổi nợ (Aging Report)**: Báo cáo chi tiết công nợ theo các xô 0-30 ngày, 31-60 ngày, 61-90 ngày và trên 90 ngày. | 🚀 Sprint 3 |
+| **18** | `suggest_credit_action` | `finance.create` | `finance-service`<br>`sales-service` | **Đề xuất hành động xử lý công nợ**: Tự động sinh danh sách hành động (gửi email nhắc nợ tự động, chuyển hình thức sang COD tiền mặt, chuyển pháp chế). | 🚀 Sprint 3 |
+| **19** | `cash_flow_forecast_30d` | `finance.view`<br>`report.view` | `finance-service`<br>`purchase-service`<br>`sales-service` | **Dự báo dòng tiền vào ra 30 ngày tới**: Đối chiếu giữa lịch thu tiền từ hóa đơn bán hàng đến hạn với lịch thanh toán cho các đơn mua PO. | 🚀 Sprint 3 |
+| **20** | `ledger_subledger_reconcile` | `finance.view` | `finance-service`<br>`inventory-service` | **Tự động đối soát Sổ cái ↔ Sổ chi tiết**: Kiểm tra đối chiếu chéo số dư TK 156 (Tồn kho) với Thẻ kho, TK 131 (Phải thu) với Báo cáo công nợ. | 🚀 Sprint 4 |
+
+#### 🏛️ PHÂN HỆ 5: ĐIỀU HÀNH, BAN GIÁM ĐỐC & E-OFFICE (EXECUTIVE & OPERATIONS)
+| STT | Mã Tool MCP | Quyền hạn RBAC | Dịch vụ & ML liên kết | Mô tả nghiệp vụ & Giao diện tương tác (Generative UI) | Trạng thái |
+| :-: | :--- | :--- | :--- | :--- | :---: |
+| **21** | `executive_root_cause_bi` | `SUPER_ADMIN`<br>`report.view` | `ai-service`<br>`FactSales` Data Warehouse | **Phân tích nguyên nhân biến động tài chính**: Trả lời câu hỏi *"Tại sao doanh thu tuần này giảm nhưng lợi nhuận lại tăng?"* bằng phân tích cơ cấu nhóm hàng. | 🚀 Sprint 4 |
+| **22** | `demand_forecast_ml` | `report.view` | `ai-service`<br>`ml.py` (Holt-Winters) | **Dự báo chuỗi thời gian doanh thu & nhu cầu**: Dự báo theo ngày trong 30 ngày tới kèm dải tin cậy 95%, phân tích quy luật sóng tuần. | ✅ **ĐÃ TÍCH HỢP** |
+| **23** | `rfm_customer_segmentation_ml` | `customer.view`<br>`report.view` | `ai-service`<br>`ml.py` (K-Means k=4) | **Phân cụm khách hàng RFM Machine Learning**: Tự động phân chia 2.591 khách hàng thành 4 nhóm kèm Silhouette Score định lượng chất lượng cụm. | ✅ **ĐÃ TÍCH HỢP** |
+| **24** | `eoffice_doc_summarizer_dispatch` | `ai.use` | `eoffice-service`<br>LLM Document Summarizer | **Tóm tắt tờ trình & Đề xuất tuyến phê duyệt**: Đọc nội dung hợp đồng / công văn nội bộ $\rightarrow$ Tóm tắt 3 ý chính, gợi ý người ký duyệt phù hợp. | 🚀 Sprint 4 |
+
+---
+
+## 4. CHI TIẾT KẾT QUẢ ĐÃ HOÀN THÀNH Ở LUỒNG THÍ ĐIỂM (PILOT PHASE SUMMARY)
+
+Triển khai thí điểm hoàn chỉnh cho **Tool 1 (`procurement_fast_order`)** và **Tool 11/12 (`instant_quote_check` & `smart_margin_guard`)** đã hoàn tất trọn vẹn cả 4 giai đoạn kỹ thuật:
 
 ```text
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│  GIAI ĐOẠN 1 │ ──► │  GIAI ĐOẠN 2 │ ──► │  GIAI ĐOẠN 3 │ ──► │  GIAI ĐOẠN 4 │ ──► │  GIAI ĐOẠN 5 │
-│ Chuẩn hóa API│     │ Tích hợp ML  │     │ Cấu hình Tool│     │ Xây dựng UI  │     │ Kiểm thử &   │
-│ & DTO Backend│     │ & Analytics  │     │ & Prompt LLM │     │ Action Cards │     │ Nghiệm thu   │
-└──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
+┌────────────────────────┐     ┌────────────────────────┐     ┌────────────────────────┐     ┌────────────────────────┐
+│  GIAI ĐOẠN 1: API DTO  │ ──► │  GIAI ĐOẠN 2: ML MODEL │ ──► │  GIAI ĐOẠN 3: COPILOT  │ ──► │  GIAI ĐOẠN 4: GEN-UI   │
+│   Backend C# & Laravel │     │ Holt-Winters in ml.py  │     │ tools.py & agent.py    │     │ Action Cards Vue 3     │
+│       [x] HOÀN TẤT     │     │      [x] HOÀN TẤT      │     │      [x] HOÀN TẤT      │     │      [x] HOÀN TẤT      │
+└────────────────────────┘     └────────────────────────┘     └────────────────────────┘     └────────────────────────┘
 ```
 
 ---
 
-### GIAI ĐOẠN 1: CHUẨN HÓA API CONTRACTS VÀ SERVICE INTEGRATION
-> **Mục tiêu**: Đảm bảo các service nghiệp vụ (`catalog-service`, `purchase-service`, `inventory-service`) cung cấp đủ Endpoint theo chuẩn [api-guidelines.md](file:///g:/Do_an_lien_nganh/smart-erp/docs/Ai_rule/api-guidelines.md).
-
-#### Bước 1.1: Endpoint Lịch sử Mua hàng theo SKU trên `purchase-service` (C# .NET 10)
-Tạo Endpoint lấy 5 lần mua gần nhất của sản phẩm theo SKU kèm thông tin Nhà cung cấp:
-* **Tuyến đường Gateway**: `GET /api/v1/purchase/orders/item-history?sku={sku}`
-* **Quy chuẩn C#**: Dùng `.AsNoTracking()`, trả về DTO Envelope chuẩn.
-
-```csharp
-// PurchaseOrderItemHistoryDto.cs
-public record PurchaseOrderItemHistoryDto(
-    long SupplierId,
-    string SupplierName,
-    decimal UnitCost,
-    int Quantity,
-    DateTime OrderDate,
-    string PoNumber
-);
-```
-
-#### Bước 1.2: Endpoint Tạo Đơn Mua Hàng Nhanh (Draft PO Creation)
-* **Tuyến đường Gateway**: `POST /api/v1/purchase/orders`
-* **Headers bắt buộc**: `Authorization: Bearer <JWT>`, `X-Correlation-ID: <UUID>`
-* **Payload chuẩn**:
-```json
-{
-  "supplier_id": 1,
-  "expected_date": "2026-11-05T00:00:00Z",
-  "notes": "Đơn hàng khởi tạo tự động từ Trợ lý AI Procurement Copilot",
-  "items": [
-    {
-      "product_id": 201,
-      "sku": "DAIKIN-FTKF25XVMV",
-      "quantity_ordered": 50,
-      "unit_cost": 8200000.0
-    }
-  ]
-}
-```
+### GIAI ĐOẠN 1: CHUẨN HÓA API CONTRACTS VÀ SERVICE INTEGRATION (✅ ĐÃ HOÀN THÀNH)
+* **Purchase Service (C# .NET 10)**:
+  - Chuẩn hóa `CreatePurchaseOrderDto` trong `Purchase.Application/DTOs/PurchaseOrders/PurchaseOrderDtos.cs` nhận `supplier_id`, `warehouse_id`, `items` (`product_id`, `sku`, `unit_cost`, `quantity_ordered`, `tax_rate`).
+  - Endpoint `POST /api/v1/purchase/orders` hỗ trợ tạo Draft PO có xác thực JWT Bearer và Correlation-ID.
+* **Sales Service (PHP Laravel 11)**:
+  - Chuẩn hóa `SalesOrderController.php` nhận `customer_id`, `items` (`product_id`, `sku`, `selling_price`, `quantity`, `vat_percent`).
+  - Chuẩn hóa `QuotationController.php` nhận báo giá B2B.
 
 ---
 
-### GIAI ĐOẠN 2: TÍCH HỢP HỆ THỐNG MACHINE LEARNING (`ml.py`)
-> **Mục tiêu**: Mở rộng module `ml.py` để cung cấp hàm tính toán nhu cầu và gợi ý số lượng mua tối ưu dựa trên In-memory Cache.
-
-#### Bước 2.1: Hàm truy xuất dự báo nhu cầu SKU từ `ml.py`
-Mở tệp `services/ai-service/app/ml.py`, bổ sung hàm tính toán khuyến nghị nhập hàng:
-
-```python
-def get_sku_procurement_ml_insight(sku: str, available_stock: int, min_stock: int) -> dict:
-    """Kết hợp mô hình Holt-Winters dự báo 30 ngày và định mức an toàn để tính số lượng cần nhập."""
-    with _cache_lock:
-        forecast_data = _cache.get("forecast_sales_30d", {})
-    
-    # Tính toán tốc độ bán trung bình ngày của SKU từ kho phân tích FactSales
-    with db() as con:
-        row = con.execute("""
-            SELECT coalesce(sum(quantity), 0) as total_sold_90d,
-                   coalesce(sum(profit) / nullif(sum(subtotal), 0) * 100, 0) as avg_margin_pct
-            FROM fact_sales s
-            JOIN dim_product p ON p.id = s.product_id
-            WHERE p.sku = ? AND s.date >= date((SELECT max(date) FROM fact_sales), '-90 days')
-        """, (sku,)).fetchone()
-    
-    sold_90d = row["total_sold_90d"] if row else 0
-    daily_velocity = sold_90d / 90.0
-    
-    # Dự báo nhu cầu 30 ngày tới (có tính đến hệ số tăng trưởng của mô hình Holt-Winters)
-    growth_factor = forecast_data.get("growth_rate_next_month", 1.15)
-    predicted_demand_30d = int(round(daily_velocity * 30 * growth_factor))
-    
-    # Công thức SCM: Số lượng cần nhập = Nhu cầu 30 ngày + Tồn an toàn - Tồn khả dụng
-    target_inventory = predicted_demand_30d + min_stock
-    suggested_qty = max(0, target_inventory - available_stock)
-    
-    return {
-        "daily_velocity": round(daily_velocity, 2),
-        "predicted_demand_30d": predicted_demand_30d,
-        "suggested_procurement_qty": suggested_qty,
-        "historical_margin_pct": round(row["avg_margin_pct"], 1) if row else 0.0,
-        "urgency_level": "CRITICAL" if available_stock == 0 else ("WARNING" if available_stock < min_stock else "NORMAL")
-    }
-```
+### GIAI ĐOẠN 2: TÍCH HỢP MACHINE LEARNING TẠI `services/ai-service/app/ml.py` (✅ ĐÃ HOÀN THÀNH)
+* Bổ sung hàm `get_sku_procurement_ml_insight(sku, available_stock, min_stock)`:
+  - Kết hợp mô hình Holt-Winters dự báo nhu cầu 30 ngày với tốc độ bán bình quân 90 ngày gần nhất từ kho phân tích.
+  - Công thức SCM Safety Stock tính số lượng nhập khuyến nghị:
+    $$\text{Target} = \text{Demand}_{30d} + \text{MinStock}; \quad \text{SuggestedQty} = \max(0, \text{Target} - \text{AvailableStock})$$
+  - Trích xuất biên lãi gộp lịch sử và đánh giá mức độ cấp bách (`CRITICAL`, `WARNING`, `NORMAL`).
 
 ---
 
-### GIAI ĐOẠN 3: XÂY DỰNG TOOL VÀ PROMPT SYSTEM TRONG `ai-service`
-> **Mục tiêu**: Khai báo Schema Function Calling chuẩn trong `app/tools.py` và cập nhật chỉ dẫn vận hành cho Agent trong `app/agent.py`.
-
-#### Bước 3.1: Khai báo Handler Tool trong `services/ai-service/app/tools.py`
-
-```python
-def procurement_fast_order(actor: Actor, args: dict) -> dict:
-    """Truy cứu lịch sử giá mua của sản phẩm, đối chiếu ML dự báo nhu cầu và trả về Action Schema đặt mua."""
-    sku = (args.get("sku") or args.get("query") or "").strip()
-    if not sku:
-        return {"loi": "Vui lòng cung cấp mã sản phẩm (SKU)."}
-
-    with db() as con:
-        # 1. Tìm thông tin sản phẩm và tồn kho
-        prod = con.execute("""
-            SELECT p.id, p.sku, p.name, p.list_price, p.unit_cost, p.min_stock,
-                   coalesce(i.quantity_available, 0) as available_stock,
-                   coalesce(i.quantity_on_hand, 0) as on_hand_stock
-            FROM dim_product p
-            LEFT JOIN dim_inventory i ON i.product_id = p.id
-            WHERE p.sku = ? OR unaccent(p.name) LIKE ?
-            LIMIT 1
-        """, (sku, f"%{unaccent(sku)}%")).fetchone()
-
-        if not prod:
-            return {"loi": f"Không tìm thấy sản phẩm có mã hoặc tên: '{sku}'"}
-
-        # 2. Lấy 3 nhà cung cấp có lịch sử mua hàng gần nhất
-        history_rows = con.execute("""
-            SELECT s.id as supplier_id, s.name as supplier_name, s.code as supplier_code,
-                   po.unit_cost, po.order_date, po.quantity
-            FROM fact_purchase po
-            JOIN dim_supplier s ON s.id = po.supplier_id
-            WHERE po.product_id = ?
-            ORDER BY po.order_date DESC
-            LIMIT 5
-        """, (prod["id"],)).fetchall()
-
-    # 3. Kéo insight từ mô hình ML
-    ml_insight = ml.get_sku_procurement_ml_insight(
-        sku=prod["sku"], 
-        available_stock=prod["available_stock"], 
-        min_stock=prod["min_stock"]
-    )
-
-    # 4. Đóng gói Action Payload phục vụ Generative UI
-    suppliers_payload = []
-    for r in history_rows:
-        margin_pct = round(((prod["list_price"] - r["unit_cost"]) / prod["list_price"]) * 100, 1) if prod["list_price"] > 0 else 0
-        suppliers_payload.append({
-            "supplier_id": r["supplier_id"],
-            "supplier_name": r["supplier_name"],
-            "latest_price": float(r["unit_cost"]),
-            "latest_order_date": r["order_date"],
-            "expected_margin_pct": margin_pct,
-            "is_best_price": False # Sẽ được đánh dấu bên dưới
-        })
-    
-    if suppliers_payload:
-        best_price = min(s["latest_price"] for s in suppliers_payload)
-        for s in suppliers_payload:
-            if s["latest_price"] == best_price:
-                s["is_best_price"] = True
-
-    return {
-        "status": "SUCCESS",
-        "product": {
-            "id": prod["id"],
-            "sku": prod["sku"],
-            "name": prod["name"],
-            "available_stock": prod["available_stock"],
-            "min_stock": prod["min_stock"],
-            "list_price": float(prod["list_price"])
-        },
-        "ml_insight": ml_insight,
-        "suppliers": suppliers_payload,
-        # Action Schema gửi về Frontend để kích hoạt Action Card
-        "action_schema": {
-            "type": "ACTION_CARD_PROCUREMENT",
-            "can_execute": actor.can("purchase.create"),
-            "default_supplier_id": suppliers_payload[0]["supplier_id"] if suppliers_payload else None,
-            "default_quantity": ml_insight["suggested_procurement_qty"]
-        }
-    }
-```
-
-#### Bước 3.2: Đăng ký Tool vào danh sách `TOOLS` trong `app/tools.py`
-
-```python
-Tool(
-    "procurement_fast_order",
-    "Tra cứu lịch sử giá mua của sản phẩm theo mã SKU/tên, phân tích nhu cầu ML và trả về giao diện đặt mua nhanh.",
-    obj({"sku": {"type": "string", "description": "Mã SKU hoặc tên sản phẩm cần tra cứu nguồn hàng"}}, ["sku"]),
-    ("purchase.view",),
-    procurement_fast_order
-)
-```
+### GIAI ĐOẠN 3: XÂY DỰNG TOOL COPILOT VÀ PROMPT SYSTEM (✅ ĐÃ HOÀN THÀNH)
+* **Quy tắc Nghiêm ngặt (Strict Full-Code Traceability & Zero-Hardcode)**:
+  - Loại bỏ hoàn toàn số liệu hardcode mẫu trong `SYSTEM_PROMPT`. 100% tính toán động từ database.
+  - Bắt buộc nhập chính xác **MÃ CODE SKU ĐẦY ĐỦ** (ví dụ: `RT38CG6584B1SV-SAM`, `CFS-13VDM-COM`, `DAIKIN-FTKF25XVMV`) và **MÃ KHÁCH HÀNG / NCC ĐẦY ĐỦ** (`DI-14998`, `DE-67750`, `NCC-008`). Chặn hoàn toàn mã rút gọn hoặc từ khóa mơ hồ.
+* **Tool `procurement_fast_order`**:
+  - Tra cứu giá 4 NCC gần nhất, tự động đánh dấu `is_best_price: True` cho NCC có giá nhập tốt nhất.
+  - Đóng gói `action_schema` chứa `can_execute = actor.can("purchase.create")`.
+* **Tool `instant_quote_check`**:
+  - Báo giá sỉ theo phân hạng đối tác: Distributor (18%), Dealer (12%), Project (10%), Retail (0%) + Thưởng số lượng volume bonus (+2%).
+  - Tự động thẩm định tín dụng từ bảng `receivable`: phát hiện nợ quá hạn và nợ vượt hạn mức tín dụng (`credit_limit`).
+  - Bảo vệ biên lãi gộp (`smart_margin_guard`): Cảnh báo nếu lãi $<5\%$ và chặn báo động `"LO_VON"` nếu đơn giá bán thấp hơn giá vốn.
+  - Đóng gói `action_schema` chứa `can_execute = actor.can("order.create")`.
+* **Kiểm thử Unit Test Backend**: 9/9 Test cases đạt 100% tại `scratch/test_instant_quote.py`.
 
 ---
 
-### GIAI ĐOẠN 4: THIẾT KẾ GENERATIVE UI (ACTION CARD COMPONENT VUE 3)
-> **Mục tiêu**: Tuân thủ chuẩn [UI_RULES.md](file:///g:/Do_an_lien_nganh/smart-erp/docs/Ai_UI_rule/UI_RULES.md) (PrimeVue 4, Tailwind CSS, Dark/Light Mode, trạng thái Disabled khi thiếu quyền).
+### GIAI ĐOẠN 4: THIẾT KẾ GENERATIVE UI ACTION CARDS TRÊN VUE 3 (✅ ĐÃ HOÀN THÀNH)
+* **`frontend/src/components/ai/ProcurementActionCard.vue`**:
+  - Header hiển thị SKU, Tên sản phẩm, Tồn khả dụng.
+  - Banner ML gợi ý số lượng đặt mua từ Holt-Winters.
+  - Form chọn Nhà cung cấp (kèm giá, kỳ hạn nợ, biên lãi, nhãn `★ GIÁ TỐT NHẤT`).
+  - Ô chỉnh số lượng, tự động tính tổng tiền gồm VAT 10%.
+  - Nút `[🚀 Xác nhận Tạo Đơn Mua (Draft PO)]` liên kết `purchaseApi.createOrder`.
+  - Tự động khóa và hiển thị icon `🔒` nếu tài khoản thiếu quyền `purchase.create`.
+* **`frontend/src/components/ai/SalesActionCard.vue`**:
+  - Header hiển thị Mã KH, Tên KH, Phân hạng đại lý, SKU.
+  - Bộ 3 Badge rủi ro thời gian thực: Tồn kho, Hạn mức tín dụng / nợ quá hạn, Biên lãi gộp.
+  - Tương tác chỉnh số lượng và % chiết khấu đàm phán, tự động tính đơn giá chốt, VAT 8% và tổng thanh toán.
+  - 2 Nút hành động: `[🚀 Tạo Đơn Bán Hàng (Draft SO)]` và `[📑 Lập Báo Giá (Quotation)]`.
+  - Tự động khóa nếu tài khoản thiếu quyền `order.create`.
+* **Tích hợp Store & View**:
+  - `frontend/src/stores/aiStore.js`: Bổ sung lưu trữ `action_schema` trong tin nhắn.
+  - `frontend/src/components/ai/AiConversationView.vue`: Nhúng Action Cards tự động, hỗ trợ đóng/hủy, bổ sung `TOOL_LABELS`.
+* **Vite Build**: Lệnh `npm --prefix frontend run build` chuyển đổi thành công 856 modules không lỗi.
 
-#### Bước 4.1: Component `ProcurementActionCard.vue`
-Đặt tại: `frontend/src/components/chat/ProcurementActionCard.vue`
+---
 
-```vue
-<template>
-  <div class="rounded-xl border border-surface-200 dark:border-surface-700 bg-surface-0 dark:bg-surface-900 p-4 shadow-sm my-2 text-surface-900 dark:text-surface-0">
-    <!-- Header: Tên sản phẩm & Mã SKU -->
-    <div class="flex items-start justify-between border-b border-surface-100 dark:border-surface-800 pb-3">
-      <div>
-        <span class="inline-block px-2 py-0.5 text-xs font-semibold rounded bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 mb-1">
-          SKU: {{ data.product.sku }}
-        </span>
-        <h4 class="font-bold text-base line-clamp-1">{{ data.product.name }}</h4>
-      </div>
-      <div class="text-right">
-        <span class="text-xs text-surface-500 block">Tồn khả dụng</span>
-        <span :class="['font-bold text-sm', data.product.available_stock < data.product.min_stock ? 'text-red-500' : 'text-emerald-500']">
-          {{ data.product.available_stock }} bộ
-        </span>
-      </div>
-    </div>
+## 5. CÁC BƯỚC TIẾP THEO CẦN KIỂM TRA (CHECKLIST KIỂM THỬ THỰC TẾ & NGHIỆM THU)
 
-    <!-- ML Insights Bar -->
-    <div class="my-3 p-2.5 rounded-lg bg-surface-50 dark:bg-surface-800/60 border border-surface-200/60 dark:border-surface-700/60 text-xs space-y-1">
-      <div class="flex justify-between items-center text-primary-600 dark:text-primary-400 font-semibold">
-        <span>🤖 Gợi ý từ Machine Learning (Holt-Winters):</span>
-        <span>Nhu cầu 30 ngày tới: ~{{ data.ml_insight.predicted_demand_30d }} bộ</span>
-      </div>
-      <p class="text-surface-600 dark:text-surface-400">
-        Khuyến nghị đặt mua: <strong class="text-surface-900 dark:text-surface-100">{{ data.ml_insight.suggested_procurement_qty }} bộ</strong> để đảm bảo mức tồn kho an toàn.
-      </p>
-    </div>
+Sau khi hoàn tất toàn bộ luồng Pilot, các bước tiếp theo cần được kiểm tra thực tế (End-to-End Verification) trên trình duyệt trước khi mở rộng sang các phân hệ khác:
 
-    <!-- Form Chọn Nhà Cung Cấp & Số Lượng -->
-    <div class="space-y-3 pt-1">
-      <div>
-        <label class="block text-xs font-medium mb-1 text-surface-600 dark:text-surface-300">Chọn Nhà Cung Cấp (Lịch sử giá gần nhất):</label>
-        <select v-model="selectedSupplierId" class="w-full text-xs rounded-lg border border-surface-300 dark:border-surface-600 bg-surface-50 dark:bg-surface-800 p-2 focus:ring-2 focus:ring-primary-500">
-          <option v-for="sup in data.suppliers" :key="sup.supplier_id" :value="sup.supplier_id">
-            {{ sup.supplier_name }} — {{ formatCurrency(sup.latest_price) }} (Lãi gộp dự kiến: {{ sup.expected_margin_pct }}%) {{ sup.is_best_price ? '★ TỐT NHẤT' : '' }}
-          </option>
-        </select>
-      </div>
+### 📋 Checklist Tự vấn Kiến trúc Clean Architecture
+- [x] **1. Logic đặt ở đúng tầng Clean Architecture**: Nghiệp vụ tạo đơn PO/SO nằm trong Application Service của C# và Laravel. `ai-service` chỉ đóng vai trò Orchestrator gợi ý.
+- [x] **2. Hướng phụ thuộc một chiều**: UI gọi Gateway REST API, không gọi chéo trực tiếp database.
+- [x] **3. Dễ dàng viết Unit Test**: `procurement_fast_order` và `instant_quote_check` nhận `Actor` và `args`, trả về dictionary thuần.
+- [x] **4. Không lộ Domain Entity**: Trả về Action Schema là DTO thuần túy đã lọc dữ liệu nhạy cảm.
+- [x] **5. Múi giờ chuẩn UTC & Format Tiền tệ VNĐ**: Chuẩn ISO-8601 UTC và format `Intl.NumberFormat('vi-VN')`.
+- [x] **6. Zero-Hardcode & Dynamic Computation**: 100% số liệu lấy từ database và mô hình ML.
+- [x] **7. Strict Code Traceability**: Chặn toàn bộ mã mờ, bắt buộc mã SKU và mã khách hàng đầy đủ.
 
-      <div class="flex gap-3">
-        <div class="w-1/2">
-          <label class="block text-xs font-medium mb-1 text-surface-600 dark:text-surface-300">Số lượng đặt mua:</label>
-          <input v-model.number="orderQuantity" type="number" min="1" class="w-full text-xs rounded-lg border border-surface-300 dark:border-surface-600 bg-surface-50 dark:bg-surface-800 p-2 font-bold" />
-        </div>
-        <div class="w-1/2">
-          <label class="block text-xs font-medium mb-1 text-surface-600 dark:text-surface-300">Tổng tiền tạm tính:</label>
-          <div class="p-2 text-xs font-bold text-primary-600 dark:text-primary-400 rounded-lg bg-surface-100 dark:bg-surface-800">
-            {{ formatCurrency(calculatedTotal) }}
-          </div>
-        </div>
-      </div>
-    </div>
+---
 
-    <!-- Action Buttons -->
-    <div class="mt-4 pt-3 border-t border-surface-100 dark:border-surface-800 flex gap-2">
-      <button 
-        @click="submitCreatePO" 
-        :disabled="isSubmitting || !data.action_schema.can_execute"
-        class="flex-1 py-2 px-3 text-xs font-bold text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-sm transition flex items-center justify-center gap-1.5"
-      >
-        <i v-if="isSubmitting" class="pi pi-spin pi-spinner text-xs"></i>
-        <span>{{ isSubmitting ? 'Đang tạo đơn...' : '🚀 Xác nhận Tạo Đơn Mua (Draft PO)' }}</span>
-      </button>
-      <button @click="$emit('dismiss')" class="py-2 px-3 text-xs font-medium text-surface-600 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg transition">
-        Hủy
-      </button>
-    </div>
-  </div>
-</template>
+### 🧪 Bộ 6 Kịch bản Kiểm thử Toàn diện trên Trình duyệt (End-to-End Test Scenarios)
 
-<script setup>
-import { ref, computed } from 'vue';
-import axios from 'axios';
+#### 🔹 Kịch bản 1: Luồng Mua Hàng Nhanh (Procurement Action Card $\rightarrow$ Draft PO)
+- [ ] **Bước 1.1**: Đăng nhập tài khoản Thu mua (`purchase@erp.local` có quyền `purchase.create`).
+- [ ] **Bước 1.2**: Mở Chat Assistant, gửi prompt:
+  > *"Tra cứu nguồn hàng và lên kế hoạch nhập hàng nhanh cho sản phẩm RT38CG6584B1SV-SAM"*
+- [ ] **Bước 1.3**: Kiểm tra phản hồi: AI trích xuất phân tích ML (nhu cầu 30 ngày, khuyến nghị số lượng nhập) và hiển thị thẻ `ProcurementActionCard`.
+- [ ] **Bước 1.4**: Trên thẻ tương tác, chọn Nhà cung cấp giá tốt nhất, điều chỉnh số lượng thành `15` cái.
+- [ ] **Bước 1.5**: Bấm nút `[🚀 Xác nhận Tạo Đơn Mua (Draft PO)]`.
+- [ ] **Bước 1.6**: Xác nhận Toast thành công hiển thị, thẻ chuyển sang trạng thái đã tạo đơn kèm mã PO. Mở màn hình `/purchase/orders` kiểm tra bản ghi đơn mua mới được tạo ở trạng thái `Draft` hoặc `PendingApproval`.
 
-const props = defineProps({
-  data: { type: Object, required: true }
-});
-const emit = defineEmits(['po-created', 'dismiss']);
+#### 🔹 Kịch bản 2: Luồng Báo Giá Sỉ & Lên Đơn Bán Hàng (Sales Action Card $\rightarrow$ Draft SO / Quotation)
+- [ ] **Bước 2.1**: Đăng nhập tài khoản Kinh doanh (`sale@erp.local` có quyền `order.create`).
+- [ ] **Bước 2.2**: Mở Chat Assistant, gửi prompt:
+  > *"Báo giá sỉ 10 bộ điều hòa CFS-13VDM-COM cho đại lý DI-14998"*
+- [ ] **Bước 2.3**: Kiểm tra phản hồi: AI tự động áp dụng chiết khấu Distributor $18\%$, tính đơn giá $7.371.800$ đ, thuế VAT 8%, hiển thị thẻ `SalesActionCard` với 3 Badge xanh (Tồn kho đủ, Hạn mức nợ an toàn, Biên lãi $13.5\%$).
+- [ ] **Bước 2.4**: Bấm nút `[🚀 Tạo Đơn Bán Hàng (Draft SO)]`.
+- [ ] **Bước 2.5**: Kiểm tra Toast thành công hiển thị, thẻ ghi nhận mã chứng từ đơn bán. Mở màn hình `/sales/orders` thấy đơn bán hàng vừa tạo với đầy đủ thông tin khách hàng và sản phẩm.
 
-const selectedSupplierId = ref(props.data.action_schema.default_supplier_id);
-const orderQuantity = ref(props.data.action_schema.default_quantity || 10);
-const isSubmitting = ref(false);
+#### 🔹 Kịch bản 3: Kiểm thử Phòng vệ Truy vết Mã (Traceability Guardrail)
+- [ ] **Bước 3.1**: Trong khung chat, hỏi câu mơ hồ:
+  > *"Báo giá cho tôi máy giặt toshiba với"* hoặc *"Lập đơn mua cho mã CFS-13"*
+- [ ] **Bước 3.2**: Xác nhận AI **từ chối** trả lời qua loa, yêu cầu người dùng cung cấp chính xác **Mã code SKU đầy đủ** và **Mã khách hàng đầy đủ** để đảm bảo tính truy vết chứng từ ERP.
 
-const selectedSupplier = computed(() => {
-  return props.data.suppliers.find(s => s.supplier_id === selectedSupplierId.value) || props.data.suppliers[0];
-});
+#### 🔹 Kịch bản 4: Kiểm thử Thẩm định Tín dụng & Cảnh báo Nợ Quá Hạn
+- [ ] **Bước 4.1**: Gửi prompt yêu cầu báo giá cho khách hàng có nợ quá hạn thực tế:
+  > *"Báo giá 5 bộ CFS-13VDM-COM cho khách hàng DI-71173"*
+- [ ] **Bước 4.2**: Xác nhận AI phát hiện khách hàng có **212,9 triệu đồng nợ quá hạn**.
+- [ ] **Bước 4.3**: Thẻ `SalesActionCard` hiển thị Badge đỏ: `[Có nợ quá hạn hoặc vượt hạn mức]` để nhắc nhở nhân viên kinh doanh đôn đốc thu hồi nợ trước khi giao hàng.
 
-const calculatedTotal = computed(() => {
-  if (!selectedSupplier.value) return 0;
-  return selectedSupplier.value.latest_price * (orderQuantity.value || 0);
-});
+#### 🔹 Kịch bản 5: Kiểm thử Bảo vệ Biên Lợi Nhuận Gộp (Smart Margin Guard)
+- [ ] **Bước 5.1**: Trên thẻ `SalesActionCard` của mã `CFS-13VDM-COM` (giá vốn $6.377.000$ đ), chỉnh tỷ lệ chiết khấu thương lượng lên `35%`.
+- [ ] **Bước 5.2**: Đơn giá sau chiết khấu giảm xuống $5.843.500$ đ (thấp hơn giá vốn).
+- [ ] **Bước 5.3**: Xác nhận thẻ lập tức chuyển sang Badge đỏ cảnh báo: `[LO_VON: Bán lỗ -9.1%]` để ngăn ngừa rủi ro thất thoát doanh thu.
 
-function formatCurrency(val) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
-}
+#### 🔹 Kịch bản 6: Kiểm thử Phân quyền Hạt mịn RBAC (Fine-Grained Security)
+- [ ] **Bước 6.1**: Đăng nhập với tài khoản Kỹ thuật (`tech@erp.local`) hoặc tài khoản chỉ có quyền xem báo cáo (thiếu `purchase.create` và `order.create`).
+- [ ] **Bước 6.2**: Yêu cầu AI tra cứu nguồn hàng và báo giá.
+- [ ] **Bước 6.3**: Xác nhận thẻ Action Card vẫn hiển thị thông tin để xem trước (Preview), nhưng các nút `[Tạo Đơn]` bị vô hiệu hóa (disabled) kèm icon `🔒` và dòng thông báo yêu cầu cấp quyền.
 
-async function submitCreatePO() {
-  try {
-    isSubmitting.value = true;
-    const payload = {
-      supplier_id: selectedSupplierId.value,
-      notes: "Tạo tự động từ Trợ lý AI Procurement Copilot",
-      items: [
-        {
-          product_id: props.data.product.id,
-          sku: props.data.product.sku,
-          quantity_ordered: orderQuantity.value,
-          unit_cost: selectedSupplier.value.latest_price
-        }
-      ]
-    };
-    
-    // Gọi qua API Gateway :8000
-    const res = await axios.post('/api/v1/purchase/orders', payload);
-    emit('po-created', res.data.data);
-  } catch (err) {
-    console.error("Lỗi tạo PO từ Agent Card:", err);
-    alert(err.response?.data?.error?.message || "Không thể tạo đơn mua hàng");
-  } finally {
-    isSubmitting.value = false;
-  }
-}
-</script>
+---
+
+## 6. LỘ TRÌNH CÁC SPRINT TIẾP THEO (POST-PILOT SPRINT ROADMAP)
+
+Sau khi nghiệm thu luồng Pilot thành công, toàn bộ 24 công cụ MCP sẽ được triển khai mở rộng theo 4 Sprint:
+
+```text
+┌───────────────────────┐    ┌───────────────────────┐    ┌───────────────────────┐    ┌───────────────────────┐
+│        SPRINT 1       │ ──►│        SPRINT 2       │ ──►│        SPRINT 3       │ ──►│        SPRINT 4       │
+│  Kho vận & Tồn kho    │    │  Bán hàng & Đàm phán  │    │  Tài chính & Đối soát │    │ Chuẩn MCP & Langfuse  │
+│  (Tools 02,06,07,08)  │    │  (Tools 13,14,15)     │    │  (Tools 05,16,18,19)  │    │ (Tools 21,24, Server) │
+└───────────────────────┘    └───────────────────────┘    └───────────────────────┘    └───────────────────────┘
 ```
 
+### 🚀 Sprint 1: Kho vận & Quản trị tồn kho thông minh (Logistics & Inventory Intelligence)
+- [ ] **Tool 02 (`smart_restock_plan`)**: Quét mã hàng $\text{Available} \le \text{MinStock}$, tính tốc độ bán $\rightarrow$ Cảnh báo thiếu hàng kèm nút `[Tạo PO khuyến nghị]`.
+- [ ] **Tool 06 (`stock_card_trace`)**: Truy vết thẻ kho theo dòng thời gian theo từng số phiếu nhập/xuất và nhân viên thực hiện.
+- [ ] **Tool 07 (`slow_moving_deadstock_radar`)**: Nhận diện hàng tồn kho $>90$ ngày không phát sinh đơn bán $\rightarrow$ Đề xuất xả hàng.
+- [ ] **Tool 08 (`inter_warehouse_transfer_plan`)**: Phân tích kho thừa và kho thiếu cục bộ $\rightarrow$ Trả về thẻ điều chuyển liên kho kèm nút `[Tạo Phiếu Xuất Điều Chuyển]`.
+
+### 🚀 Sprint 2: Bán hàng B2B Nâng cao & Phân tích Đàm phán (Advanced Sales & Negotiation)
+- [ ] **Tool 13 (`create_sales_order_nlp`)**: Lên đơn bán hàng từ câu chat/voice tự do $\rightarrow$ Bóc tách thực thể khách hàng, mã hàng, số lượng.
+- [ ] **Tool 14 (`suggest_accessory_bundle`)**: Gợi ý combo phụ kiện biên lãi cao ($25-35\%$) khi mua điều hòa/tủ lạnh kèm nút `[➕ Thêm vào Đơn]`.
+- [ ] **Tool 15 (`at_risk_winback_action`)**: Kích hoạt đại lý nguy cơ rời bỏ $\rightarrow$ Đề xuất voucher chiết khấu $2\%$ kèm nút `[Gửi Tri Ân]`.
+- [ ] **Tool 03 & 04 (`supplier_scorecard_evaluate` & `purchase_price_variance_alert`)**: Đánh giá SLA nhà cung cấp và cảnh báo biến động giá mua bất thường.
+
+### 🚀 Sprint 3: Tài chính, Công nợ & Đối soát 3 bên (Finance, Credit & 3-Way Reconciliation)
+- [ ] **Tool 05 (`resolve_matching_discrepancy`)**: Đối soát 3 bên Đơn mua PO $\leftrightarrow$ Phiếu nhập kho GRN $\leftrightarrow$ Hóa đơn VAT, tự sinh biên bản chênh lệch.
+- [ ] **Tool 16 (`credit_risk_precheck`)**: Thẩm định tín dụng và kiểm tra nợ xấu trước khi cho phép xuất kho.
+- [ ] **Tool 18 (`suggest_credit_action`)**: Đề xuất hành động xử lý công nợ (tạm khóa đơn, chuyển COD tiền mặt, chuyển pháp chế).
+- [ ] **Tool 19 (`cash_flow_forecast_30d`)**: Dự báo dòng tiền thu - chi 30 ngày tới dựa trên lịch thanh toán PO và lịch thu nợ hóa đơn.
+
+### 🚀 Sprint 4: Chuẩn hóa Giao thức MCP Server, Observability & Điều hành (Executive & MCP)
+- [ ] **MCP Server Adapter (`/mcp/sse`)**: Đóng gói toàn bộ 24 công cụ và Resources chuẩn Model Context Protocol cho Claude Desktop, Antigravity IDE, Cursor.
+- [ ] **Tool 21 (`executive_root_cause_bi`)**: Phân tích nguyên nhân biến động tài chính phục vụ Ban Giám Đốc và Hội đồng chấm đồ án.
+- [ ] **Tool 24 (`eoffice_doc_summarizer_dispatch`)**: Tóm tắt tờ trình hợp đồng và đề xuất tuyến phê duyệt điện tử E-Office.
+- [ ] **Observability & Tracing**: Tích hợp Langfuse SDK vào `ai-service` để giám sát latency, token in/out và audit log hành động Agent.
+
 ---
 
-### GIAI ĐOẠN 5: KIỂM THỬ, TÍNH TOÀN VẸN KIẾN TRÚC & NGHIỆM THU
-> **Mục tiêu**: Tự kiểm tra nghiêm ngặt theo **7 câu hỏi tự vấn trong AGENTS.md** trước khi bàn giao.
+## 7. BẢNG PHÂN CÔNG CỔNG VÀ GIAO TIẾP HỆ THỐNG TRONG SMART-ERP
 
-#### Checklist Tự vấn Kiến trúc (Self-Audit Checklist)
-
-- [x] **1. Logic đặt ở đúng tầng Clean Architecture?**
-  - Nghiệp vụ tạo đơn PO nằm hoàn toàn trong `purchase-service` (Application Command Handler). `ai-service` chỉ đóng vai trò Orchestrator gợi ý và chuyển tiếp lệnh.
-- [x] **2. Hướng phụ thuộc một chiều?**
-  - `ai-service` gọi qua REST API Gateway bằng HTTP Client, không tham chiếu trực tiếp project DLL hay mã nguồn của `purchase-service`.
-- [x] **3. Dễ dàng viết Unit Test?**
-  - `procurement_fast_order` nhận `Actor` và `args`, trả về dictionary thuần, hoàn toàn độc lập với UI.
-- [x] **4. Không lộ thực thể Domain Entity ra ngoài?**
-  - Dữ liệu trả về qua Action Schema là DTO thuần túy đã được lọc các trường nhạy cảm.
-- [x] **5. Múi giờ chuẩn UTC?**
-  - Tất cả các trường `order_date` đều dùng định dạng chuẩn ISO-8601 UTC.
-- [x] **6. Truy vấn chỉ đọc đã tối ưu?**
-  - Mọi truy vấn SQLite/PostgreSQL trong `tools.py` đều có `LIMIT`, tạo index trên `sku`, không lock bảng.
-- [x] **7. Tuân thủ nguyên tắc KISS?**
-  - Sử dụng trực tiếp Function Calling có sẵn của Groq/OpenAI, không lạm dụng các framework agent phức tạp gây chậm phản hồi.
-
----
-
-## 4. KẾ HOẠCH NÂNG CẤP TIẾP THEO CHO TOÀN BỘ 10 TOOL
-
-1. **Sprint 1 (Hoàn thành ngay)**: Triển khai Tool 1 (`procurement_fast_order`) & Tool 2 (`smart_restock_plan`).
-2. **Sprint 2**: Triển khai bộ Tool cho Bán hàng: Tool 3 (`instant_quote_check`), Tool 4 (`smart_margin_guard`) và Tool 5 (`create_sales_order_nlp`).
-3. **Sprint 3**: Triển khai bộ Tool Tài chính & Giữ chân khách hàng: Tool 6 (`credit_risk_precheck`), Tool 8 (`at_risk_winback_action`) và Tool 9 (`resolve_matching_discrepancy`).
-4. **Sprint 4**: Triển khai Tool 10 (`executive_root_cause_bi`) phục vụ thuyết trình trực tiếp cho Ban Giám Đốc và Hội đồng chấm đồ án.
+| Dịch vụ | Cổng | Công nghệ | Nhiệm vụ chính trong Hệ sinh thái Agentic ERP |
+| :--- | :---: | :--- | :--- |
+| **`ai-service`** | **8010** | Python FastAPI | LLM Agent Core, 24 MCP Tools, Scikit-Learn ML Models, SQLite Analytics |
+| **`purchase-service`** | **8004** | C# .NET 10 | Quản lý Đơn mua hàng (PO), Đề nghị mua sắm (PR), Kiểm nhận hàng (GRN) |
+| **`sales-service`** | **8003** | PHP Laravel 11 | Quản lý Đơn bán hàng (SO), Báo giá (Quotation), Giao hàng (Delivery) |
+| **`inventory-service`** | **8005** | Go (Golang) | Quản lý Tồn kho thực tế, Giữ chỗ (Reservation), Thẻ kho, Điều chuyển |
+| **`catalog-service`** | **8002** | Node.js Express | Danh mục sản phẩm, Phân loại ngành hàng, Bảng giá niêm yết |
+| **`identity-service`** | **8001** | PHP Laravel 11 | Xác thực JWT (HS256), Quản trị người dùng & Phân quyền RBAC |
+| **`chat-service`** | **8009** | C# .NET 10 SignalR | Quản lý kênh chat nội bộ phòng ban & Realtime Bot Worker |
+| **`notification-service`**| **8006** | Node.js | Quả chuông thông báo cá nhân (Inbox Bell) & Email Dispatcher |
+| **`api-gateway`** | **8000** | YARP / Envoy | Định tuyến API tập trung, Rate Limiting, Correlation-ID Tracking |
+| **`frontend`** | **5175** | Vue 3 + PrimeVue | Giao diện Single Page Application (SPA), Generative UI Action Cards |
