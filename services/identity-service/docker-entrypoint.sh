@@ -41,10 +41,10 @@ fi
 
 # 4. Đảm bảo quyền ghi storage và cache
 mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
-chmod -R 777 storage bootstrap/cache 2>/dev/null || true
+chmod -R u+rwX,g+rwX storage bootstrap/cache 2>/dev/null || true
 
 # 5. Chay migration và seed nếu khởi chạy API server
-if [ "${RUN_MIGRATIONS:-false}" = "true" ] && [ "$1" = "php" ] && [ "$2" = "artisan" ] && [ "$3" = "serve" ]; then
+if [ "${RUN_MIGRATIONS:-false}" = "true" ] && [ "$1" = "start-web" ]; then
     echo "[Identity] Thuc thi database migrations..."
     php artisan migrate --force
 

@@ -1,0 +1,23 @@
+#!/bin/bash
+# Chạy PHP-FPM và Nginx trong cùng container. Một trong hai chết thì container thoát
+# để Docker (restart: unless-stopped) khởi động lại, thay vì sống dở với lỗi 502.
+set -u
+
+mkdir -p /tmp/nginx
+
+php-fpm -F &
+fpm_pid=$!
+
+nginx -g 'daemon off;' &
+nginx_pid=$!
+
+stop() {
+    kill -TERM "$fpm_pid" "$nginx_pid" 2>/dev/null || true
+}
+trap stop TERM INT
+
+wait -n "$fpm_pid" "$nginx_pid"
+status=$?
+stop
+wait
+exit "$status"
