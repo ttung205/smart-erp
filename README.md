@@ -63,6 +63,7 @@ Hạ tầng (Docker Compose): **Kong OSS** DB-less (API gateway), **RabbitMQ 3.1
 | Truy vết request xuyên service | **Correlation ID** sinh ở Kong, trả về trong response, ghi vào event và access log | `infrastructure/kong/kong.yml`, envelope |
 | Đồng thời khi giữ chỗ tồn kho | **Atomic reservation**: `UPDATE ... WHERE quantity >= số cần`, không bao giờ âm kho; giữ nhiều dòng trong một transaction | `inventory-service` (`InventoryStockManager`) |
 | Giữ hàng bị timeout hoặc Sales lỗi giữa chừng | Sales nhả hàng bù trừ ngay; lệnh đối soát `sales:reconcile-reservations` (mỗi 5 phút) nhả hàng treo của chứng từ không tồn tại hoặc đã hủy; số chứng từ không bao giờ bị cấp lại | `sales-service`, container `sales-scheduler` |
+| Gửi email ra ngoài | **Một đường duy nhất qua event**: Sales / Purchase ghi `*EmailRequested` vào outbox, Notification kiểm tra, xếp hàng và gửi SMTP có retry; tệp đính kèm chỉ là tham chiếu, được tải lúc gửi | `sales.quotation.email_requested`, `purchase.inquiry.email_requested`, `notification-service/src/email/` |
 | Quá tải hoặc service phụ thuộc sập | **Circuit breaker** mở 30 giây sau 5 lỗi liên tiếp; **retry** chỉ với lệnh an toàn khi gọi lại; **rate limit** theo IP tại Kong | Sales, E-Office (cache), Chat và Purchase (Polly), Kong |
 | Thông báo thời gian thực | **Socket.IO** chia room theo `user:{id}`; DB là nguồn sự thật, socket chỉ báo có thay đổi | `notification-service`, `frontend` |
 | Chat thời gian thực | **SignalR** hub, nhóm theo người dùng; mọi thao tác ghi đi qua REST để kiểm tra quyền một chỗ | `chat-service` |

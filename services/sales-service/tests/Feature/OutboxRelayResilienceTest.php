@@ -81,6 +81,9 @@ class OutboxRelayResilienceTest extends TestCase
 
     public function test_failed_event_waits_before_the_next_attempt(): void
     {
+        // updated_at lưu theo giây tròn; đóng băng đồng hồ ở đầu giây để kết quả không phụ thuộc thời gian chạy.
+        $this->freezeSecond();
+
         $event = $this->recordEvent();
         $event->update(['status' => OutboxEvent::FAILED, 'retry_count' => 3]);
 

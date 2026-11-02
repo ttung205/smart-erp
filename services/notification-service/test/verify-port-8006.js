@@ -27,7 +27,8 @@ async function run() {
 
   const child = spawn('node', ['src/index.js'], {
     cwd: process.cwd(),
-    env: { ...process.env, PORT: '8006' },
+    // Truyền khóa JWT cho tiến trình con để test không phụ thuộc vào file .env (không có trên CI).
+    env: { ...process.env, PORT: '8006', JWT_SECRET },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 

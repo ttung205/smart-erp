@@ -3,11 +3,12 @@
  * Ném lỗi khi cần retry (vd identity-service chưa phản hồi); message chỉ được ACK khi hàm này xong.
  */
 export class NotificationService {
-  constructor({ repository, resolver, rules, publisher, logger = console }) {
+  constructor({ repository, resolver, rules, publisher, emailEvents = null, logger = console }) {
     this.repository = repository;
     this.resolver = resolver;
     this.rules = rules;
     this.publisher = publisher;
+    this.emailEvents = emailEvents;
     this.logger = logger;
   }
 
@@ -19,6 +20,13 @@ export class NotificationService {
     }
     if (await this.repository.isProcessed(eventId)) {
       return { skipped: 'DUPLICATE' };
+    }
+
+    // Event yêu cầu gửi email (QuotationEmailRequested, ...): đưa vào hàng đợi gửi mail, không tạo thông báo in-app
+    if (this.emailEvents?.canHandle(eventType)) {
+      const result = await this.emailEvents.handle(envelope);
+      await this.repository.markProcessed(eventId, eventType);
+      return result;
     }
 
     // Đẩy broadcast Socket.IO đồng bộ dữ liệu thời gian thực cho frontend (Giai đoạn 3)

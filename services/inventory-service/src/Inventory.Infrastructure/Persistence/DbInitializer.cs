@@ -112,38 +112,23 @@ public static class DbInitializer
     {
         // 1. Ensure Database & Tables Created
         await context.Database.EnsureCreatedAsync();
-        await EnsureSqliteSchemaAsync(context);
         const string idempotencyIndex = "ux_inventory_stock_transaction_document";
         const string reservationIdempotencyIndex = "ux_inventory_reservation_transaction_document";
-        if (context.Database.IsSqlite())
+        try
         {
             await context.Database.ExecuteSqlRawAsync($"""
-                CREATE UNIQUE INDEX IF NOT EXISTS {idempotencyIndex}
+                CREATE UNIQUE INDEX {idempotencyIndex}
                 ON inventory_stocks_transaction (document_type, document_id, warehouse_id, product_id)
                 """);
             await context.Database.ExecuteSqlRawAsync($"""
-                CREATE UNIQUE INDEX IF NOT EXISTS {reservationIdempotencyIndex}
+                CREATE UNIQUE INDEX {reservationIdempotencyIndex}
                 ON inventory_stocks_reservation_transaction (document_type, document_id, warehouse_id, product_id)
                 """);
         }
-        else
+        catch (Exception exception) when (exception.Message.Contains("Duplicate key name", StringComparison.OrdinalIgnoreCase)
+            || exception.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
         {
-            try
-            {
-                await context.Database.ExecuteSqlRawAsync($"""
-                    CREATE UNIQUE INDEX {idempotencyIndex}
-                    ON inventory_stocks_transaction (document_type, document_id, warehouse_id, product_id)
-                    """);
-                await context.Database.ExecuteSqlRawAsync($"""
-                    CREATE UNIQUE INDEX {reservationIdempotencyIndex}
-                    ON inventory_stocks_reservation_transaction (document_type, document_id, warehouse_id, product_id)
-                    """);
-            }
-            catch (Exception exception) when (exception.Message.Contains("Duplicate key name", StringComparison.OrdinalIgnoreCase)
-                || exception.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
-            {
-                // The deployment already has the idempotency index.
-            }
+            // The deployment already has the idempotency index.
         }
 
         if (!seedData)
@@ -320,32 +305,6 @@ public static class DbInitializer
                 await context.InventoryStockReservationTransactions.AddRangeAsync(reservationTransactions);
                 await context.SaveChangesAsync();
             }
-        }
-    }
-
-    private static async Task EnsureSqliteSchemaAsync(InventoryDbContext context)
-    {
-        if (!context.Database.IsSqlite())
-        {
-            return;
-        }
-
-        var connection = context.Database.GetDbConnection();
-        await connection.OpenAsync();
-        try
-        {
-            await using var command = connection.CreateCommand();
-            command.CommandText = "SELECT COUNT(*) FROM pragma_table_info('inventory_stocks') WHERE name = 'origin'";
-            var originColumnExists = Convert.ToInt32(await command.ExecuteScalarAsync()) > 0;
-            if (!originColumnExists)
-            {
-                await context.Database.ExecuteSqlRawAsync(
-                    "ALTER TABLE inventory_stocks ADD COLUMN origin TEXT NOT NULL DEFAULT 'Việt Nam'");
-            }
-        }
-        finally
-        {
-            await connection.CloseAsync();
         }
     }
 }

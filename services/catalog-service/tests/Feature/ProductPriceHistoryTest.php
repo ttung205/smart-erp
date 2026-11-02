@@ -22,10 +22,11 @@ class ProductPriceHistoryTest extends TestCase
             ])->assertOk();
 
         $response = $this->withHeaders($this->jwtHeaders([], ['SALE']))->getJson('/api/products/price-history?sku=SM456-SHA')->assertOk();
-        $response->assertJsonPath('data.product.gross_price', 6600000);
+        // MySQL trả cột DECIMAL dưới dạng chuỗi ("6600000.00"), nên so sánh theo giá trị số.
+        $this->assertEquals(6600000, $response->json('data.product.gross_price'));
         $response->assertJsonCount(1, 'data.histories');
-        $response->assertJsonPath('data.histories.0.old_gross_price', 6100000);
-        $response->assertJsonPath('data.histories.0.new_gross_price', 6600000);
+        $this->assertEquals(6100000, $response->json('data.histories.0.old_gross_price'));
+        $this->assertEquals(6600000, $response->json('data.histories.0.new_gross_price'));
         $response->assertJsonPath('data.histories.0.source', 'INQUIRY');
         $response->assertJsonPath('data.histories.0.reference', 'IQ-NCC01-171026');
         // Sale không được thấy giá vốn

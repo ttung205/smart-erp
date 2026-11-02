@@ -242,7 +242,7 @@
             </div>
             <div class="flex flex-col leading-tight">
               <span class="text-xs font-bold text-slate-900">Database per Service</span>
-              <span class="text-[11px] text-slate-500 font-mono">SQLite (Local) / MySQL 8.0</span>
+              <span class="text-[11px] text-slate-500 font-mono">MySQL 8.0</span>
             </div>
           </div>
           <Tag severity="success" value="Isolated Schemas" class="!text-[10px] !rounded-[4px]" />
@@ -277,7 +277,7 @@ const services = ref([
     id: 'identity-service',
     name: 'Identity & Access Management',
     tech: 'Laravel 12 / 13 PHP',
-    runtime: 'PHP 8.2+ / SQLite',
+    runtime: 'PHP 8.2+ / MySQL',
     port: 8001,
     endpoint: '/api/v1/auth/health',
     scope: 'Xác thực tài khoản, phiên JWT phi trạng thái, phân quyền nhân sự & phòng ban',
@@ -293,7 +293,7 @@ const services = ref([
     id: 'catalog-service',
     name: 'Catalog Master Data Service',
     tech: 'Laravel 12 / 13 PHP',
-    runtime: 'PHP 8.2+ / SQLite',
+    runtime: 'PHP 8.2+ / MySQL',
     port: 8002,
     endpoint: '/api/v1/catalog/health',
     scope: 'Quản lý mã SKU sản phẩm, danh mục hàng hóa, thương hiệu, đối tác & bảng giá',
@@ -309,7 +309,7 @@ const services = ref([
     id: 'purchase-service',
     name: 'Purchase & Procurement Engine',
     tech: '.NET 10 Web API',
-    runtime: 'C# 13 / EF Core / SQLite',
+    runtime: 'C# 13 / EF Core / MySQL',
     port: 8003,
     endpoint: '/api/v1/purchase/health',
     scope: 'Quản lý yêu cầu mua sắm (PR), đơn mua hàng (PO), nhập kho mua hàng (GRPO) & công nợ NCC',
@@ -326,7 +326,7 @@ const services = ref([
     id: 'inventory-service',
     name: 'Inventory & Stock Engine',
     tech: '.NET 10 Web API',
-    runtime: 'C# 13 / EF Core / SQLite',
+    runtime: 'C# 13 / EF Core / MySQL',
     port: 8004,
     endpoint: '/api/v1/inventory/health',
     scope: 'Quản lý thẻ kho thực tế On-Hand, giữ chỗ Reserved, Available và sổ cái biến động',
@@ -343,7 +343,7 @@ const services = ref([
     id: 'sales-service',
     name: 'Sales & Distribution Service',
     tech: 'Laravel 12 / 13 PHP',
-    runtime: 'PHP 8.2+ / SQLite',
+    runtime: 'PHP 8.2+ / MySQL',
     port: 8005,
     endpoint: '/api/v1/sales/health',
     scope: 'Quản lý báo giá (Quotation), đơn bán hàng (Sales Order), xuất kho bán lẻ & hóa đơn VAT',
@@ -359,7 +359,7 @@ const services = ref([
     id: 'notification-service',
     name: 'Notification & Email Service',
     tech: 'Node.js / Express / Socket.IO',
-    runtime: 'Node.js 24 / SQLite',
+    runtime: 'Node.js 24 / MongoDB',
     port: 8006,
     endpoint: '/api/v1/notifications/health',
     scope: 'Hộp thư thông báo, đẩy sự kiện realtime và gửi email',
@@ -375,7 +375,7 @@ const services = ref([
     id: 'eoffice-service',
     name: 'E-Office Service',
     tech: 'Laravel PHP',
-    runtime: 'PHP 8.2+ / SQLite',
+    runtime: 'PHP 8.2+ / MySQL',
     port: 8007,
     endpoint: '/api/v1/eoffice/health',
     scope: 'Đơn nghỉ phép và luồng phê duyệt nội bộ',
@@ -391,7 +391,7 @@ const services = ref([
     id: 'finance-service',
     name: 'Finance & Accounting Service',
     tech: 'Laravel PHP',
-    runtime: 'PHP 8.2+ / SQLite',
+    runtime: 'PHP 8.2+ / MySQL',
     port: 8008,
     endpoint: '/api/v1/finance/health',
     scope: 'Kế toán, thu chi, công nợ, sổ cái và chứng từ tài chính',
@@ -407,7 +407,7 @@ const services = ref([
     id: 'chat-service',
     name: 'Realtime Enterprise Chat Service',
     tech: '.NET 10 Web API + SignalR',
-    runtime: 'C# 13 / EF Core / SQLite',
+    runtime: 'C# 13 / MongoDB',
     port: 8009,
     endpoint: '/api/v1/chat/health',
     scope: 'Tin nhắn nội bộ theo kênh phòng ban, chat 1-1 đồng nghiệp & RabbitMQ System Bot cảnh báo nghiệp vụ',

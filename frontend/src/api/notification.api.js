@@ -1,15 +1,7 @@
 import { apiClient } from './client';
 
 export const notificationApi = {
-  // Gửi email kèm file đính kèm
-  sendEmail(data) {
-    return apiClient('/api/v1/notifications/email/send', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
-  },
-
-  // Xem lịch sử gửi email
+  // Xem lịch sử gửi email (email được gửi qua event của từng nghiệp vụ, không có API gửi trực tiếp)
   getEmailLogs() {
     return apiClient('/api/v1/notifications/email/logs');
   },

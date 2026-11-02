@@ -34,17 +34,17 @@ if [ "$DB_CONNECTION" = "mysql" ]; then
         exit(1);
     '
     echo "[Finance] MySQL da san sang."
-elif [ "$DB_CONNECTION" = "sqlite" ] || [ -z "$DB_CONNECTION" ]; then
-    mkdir -p database
-    touch database/database.sqlite
+else
+    echo "DB_CONNECTION phai la mysql (dang la: '${DB_CONNECTION:-trong}')." >&2
+    exit 1
 fi
 
 # 4. Đảm bảo quyền ghi storage và cache
 mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
-chmod -R 777 storage bootstrap/cache 2>/dev/null || true
+chmod -R u+rwX,g+rwX storage bootstrap/cache 2>/dev/null || true
 
 # 5. Chay migration và seed nếu khởi chạy API server
-if [ "${RUN_MIGRATIONS:-false}" = "true" ] && [ "$1" = "php" ] && [ "$2" = "artisan" ] && [ "$3" = "serve" ]; then
+if [ "${RUN_MIGRATIONS:-false}" = "true" ] && [ "$1" = "start-web" ]; then
     echo "[Finance] Thuc thi database migrations..."
     php artisan migrate --force
 

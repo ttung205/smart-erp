@@ -193,7 +193,7 @@ Evidence: `infrastructure/kong/kong.yml`.
 | E-Office → Identity | Users/departments and line-manager/approver resolution | `X-Internal-Service-Key` | **IMPLEMENTED** — `EOffice IdentityClient.get/directReportIds` |
 | Notification → Identity | Resolve recipients by permission | `X-Internal-Service-Key` | **IMPLEMENTED** — `RecipientResolver`; wired in `src/index.js:48-52` |
 | Chat → Identity | User directory, cached 60 seconds | `X-Internal-Service-Key` | **IMPLEMENTED** — `IdentityUserDirectory.GetUsersAsync` |
-| Purchase → Identity/Catalog/Notification | Item-inquiry user checks, applying inquiry results, supplier email workflow | Mixed internal key/JWT depending method | **IMPLEMENTED**, concentrated in `ItemInquiriesController` |
+| Purchase → Identity/Catalog/Notification | Item-inquiry user checks, applying inquiry results, supplier email status lookups (sending is an event) | Mixed internal key/JWT depending method | **IMPLEMENTED**, concentrated in `ItemInquiriesController` |
 | AI → other APIs | None found | N/A | **UNKNOWN/ABSENT**; AI reads its SQLite warehouse rather than calling domain APIs |
 
 Kong removes `X-Internal-Service-Key` only at the public gateway. Internal callers address service DNS directly, so the header is preserved. Evidence: `kong.yml — request-transformer`; service base URLs in Compose.
@@ -227,7 +227,8 @@ flowchart LR
     EX -.->|inventory.stock.* configured| SQ[erp.sales.events]
     SQ -.->|no consumer found| UNUSED[no Sales consumer]
 
-    NAPI[POST notification email/send] --> EQ[erp.email.send]
+    EX -->|sales.quotation.email_requested / purchase.inquiry.email_requested| NQ
+    NQ --> NC --> EQ[erp.email.send]
     EQ --> EC[Email consumer] --> SMTP[Mailpit SMTP]
 
     NQ & EQ -->|retry exhausted / nack| DLX{{erp.dlx}} --> DLQ[erp.dead_letters]
@@ -314,7 +315,7 @@ Evidence: `StocksController.ReserveBatch/Receive/Issue`; `RabbitMqConsumerWorker
 
 - PR → approval/rejection → PO → approval/cancel/close → GRN confirmation → purchase invoice matching/posting and returns are exposed as REST APIs.
 - Confirmed goods receipt writes `GoodsReceived` to Purchase outbox; Inventory consumes it asynchronously.
-- Item inquiries emit requested/responded notifications and use synchronous service calls for users, Catalog result application, and notification email workflow.
+- Item inquiries emit requested/responded notifications and use synchronous service calls for users, Catalog result application, and email status lookups (sending is the `SupplierInquiryEmailRequested` event).
 
 Evidence: Purchase controllers and application services; `GoodsReceiptService`; `PurchaseOrderService`; `PurchaseReturnService`; `ItemInquiriesController`.
 
@@ -330,10 +331,10 @@ Evidence: `finance-service/routes/api.php`; finance migrations; `CustomerReceiva
 
 - Domain consumer resolves recipients, writes notifications and processed-event idempotency state in one SQLite transaction, then pushes Socket.IO events.
 - Retry is a 10-second TTL queue, maximum five attempts; exhausted/invalid messages go to DLX.
-- Email API queues jobs to `erp.email.send`; email consumer sends through Nodemailer/Mailpit and tracks job state.
-- Email routes are mounted before JWT-protected notification routes and do not visibly apply `requireAuth` in `app.js`; authorization inside `email.routes.js` was not established from route mounting. Treat public email-send exposure as a security risk requiring verification.
+- Email is sent only through events: Sales (`QuotationEmailRequested`) and Purchase (`SupplierInquiryEmailRequested`) write the event to their outbox; `EmailEventHandler` validates it, records `email_jobs` as `QUEUED` and queues the job to `erp.email.send`; the email consumer downloads attachments from the owning service (internal key) and sends through Nodemailer/Mailpit, tracking job state. The old direct `POST /email/send` API is removed.
+- The remaining email routes (`/logs`, `/logs/{id}`) are guarded by `authenticateEmailCaller` (JWT with a business permission, or internal key).
 
-Evidence: `NotificationService.handleEvent`; `consumer.js`; `email.queue.js`; `app.js:19-21`.
+Evidence: `NotificationService.handleEvent`; `consumer.js`; `email.events.js`; `attachment.fetcher.js`; `email.queue.js`; `email.auth.js`.
 
 ### 10.8 Chat — REST + SignalR IMPLEMENTED; AMQP bot DOC_ONLY
 
@@ -449,7 +450,6 @@ Not implemented: distributed tracing (OpenTelemetry), log/metric alert delivery 
 | High | AI ETL directly reads other service DB files and is unusable in default MySQL Compose topology. | Violates strict service DB boundary in dev design; production analytics can be stale/missing. | `warehouse.py`; Compose AI config — **disabled in deployment** |
 | High | All MySQL schemas share one server, volume, root failure domain, and one broad `erp_user` credential. | Logical isolation does not provide independent availability/scaling; compromise may cross schemas if grants/credential leak. | Compose MySQL; init SQL |
 | High | Every backend port is host-published. | Kong header stripping/policy can be bypassed by direct host access. | `docker-compose.yml` ports |
-| High | Notification email router is mounted outside `requireAuth`. | Potential unauthenticated email enqueue/log access unless guarded inside router or network perimeter. | `notification-service/src/app.js:19-21`; verify `email.routes.js` — **needs security review** |
 | Medium | Gateway startup depends on health of all ten services. | One optional service blocks the single API entry point. | `docker-compose.yml — gateway.depends_on` |
 | Medium | Outbox implementations differ: Laravel has confirms+mandatory, .NET workers mark published after `BasicPublish` without confirms. | Delivery guarantees are inconsistent and weaker for Purchase/Inventory. | Laravel `RabbitMqPublisher.publish`; .NET relay workers |
 | Medium | PHP API containers use `artisan serve` with production env. | Throughput/process management bottleneck and unsuitable production serving model. | Laravel Dockerfiles and Compose `APP_ENV=production` |

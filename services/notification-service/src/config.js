@@ -12,6 +12,11 @@ export const config = {
   },
   identityUrl: (process.env.IDENTITY_SERVICE_URL || 'http://127.0.0.1:8001').replace(/\/$/, ''),
   internalServiceKey: process.env.INTERNAL_SERVICE_KEY || '',
+  // Service sở hữu tệp đính kèm email (tải bằng khóa nội bộ lúc gửi)
+  services: {
+    sales: (process.env.SALES_SERVICE_URL || 'http://127.0.0.1:8005').replace(/\/$/, ''),
+    purchase: (process.env.PURCHASE_SERVICE_URL || 'http://127.0.0.1:8003').replace(/\/$/, ''),
+  },
   recipientCacheTtlMs: Number(process.env.RECIPIENT_CACHE_TTL_MS) || 5 * 60 * 1000,
   rabbitmq: {
     url: process.env.RABBITMQ_URL || 'amqp://erp_rabbit:rabbit_secret@127.0.0.1:5672',

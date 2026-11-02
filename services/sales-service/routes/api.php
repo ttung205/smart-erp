@@ -17,6 +17,9 @@ use Illuminate\Support\Facades\Route;
 // 1. Health Check
 Route::get('/health', [HealthController::class, 'check']);
 
+// Service khác đọc tệp đính kèm bằng X-Internal-Service-Key (vd notification-service tải PDF báo giá để gửi email)
+Route::get('/internal/attachments/{id}/download', [AttachmentController::class, 'download'])->middleware('internal');
+
 Route::middleware('jwt')->group(function () {
     Route::get('/sale-return-requests/eligible-invoices', [SaleReturnRequestController::class, 'eligibleInvoices'])->middleware('permission:sale_return.view');
     Route::get('/sale-return-requests', [SaleReturnRequestController::class, 'index'])->middleware('permission:sale_return.view');
@@ -40,6 +43,7 @@ Route::middleware('jwt')->group(function () {
     Route::delete('/attachments/{id}', [AttachmentController::class, 'destroy'])->middleware('permission:quotation.update,order.update,invoice.manage,sale_return.technical,sale_return.manage');
 
     // 2. Quotations (Báo Giá)
+    Route::post('/quotations/{id}/send-email', [QuotationController::class, 'sendEmail'])->middleware('permission:quotation.create,quotation.update,quotation.manage');
     Route::post('/quotations/{id}/submit-approval', [QuotationController::class, 'submitApproval'])->middleware('permission:quotation.update');
     Route::post('/quotations/{id}/approve', [QuotationController::class, 'approve'])->middleware('permission:quotation.approve');
     Route::post('/quotations/{id}/reject', [QuotationController::class, 'reject'])->middleware('permission:quotation.approve');

@@ -38,6 +38,15 @@ export const salesApi = {
     });
   },
 
+  // Yêu cầu gửi email báo giá: Sales ghi event, notification-service gửi mail (không gửi đồng bộ).
+  // data: { to[], cc[], subject, body, sender_name, attachment_ids[] }; trả về { email_job_id, status }
+  sendQuotationEmail(id, data) {
+    return apiClient(`/api/v1/sales/quotations/${id}/send-email`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
   submitApproval(id) {
     return apiClient(`/api/v1/sales/quotations/${id}/submit-approval`, {
       method: 'POST'

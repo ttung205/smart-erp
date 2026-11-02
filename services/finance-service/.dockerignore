@@ -14,3 +14,4 @@ tests/
 .vscode/
 .idea/
 *.log
+bootstrap/cache/*.php

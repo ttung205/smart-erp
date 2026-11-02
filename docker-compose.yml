@@ -217,7 +217,6 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: "http://+:8003"
-      DatabaseProvider: MySql
       ConnectionStrings__MySqlConnection: "Server=mysql;Port=3306;Database=erp_purchase_db;User=erp_user;Password=${MYSQL_PASSWORD:-erp_secret};TreatTinyAsBoolean=true;"
       RabbitMQ__HostName: rabbitmq
       RabbitMQ__Port: 5672
@@ -225,6 +224,10 @@ services:
       RabbitMQ__Password: ${RABBITMQ_PASSWORD:-rabbit_secret}
       RabbitMQ__ExchangeName: erp.events
       Jwt__Secret: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
+      # Địa chỉ service khác (hỏi hàng gọi Catalog, Identity; tra trạng thái email ở Notification)
+      Services__Catalog: http://catalog-service:8002
+      Services__Identity: http://identity-service:8001
+      Services__Notification: http://notification-service:8006
       Services__InternalKey: ${INTERNAL_SERVICE_KEY:-smart_erp_internal_2026}
       AUTO_SEED: "false"
     depends_on:
@@ -254,7 +257,6 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: "http://+:8004"
-      DatabaseProvider: MySql
       ConnectionStrings__MySqlConnection: "Server=mysql;Port=3306;Database=erp_inventory_db;User=erp_user;Password=${MYSQL_PASSWORD:-erp_secret};"
       RabbitMQ__HostName: rabbitmq
       RabbitMQ__Port: 5672
@@ -404,6 +406,9 @@ services:
       MAIL_FROM_NAME: "Smart ERP"
       JWT_SECRET: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
       IDENTITY_SERVICE_URL: http://identity-service:8001
+      # Tải tệp đính kèm email từ service sở hữu (khóa nội bộ) lúc gửi
+      SALES_SERVICE_URL: http://sales-service:8005
+      PURCHASE_SERVICE_URL: http://purchase-service:8003
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-erp_rabbit}:${RABBITMQ_PASSWORD:-rabbit_secret}@rabbitmq:5672
       MONGODB_URI: mongodb://mongo:27017/?replicaSet=rs0
       NOTIFICATION_DB_NAME: erp_notification_db
@@ -599,6 +604,9 @@ services:
       MYSQL_USER: erp_user
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
       ANALYTICS_DB_NAME: erp_analytics_db
+      KAGGLE_DATASET_DIR: /data/kaggle_dataset
+    volumes:
+      - ./kaggle_dataset:/data/kaggle_dataset:ro
     depends_on:
       mysql:
         condition: service_healthy
@@ -629,6 +637,12 @@ services:
       KONG_STATUS_LISTEN: "0.0.0.0:8100"
       KONG_NGINX_HTTP_CLIENT_MAX_BODY_SIZE: 210m
       KONG_LOG_LEVEL: notice
+      # Trình duyệt đi qua nginx (frontend) nên Kong chỉ thấy IP của container nginx. Tin X-Forwarded-For từ mạng nội bộ
+      # (Docker) để rate limit và access log tính theo IP người dùng thật, không gộp cả công ty vào một hạn mức.
+      # Kết nối từ ngoài mạng riêng không nằm trong danh sách này nên không giả mạo được IP bằng header.
+      KONG_TRUSTED_IPS: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+      KONG_REAL_IP_HEADER: X-Forwarded-For
+      KONG_REAL_IP_RECURSIVE: "on"
       # Docker DNS trả TTL 600s: service bị tạo lại (IP mới) sẽ 502 tới 10 phút. Ép Kong phân giải lại sau 10s
       KONG_DNS_VALID_TTL: "10"
       # Access log kèm correlation id và thời gian xử lý, để tìm một request trong Loki (dashboard Logs)

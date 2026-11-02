@@ -14,7 +14,7 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
     });
 
-// 2. Add Infrastructure (EF Core with SQLite/MySQL)
+// 2. Add Infrastructure (EF Core with MySQL)
 builder.Services.AddInfrastructure(builder.Configuration);
 
 // 3. Configure CORS for Gateway (:8000) and Frontend (:5173)
