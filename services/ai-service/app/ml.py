@@ -25,7 +25,8 @@ from sklearn.preprocessing import StandardScaler
 log = logging.getLogger("ai.ml")
 
 # Đường dẫn tới thư mục dữ liệu Kaggle đã làm giàu
-ROOT_DIR = Path(__file__).resolve().parents[3]
+_PARENTS = Path(__file__).resolve().parents
+ROOT_DIR = _PARENTS[3] if len(_PARENTS) > 3 else _PARENTS[-1]
 KAGGLE_DIR = Path(os.environ.get("KAGGLE_DATASET_DIR", ROOT_DIR / "kaggle_dataset"))
 
 # In-memory Cache & Lock

@@ -606,6 +606,9 @@ services:
       MYSQL_USER: erp_user
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
       ANALYTICS_DB_NAME: erp_analytics_db
+      KAGGLE_DATASET_DIR: /data/kaggle_dataset
+    volumes:
+      - ./kaggle_dataset:/data/kaggle_dataset:ro
     depends_on:
       mysql:
         condition: service_healthy
