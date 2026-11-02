@@ -1,0 +1,302 @@
+name: CI
+
+# Chạy mọi PR và mỗi lần merge vào main. Chỉ test phần bị ảnh hưởng (path filter);
+# job `ci-gate` là check bắt buộc duy nhất cho branch protection.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Push thêm commit thì hủy lượt chạy cũ của cùng branch.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Quyền tối thiểu cho GITHUB_TOKEN.
+permissions:
+  contents: read
+
+env:
+  MYSQL_ROOT_PASSWORD: root_ci
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. Xác định service nào có file thay đổi
+  # ---------------------------------------------------------------------------
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      php: ${{ steps.pick.outputs.php }}
+      dotnet: ${{ steps.pick.outputs.dotnet }}
+      notification: ${{ steps.pick.outputs.notification }}
+      frontend: ${{ steps.pick.outputs.frontend }}
+      ai: ${{ steps.pick.outputs.ai }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            shared:
+              - '.github/workflows/ci.yml'
+              - 'infrastructure/mysql/init/**'
+            identity:
+              - 'services/identity-service/**'
+            catalog:
+              - 'services/catalog-service/**'
+            sales:
+              - 'services/sales-service/**'
+            eoffice:
+              - 'services/eoffice-service/**'
+            finance:
+              - 'services/finance-service/**'
+            purchase:
+              - 'services/purchase-service/**'
+            inventory:
+              - 'services/inventory-service/**'
+            chat:
+              - 'services/chat-service/**'
+            notification:
+              - 'services/notification-service/**'
+            frontend:
+              - 'frontend/**'
+            ai:
+              - 'services/ai-service/**'
+
+      # Đổi kết quả của path filter thành danh sách matrix. Sửa workflow hoặc script DB test
+      # (shared) hoặc chạy tay (workflow_dispatch) thì test tất cả.
+      - id: pick
+        env:
+          CHANGED: ${{ steps.filter.outputs.changes }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          run_all() { jq -e 'index("shared")' <<<"$CHANGED" >/dev/null || [ "$EVENT" = "workflow_dispatch" ]; }
+          pick() {
+            if run_all; then echo "$1"; else
+              jq -c --argjson all "$1" '[.[] | select(. as $s | $all | index($s))]' <<<"$CHANGED"
+            fi
+          }
+          flag() {
+            if run_all || jq -e --arg n "$1" 'index($n)' <<<"$CHANGED" >/dev/null; then echo true; else echo false; fi
+          }
+          {
+            echo "php=$(pick '["identity","catalog","sales","eoffice","finance"]')"
+            echo "dotnet=$(pick '["purchase","inventory","chat"]')"
+            echo "notification=$(flag notification)"
+            echo "frontend=$(flag frontend)"
+            echo "ai=$(flag ai)"
+          } | tee -a "$GITHUB_OUTPUT"
+
+  # ---------------------------------------------------------------------------
+  # 2. PHP (Laravel): test trên MySQL thật, mỗi service một database test riêng
+  # ---------------------------------------------------------------------------
+  php-tests:
+    name: php-tests (${{ matrix.service }})
+    needs: changes
+    if: needs.changes.outputs.php != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.changes.outputs.php) }}
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root_ci
+          MYSQL_USER: erp_user
+          MYSQL_PASSWORD: erp_secret
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    defaults:
+      run:
+        working-directory: services/${{ matrix.service }}-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_mysql, bcmath, zip, sockets, pcntl, fileinfo
+          tools: composer:v2
+          coverage: none
+
+      - name: Tạo database test
+        working-directory: .
+        run: mysql -h 127.0.0.1 -P 3306 -uroot -p"$MYSQL_ROOT_PASSWORD" < infrastructure/mysql/init/02-create-test-databases.sql
+
+      - id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ matrix.service }}-${{ hashFiles(format('services/{0}-service/composer.lock', matrix.service)) }}
+          restore-keys: composer-${{ matrix.service }}-
+
+      - run: composer install --no-interaction --no-progress --prefer-dist
+
+      - run: cp .env.example .env && php artisan key:generate --force
+
+      - run: php artisan test --compact
+
+  # ---------------------------------------------------------------------------
+  # 3. .NET: test trên MySQL thật; chat cần thêm MongoDB
+  # ---------------------------------------------------------------------------
+  dotnet-tests:
+    name: dotnet-tests (${{ matrix.service }})
+    needs: changes
+    if: needs.changes.outputs.dotnet != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.changes.outputs.dotnet) }}
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root_ci
+          MYSQL_USER: erp_user
+          MYSQL_PASSWORD: erp_secret
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+    env:
+      TEST_MYSQL_CONNECTION: Server=127.0.0.1;Port=3306;User=erp_user;Password=erp_secret;TreatTinyAsBoolean=true;
+      CHAT_TEST_MONGO: mongodb://127.0.0.1:27017/?directConnection=true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Tạo database test
+        run: mysql -h 127.0.0.1 -P 3306 -uroot -p"$MYSQL_ROOT_PASSWORD" < infrastructure/mysql/init/02-create-test-databases.sql
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ matrix.service }}-${{ hashFiles(format('services/{0}-service/**/*.csproj', matrix.service)) }}
+          restore-keys: nuget-${{ matrix.service }}-
+
+      - run: dotnet test services/${{ matrix.service }}-service --nologo --verbosity minimal
+
+  # ---------------------------------------------------------------------------
+  # 4. Notification (Node): test trên MongoDB thật
+  # ---------------------------------------------------------------------------
+  notification-tests:
+    needs: changes
+    if: needs.changes.outputs.notification == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+    env:
+      MONGODB_URI: mongodb://127.0.0.1:27017/?directConnection=true
+    defaults:
+      run:
+        working-directory: services/notification-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: services/notification-service/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  # ---------------------------------------------------------------------------
+  # 5. Frontend: lint chỉ file đã sửa (nợ cũ không chặn), build luôn chặn
+  # ---------------------------------------------------------------------------
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+
+      - name: Lint các file frontend đã sửa trong PR (chỉ chặn lỗi, bỏ qua cảnh báo)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          files=$(git diff --name-only --diff-filter=ACMR "origin/${BASE_REF}...HEAD" -- 'src/**/*.vue' 'src/**/*.js' | sed 's#^frontend/##')
+          if [ -z "$files" ]; then echo "Không có file nguồn frontend nào thay đổi."; exit 0; fi
+          echo "$files"
+          # shellcheck disable=SC2086
+          npx eslint --quiet $files
+
+      - run: npm run build
+
+  # ---------------------------------------------------------------------------
+  # 6. ai-service: chưa có test chạy được mà không cần MySQL có dữ liệu thật,
+  #    nên chỉ kiểm tra cài được thư viện, biên dịch được và import được
+  # ---------------------------------------------------------------------------
+  ai-check:
+    needs: changes
+    if: needs.changes.outputs.ai == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: services/ai-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: services/ai-service/requirements.txt
+      - run: pip install -r requirements.txt
+      - run: python -m compileall -q app
+      - run: python -c "import app.main"
+
+  # ---------------------------------------------------------------------------
+  # Cổng duy nhất cho branch protection: job bị bỏ qua (skipped) không chặn merge,
+  # job lỗi hoặc bị hủy thì chặn.
+  # ---------------------------------------------------------------------------
+  ci-gate:
+    if: always()
+    needs: [changes, php-tests, dotnet-tests, notification-tests, frontend, ai-check]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Kiểm tra kết quả các job
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          if echo "$RESULTS" | jq -e '[.[].result] | any(. == "failure" or . == "cancelled")' >/dev/null; then
+            echo "Có job lỗi hoặc bị hủy."; exit 1
+          fi
