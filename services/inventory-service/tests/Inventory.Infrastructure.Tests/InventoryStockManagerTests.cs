@@ -3,7 +3,6 @@ using Inventory.Domain.Entities;
 using Inventory.Domain.Exceptions;
 using Inventory.Infrastructure.Persistence;
 using Inventory.Infrastructure.Services;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -17,18 +16,14 @@ public class InventoryStockManagerTests : IDisposable
 {
     private const long Warehouse = 1;
 
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _connection;
     private readonly InventoryDbContext _context;
     private readonly InventoryStockManager _manager;
 
     public InventoryStockManagerTests()
     {
-        _connection = new SqliteConnection("DataSource=:memory:");
-        _connection.Open();
-
-        var options = new DbContextOptionsBuilder<InventoryDbContext>().UseSqlite(_connection).Options;
-        _context = new InventoryDbContext(options);
-        _context.Database.EnsureCreated();
+        _connection = new TestDatabase();
+        _context = _connection.CreateContext();
         _context.Warehouses.Add(new Warehouse { Id = Warehouse, Code = "WH-HN-01", Name = "Kho Tổng Hà Nội", Location = "Hà Nội", IsActive = true });
         _context.SaveChanges();
 

@@ -45,8 +45,9 @@ class CatalogApiSecurityTest extends TestCase
             ->assertOk()
             ->assertJsonMissingPath('data.0.price_index');
 
-        $this->withHeaders($this->jwtHeaders([], ['PURCHASE']))->getJson('/api/brands')
-            ->assertJsonPath('data.0.price_index', 1.2);
+        $response = $this->withHeaders($this->jwtHeaders([], ['PURCHASE']))->getJson('/api/brands');
+        // MySQL trả cột DECIMAL dưới dạng chuỗi ("1.2000"), nên so sánh theo giá trị số.
+        $this->assertEquals(1.2, $response->json('data.0.price_index'));
     }
 
     public function test_apply_inquiry_result_only_via_internal_service(): void

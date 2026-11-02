@@ -34,9 +34,9 @@ if [ "$DB_CONNECTION" = "mysql" ]; then
         exit(1);
     '
     echo "[Finance] MySQL da san sang."
-elif [ "$DB_CONNECTION" = "sqlite" ] || [ -z "$DB_CONNECTION" ]; then
-    mkdir -p database
-    touch database/database.sqlite
+else
+    echo "DB_CONNECTION phai la mysql (dang la: '${DB_CONNECTION:-trong}')." >&2
+    exit 1
 fi
 
 # 4. Đảm bảo quyền ghi storage và cache

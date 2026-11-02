@@ -217,7 +217,6 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: "http://+:8003"
-      DatabaseProvider: MySql
       ConnectionStrings__MySqlConnection: "Server=mysql;Port=3306;Database=erp_purchase_db;User=erp_user;Password=${MYSQL_PASSWORD:-erp_secret};TreatTinyAsBoolean=true;"
       RabbitMQ__HostName: rabbitmq
       RabbitMQ__Port: 5672
@@ -258,7 +257,6 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: "http://+:8004"
-      DatabaseProvider: MySql
       ConnectionStrings__MySqlConnection: "Server=mysql;Port=3306;Database=erp_inventory_db;User=erp_user;Password=${MYSQL_PASSWORD:-erp_secret};"
       RabbitMQ__HostName: rabbitmq
       RabbitMQ__Port: 5672

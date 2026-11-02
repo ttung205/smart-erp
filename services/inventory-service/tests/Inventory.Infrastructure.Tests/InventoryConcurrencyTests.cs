@@ -4,7 +4,6 @@ using Inventory.Domain.Entities;
 using Inventory.Domain.Exceptions;
 using Inventory.Infrastructure.Persistence;
 using Inventory.Infrastructure.Services;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -12,23 +11,16 @@ namespace Inventory.Infrastructure.Tests;
 
 public class InventoryConcurrencyTests : IDisposable
 {
-    private readonly string _dbPath;
-    private readonly string _connectionString;
+    private readonly TestDatabase _database;
     private readonly DbContextOptions<InventoryDbContext> _dbOptions;
 
     public InventoryConcurrencyTests()
     {
-        _dbPath = Path.Combine(Path.GetTempPath(), $"inv_concurrency_test_{Guid.NewGuid():N}.db");
-        _connectionString = $"Data Source={_dbPath};Default Timeout=30";
-
-        _dbOptions = new DbContextOptionsBuilder<InventoryDbContext>()
-            .UseSqlite(_connectionString)
-            .Options;
+        _database = new TestDatabase();
+        _dbOptions = _database.Options;
 
         // Khởi tạo Database và bật WAL mode để hỗ trợ truy cập đa luồng tối ưu
         using var initContext = new InventoryDbContext(_dbOptions);
-        initContext.Database.EnsureCreated();
-        initContext.Database.ExecuteSqlRaw("PRAGMA journal_mode=WAL;");
 
         // Seed Warehouse 1
         initContext.Warehouses.Add(new Warehouse
@@ -42,21 +34,7 @@ public class InventoryConcurrencyTests : IDisposable
         initContext.SaveChanges();
     }
 
-    public void Dispose()
-    {
-        try
-        {
-            if (File.Exists(_dbPath))
-            {
-                SqliteConnection.ClearAllPools();
-                File.Delete(_dbPath);
-            }
-        }
-        catch
-        {
-            // Bỏ qua lỗi xóa file tạm nếu còn process giữ handle
-        }
-    }
+    public void Dispose() => _database.Dispose();
 
     [Fact]
     public async Task ConcurrencyTest_20ParallelTasks_OnlyOneSucceeds_ZeroOverselling()

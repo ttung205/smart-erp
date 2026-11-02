@@ -6,7 +6,6 @@ using Inventory.Domain.Entities;
 using Inventory.Infrastructure.Messaging;
 using Inventory.Infrastructure.Persistence;
 using Inventory.Infrastructure.Services;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -23,15 +22,13 @@ public class OutboxReliabilityTests : IDisposable
     private const long Product = 10;
     private const long Product2 = 11;
 
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _connection;
     private readonly InventoryDbContext _context;
 
     public OutboxReliabilityTests()
     {
-        _connection = new SqliteConnection("DataSource=:memory:");
-        _connection.Open();
+        _connection = new TestDatabase();
         _context = NewContext();
-        _context.Database.EnsureCreated();
         _context.Warehouses.Add(new Warehouse { Id = Warehouse, Code = "WH", Name = "Kho", Location = "HN", IsActive = true });
         _context.InventoryStocks.Add(new InventoryStock(Warehouse, Product, 5));
         _context.InventoryStockReservations.Add(new InventoryStockReservation(Warehouse, Product, 5));
@@ -46,8 +43,7 @@ public class OutboxReliabilityTests : IDisposable
         _connection.Dispose();
     }
 
-    private InventoryDbContext NewContext() =>
-        new(new DbContextOptionsBuilder<InventoryDbContext>().UseSqlite(_connection).Options);
+    private InventoryDbContext NewContext() => _connection.CreateContext();
 
     private OutboxEvent AddEvent(string id, DateTime createdAt)
     {

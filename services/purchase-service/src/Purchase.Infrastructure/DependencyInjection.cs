@@ -13,22 +13,11 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var dbProvider = configuration["DatabaseProvider"] ?? "Sqlite";
-
         services.AddDbContext<PurchaseDbContext>(options =>
         {
-            if (dbProvider.Equals("MySql", StringComparison.OrdinalIgnoreCase))
-            {
-                var mySqlConn = configuration.GetConnectionString("MySqlConnection") 
-                    ?? configuration.GetConnectionString("DefaultConnection");
-                options.UseMySql(mySqlConn!, ServerVersion.AutoDetect(mySqlConn));
-            }
-            else
-            {
-                var sqliteConn = configuration.GetConnectionString("SqliteConnection") 
-                    ?? "Data Source=purchase.db";
-                options.UseSqlite(sqliteConn);
-            }
+            var mySqlConn = configuration.GetConnectionString("MySqlConnection")
+                ?? configuration.GetConnectionString("DefaultConnection");
+            options.UseMySql(mySqlConn!, ServerVersion.AutoDetect(mySqlConn));
         });
 
         // 2. IPurchaseDbContext mapping

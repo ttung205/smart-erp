@@ -22,7 +22,7 @@ namespace Purchase.Tests;
 public class InquiryEmailEventTests : IDisposable
 {
     private readonly PurchaseDbContext _db;
-    private readonly Microsoft.Data.Sqlite.SqliteConnection _connection;
+    private readonly TestDatabase _connection;
     private readonly string _contentRoot = Path.Combine(Path.GetTempPath(), "purchase-mail-" + Guid.NewGuid().ToString("N"));
     private readonly FakeHttpFactory _http = new();
 
