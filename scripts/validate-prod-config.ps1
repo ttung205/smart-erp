@@ -11,7 +11,10 @@ Push-Location $root
 
 $secretNames = @(
     "MYSQL_ROOT_PASSWORD", "MYSQL_PASSWORD", "RABBITMQ_PASSWORD", "JWT_SECRET", "INTERNAL_SERVICE_KEY",
-    "IDENTITY_APP_KEY", "CATALOG_APP_KEY", "SALES_APP_KEY", "EOFFICE_APP_KEY", "FINANCE_APP_KEY"
+    "IDENTITY_APP_KEY", "CATALOG_APP_KEY", "SALES_APP_KEY", "EOFFICE_APP_KEY", "FINANCE_APP_KEY",
+    "IDENTITY_DB_PASSWORD", "CATALOG_DB_PASSWORD", "PURCHASE_DB_PASSWORD", "INVENTORY_DB_PASSWORD",
+    "SALES_DB_PASSWORD", "EOFFICE_DB_PASSWORD", "FINANCE_DB_PASSWORD", "ANALYTICS_DB_PASSWORD",
+    "GRAFANA_ADMIN_PASSWORD"
 )
 $allowedPublishedPorts = @("8000", "5175")
 $errors = New-Object System.Collections.Generic.List[string]
@@ -66,7 +69,9 @@ try {
         }
 
         # 3) Secret (lấy từ cấu hình đã resolve, gồm cả .env) không được là placeholder/mặc định hoặc quá ngắn
-        $known = @("erp_secret", "root_secret", "rabbit_secret", "smart_erp_super_secure_jwt_secret_key_2026", "smart_erp_internal_2026")
+        $known = @("erp_secret", "root_secret", "rabbit_secret", "smart_erp_super_secure_jwt_secret_key_2026", "smart_erp_internal_2026",
+            "identity_db_secret", "catalog_db_secret", "purchase_db_secret", "inventory_db_secret",
+            "sales_db_secret", "eoffice_db_secret", "finance_db_secret", "analytics_db_secret")
         $svc = $config.services
         $resolved = [ordered]@{
             MYSQL_ROOT_PASSWORD  = $svc.mysql.environment.MYSQL_ROOT_PASSWORD
@@ -79,6 +84,13 @@ try {
             SALES_APP_KEY        = $svc.'sales-service'.environment.APP_KEY
             EOFFICE_APP_KEY      = $svc.'eoffice-service'.environment.APP_KEY
             FINANCE_APP_KEY      = $svc.'finance-service'.environment.APP_KEY
+        }
+        # Mật khẩu DB từng service đọc từ env của container mysql (03-create-service-users.sh tạo user bằng chính các giá trị này)
+        foreach ($name in $secretNames | Where-Object { $_.EndsWith("_DB_PASSWORD") }) {
+            $resolved[$name] = $svc.mysql.environment.$name
+        }
+        if ($svc.mysql.environment.MYSQL_DEV_TOOLS_ACCESS -ne "false") {
+            $errors.Add("MYSQL_DEV_TOOLS_ACCESS phải là false ở Production (erp_user không được truy cập dữ liệu thật).")
         }
         foreach ($name in $resolved.Keys) {
             $v = [string]$resolved[$name]

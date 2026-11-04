@@ -12,6 +12,16 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_secret}
       MYSQL_USER: erp_user
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
+      # Mỗi service một tài khoản (infrastructure/mysql/init/03-create-service-users.sh); erp_user chỉ dùng cho test và công cụ dev
+      IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD:-identity_db_secret}
+      CATALOG_DB_PASSWORD: ${CATALOG_DB_PASSWORD:-catalog_db_secret}
+      PURCHASE_DB_PASSWORD: ${PURCHASE_DB_PASSWORD:-purchase_db_secret}
+      INVENTORY_DB_PASSWORD: ${INVENTORY_DB_PASSWORD:-inventory_db_secret}
+      SALES_DB_PASSWORD: ${SALES_DB_PASSWORD:-sales_db_secret}
+      EOFFICE_DB_PASSWORD: ${EOFFICE_DB_PASSWORD:-eoffice_db_secret}
+      FINANCE_DB_PASSWORD: ${FINANCE_DB_PASSWORD:-finance_db_secret}
+      ANALYTICS_DB_PASSWORD: ${ANALYTICS_DB_PASSWORD:-analytics_db_secret}
+      MYSQL_DEV_TOOLS_ACCESS: "true"
     ports:
       - "127.0.0.1:3306:3306"
     volumes:
@@ -111,8 +121,8 @@ services:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_DATABASE: erp_identity_db
-      DB_USERNAME: erp_user
-      DB_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
+      DB_USERNAME: erp_identity
+      DB_PASSWORD: ${IDENTITY_DB_PASSWORD:-identity_db_secret}
       JWT_SECRET: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-smart_erp_internal_2026}
       AUTO_SEED: "false"
@@ -150,8 +160,8 @@ services:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_DATABASE: erp_catalog_db
-      DB_USERNAME: erp_user
-      DB_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
+      DB_USERNAME: erp_catalog
+      DB_PASSWORD: ${CATALOG_DB_PASSWORD:-catalog_db_secret}
       JWT_SECRET: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-smart_erp_internal_2026}
       RABBITMQ_HOST: rabbitmq
@@ -189,8 +199,8 @@ services:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_DATABASE: erp_catalog_db
-      DB_USERNAME: erp_user
-      DB_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
+      DB_USERNAME: erp_catalog
+      DB_PASSWORD: ${CATALOG_DB_PASSWORD:-catalog_db_secret}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER:-erp_rabbit}
@@ -217,7 +227,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: "http://+:8003"
-      ConnectionStrings__MySqlConnection: "Server=mysql;Port=3306;Database=erp_purchase_db;User=erp_user;Password=${MYSQL_PASSWORD:-erp_secret};TreatTinyAsBoolean=true;"
+      ConnectionStrings__MySqlConnection: "Server=mysql;Port=3306;Database=erp_purchase_db;User=erp_purchase;Password=${PURCHASE_DB_PASSWORD:-purchase_db_secret};TreatTinyAsBoolean=true;"
       RabbitMQ__HostName: rabbitmq
       RabbitMQ__Port: 5672
       RabbitMQ__UserName: ${RABBITMQ_USER:-erp_rabbit}
@@ -257,7 +267,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: "http://+:8004"
-      ConnectionStrings__MySqlConnection: "Server=mysql;Port=3306;Database=erp_inventory_db;User=erp_user;Password=${MYSQL_PASSWORD:-erp_secret};"
+      ConnectionStrings__MySqlConnection: "Server=mysql;Port=3306;Database=erp_inventory_db;User=erp_inventory;Password=${INVENTORY_DB_PASSWORD:-inventory_db_secret};"
       RabbitMQ__HostName: rabbitmq
       RabbitMQ__Port: 5672
       RabbitMQ__UserName: ${RABBITMQ_USER:-erp_rabbit}
@@ -304,8 +314,8 @@ services:
       DB_DATABASE: erp_sales_db
       # Trạng thái circuit breaker (Sales chưa có bảng cache trong MySQL; chỉ cần sống trong container)
       CACHE_STORE: file
-      DB_USERNAME: erp_user
-      DB_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
+      DB_USERNAME: erp_sales
+      DB_PASSWORD: ${SALES_DB_PASSWORD:-sales_db_secret}
       JWT_SECRET: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-smart_erp_internal_2026}
       RABBITMQ_HOST: rabbitmq
@@ -347,8 +357,8 @@ services:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_DATABASE: erp_sales_db
-      DB_USERNAME: erp_user
-      DB_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
+      DB_USERNAME: erp_sales
+      DB_PASSWORD: ${SALES_DB_PASSWORD:-sales_db_secret}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER:-erp_rabbit}
@@ -377,8 +387,8 @@ services:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_DATABASE: erp_sales_db
-      DB_USERNAME: erp_user
-      DB_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
+      DB_USERNAME: erp_sales
+      DB_PASSWORD: ${SALES_DB_PASSWORD:-sales_db_secret}
       INVENTORY_SERVICE_URL: http://inventory-service:8004
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-smart_erp_internal_2026}
     depends_on:
@@ -451,8 +461,8 @@ services:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_DATABASE: erp_eoffice_db
-      DB_USERNAME: erp_user
-      DB_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
+      DB_USERNAME: erp_eoffice
+      DB_PASSWORD: ${EOFFICE_DB_PASSWORD:-eoffice_db_secret}
       JWT_SECRET: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
       IDENTITY_SERVICE_URL: http://identity-service:8001
       FINANCE_SERVICE_URL: http://finance-service:8008
@@ -492,8 +502,8 @@ services:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_DATABASE: erp_eoffice_db
-      DB_USERNAME: erp_user
-      DB_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
+      DB_USERNAME: erp_eoffice
+      DB_PASSWORD: ${EOFFICE_DB_PASSWORD:-eoffice_db_secret}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER:-erp_rabbit}
@@ -529,8 +539,8 @@ services:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_DATABASE: erp_finance_db
-      DB_USERNAME: erp_user
-      DB_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
+      DB_USERNAME: erp_finance
+      DB_PASSWORD: ${FINANCE_DB_PASSWORD:-finance_db_secret}
       JWT_SECRET: ${JWT_SECRET:-smart_erp_super_secure_jwt_secret_key_2026}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-smart_erp_internal_2026}
       AUTO_SEED: "false"
@@ -601,8 +611,8 @@ services:
       WAREHOUSE_SYNC_ENABLED: ${AI_WAREHOUSE_SYNC_ENABLED:-false}
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
-      MYSQL_USER: erp_user
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-erp_secret}
+      MYSQL_USER: erp_analytics
+      MYSQL_PASSWORD: ${ANALYTICS_DB_PASSWORD:-analytics_db_secret}
       ANALYTICS_DB_NAME: erp_analytics_db
       KAGGLE_DATASET_DIR: /data/kaggle_dataset
     volumes:
