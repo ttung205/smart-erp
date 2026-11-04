@@ -23,6 +23,8 @@ def _load_dotenv() -> None:
 _load_dotenv()
 
 PORT = int(os.getenv("AI_SERVICE_PORT", "8010"))
+# Swagger UI (/docs, /redoc) và /openapi.json: tắt ở production bằng APP_DOCS_ENABLED=false
+DOCS_ENABLED = os.getenv("APP_DOCS_ENABLED", "true").lower() in {"1", "true", "yes", "on"}
 
 # Groq: API tương thích OpenAI, có gói miễn phí (https://console.groq.com)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
@@ -44,6 +46,7 @@ MYSQL_HOST = os.getenv("MYSQL_HOST", "127.0.0.1")
 MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
 MYSQL_USER = os.getenv("MYSQL_USER", "erp_user")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "erp_secret")
+ANALYTICS_DB = Path(os.getenv("ANALYTICS_DB_PATH", ROOT / "data" / "analytics.db"))
 ANALYTICS_DB_NAME = os.getenv("ANALYTICS_DB_NAME", "erp_analytics_db")
 SYNC_INTERVAL_SECONDS = int(os.getenv("SYNC_INTERVAL_SECONDS", "300"))
 WAREHOUSE_SYNC_ENABLED = os.getenv("WAREHOUSE_SYNC_ENABLED", "true").lower() in {"1", "true", "yes", "on"}

@@ -8,9 +8,43 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use OpenApi\Attributes as OA;
 
 class InvoiceAdjustmentSyncController extends Controller
 {
+    #[OA\Post(
+        path: '/invoice-adjustments/sync',
+        summary: 'Ghi nhận điều chỉnh hóa đơn GTGT vào công nợ',
+        description: 'Yêu cầu quyền finance.approve hoặc invoice.manage. Idempotent theo adjustment_id: gửi lại cùng giá trị không ghi trùng, khác giá trị thì trả 422.',
+        tags: ['Công nợ phải thu'],
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['adjustment_id', 'original_vat_invoice_id', 'adjustment_number', 'adjustment_date', 'reason', 'adjustment_type', 'subtotal_delta', 'vat_delta', 'total_delta', 'currency'],
+                properties: [
+                    new OA\Property(property: 'adjustment_id', type: 'integer'),
+                    new OA\Property(property: 'original_vat_invoice_id', type: 'integer'),
+                    new OA\Property(property: 'adjustment_number', type: 'string', maxLength: 50),
+                    new OA\Property(property: 'adjustment_date', type: 'string', format: 'date'),
+                    new OA\Property(property: 'reason', type: 'string'),
+                    new OA\Property(property: 'adjustment_type', type: 'string', enum: ['PRICE', 'VAT', 'QUANTITY']),
+                    new OA\Property(property: 'subtotal_delta', type: 'number', description: 'Âm khi điều chỉnh giảm'),
+                    new OA\Property(property: 'vat_delta', type: 'number'),
+                    new OA\Property(property: 'total_delta', type: 'number', description: 'Bằng subtotal_delta + vat_delta'),
+                    new OA\Property(property: 'currency', type: 'string', example: 'VND'),
+                    new OA\Property(property: 'customer_id', type: 'integer', nullable: true),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Công nợ sau điều chỉnh'),
+            new OA\Response(response: 401, description: 'UNAUTHENTICATED: thiếu hoặc sai token'),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền finance.approve hoặc invoice.manage'),
+            new OA\Response(response: 404, description: 'Không tìm thấy công nợ của hóa đơn gốc'),
+            new OA\Response(response: 422, description: 'VALIDATION_FAILED: chênh lệch không khớp, khác tiền tệ, giảm vượt giá trị hóa đơn hoặc adjustment_id đã ghi với giá trị khác'),
+        ]
+    )]
     public function store(Request $request, GeneralLedgerService $ledger): JsonResponse
     {
         $data = $request->validate([

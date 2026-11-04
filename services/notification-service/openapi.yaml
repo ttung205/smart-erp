@@ -1,0 +1,345 @@
+openapi: 3.0.3
+info:
+  title: Smart ERP - Notification Service API
+  version: 1.0.0
+  description: >
+    Dịch vụ thông báo và email: hộp thư thông báo của người dùng, và tra cứu trạng thái email đã xếp hàng gửi.
+    Email được gửi bằng cách phát event (*EmailRequested), không có API gửi trực tiếp.
+    Kết nối realtime qua Socket.IO không nằm trong tài liệu này.
+servers:
+  - url: http://localhost:8000
+    description: Qua gateway
+  - url: http://127.0.0.1:8006
+    description: Trực tiếp (dev)
+
+tags:
+  - name: Hệ thống
+  - name: Thông báo
+  - name: Email
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT do identity-service cấp qua /api/v1/auth/login. Nhập token, không cần thêm chữ Bearer.
+    internalServiceKey:
+      type: apiKey
+      in: header
+      name: X-Internal-Service-Key
+      description: Khóa dùng chung cho service nội bộ.
+  schemas:
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: FORBIDDEN
+            message:
+              type: string
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+        category:
+          type: string
+          description: Nhóm thông báo, ví dụ sales, purchase
+        status:
+          type: string
+          enum: [UNREAD, READ, RESOLVED]
+        created_at:
+          type: string
+          format: date-time
+    EmailLog:
+      type: object
+      properties:
+        id:
+          type: string
+        messageId:
+          type: string
+          nullable: true
+        to:
+          type: string
+          description: Người nhận
+        subject:
+          type: string
+        attachmentsCount:
+          type: integer
+        status:
+          type: string
+          example: SENT
+        createdAt:
+          type: string
+          format: date-time
+        sentAt:
+          type: string
+          format: date-time
+          nullable: true
+        error:
+          type: string
+          nullable: true
+  parameters:
+    NotificationId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [Hệ thống]
+      summary: Kiểm tra trạng thái dịch vụ
+      security: []
+      responses:
+        '200':
+          description: Dịch vụ đang hoạt động, kèm trạng thái cấu hình SMTP
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: UP
+                  service:
+                    type: string
+                    example: notification-service
+                  timestamp:
+                    type: string
+                    format: date-time
+                  smtp:
+                    type: object
+
+  /api/v1/notifications:
+    get:
+      tags: [Thông báo]
+      summary: Danh sách thông báo của tôi
+      description: Chỉ trả về thông báo của người đang đăng nhập. Phân trang theo before_id.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [UNREAD, READ, RESOLVED]
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: before_id
+          in: query
+          description: Lấy các thông báo cũ hơn id này
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Danh sách thông báo kèm số chưa đọc
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+                  meta:
+                    type: object
+                    properties:
+                      unread_count:
+                        type: integer
+        '401':
+          description: "AUTH_TOKEN_INVALID: thiếu, sai hoặc hết hạn token"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/notifications/unread-count:
+    get:
+      tags: [Thông báo]
+      summary: Số thông báo chưa đọc
+      responses:
+        '200':
+          description: Số thông báo chưa đọc
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      unread_count:
+                        type: integer
+        '401':
+          description: AUTH_TOKEN_INVALID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/notifications/read-all:
+    post:
+      tags: [Thông báo]
+      summary: Đánh dấu đã đọc tất cả
+      responses:
+        '200':
+          description: Số thông báo đã cập nhật
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      updated:
+                        type: integer
+        '401':
+          description: AUTH_TOKEN_INVALID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/notifications/{id}/read:
+    post:
+      tags: [Thông báo]
+      summary: Đánh dấu một thông báo đã đọc
+      parameters:
+        - $ref: '#/components/parameters/NotificationId'
+      responses:
+        '200':
+          description: Thông báo sau khi đọc, kèm số chưa đọc còn lại
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Notification'
+                  meta:
+                    type: object
+                    properties:
+                      unread_count:
+                        type: integer
+        '401':
+          description: AUTH_TOKEN_INVALID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: "NOT_FOUND: không có thông báo này trong hộp thư của tôi"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/notifications/email/logs:
+    get:
+      tags: [Email]
+      summary: Danh sách 100 email gửi gần nhất
+      description: >
+        Yêu cầu một trong các quyền quotation.manage, item-inquiry.process hoặc users.manage,
+        hoặc khóa nội bộ. Danh sách này lộ người nhận của người khác nên chỉ dành cho quản trị nghiệp vụ.
+      security:
+        - bearerAuth: []
+        - internalServiceKey: []
+      responses:
+        '200':
+          description: Danh sách email kèm trạng thái
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EmailLog'
+        '401':
+          description: "AUTH_TOKEN_INVALID: token sai hoặc khóa nội bộ không khớp"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: "FORBIDDEN: thiếu quyền"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/notifications/email/logs/{id}:
+    get:
+      tags: [Email]
+      summary: Trạng thái một email
+      description: >
+        Yêu cầu một trong các quyền quotation.create, quotation.update, quotation.manage,
+        item-inquiry.create, item-inquiry.process, item-inquiry.view, hoặc khóa nội bộ.
+      security:
+        - bearerAuth: []
+        - internalServiceKey: []
+      parameters:
+        - $ref: '#/components/parameters/NotificationId'
+      responses:
+        '200':
+          description: Thông tin email
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/EmailLog'
+        '401':
+          description: AUTH_TOKEN_INVALID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: FORBIDDEN
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Email job không tồn tại
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

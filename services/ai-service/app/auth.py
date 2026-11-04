@@ -9,9 +9,14 @@ import json
 import time
 from dataclasses import dataclass, field
 
-from fastapi import Header, HTTPException
+from fastapi import HTTPException, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from . import config
+
+# auto_error=False để tự trả 401 với thông báo tiếng Việt, thay vì 403 mặc định của FastAPI.
+# Đồng thời OpenAPI sinh security scheme Bearer, Swagger hiện nút Authorize.
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 @dataclass
@@ -58,31 +63,31 @@ def verify_token(token: str) -> Actor:
     )
 
 
-def current_actor(authorization: str = Header(default="")) -> Actor:
-    if not authorization.lower().startswith("bearer "):
+def current_actor(credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme)) -> Actor:
+    if credentials is None:
         raise HTTPException(401, detail="Thiếu token đăng nhập")
-    actor = verify_token(authorization[7:].strip())
+    actor = verify_token(credentials.credentials)
     if not actor.can(config.REQUIRED_PERMISSION):
         raise HTTPException(403, detail="Bạn chưa được cấp quyền sử dụng trợ lý AI")
     return actor
 
 
-def optional_actor(authorization: str = Header(default="")) -> Actor | None:
+def optional_actor(credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme)) -> Actor | None:
     """Trả về Actor nếu token hợp lệ, hoặc None nếu không có token (hỗ trợ public analytics / dev mode)."""
-    if not authorization or not authorization.lower().startswith("bearer "):
+    if credentials is None:
         return None
     try:
-        return verify_token(authorization[7:].strip())
+        return verify_token(credentials.credentials)
     except HTTPException:
         return None
 
 
-def require_analytics_actor(authorization: str = Header(default="")) -> Actor:
+def require_analytics_actor(credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme)) -> Actor:
     """Xác thực JWT token cho module Analytics & BI Dashboard.
     Yêu cầu token hợp lệ và có quyền ai.use hoặc finance.view hoặc SUPER_ADMIN."""
-    if not authorization.lower().startswith("bearer "):
+    if credentials is None:
         raise HTTPException(401, detail="Thiếu token xác thực JWT (Bearer token)")
-    actor = verify_token(authorization[7:].strip())
+    actor = verify_token(credentials.credentials)
     if not (actor.can("ai.use", "finance.view") or "SUPER_ADMIN" in actor.roles):
         raise HTTPException(403, detail="Tài khoản của bạn chưa được cấp quyền truy cập Dashboard Phân tích & BI")
     return actor

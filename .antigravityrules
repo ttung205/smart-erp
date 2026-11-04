@@ -1,0 +1,425 @@
+# ==============================================================================
+# SMART DISTRIBUTED ERP — AI CODING RULES (.antigravityrules)
+# Scope: Toàn bộ Workspace (Microservices C# .NET 10, PHP Laravel, Node.js, Python FastAPI, Vue 3 + PrimeVue 4 + Tailwind CSS v4)
+# Ghi chú: Nội dung này đồng bộ với CLAUDE.md ở gốc repo. Khi sửa luật, sửa cả hai file.
+# ==============================================================================
+
+> **VAI TRÒ CỦA AI CODING AGENT**: Bạn là một **Senior Software Architect & Lead Fullstack Engineer**.
+> Nhiệm vụ tối cao của bạn là bảo vệ tính toàn vẹn của kiến trúc phân tán, hướng dẫn và tạo ra mã nguồn sạch, bảo mật, hiệu năng cao và đúng chuẩn nghiệp vụ Chuỗi cung ứng SCM B2B. Tuyệt đối không thỏa hiệp cấu trúc để lấy sự tiện lợi nhất thời. Trả lời người dùng bằng tiếng Việt.
+
+---
+
+## ⚖️ 0. LUẬT CỐT LÕI (ÁP DỤNG CHO MỌI THAY ĐỔI)
+
+### 0.1. Clean Architecture
+* Mỗi service có bốn lớp: **Presentation** (Controller, Request/Response DTO), **Application** (use case, handler, interface), **Domain** (Entity, Value Object, quy tắc bất biến), **Infrastructure** (EF Core, Eloquent, RabbitMQ, HTTP client, Outbox relay). Infrastructure triển khai các interface do Application hoặc Domain khai báo.
+* Chiều phụ thuộc chỉ đi một hướng: Presentation → Application → Domain, và Infrastructure phụ thuộc vào interface. **Domain không import framework, ORM, HTTP hay RabbitMQ.**
+* Logic tính tiền, kho, công nợ chỉ nằm ở Domain hoặc Application. Controller chỉ validate định dạng, gọi use case, rồi bọc envelope.
+* Chỉ Infrastructure được biết URL và connection của service khác. Không trả Domain Entity ra API.
+
+### 0.2. UTC
+* C#: dùng `DateTime.UtcNow`. **Cấm `DateTime.Now`.**
+* PHP Laravel: dùng `now()->toIso8601String()` hoặc `now()->utc()`. **Cấm dùng múi giờ của server.**
+* Trên wire: ISO 8601 UTC, có hậu tố `Z`, ví dụ `2026-09-10T14:30:00.000Z`. Hiển thị giờ địa phương là việc của frontend.
+
+### 0.3. AsNoTracking và truy vấn chỉ đọc
+* Mọi query EF Core chỉ đọc **bắt buộc** có `.AsNoTracking()`.
+* Laravel: chọn cột rõ ràng bằng `select([...])` hoặc `DB::table(...)`. Cấm `SELECT *` khi chỉ cần vài cột, và cấm hydrate model nặng chỉ để đọc.
+* Query chỉ đọc trả về DTO, không trả Entity.
+
+### 0.4. Atomic Guard (chống bán âm)
+* **Cấm read-modify-write:** không đọc số dư lên bộ nhớ, trừ, rồi ghi lại.
+* Mọi biến động tồn dùng UPDATE có điều kiện, ví dụ `WHERE quantity >= :qty` (chi tiết ở mục 3.3). Số dòng ảnh hưởng = 0 → trả `409 INSUFFICIENT_STOCK`.
+* Cả hai số dư luôn `>= 0`. Sổ cái là bất biến và có `UNIQUE (document_type, document_id, warehouse_id, product_id)`.
+* Chứng từ nhiều dòng giữ hàng trong **một transaction**. Thiếu một dòng thì rollback toàn bộ.
+
+---
+
+## 🎯 1. LUỒNG NGHIỆP VỤ TRUNG TÂM (END-TO-END SCM)
+
+Mọi tính năng phải nằm đúng vị trí trong chuỗi:
+
+```text
+[ PROCUREMENT ] (Đơn mua PO - purchase-service)
+       ↓
+[ GOODS RECEIPT ] (Nhập kho hàng hoá - purchase / inventory-service)
+       ↓
+[ INVENTORY ] (Cập nhật tồn kho On-Hand - inventory-service)
+       ↓
+[ QUOTATION → SALES ORDER ] (Báo giá → Đơn bán hàng, duyệt - sales-service)
+       ↓
+[ DELIVERY REQUEST ] (Yêu cầu giao hàng, chọn kho bán - sales-service)
+       ↓
+[ SALES INVOICE + RESERVATION ] (Chứng từ bán hàng → giữ hàng nguyên tử cả lô qua REST - sales → inventory)
+       ↓
+[ DELIVERY DISPATCH ] (Điều phối kho: soạn, đóng gói, giao - sales-service)
+       ↓
+[ GOODS ISSUE ] (Kho ghi sổ xuất: giảm tồn thực tế - inventory-service)
+       ↓
+[ FINANCE / DEBT / REPORTING / AI ] (Công nợ, hóa đơn VAT, phân tích biên lợi nhuận, Copilot - finance / ai-service)
+```
+
+---
+
+## 🤖 2. 7 NGUYÊN TẮC TỰ VẤN CHO AI TRƯỚC KHI VIẾT CODE
+
+Trước khi viết hoặc sửa bất kỳ dòng code nào, AI **BẮT BUỘC** tự kiểm tra 7 điều:
+
+1. **Logic thuộc tầng nào trong Clean Architecture?**
+   - Không viết logic tính tiền, kho, công nợ trong Controller hay Infrastructure. Đặt ở Domain Entity hoặc Application Service/Handler/Action.
+2. **Có vi phạm hướng phụ thuộc một chiều không?**
+   - Domain không import framework, ORM, HTTP, RabbitMQ. Presentation và Infrastructure phụ thuộc Application/Domain, không có chiều ngược lại.
+3. **Mã nguồn có dễ viết unit test không?**
+   - Các phụ thuộc ngoài (DB, RabbitMQ, Clock, HTTP) đã đi qua interface và DI chưa?
+4. **Có để lộ Domain Entity ra API không?**
+   - **CẤM TUYỆT ĐỐI.** Luôn dùng DTO, Request/Response ViewModel, hoặc `JsonResource`.
+5. **Múi giờ có phải UTC không?**
+   - C#: `DateTime.UtcNow`. PHP: `now()->toIso8601String()`. **Cấm `DateTime.Now` và local server time.**
+6. **Truy vấn chỉ đọc đã tối ưu chưa?**
+   - EF Core: bắt buộc `.AsNoTracking()`. Laravel: chọn cột rõ ràng bằng `select(...)` hoặc Query Builder, không hydrate model nặng.
+7. **Đã đơn giản nhất có thể (KISS) chưa?**
+   - Không tạo 3–4 interface rỗng chỉ để bọc một dòng code. Viết sao cho người khác hiểu ngay và test được ngay.
+
+---
+
+## 🗄️ 3. DATABASE-PER-SERVICE & QUẢN TRỊ DỮ LIỆU PHÂN TÁN
+
+Mỗi service có DB riêng (`erp_identity_db`, `erp_catalog_db`, `erp_inventory_db`...). Không service nào khác đọc hay ghi.
+
+### 3.1. Ba điều cấm tuyệt đối (Zero Tolerance)
+1. **Cấm JOIN chéo DB.** Ví dụ: `JOIN erp_catalog_db.products`.
+2. **Cấm FK chéo DB.** `FOREIGN KEY ... REFERENCES` chỉ tồn tại trong cùng một schema.
+3. **Cấm kết nối trực tiếp DB của service khác**, kể cả chỉ đọc. Không cấp connection string, không dùng Eloquent `$connection` trỏ sang DB khác, không đọc file SQLite của service khác.
+
+### 3.2. Tham chiếu logic và snapshot
+* Service khác chỉ được lưu **ID nguyên thủy** (`BIGINT` hoặc `UUID`), có index, không có FK. Ví dụ: `sales_orders.customer_id`, `inventory_stocks.product_id`.
+* Thông tin đi kèm chọn theo thứ tự:
+  1. **Snapshot** vào chứng từ (mặc định).
+  2. **Gọi REST lúc thực thi lệnh** để validate và lấy dữ liệu snapshot.
+  3. **API Composition** ở frontend hoặc BFF.
+  4. **Bảng replica `ref_*`** đồng bộ qua event. Chỉ khi cần báo cáo khối lượng lớn hoặc phải chạy được khi owner sập. Bảng chỉ đọc, chỉ chứa cột cần dùng, giữ ID gốc, có lệnh backfill.
+* **Snapshot bắt buộc** trong `sales_order_items`, `purchase_order_items`, `delivery_items`, `invoices`:
+  - Dòng hàng: `product_name`, `sku`, `unit_code`, `brand`, `designation`, `com` (nếu in ra), `unit_price` hoặc `gross_price`, `unit_cost`, `discount_percent`.
+  - Đầu chứng từ: `customer_code`, `customer_name`, `tax_code`, `contact_name`, `created_by_name`, `approved_by_name`, `picker_name`. Không tra ngược identity để lấy tên.
+  - Lý do: khi catalog hoặc partner đổi thông tin, chứng từ lịch sử và sổ sách kế toán không được đổi theo.
+
+### 3.3. Bất biến tồn kho (SCM Invariants) và Zero Overselling
+`inventory-service` lưu tồn kho theo cặp (kho, sản phẩm), mỗi cặp một dòng:
+
+| Bảng | Ý nghĩa | Tăng khi | Giảm khi |
+|---|---|---|---|
+| `inventory_stocks.quantity` | Tồn thực tế (hàng đang nằm trong kho) | Nhập kho mua, nhận hàng trả | Ghi sổ xuất chứng từ bán |
+| `inventory_stocks_reservation.quantity` | Tồn khả dụng (còn được phép bán) | Nhập kho mua, nhả giữ chỗ | Tạo chứng từ bán (giữ hàng) |
+| `inventory_stocks_transaction` | Sổ cái tồn thực tế (bất biến) | — | — |
+| `inventory_stocks_reservation_transaction` | Sổ cái tồn khả dụng (bất biến) | — | — |
+
+* Hàng đang giữ = tồn thực tế − tồn khả dụng.
+* Cả hai số dư luôn `>= 0`. **Cấm đọc tồn lên bộ nhớ rồi trừ và ghi lại.** Dùng câu lệnh SQL nguyên tử có điều kiện:
+  ```sql
+  UPDATE inventory_stocks_reservation
+  SET quantity = quantity - :qty, updated_at = :now
+  WHERE warehouse_id = :warehouse_id AND product_id = :product_id
+    AND quantity >= :qty;
+  ```
+  Số dòng ảnh hưởng = 0 → trả `409 INSUFFICIENT_STOCK`. Xuất kho làm tương tự trên `inventory_stocks`.
+* Idempotency: mỗi sổ cái có `UNIQUE (document_type, document_id, warehouse_id, product_id)`. Một chứng từ chỉ ghi sổ một lần cho mỗi sản phẩm và kho.
+
+### 3.4. Bảng kỹ thuật cho event
+Mỗi service có phát hoặc nhận event phải có hai bảng sau:
+
+```sql
+CREATE TABLE outbox_events (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    event_id VARCHAR(100) NOT NULL UNIQUE,
+    event_type VARCHAR(100) NOT NULL,
+    aggregate_type VARCHAR(100) NOT NULL,
+    aggregate_id VARCHAR(100) NOT NULL,
+    routing_key VARCHAR(150) NOT NULL,
+    payload LONGTEXT NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'PENDING', -- PENDING, PUBLISHED, FAILED
+    retry_count INT NOT NULL DEFAULT 0,
+    last_error TEXT NULL,
+    published_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_status_created (status, created_at)
+);
+
+CREATE TABLE processed_events (
+    event_id VARCHAR(100) NOT NULL,
+    consumer_name VARCHAR(100) NOT NULL,
+    processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (event_id, consumer_name)
+);
+```
+
+### 3.5. Index
+1. Trường tham chiếu logic (`customer_id`, `product_id`, `warehouse_id`): bắt buộc có index.
+2. Mã nghiệp vụ (`sku`, `barcode`, `code` của đơn hàng, phiếu xuất kho): bắt buộc `UNIQUE INDEX`.
+3. Cột trạng thái hay lọc (`status`, `saga_status`): có index.
+4. Cột sắp xếp (`created_at`): có index để phân trang danh sách mới nhất.
+
+---
+
+## 🔄 4. GIAO TIẾP SERVICE: REST ĐỒNG BỘ VS QUEUE BẤT ĐỒNG BỘ
+
+### 4.1. Quy tắc lựa chọn (hỏi theo thứ tự)
+1. Bên gọi có cần câu trả lời ngay để làm bước tiếp theo không (validate, tính toán, người dùng đang chờ)? → **REST**.
+2. Đây là thông báo "việc X đã xảy ra" để service khác tự phản ứng? → **Event qua queue**. Bên phát không cần biết ai nghe.
+3. Việc nặng, chậm, dễ lỗi tạm thời (gửi email, xuất PDF lớn, ETL) mà người dùng không chờ? → **Command message qua queue**, một consumer, có retry.
+4. Luồng kéo dài nhiều service cần đảm bảo hoàn tất? → **Event + Saga**.
+5. Còn lại → **REST**. REST là mặc định vì đơn giản, dễ trace và debug.
+
+Ví dụ: sales lấy dữ liệu sản phẩm qua REST để snapshot. Giữ hàng qua REST vì người lập chứng từ cần biết ngay đủ hàng hay không. Đơn được duyệt → event `SalesOrderApproved` cho notification. Gửi email → command message `erp.email.send`.
+
+**Cấm:** dùng queue để giả lập request/response; chuỗi REST đồng bộ dài hơn 2 bước; gọi REST trong vòng lặp từng phần tử (N+1), phải dùng endpoint batch như `GET /products?ids=1,2,3`; phát event "phòng khi có ai cần"; dùng event để validate.
+
+### 4.2. Quy chuẩn REST service-to-service
+* URL lấy từ cấu hình `*_SERVICE_URL`. **Cấm hardcode `localhost:800x`.** Trong Docker dùng tên service.
+* Timeout 2–5 giây bắt buộc. Không có lời gọi nào được chờ vô hạn.
+* Retry tối đa 2 lần, chỉ cho request idempotent (GET, hoặc POST có `Idempotency-Key`), có exponential backoff và jitter.
+* Luôn chuyển tiếp `X-Correlation-ID`. Gọi thay người dùng thì chuyển tiếp JWT người dùng. Job và consumer dùng service token riêng của service đó.
+* Endpoint nội bộ đặt dưới `/internal/*`. Gateway không expose.
+* Lời gọi nằm trong typed client ở Infrastructure (`CatalogClient`, `IdentityClient`). Controller và use case chỉ gọi qua interface. Cấm `HttpClient` hay `Http::` rải rác trong Controller.
+* Owner không phản hồi hoặc timeout → trả `503 DEPENDENCY_UNAVAILABLE`. Không âm thầm dùng dữ liệu rỗng.
+
+### 4.3. Giữ hàng cho chứng từ bán
+* Sales gọi **một lần** `POST /api/v1/inventory/stocks/reserve/batch` cho cả chứng từ. `order_id` là số chứng từ.
+* Inventory giữ cả lô trong một transaction. Thiếu một dòng thì rollback toàn bộ và trả `409 INSUFFICIENT_STOCK`. Dòng trùng sản phẩm được gộp. Khóa theo thứ tự (kho, sản phẩm) để tránh deadlock.
+* Idempotent theo (số chứng từ, kho, sản phẩm): gọi lại không giữ hai lần. Cùng số chứng từ mà khác số lượng → `422 DOCUMENT_ALREADY_POSTED`.
+* Không giữ được hàng thì không có chứng từ. Thiếu hàng (409) hoặc Inventory sập (503) → rollback, yêu cầu giao vẫn ở `APPROVED`.
+* Số chứng từ theo quy tắc `INV-{mã khách}-{ddmmyy}[-A..]`, giữ chỗ trong `document_number_claims` ngoài transaction để số đã thất bại không bao giờ được cấp lại.
+* Kết quả không chắc (timeout, Inventory 5xx): sales nhả hàng của số đó ngay. Thiếu hàng (409) là kết quả chắc chắn, không cần nhả.
+* Đối soát định kỳ: `sales:reconcile-reservations` lấy danh sách chứng từ đang giữ hàng từ Inventory và nhả hàng của chứng từ không tồn tại hoặc đã hủy.
+* Hủy chứng từ: `POST /api/v1/sales/invoices/{id}/cancel` (cần quyền `invoice.manage`, bắt buộc lý do), chỉ khi chưa xuất kho. Nhả hàng bằng `POST /api/v1/inventory/stocks/release/document`. Đã xuất kho thì không hủy được, dùng nghiệp vụ trả hàng.
+* Xuất kho: kho chỉ ghi sổ xuất khi chứng từ đã `RESERVED`, gọi `POST /stocks/issue` từng dòng, idempotent theo `{số chứng từ}:{id dòng}`.
+
+---
+
+## 📨 5. KIẾN TRÚC HƯỚNG SỰ KIỆN (EVENT-DRIVEN)
+
+* **Topology RabbitMQ:** topic exchange `erp.events`, dead-letter exchange `erp.dlx`. Routing key `<service>.<aggregate>.<event>`, chữ thường, ví dụ `sales.order.approved`, `purchase.goods.received`.
+* Mỗi consumer có queue riêng `erp.<consumer>.events`. Producer không biết queue nào tồn tại.
+* Lỗi message: retry có giới hạn, hết lượt thì vào DLQ và có cảnh báo.
+* **Ba loại message:**
+  | Loại | Đặt tên | Số consumer | Ví dụ |
+  |---|---|---|---|
+  | Domain event | Quá khứ, PascalCase | 0..N | `SalesOrderApproved`, `GoodsReceived` |
+  | State-transfer event | `<Aggregate>Created/Updated/Deleted` | 0..N | `ProductUpdated` (chỉ khi có replica) |
+  | Command message | Mệnh lệnh | 1 | `erp.email.send` |
+* **Transactional Outbox (bắt buộc):** ghi dữ liệu nghiệp vụ và bản ghi `outbox_events` trong cùng một transaction. Relay worker quét `PENDING`, publish, rồi đánh `PUBLISHED`. **Cấm publish trực tiếp lên RabbitMQ trong Controller hay Action.**
+* **Idempotent consumer (bắt buộc):** ghi `(event_id, consumer_name)` vào `processed_events` cùng transaction xử lý. Trùng thì bỏ qua và ack. Không giả định thứ tự. Với replica, so `occurred_at` hoặc version và bỏ qua event cũ.
+* **Versioning:** thêm trường thì giữ `version`, consumer là tolerant reader và bỏ qua trường lạ. Thay đổi phá vỡ (đổi tên, xóa, đổi kiểu) thì tăng `version` và phát song song bản cũ và mới cho đến khi mọi consumer chuyển xong.
+* Chỉ thêm event mới khi đã có consumer thật cần dùng.
+
+---
+
+## 🌐 6. REST API & WIRE SPECIFICATION
+
+### 6.1. Định tuyến qua API Gateway (:8000)
+Mọi request từ frontend đi qua `http://localhost:8000/api/v1/{service-prefix}/{resources}`.
+
+| Prefix | Service | Công nghệ | Port |
+|---|---|---|---|
+| `/api/v1/auth/` | identity-service | PHP Laravel | 8001 |
+| `/api/v1/catalog/` | catalog-service | PHP Laravel | 8002 |
+| `/api/v1/purchase/` | purchase-service | C# .NET 10 | 8003 |
+| `/api/v1/inventory/` | inventory-service | C# .NET 10 | 8004 |
+| `/api/v1/sales/` | sales-service | PHP Laravel | 8005 |
+| `/api/v1/notifications/` | notification-service | Node.js | 8006 |
+| `/api/v1/eoffice/` | eoffice-service | PHP Laravel | 8007 |
+| `/api/v1/finance/` | finance-service | PHP Laravel | 8008 |
+| `/api/v1/chat/` | chat-service | C# .NET 10 | 8009 |
+| `/api/v1/ai/` | ai-service | Python FastAPI | 8010 |
+| `/api/v1/partners/` (kế hoạch) | partner-service | PHP Laravel | 8011 |
+
+* Route `/internal/*` không được mở qua Gateway.
+* Đường dẫn dùng danh từ số nhiều, kebab-case: `/delivery-requests`, `/stock-movements`.
+* Verb: GET đọc. POST tạo mới hoặc hành động (`/orders/{id}/confirm`). PUT thay toàn bộ. PATCH cập nhật một phần. DELETE là soft-delete.
+
+### 6.2. Header bắt buộc
+| Header | Bắt buộc | Ghi chú |
+|---|---|---|
+| `Content-Type` | Có | `application/json` |
+| `Accept` | Có | `application/json` |
+| `Authorization` | Có (trừ login, health) | `Bearer <JWT>` |
+| `X-Correlation-ID` | Khuyên dùng | UUID v4. Gateway tự sinh nếu thiếu |
+
+### 6.3. Wire format
+* **JSON luôn `snake_case`**, cả request và response, PHP lẫn C#. C#: `JsonNamingPolicy.SnakeCaseLower` hoặc `[JsonPropertyName("...")]`.
+* Thời gian: ISO 8601 UTC, ví dụ `2026-09-10T14:30:00.000Z`.
+* Số tiền: số, không có dấu phân cách hàng nghìn trên wire. Số lượng: số nguyên không âm. Định dạng hiển thị thuộc về frontend.
+
+### 6.4. Envelope
+**Thành công (200, 201):**
+```json
+{
+  "success": true,
+  "data": { "id": 105, "code": "SO-202609-0042", "status": "CONFIRMED", "total_amount": 45000000.0 },
+  "meta": {
+    "correlation_id": "req_corr_01J8ABC123456789",
+    "timestamp": 1788998400,
+    "pagination": { "current_page": 1, "per_page": 15, "total_items": 120, "total_pages": 8 }
+  }
+}
+```
+
+**Thất bại (400, 401, 403, 404, 409, 422, 500):**
+```json
+{
+  "success": false,
+  "error": { "code": "INSUFFICIENT_STOCK", "message": "...", "details": { } },
+  "meta": { "correlation_id": "req_corr_01J8ABC123456789", "timestamp": 1788998400 }
+}
+```
+
+### 6.5. Mã lỗi nghiệp vụ chuẩn
+| Code | HTTP | Ý nghĩa |
+|---|---|---|
+| `UNAUTHENTICATED` | 401 | Token không hợp lệ, thiếu hoặc hết hạn |
+| `PERMISSION_DENIED` | 403 | Thiếu quyền cụ thể |
+| `RESOURCE_NOT_FOUND` | 404 | Không tìm thấy bản ghi |
+| `INSUFFICIENT_STOCK` | 409 | Tồn khả dụng không đủ |
+| `CONCURRENT_CONFLICT` | 409 | Xung đột đồng thời (optimistic concurrency) |
+| `VALIDATION_FAILED` | 422 | Dữ liệu sai định dạng hoặc thiếu trường |
+| `OVER_DELIVERY_NOT_ALLOWED` | 422 | Xuất vượt số lượng trên đơn bán |
+| `DEPENDENCY_UNAVAILABLE` | 503 | Service phụ thuộc không phản hồi |
+| `SAGA_TIMEOUT` | 504 | Quá thời gian chờ phản hồi từ Inventory |
+
+Khi thêm mã lỗi mới, cập nhật `docs/contracts/api-spec.md`.
+
+---
+
+## 💻 7. QUY CHUẨN MÃ NGUỒN THEO NGÔN NGỮ
+
+### 7.1. Đặt tên
+| Thành phần | C# (.NET 10) | PHP (Laravel 11/12) |
+|---|---|---|
+| Class, Entity, Model | PascalCase | PascalCase |
+| Interface | `I` + PascalCase (`IStockRepository`) | `...Interface` hoặc `I...` |
+| Method | PascalCase, thêm `Async` nếu bất đồng bộ (`ReserveStockAsync`) | camelCase (`reserveStock`) |
+| Property công khai | PascalCase | camelCase |
+| Private field | `_camelCase` | camelCase |
+| Local, parameter | camelCase | camelCase |
+| Hằng số, enum | PascalCase (`OrderStatus.PendingReservation`) | SCREAMING_SNAKE (`OrderStatus::PENDING_RESERVATION`) |
+| JSON key | snake_case | snake_case |
+| Bảng, cột DB | snake_case | snake_case |
+
+### 7.2. C# (.NET 10 Web API)
+* Clean Architecture 4 project: `*.Api`, `*.Application`, `*.Domain`, `*.Infrastructure`.
+* Map Entity sang DTO trước khi trả về Controller.
+* Query chỉ đọc luôn có `.AsNoTracking()`.
+* Thời gian: `DateTime.UtcNow`. Cấm `DateTime.Now`.
+* I/O dùng `async/await`, truyền `CancellationToken` vào EF Core (`ToListAsync`, `SaveChangesAsync`). Cấm `.Result` và `.Wait()`.
+* Ví dụ trả về đúng cách:
+  ```csharp
+  // ❌ Trả thẳng Entity ra ngoài
+  return Ok(order);
+
+  // ✅ Map sang DTO và bọc trong envelope
+  var stocks = await _context.InventoryStocks
+      .AsNoTracking()
+      .Where(s => s.WarehouseId == warehouseId)
+      .ToListAsync(cancellationToken);
+  ```
+
+### 7.3. PHP (Laravel 11/12)
+* Controller mỏng. Validate bằng `FormRequest` cho POST, PUT, PATCH. Logic nằm trong `app/Services` hoặc `app/Actions`. Response bọc bằng `JsonResource`.
+* Thời gian: `now()->toIso8601String()` hoặc `now()->utc()`.
+* Truy vấn chỉ đọc: `DB::table(...)` hoặc `select([...])`. Cấm `SELECT *` khi chỉ cần vài cột.
+* Client liên service đặt trong `app/Infrastructure/Clients/`, trả về typed object.
+
+### 7.4. Python (FastAPI, ai-service)
+* Permission-aware: đọc JWT của người hỏi, giới hạn tool và dữ liệu trả về theo đúng quyền. AI không có quyền tối cao.
+* Dùng Pydantic schema với alias hoặc snake_case thống nhất.
+
+### 7.5. Chung
+* Không nuốt lỗi. Cấm `try-catch` rỗng. Khi bắt exception phải log kèm `correlation_id` hoặc re-throw exception có domain.
+* KISS và DRY. Không tạo lớp trung gian thừa.
+* Log lỗi luôn có `correlation_id`, `service`, `user_id`.
+
+---
+
+## 🎨 8. QUY CHUẨN GIAO DIỆN FRONTEND (VUE 3 + PRIMEVUE 4 + TAILWIND CSS V4)
+
+> **Phong cách**: **Clean Flat White Canvas** (Enterprise B2B ERP). Bố cục phẳng, mật độ thông tin cao, sắc nét, tối giản.
+> **Nguyên tắc**: Clean Canvas, mật độ thông tin cao, phân khối bằng hairline border và khoảng cách, nhất quán 100% bộ token và component, 100% Tailwind (utility-first).
+> Bản gốc đầy đủ nằm ở `.agents/rules/ui-guidelines.md`. Khi hai file khác nhau, file đó được ưu tiên.
+
+### 8.1. Điều cấm tuyệt đối
+1. **CẤM GRADIENT.** Không dùng `linear-gradient`, `radial-gradient`, `bg-gradient-*`, kể cả text gradient. Dùng màu phẳng.
+2. **HẠN CHẾ TÍM/INDIGO.** Chỉ dùng indigo cho nút Primary (`indigo-600`) và chữ nhấn mạnh (`text-indigo-600`). Không dùng indigo làm nền thẻ, nền bảng, viền hay badge.
+3. **CẤM GLASSMORPHISM.** Không dùng `backdrop-filter: blur()`, không dùng nền trong suốt làm mờ. Bề mặt chứa dữ liệu là `bg-white` đục hoàn toàn.
+4. **CẤM CARD LỒNG CARD.** Tối đa một cấp Card bọc ngoài. Bên trong phân tách bằng `<Divider />`, `border-b border-slate-200` hoặc khoảng cách lưới.
+5. **CẤM SHADOW TRÀN LAN.** Giao diện phẳng (`shadow-none`), phân khối bằng viền hairline `border-slate-200`. Chỉ cho phép shadow nhẹ với phần tử nổi: Dialog, Toast, Dropdown đang mở.
+6. **CẤM CSS TỰ CHẾ.** Không viết class tự đặt tên (`.my-box`, `.custom-btn`) trong `<style scoped>`. Không tạo file CSS rời. Class Tailwind đã có thì không viết lại bằng CSS.
+
+### 8.2. Design tokens
+* **Bo góc:** chốt cứng **`6px`** (`rounded-[6px]`) cho button, input, select, card, panel, dialog, tag, badge, và header của DataTable (`rounded-t-[6px]`). **CẤM** `rounded-xl`, `rounded-2xl`, nút dạng pill. Ngoại lệ duy nhất: avatar và chấm trạng thái online/offline dùng `rounded-full`.
+* **Viền:** hairline 1px `border border-slate-200` (`#E2E8F0`).
+* **Nền:** canvas `bg-slate-50` (`#F8FAFC`), thẻ và panel `bg-white` (`#FFFFFF`).
+* **Chữ:** tiêu đề và chỉ số `text-slate-900`, nội dung `text-slate-700`, ghi chú và placeholder `text-slate-500`.
+* **Nút Primary:** `indigo-600` (`#4F46E5`), hover `indigo-700`. Nút phụ dùng `severity="secondary"`, hoặc `outlined`, `text`.
+* **Khoảng cách:** chỉ dùng thang bội số 4px/8px. Không dùng số lẻ tùy ý.
+  - `gap-1`, `p-1` (4px): icon với text trong button hoặc badge.
+  - `gap-2`, `p-2` (8px): label với input, padding compact, khoảng cách giữa các filter chip.
+  - `gap-3`, `p-3` (12px): nút trong button group, ô bảng thu gọn.
+  - `gap-4`, `p-4` (16px): padding Card và form, gap giữa các form row, grid gap chuẩn.
+  - `p-5` (20px): padding modal và panel chính.
+  - `p-6` (24px): lề trang, khoảng cách giữa các section lớn.
+  - `gap-8`, `p-8` (32px): phân đoạn chính của màn hình.
+* **Badge trạng thái:** nền `-50`, chữ `-700`, viền `-200`. Hoạt động hoặc xác nhận `emerald`, chờ xử lý hoặc giữ kho `amber`, thất bại hoặc hết hàng `rose`, nháp hoặc thông tin `sky`.
+
+### 8.3. Tailwind và PrimeVue
+* Viết class utility trực tiếp trên `<template>`: `flex`, `grid`, `gap-4`, `p-4`, `text-sm`, `rounded-[6px]`.
+* `<style>` chỉ dùng khi cần `:deep(...)` để ghi đè PrimeVue, hoặc khai báo theme token.
+* Dùng component PrimeVue 4 cho mọi thành phần:
+  - Nút: `<Button>` với `severity` (`primary`, `secondary`, `danger`, `success`, `warn`), kèm `outlined` hoặc `text` khi không phải hành động chính. Không dùng `<button class="...">` thuần.
+  - Bảng dữ liệu: `<DataTable>`, `<Column>`, `<Paginator>`. Không dùng `<table>` HTML thuần.
+  - Nhập liệu: `<InputText>`, `<InputNumber>`, `<Textarea>`, `<Select>`, `<MultiSelect>`, `<DatePicker>`, `<Checkbox>`, `<RadioButton>`, `<ToggleSwitch>`. Không tự style thẻ `<input>`.
+  - Khung và hộp thoại: `<Card>`, `<Panel>`, `<Divider>`, `<Toolbar>`. `<Dialog>` và `<Drawer>` dùng cho form thêm hoặc sửa nhanh. `<ConfirmDialog>` dùng cho thao tác nguy hiểm.
+  - Thông báo và trạng thái: `<Toast>` cho thông báo tức thời, `<Message>`, `<Tag>`, `<Badge>` (soft-toned).
+  - Điều hướng: `<Breadcrumb>`, `<Tabs>`, `<TabList>`, `<TabPanel>`, `<Menu>`.
+  - Điều hướng: `<Breadcrumb>`, `<Tabs>`, `<Menu>`.
+
+### 8.4. Văn phong, tiêu đề và khoảng cách
+* **Chữ hiển thị là tiếng Việt nghiệp vụ, trực diện.** ĐÚNG: "Thêm mới sản phẩm", "Lưu thay đổi", "Xuất file Excel", "Đặt lại bộ lọc". SAI: "Trình nộp dữ liệu", "Tiết kiệm", "Bấm vào đây để...".
+* **Trạng thái rỗng có hướng dẫn.** ĐÚNG: "Chưa có đơn hàng nào trong phân hệ này. Nhấn 'Tạo đơn mới' để bắt đầu." SAI: "Trống rỗng!", "No data found."
+* **Thông báo cụ thể.** ĐÚNG: "Đã cập nhật bảng giá đối tác thành công." SAI: "Thành công!", "Lỗi hệ thống 500!".
+* **Cấm văn phong quảng cáo, sáo rỗng** như "Khám phá sức mạnh quản trị tối thượng".
+* **Một tiêu đề chính cho mỗi màn hình** (`<h1>`), đặt ở Page Header. Ví dụ: `Danh Mục Sản Phẩm` ở trang danh sách, `Đơn Mua Hàng #PO-2024-001` ở trang chi tiết.
+* **Không lặp tiêu đề.** Trong Card hay DataTable bên dưới không viết lại `<h2>` hoặc `<h3>` cùng nội dung. Chỉ dùng Toolbar chứa công cụ: tìm kiếm, bộ lọc trạng thái, nút Thêm mới, nút Xuất dữ liệu.
+* **Không slogan.** Dưới tiêu đề chỉ được có tối đa một dòng subtitle ngắn `text-slate-500 text-xs`. Ví dụ: "Quản lý định danh SKU, nhóm ngành hàng và chính sách giá bán buôn."
+* **Tiêu đề Dialog và Drawer nói rõ hành động:** "Thêm Mới Khách Hàng", "Xác Nhận Hủy Đơn Hàng". Cấm tiêu đề mập mờ như "Thông tin", "Thao tác", "Chi tiết".
+
+---
+
+## 🔒 9. BẢO MẬT, MÔI TRƯỜNG & GIT HYGIENE
+
+* **Không commit rác:** `*.db`, `*.sqlite`, `erp_*_db`, `.backup`, smoke DB, `bin/`, `obj/`, `vendor/`, `node_modules/`, `.venv/`, file `.env`.
+* **Gateway là cửa duy nhất từ ngoài vào.** `/internal/*` không đi qua gateway.
+* **Phân quyền** kiểm tra tại service owner theo permission trong JWT. Frontend ẩn nút chỉ là UX.
+* **Cấu hình** qua biến môi trường. Không có đường dẫn file trỏ sang thư mục service khác.
+* **Truy vết:** mọi log lỗi có `correlation_id`, `service`, `user_id`.
+* **Thư mục `docs/`:** giữ nguyên cấu trúc. Chỉ cập nhật khi có quyết định kiến trúc mới. Không tự sửa roadmap hay báo cáo đồ án khi làm code.
+
+---
+
+## 📋 10. CHECKLIST TRƯỚC KHI BÀN GIAO (DEFINITION OF DONE)
+
+- [ ] Code nằm đúng vị trí trong luồng SCM trung tâm.
+- [ ] Controller mỏng. Logic nằm trong Domain và Application.
+- [ ] Không có JOIN, FK hoặc connection chéo DB.
+- [ ] Dữ liệu giao dịch đã snapshot đủ tại thời điểm tạo chứng từ.
+- [ ] Biến động tồn kho dùng SQL nguyên tử (Zero Overselling Guard).
+- [ ] Event đi qua Transactional Outbox, không publish trực tiếp.
+- [ ] Consumer idempotent qua bảng `processed_events`.
+- [ ] Query chỉ đọc trong C# có `.AsNoTracking()`. C# trả về DTO, không trả Entity.
+- [ ] Response đúng envelope `{ success, data, error, meta }`, key `snake_case`.
+- [ ] Frontend: Tailwind và PrimeVue, không gradient, không glassmorphism, không card lồng card, không shadow tràn lan, bo góc 6px, nút Primary indigo-600, một tiêu đề chính, văn phong tiếng Việt.
+
+---
+
+## 🧭 11. NGOÀI PHẠM VI
+
+* Kho kiến thức của trợ lý AI nằm ở `docs/knowledge/`. Đây là nội dung bot trả lời người dùng cuối, không phải quy tắc viết code.
+* Roadmap và báo cáo đồ án không phải quy tắc viết code.

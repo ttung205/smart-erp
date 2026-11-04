@@ -24,7 +24,12 @@ export const useAiStore = defineStore('ai', () => {
       const isNew = conversationId.value !== res.conversation_id;
       conversationId.value = res.conversation_id;
       asOf.value = res.as_of || asOf.value;
-      messages.value.push({ role: 'assistant', content: res.answer, tools: res.tools_used });
+      messages.value.push({
+        role: 'assistant',
+        content: res.answer,
+        tools: res.tools_used,
+        action_schema: res.action_schema
+      });
       if (isNew) loadHistory();
     } catch (e) {
       messages.value.push({ role: 'assistant', content: e.message || 'Có lỗi xảy ra, vui lòng thử lại.', error: true });

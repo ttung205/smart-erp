@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use OpenApi\Attributes as OA;
 
 /**
  * Nhận bút toán ghi nhận chi phí lương từ eoffice-service (Nợ 642 / Có 334, các khoản giữ lại...).
@@ -15,6 +16,46 @@ use Illuminate\Validation\ValidationException;
  */
 class PayrollJournalController extends Controller
 {
+    #[OA\Post(
+        path: '/payroll-journals',
+        summary: 'Ghi sổ bút toán chi phí lương',
+        description: 'Yêu cầu quyền finance.post hoặc finance.approve. eoffice-service gọi khi chốt bảng lương. Idempotent theo reference: gọi lại cùng kỳ không ghi trùng sổ cái. Chỉ hạch toán vào tài khoản chi tiết.',
+        tags: ['Sổ cái'],
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['reference', 'entry_date', 'description', 'lines'],
+                properties: [
+                    new OA\Property(property: 'reference', type: 'string', maxLength: 60, pattern: '^[A-Za-z0-9._-]+$', example: 'PR-2026-10'),
+                    new OA\Property(property: 'entry_date', type: 'string', format: 'date'),
+                    new OA\Property(property: 'description', type: 'string', maxLength: 255),
+                    new OA\Property(
+                        property: 'lines',
+                        type: 'array',
+                        maxItems: 20,
+                        minItems: 1,
+                        items: new OA\Items(
+                            required: ['description', 'debit_account_code', 'credit_account_code', 'amount'],
+                            properties: [
+                                new OA\Property(property: 'description', type: 'string', maxLength: 255),
+                                new OA\Property(property: 'debit_account_code', type: 'string', example: '642'),
+                                new OA\Property(property: 'credit_account_code', type: 'string', example: '334'),
+                                new OA\Property(property: 'amount', type: 'number', exclusiveMinimum: 0),
+                            ],
+                            type: 'object'
+                        )
+                    ),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: 'Số chứng từ, số bút toán và số bút toán mới được tạo'),
+            new OA\Response(response: 401, description: 'UNAUTHENTICATED: thiếu hoặc sai token'),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền finance.post hoặc finance.approve'),
+            new OA\Response(response: 422, description: 'VALIDATION_FAILED, hoặc hạch toán vào tài khoản tổng hợp'),
+        ]
+    )]
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([

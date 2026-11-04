@@ -4,12 +4,49 @@ namespace App\Http\Controllers;
 
 use App\Models\RevenueReportItem;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 class RevenueReportController extends Controller
 {
     /**
      * Lấy danh sách báo cáo doanh thu mặt hàng (TK 1311 & TK 1312)
      */
+    #[OA\Get(
+        path: '/reports/revenue-items',
+        summary: 'Báo cáo doanh thu (TK 1311 và 1312)',
+        description: 'Yêu cầu quyền finance.view hoặc invoice.view. Mỗi dòng là doanh thu một mặt hàng khi xuất kho, kèm trạng thái đã xuất hóa đơn GTGT.',
+        tags: ['Báo cáo'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'account_code', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['1311', '1312'])),
+            new OA\Parameter(name: 'is_vat_invoiced', in: 'query', required: false, schema: new OA\Schema(type: 'boolean')),
+            new OA\Parameter(name: 'invoice_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'vat_invoice_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'customer_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'salesperson_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'product_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'sku', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'search', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Các dòng doanh thu và phân trang'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền finance.view hoặc invoice.view'),
+        ]
+    )]
+    #[OA\Get(
+        path: '/revenue-report-items',
+        summary: 'Báo cáo doanh thu (đường dẫn cũ)',
+        description: 'Giống /reports/revenue-items, giữ lại cho client cũ.',
+        tags: ['Báo cáo'],
+        security: [['bearerAuth' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Các dòng doanh thu và phân trang'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền finance.view hoặc invoice.view'),
+        ]
+    )]
     public function index(Request $request)
     {
         $query = RevenueReportItem::with(['invoice', 'vatInvoice', 'order'])->orderBy('id', 'desc');
@@ -98,6 +135,33 @@ class RevenueReportController extends Controller
     /**
      * Lấy chi tiết 1 dòng báo cáo doanh thu
      */
+    #[OA\Get(
+        path: '/reports/revenue-items/{id}',
+        summary: 'Chi tiết một dòng doanh thu',
+        description: 'Yêu cầu quyền finance.view hoặc invoice.view.',
+        tags: ['Báo cáo'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Dòng doanh thu'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền finance.view hoặc invoice.view'),
+            new OA\Response(response: 404, description: 'Không tìm thấy dòng báo cáo doanh thu'),
+        ]
+    )]
+    #[OA\Get(
+        path: '/revenue-report-items/{id}',
+        summary: 'Chi tiết một dòng doanh thu (đường dẫn cũ)',
+        description: 'Giống /reports/revenue-items/{id}.',
+        tags: ['Báo cáo'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Dòng doanh thu'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 404, description: 'Không tìm thấy dòng báo cáo doanh thu'),
+        ]
+    )]
     public function show($id)
     {
         $item = RevenueReportItem::with(['invoice', 'vatInvoice', 'order'])->find($id);

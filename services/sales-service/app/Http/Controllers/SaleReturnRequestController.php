@@ -15,9 +15,27 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use OpenApi\Attributes as OA;
 
 class SaleReturnRequestController extends Controller
 {
+    #[OA\Get(
+        path: '/sale-return-requests',
+        summary: 'Danh sách yêu cầu trả hàng',
+        description: 'Yêu cầu quyền sale_return.view.',
+        tags: ['Trả hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'status', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'search', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Yêu cầu trả hàng và phân trang'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền sale_return.view'),
+        ]
+    )]
     public function index(Request $request): JsonResponse
     {
         $query = SaleReturnRequest::with(['documents', 'items', 'saleReturn'])->latest('id');
@@ -37,6 +55,19 @@ class SaleReturnRequestController extends Controller
         ]]);
     }
 
+    #[OA\Get(
+        path: '/sale-return-requests/eligible-invoices',
+        summary: 'Chứng từ đủ điều kiện trả hàng',
+        description: 'Yêu cầu quyền sale_return.view. Chứng từ đã giao và đã ghi sổ, kèm số lượng còn có thể trả từng dòng.',
+        tags: ['Trả hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'customer_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Chứng từ và dòng hàng còn trả được'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền sale_return.view'),
+        ]
+    )]
     public function eligibleInvoices(Request $request): JsonResponse
     {
         $query = Invoice::with(['items.orderItem', 'deliveryRequest.order'])
@@ -74,6 +105,45 @@ class SaleReturnRequestController extends Controller
         return response()->json(['success' => true, 'data' => $invoices]);
     }
 
+    #[OA\Post(
+        path: '/sale-return-requests',
+        summary: 'Tạo yêu cầu trả hàng',
+        description: 'Yêu cầu quyền sale_return.create. Các chứng từ phải đã giao, đã ghi sổ và cùng một khách hàng; số lượng trả không vượt số còn có thể trả.',
+        tags: ['Trả hàng'],
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['invoice_ids', 'reason', 'items'],
+                properties: [
+                    new OA\Property(property: 'customer_id', type: 'integer', nullable: true),
+                    new OA\Property(property: 'invoice_ids', type: 'array', minItems: 1, items: new OA\Items(type: 'integer')),
+                    new OA\Property(property: 'reason', type: 'string', maxLength: 500),
+                    new OA\Property(property: 'notes', type: 'string', nullable: true, maxLength: 5000),
+                    new OA\Property(
+                        property: 'items',
+                        type: 'array',
+                        minItems: 1,
+                        items: new OA\Items(
+                            required: ['invoice_item_id', 'requested_quantity'],
+                            properties: [
+                                new OA\Property(property: 'invoice_item_id', type: 'integer'),
+                                new OA\Property(property: 'requested_quantity', type: 'integer', minimum: 1),
+                            ],
+                            type: 'object'
+                        )
+                    ),
+                    new OA\Property(property: 'attachment_ids', type: 'array', nullable: true, items: new OA\Items(type: 'integer')),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: 'Yêu cầu trả hàng mới'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền sale_return.create'),
+            new OA\Response(response: 422, description: 'Chứng từ không hợp lệ, khác khách hàng, mặt hàng không thuộc chứng từ hoặc vượt số lượng có thể trả'),
+        ]
+    )]
     public function store(StoreSaleReturnRequest $request): JsonResponse
     {
         $validated = $request->validated();
@@ -144,11 +214,40 @@ class SaleReturnRequestController extends Controller
         return response()->json(['success' => true, 'data' => $this->loadRequest($returnRequest), 'message' => 'Đã tạo yêu cầu nhập trả.'], 201);
     }
 
+    #[OA\Get(
+        path: '/sale-return-requests/{saleReturnRequest}',
+        summary: 'Chi tiết yêu cầu trả hàng',
+        description: 'Yêu cầu quyền sale_return.view.',
+        tags: ['Trả hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'saleReturnRequest', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Yêu cầu kèm dòng hàng'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền sale_return.view'),
+            new OA\Response(response: 404, description: self::DOC_404),
+        ]
+    )]
     public function show(SaleReturnRequest $saleReturnRequest): JsonResponse
     {
         return response()->json(['success' => true, 'data' => $this->loadRequest($saleReturnRequest)]);
     }
 
+    #[OA\Post(
+        path: '/sale-return-requests/{saleReturnRequest}/start-inspection',
+        summary: 'Bắt đầu kiểm tra kỹ thuật',
+        description: 'Yêu cầu quyền sale_return.technical.',
+        tags: ['Trả hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'saleReturnRequest', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Yêu cầu sau khi chuyển trạng thái'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền sale_return.technical'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: 'Trạng thái yêu cầu không cho phép thao tác này'),
+        ]
+    )]
     public function startInspection(Request $request, SaleReturnRequest $saleReturnRequest): JsonResponse
     {
         $this->requireStatus($saleReturnRequest, [SaleReturnRequest::PENDING_INSPECTION]);
@@ -159,6 +258,43 @@ class SaleReturnRequestController extends Controller
         return $this->success($saleReturnRequest, 'Đã bắt đầu kiểm tra hàng trả.');
     }
 
+    #[OA\Put(
+        path: '/sale-return-requests/{saleReturnRequest}/inspection',
+        summary: 'Ghi kết quả kiểm tra chất lượng',
+        description: 'Yêu cầu quyền sale_return.technical. Phải đánh giá toàn bộ mặt hàng trong yêu cầu.',
+        tags: ['Trả hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'saleReturnRequest', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['items'],
+                properties: [
+                    new OA\Property(
+                        property: 'items',
+                        type: 'array',
+                        minItems: 1,
+                        items: new OA\Items(
+                            required: ['id', 'quality_status'],
+                            properties: [
+                                new OA\Property(property: 'id', type: 'integer', description: 'Id dòng của yêu cầu trả hàng'),
+                                new OA\Property(property: 'quality_status', type: 'string', enum: ['ELIGIBLE', 'INELIGIBLE']),
+                            ],
+                            type: 'object'
+                        )
+                    ),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Yêu cầu sau khi ghi kết quả'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền sale_return.technical'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: 'Trạng thái yêu cầu không cho phép thao tác này'),
+            new OA\Response(response: 422, description: 'Chưa đánh giá đủ hoặc mặt hàng không thuộc yêu cầu'),
+        ]
+    )]
     public function inspect(InspectSaleReturnRequest $request, SaleReturnRequest $saleReturnRequest): JsonResponse
     {
         $this->requireStatus($saleReturnRequest, [SaleReturnRequest::INSPECTING]);
@@ -183,6 +319,26 @@ class SaleReturnRequestController extends Controller
         return $this->success($saleReturnRequest, 'Đã lưu kết quả đánh giá chất lượng.');
     }
 
+    #[OA\Post(
+        path: '/sale-return-requests/{saleReturnRequest}/reject',
+        summary: 'Từ chối yêu cầu trả hàng (kỹ thuật)',
+        description: 'Yêu cầu quyền sale_return.technical. Bắt buộc ghi lý do.',
+        tags: ['Trả hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'saleReturnRequest', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(required: ['reason'], properties: [new OA\Property(property: 'reason', type: 'string', maxLength: 2000)])
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Yêu cầu sau khi từ chối'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền sale_return.technical'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: 'Trạng thái yêu cầu không cho phép thao tác này'),
+            new OA\Response(response: 422, description: self::DOC_422),
+        ]
+    )]
     public function reject(Request $request, SaleReturnRequest $saleReturnRequest): JsonResponse
     {
         $this->requireStatus($saleReturnRequest, [SaleReturnRequest::PENDING_INSPECTION, SaleReturnRequest::INSPECTING]);
@@ -192,6 +348,33 @@ class SaleReturnRequestController extends Controller
         return $this->success($saleReturnRequest, 'Đã từ chối yêu cầu nhập trả.');
     }
 
+    #[OA\Post(
+        path: '/sale-return-requests/{saleReturnRequest}/receive-technical',
+        summary: 'Nhập hàng trả về kho kỹ thuật',
+        description: 'Yêu cầu quyền sale_return.technical. Chỉ nhập các mặt hàng đạt chất lượng; gọi inventory-service nhận hàng vào kho kỹ thuật.',
+        tags: ['Trả hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'saleReturnRequest', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['warehouse_id', 'warehouse_name'],
+                properties: [
+                    new OA\Property(property: 'warehouse_id', type: 'integer', description: 'Kho kỹ thuật'),
+                    new OA\Property(property: 'warehouse_name', type: 'string', maxLength: 255),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Yêu cầu sau khi nhập kho kỹ thuật'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền sale_return.technical'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: 'Trạng thái yêu cầu không cho phép thao tác này'),
+            new OA\Response(response: 422, description: 'Chưa đánh giá đủ, không có hàng đạt hoặc kho không phải kho kỹ thuật'),
+            new OA\Response(response: 502, description: 'inventory-service không cập nhật được tồn kho'),
+        ]
+    )]
     public function receiveTechnical(Request $request, SaleReturnRequest $saleReturnRequest): JsonResponse
     {
         $this->requireStatus($saleReturnRequest, [SaleReturnRequest::INSPECTING]);
@@ -227,6 +410,33 @@ class SaleReturnRequestController extends Controller
         return $this->success($saleReturnRequest, 'Đã nhập hàng đạt chất lượng vào kho kỹ thuật.');
     }
 
+    #[OA\Post(
+        path: '/sale-return-requests/{saleReturnRequest}/request-main-warehouse',
+        summary: 'Đề nghị chuyển hàng về kho bán',
+        description: 'Yêu cầu quyền sale_return.technical. Chọn kho bán để chuyển hàng đạt chất lượng từ kho kỹ thuật, chờ quản lý duyệt.',
+        tags: ['Trả hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'saleReturnRequest', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['warehouse_id', 'warehouse_name'],
+                properties: [
+                    new OA\Property(property: 'warehouse_id', type: 'integer', description: 'Kho bán'),
+                    new OA\Property(property: 'warehouse_name', type: 'string', maxLength: 255),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Yêu cầu sau khi đề nghị'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền sale_return.technical'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: 'Trạng thái yêu cầu không cho phép thao tác này'),
+            new OA\Response(response: 422, description: 'Kho được chọn không phải kho bán'),
+            new OA\Response(response: 502, description: 'inventory-service không phản hồi khi kiểm tra kho'),
+        ]
+    )]
     public function requestMainWarehouse(Request $request, SaleReturnRequest $saleReturnRequest): JsonResponse
     {
         $this->requireStatus($saleReturnRequest, [SaleReturnRequest::TECHNICAL_RECEIVED, SaleReturnRequest::MAIN_REJECTED]);
@@ -245,6 +455,21 @@ class SaleReturnRequestController extends Controller
         return $this->success($saleReturnRequest, 'Đã gửi yêu cầu nhập kho chính.');
     }
 
+    #[OA\Post(
+        path: '/sale-return-requests/{saleReturnRequest}/approve-main',
+        summary: 'Duyệt chuyển hàng về kho bán',
+        description: 'Yêu cầu quyền sale_return.approve. Sau khi duyệt, yêu cầu chờ ghi sổ.',
+        tags: ['Trả hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'saleReturnRequest', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Yêu cầu sau khi duyệt'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền sale_return.approve'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: 'Trạng thái yêu cầu không cho phép thao tác này'),
+        ]
+    )]
     public function approveMain(Request $request, SaleReturnRequest $saleReturnRequest): JsonResponse
     {
         $this->requireStatus($saleReturnRequest, [SaleReturnRequest::PENDING_MAIN_APPROVAL]);
@@ -255,6 +480,26 @@ class SaleReturnRequestController extends Controller
         return $this->success($saleReturnRequest, 'Đã duyệt nhập kho chính, chờ ghi sổ.');
     }
 
+    #[OA\Post(
+        path: '/sale-return-requests/{saleReturnRequest}/reject-main',
+        summary: 'Từ chối chuyển hàng về kho bán',
+        description: 'Yêu cầu quyền sale_return.approve. Bắt buộc ghi lý do; hàng nằm lại kho kỹ thuật.',
+        tags: ['Trả hàng'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'saleReturnRequest', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(required: ['reason'], properties: [new OA\Property(property: 'reason', type: 'string', maxLength: 2000)])
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Yêu cầu sau khi từ chối'),
+            new OA\Response(response: 401, description: self::DOC_401),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền sale_return.approve'),
+            new OA\Response(response: 404, description: self::DOC_404),
+            new OA\Response(response: 409, description: 'Trạng thái yêu cầu không cho phép thao tác này'),
+            new OA\Response(response: 422, description: self::DOC_422),
+        ]
+    )]
     public function rejectMain(Request $request, SaleReturnRequest $saleReturnRequest): JsonResponse
     {
         $this->requireStatus($saleReturnRequest, [SaleReturnRequest::PENDING_MAIN_APPROVAL]);

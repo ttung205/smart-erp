@@ -47,7 +47,15 @@ async def lifespan(_: FastAPI):
         task.cancel()
 
 
-app = FastAPI(title="ai-service", lifespan=lifespan)
+app = FastAPI(
+    title="Smart ERP - AI Service API",
+    description="Trợ lý AI chỉ đọc và phân tích dữ liệu (BI, dự báo, phân khúc khách hàng). Yêu cầu Bearer JWT, quyền được kiểm tra theo từng route.",
+    version="1.0.0",
+    lifespan=lifespan,
+    docs_url="/docs" if config.DOCS_ENABLED else None,
+    redoc_url="/redoc" if config.DOCS_ENABLED else None,
+    openapi_url="/openapi.json" if config.DOCS_ENABLED else None,
+)
 router = APIRouter(prefix="/api/v1/ai")
 
 

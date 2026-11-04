@@ -13,9 +13,28 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use OpenApi\Attributes as OA;
 
 class FinanceVoucherController extends Controller
 {
+    #[OA\Get(
+        path: '/vouchers',
+        summary: 'Danh sách chứng từ thu chi',
+        description: 'Yêu cầu quyền finance.view. Kèm định khoản (lines) và phân bổ công nợ (allocations), mới nhất trước.',
+        tags: ['Chứng từ thu chi'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'channel', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['CASH', 'BANK'])),
+            new OA\Parameter(name: 'voucher_type', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['CASH_RECEIPT', 'CASH_PAYMENT', 'BANK_RECEIPT', 'BANK_PAYMENT', 'INTERNAL_TRANSFER'])),
+            new OA\Parameter(name: 'page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', minimum: 1)),
+            new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 20, maximum: 100, minimum: 1)),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Danh sách chứng từ và phân trang'),
+            new OA\Response(response: 401, description: 'UNAUTHENTICATED: thiếu hoặc sai token'),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền finance.view'),
+        ]
+    )]
     public function index(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -44,6 +63,80 @@ class FinanceVoucherController extends Controller
         ]);
     }
 
+    #[OA\Post(
+        path: '/vouchers',
+        summary: 'Tạo chứng từ thu chi (bản nháp)',
+        description: 'Yêu cầu quyền finance.create hoặc finance.approve. Chứng từ tạo ở trạng thái DRAFT, cần gọi /vouchers/{id}/post để ghi sổ. '
+            .'Idempotent theo idempotency_key: gửi lại cùng khóa trả về chứng từ đã tạo (200). '
+            .'Không gửi lines thì hệ thống tự định khoản với tài khoản đối ứng counter_account_code (mặc định 1311).',
+        tags: ['Chứng từ thu chi'],
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['voucher_type', 'channel', 'voucher_date', 'description', 'total_amount'],
+                properties: [
+                    new OA\Property(property: 'idempotency_key', type: 'string', format: 'uuid', nullable: true),
+                    new OA\Property(property: 'voucher_type', type: 'string', enum: ['CASH_RECEIPT', 'CASH_PAYMENT', 'BANK_RECEIPT', 'BANK_PAYMENT', 'INTERNAL_TRANSFER']),
+                    new OA\Property(property: 'channel', type: 'string', enum: ['CASH', 'BANK']),
+                    new OA\Property(property: 'voucher_date', type: 'string', format: 'date'),
+                    new OA\Property(property: 'accounting_date', type: 'string', format: 'date', nullable: true),
+                    new OA\Property(property: 'party_type', type: 'string', enum: ['CUSTOMER', 'SUPPLIER', 'OTHER'], nullable: true, description: 'Bắt buộc trừ khi INTERNAL_TRANSFER'),
+                    new OA\Property(property: 'party_id', type: 'integer', nullable: true, description: 'Bắt buộc khi party_type là CUSTOMER hoặc SUPPLIER'),
+                    new OA\Property(property: 'party_name', type: 'string', nullable: true, description: 'Bắt buộc trừ khi INTERNAL_TRANSFER'),
+                    new OA\Property(property: 'party_code', type: 'string', nullable: true, maxLength: 50),
+                    new OA\Property(property: 'party_address', type: 'string', nullable: true, maxLength: 255),
+                    new OA\Property(property: 'contact_name', type: 'string', nullable: true, maxLength: 255),
+                    new OA\Property(property: 'reason_code', type: 'string', nullable: true, maxLength: 50),
+                    new OA\Property(property: 'employee_name', type: 'string', nullable: true, maxLength: 255),
+                    new OA\Property(property: 'description', type: 'string'),
+                    new OA\Property(property: 'cash_fund_id', type: 'integer', nullable: true, description: 'Bắt buộc khi channel = CASH'),
+                    new OA\Property(property: 'bank_account_id', type: 'integer', nullable: true, description: 'Bắt buộc khi channel = BANK'),
+                    new OA\Property(property: 'destination_bank_account_id', type: 'integer', nullable: true, description: 'Bắt buộc khi INTERNAL_TRANSFER, khác bank_account_id'),
+                    new OA\Property(property: 'total_amount', type: 'number', exclusiveMinimum: 0),
+                    new OA\Property(property: 'currency', type: 'string', nullable: true, enum: ['VND', 'USD', 'EUR', 'GBP', 'JPY', 'CNY', 'KRW', 'SGD', 'THB', 'AUD', 'CAD', 'CHF', 'HKD']),
+                    new OA\Property(property: 'exchange_rate', type: 'number', nullable: true, exclusiveMinimum: 0),
+                    new OA\Property(property: 'counter_account_code', type: 'string', nullable: true),
+                    new OA\Property(
+                        property: 'allocations',
+                        type: 'array',
+                        nullable: true,
+                        items: new OA\Items(
+                            required: ['receivable_id', 'amount'],
+                            properties: [
+                                new OA\Property(property: 'receivable_id', type: 'integer'),
+                                new OA\Property(property: 'amount', type: 'number', exclusiveMinimum: 0),
+                            ],
+                            type: 'object'
+                        )
+                    ),
+                    new OA\Property(
+                        property: 'lines',
+                        type: 'array',
+                        nullable: true,
+                        description: 'Tổng amount phải bằng total_amount',
+                        items: new OA\Items(
+                            required: ['description', 'debit_account_code', 'credit_account_code', 'amount'],
+                            properties: [
+                                new OA\Property(property: 'description', type: 'string'),
+                                new OA\Property(property: 'debit_account_code', type: 'string'),
+                                new OA\Property(property: 'credit_account_code', type: 'string'),
+                                new OA\Property(property: 'amount', type: 'number', exclusiveMinimum: 0),
+                            ],
+                            type: 'object'
+                        )
+                    ),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: 'Chứng từ bản nháp kèm định khoản và phân bổ'),
+            new OA\Response(response: 200, description: 'idempotency_key đã tồn tại, trả về chứng từ đã tạo trước đó'),
+            new OA\Response(response: 401, description: 'UNAUTHENTICATED: thiếu hoặc sai token'),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền finance.create hoặc finance.approve'),
+            new OA\Response(response: 422, description: 'VALIDATION_FAILED: thiếu đối tượng, tổng định khoản lệch tổng chứng từ hoặc hạch toán vào tài khoản tổng hợp'),
+        ]
+    )]
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -121,11 +214,62 @@ class FinanceVoucherController extends Controller
         return response()->json(['success' => true, 'data' => $voucher], 201);
     }
 
+    #[OA\Post(
+        path: '/vouchers/{id}/post',
+        summary: 'Ghi sổ chứng từ thu chi',
+        description: 'Yêu cầu quyền finance.post hoặc finance.approve. Chỉ chứng từ DRAFT mới được ghi sổ. Ghi sổ cái và cập nhật công nợ theo phân bổ.',
+        tags: ['Chứng từ thu chi'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Chứng từ sau khi ghi sổ'),
+            new OA\Response(response: 401, description: 'UNAUTHENTICATED: thiếu hoặc sai token'),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền finance.post hoặc finance.approve'),
+            new OA\Response(response: 404, description: 'Không tìm thấy chứng từ'),
+            new OA\Response(response: 422, description: 'Chứng từ không ở trạng thái nháp, hoặc phân bổ công nợ không hợp lệ'),
+        ]
+    )]
     public function post(Request $request, FinanceVoucher $voucher, VoucherPostingService $service, GeneralLedgerService $ledger): JsonResponse
     {
         return response()->json(['success' => true, 'data' => $service->post($voucher, $request->attributes->get('actor'), $ledger)]);
     }
 
+    #[OA\Post(
+        path: '/vouchers/{id}/allocations',
+        summary: 'Đối trừ phiếu thu với công nợ',
+        description: 'Yêu cầu quyền finance.post hoặc finance.approve. Chỉ phiếu thu đã ghi sổ. Các hóa đơn phải cùng một khách hàng và không vượt số tiền chưa phân bổ.',
+        tags: ['Chứng từ thu chi'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['allocations'],
+                properties: [
+                    new OA\Property(
+                        property: 'allocations',
+                        type: 'array',
+                        minItems: 1,
+                        items: new OA\Items(
+                            required: ['receivable_id', 'amount'],
+                            properties: [
+                                new OA\Property(property: 'receivable_id', type: 'integer'),
+                                new OA\Property(property: 'amount', type: 'number', exclusiveMinimum: 0),
+                            ],
+                            type: 'object'
+                        )
+                    ),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Kết quả đối trừ'),
+            new OA\Response(response: 401, description: 'UNAUTHENTICATED: thiếu hoặc sai token'),
+            new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền finance.post hoặc finance.approve'),
+            new OA\Response(response: 404, description: 'Không tìm thấy chứng từ'),
+            new OA\Response(response: 422, description: 'Phiếu thu chưa ghi sổ, khác khách hàng hoặc vượt số tiền còn lại'),
+        ]
+    )]
     public function allocate(Request $request, FinanceVoucher $voucher, VoucherPostingService $service, GeneralLedgerService $ledger): JsonResponse
     {
         $data = $request->validate([
