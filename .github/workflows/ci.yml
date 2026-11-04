@@ -143,7 +143,7 @@ jobs:
 
       - run: composer install --no-interaction --no-progress --prefer-dist
 
-      - run: cp .env.example .env && php artisan key:generate --force
+      - run: touch .env && php artisan key:generate --force
 
       - run: php artisan test --compact
 

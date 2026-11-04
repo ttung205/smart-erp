@@ -111,6 +111,7 @@ services:
   notification-service:
     ports: !reset []
     environment:
+      APP_ENV: production
       JWT_SECRET: *jwt-secret
       INTERNAL_SERVICE_KEY: *internal-key
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-erp_rabbit}:${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)}@rabbitmq:5672
@@ -147,11 +148,9 @@ services:
   ai-service:
     ports: !reset []
     environment:
+      APP_DOCS_ENABLED: "false"
       JWT_SECRET: *jwt-secret
       MYSQL_PASSWORD: *analytics-db-password
-
-  gateway-legacy:
-    ports: !reset []
 
   prometheus:
     ports: !reset []

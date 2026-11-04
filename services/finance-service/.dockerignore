@@ -10,7 +10,6 @@ storage/framework/views/*
 database/*.sqlite*
 database/*.db*
 .phpunit.result.cache
-tests/
 .vscode/
 .idea/
 *.log

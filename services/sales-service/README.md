@@ -13,15 +13,14 @@ Laravel service for quotations, sales orders, delivery requests, sales documents
 
 ## Local setup
 
-```bash
-composer install
-copy .env.example .env
-php artisan key:generate
-php artisan migrate
-php artisan serve --port=8005
+Chạy bằng Docker từ thư mục gốc repo (không cần cài PHP/Composer):
+
+```powershell
+docker compose up -d --build sales-service sales-relay sales-scheduler   # 3 container dùng chung 1 image
+.\scripts	est.ps1 -Service sales                                        # test trong container
 ```
 
-Set `JWT_SECRET` to the same HS256 secret used by Identity Service. Configure `INVENTORY_SERVICE_URL` and the database connections before starting the service.
+`JWT_SECRET` (cùng HS256 secret với Identity Service), `INVENTORY_SERVICE_URL` và kết nối database được cấp qua biến môi trường trong `docker-compose.yml` / `.env`.
 
 ## Authentication and permissions
 

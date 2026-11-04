@@ -1,13 +1,23 @@
-FROM node:22-alpine
+# Stage 1 (deps): toàn bộ dependencies. Copy package*.json trước để tận dụng Docker layer cache
+FROM node:22-alpine AS deps
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN npm ci || npm install
 
+# Stage 2 (test): docker build --target test, chạy test bằng scripts/test.ps1 (cần MONGODB_URI)
+FROM deps AS test
+COPY . .
+CMD ["npm", "test"]
+
+# Stage 3 (runtime): stage cuối cùng = image chạy thật, chỉ có dependency production, không có mã test
+FROM node:22-alpine AS runtime
 WORKDIR /app
 
-# Cài đặt dependencies trước để tận dụng Docker layer cache
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev || npm install --omit=dev
 
-# Chép toàn bộ mã nguồn ứng dụng
 COPY . .
+RUN rm -rf test
 
 ENV PORT=8006
 ENV NODE_ENV=production

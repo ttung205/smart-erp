@@ -82,13 +82,11 @@ Thông báo nghiệp vụ (cần duyệt báo giá, đơn hàng, giao hàng, xu�
 ## 4. Vận hành (dev)
 
 ```powershell
-docker compose up -d rabbitmq          # Management UI: http://localhost:15672 (erp_rabbit / rabbit_secret)
-cd services\sales-service;   php artisan migrate; php artisan outbox:relay
-cd services\eoffice-service; php artisan migrate; php artisan outbox:relay
-cd services\notification-service; npm install; npm run dev   # cần JWT_SECRET trùng identity-service
+docker compose up -d rabbitmq mongo    # Management UI: http://localhost:15672 (erp_rabbit / RABBITMQ_PASSWORD)
+docker compose up -d --build notification-service sales-service sales-relay eoffice-service eoffice-relay
 ```
 
-`start_dev.ps1` tự mở thêm 2 tab **Sales Outbox Relay** và **EOffice Outbox Relay** (bỏ qua nếu đang chạy).
+`sales-relay` và `eoffice-relay` là hai container chạy `php artisan outbox:relay` từ cùng image với service tương ứng.
 
 Cấu hình `notification-service/.env`: `JWT_SECRET`, `IDENTITY_SERVICE_URL`, `RABBITMQ_URL`, `MONGODB_URI` và `NOTIFICATION_DB_NAME` (MongoDB, mặc định database `erp_notification_db`; chạy `docker compose up -d mongo`).
 

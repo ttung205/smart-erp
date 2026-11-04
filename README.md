@@ -115,40 +115,25 @@ Chi tiết: [docs/notification-architecture.md](docs/notification-architecture.m
 
 ## 5. Cài đặt và chạy
 
-Có hai cách chạy:
-- **Toàn bộ trên Docker** (đề xuất, giống môi trường triển khai): mọi service, MySQL, MongoDB, RabbitMQ, Kong trong container.
-- **Dev từng service trên máy**: Laravel dùng SQLite, Chat và Notification vẫn cần MongoDB, AI cần MySQL; hạ tầng lấy từ Docker.
+Mọi thứ chạy bằng **Docker**: dev, test và triển khai dùng cùng một bộ Dockerfile và `docker-compose.yml`. Máy chỉ cần cài Docker Desktop, không cần PHP, .NET, Node hay Python.
 
 ### 5.1. Yêu cầu môi trường
 
-| Công cụ | Phiên bản | Ghi chú |
-| :--- | :--- | :--- |
-| Docker Desktop | bản mới | Bắt buộc: chạy hạ tầng và toàn bộ hệ thống |
-| PHP | ≥ 8.3 | Dev local: extension `pdo_sqlite`, `sqlite3`; chạy với MySQL: thêm `pdo_mysql`; cả hai cần `mbstring`, `curl`, `sockets` (cho `php-amqplib`) |
-| Composer | ≥ 2.5 | |
-| .NET SDK | 10 | purchase-service, inventory-service, chat-service |
-| Node.js | ≥ 22 | notification-service và frontend (Vite) |
-| Python | 3.12 | ai-service (`requirements.txt`) |
-| Windows Terminal | | `start_dev.ps1` mở mỗi service một tab |
+| Công cụ | Ghi chú |
+| :--- | :--- |
+| Docker Desktop (Compose v2) | Bắt buộc, khuyến nghị cấp ít nhất 6 GB RAM cho Docker |
+| PowerShell | Chạy các script trong `scripts/` |
 
-### 5.2. Cài đặt lần đầu
+### 5.2. Chạy lần đầu
 
 ```powershell
 git clone <repo-url> smart-erp
 cd smart-erp
-copy .env.example .env      # điền các giá trị "change-me" (xem bên dưới)
-.\setup.ps1                 # hoặc double-click setup.bat
+copy .env.example .env       # điền các giá trị "change-me" (xem bên dưới)
+.\scripts\deploy.ps1 -Seed   # build image, migrate, nạp dữ liệu mẫu, khởi động, smoke test
 ```
 
-`setup.ps1` thực hiện cho từng service: `composer install` / `dotnet build` / `npm install` / `pip install`, tạo file SQLite cho các service Laravel và seed dữ liệu mẫu (`php artisan migrate:fresh --seed`).
-
-> Mọi service phải dùng **cùng một `JWT_SECRET`** và **cùng một `INTERNAL_SERVICE_KEY`** (.NET: `Jwt:Secret`, `Services:InternalKey`). Các file `.env.example` / `appsettings.json` có sẵn giá trị dùng cho môi trường dev; khi triển khai phải thay bằng giá trị riêng. Code không còn giá trị mặc định: thiếu cấu hình thì service báo lỗi thay vì chạy với secret công khai.
-
-### 5.3. Chạy toàn bộ bằng Docker (đề xuất)
-
-```powershell
-.\scripts\deploy.ps1          # kiểm tra cấu hình, build image, chạy migration, khởi động toàn bộ, kiểm tra route
-```
+> Mọi service phải dùng **cùng một `JWT_SECRET`** và **cùng một `INTERNAL_SERVICE_KEY`** (.NET: `Jwt:Secret`, `Services:InternalKey`); compose lo việc này từ file `.env`. Thiếu cấu hình thì service báo lỗi thay vì chạy với secret công khai. Lần sau chạy `.\scripts\deploy.ps1` (không `-Seed`).
 
 Bật thêm giám sát (tùy chọn, nặng khoảng 1 GB RAM):
 
@@ -156,41 +141,37 @@ Bật thêm giám sát (tùy chọn, nặng khoảng 1 GB RAM):
 docker compose --profile monitoring up -d
 ```
 
-### 5.4. Chạy dev từng service trên máy
+### 5.3. Vòng lặp khi sửa code
+
+Dev chạy đúng image như production, nên sửa code xong thì build lại service đó:
 
 ```powershell
-docker compose up -d mysql mongo rabbitmq mailpit   # hạ tầng
-.\start_dev.ps1                                     # hoặc double-click start_dev.bat
+docker compose up -d --build sales-service sales-relay sales-scheduler   # 3 container dùng chung 1 image
+docker compose logs -f sales-service
+.\scripts	est.ps1 -Service sales                                        # test trong container
 ```
 
-`start_dev.ps1` mở một cửa sổ Windows Terminal, mỗi tiến trình một tab:
-- 10 service (identity → ai-service), frontend;
-- 3 worker **Outbox Relay** (catalog, sales, eoffice).
+| Service | Container (cùng image) | Ngôn ngữ |
+| :--- | :--- | :--- |
+| identity, finance | `identity-service`, `finance-service` | Laravel |
+| catalog | `catalog-service`, `catalog-relay` | Laravel |
+| sales | `sales-service`, `sales-relay`, `sales-scheduler` | Laravel |
+| eoffice | `eoffice-service`, `eoffice-relay` | Laravel |
+| purchase, inventory, chat | `purchase-service`, `inventory-service`, `chat-service` | .NET |
+| notification | `notification-service` | Node.js |
+| ai | `ai-service` | Python |
 
-Tiến trình nào đang chạy rồi sẽ được bỏ qua. Dùng `.\start_dev.ps1 -Preview` để xem trước danh sách tab sẽ mở.
+Mỗi Dockerfile là **multi-stage**: `runtime` là stage cuối (image chạy thật, nhỏ, không có mã test), còn `test` là stage riêng chứa thư viện dev và thư mục tests, build bằng `docker build --target test`.
 
 | Địa chỉ | Mô tả |
 | :--- | :--- |
-| http://localhost:5175 | **Giao diện web** (dev) |
+| http://localhost:5175 | **Giao diện web** |
 | http://localhost:8000 | **Kong gateway**: mọi API đi qua đây |
-| http://localhost:15672 | RabbitMQ Management (`erp_rabbit` / `rabbit_secret`) |
+| http://localhost:15672 | RabbitMQ Management (`erp_rabbit` / `RABBITMQ_PASSWORD`) |
 | http://localhost:8125 | Mailpit, xem email đã gửi (đổi bằng `MAILPIT_UI_PORT`) |
 | http://localhost:3000 | Grafana (chỉ khi bật profile `monitoring`, đăng nhập `admin` / `GRAFANA_ADMIN_PASSWORD`) |
-| http://127.0.0.1:8003/swagger · http://127.0.0.1:8004/swagger | Swagger của purchase / inventory |
 
-> Khi dev, frontend gọi thẳng các service qua Vite proxy (`frontend/vite.config.js`). Kong (`:8000`) được cấu hình cho môi trường container, nơi mỗi service chạy với hostname riêng.
-
-### 5.5. Chạy thủ công một service
-
-```powershell
-cd services\sales-service
-copy .env.example .env
-composer install
-php artisan key:generate
-php artisan migrate --seed
-php artisan serve --port=8005     # tab 1: API
-php artisan outbox:relay          # tab 2: đẩy domain event lên RabbitMQ
-```
+Lệnh hay dùng: `docker compose ps`, `docker compose logs -f <service>`, `docker compose exec <service> sh`, `docker compose down` (giữ dữ liệu) và `docker compose down -v` (xóa cả volume).
 
 ## 6. Tài khoản mẫu
 
@@ -233,19 +214,17 @@ Mật khẩu mặc định của mọi tài khoản: **`password123`**
 
 ## 8. Kiểm thử
 
+Test chạy trong container (stage `test` của từng Dockerfile), dùng MySQL/MongoDB thật của compose và các database `erp_*_test` tách khỏi dữ liệu dev:
+
 ```powershell
-cd services\identity-service;     php artisan test
-cd services\sales-service;        php artisan test
-cd services\eoffice-service;      php artisan test
-cd services\finance-service;      php artisan test
-cd services\purchase-service;     dotnet test tests\Purchase.Tests
-cd services\inventory-service;    dotnet test tests\Inventory.Infrastructure.Tests
-cd services\chat-service;         dotnet test tests\Chat.Tests      # cần MongoDB đang chạy
-cd services\notification-service; npm test                           # cần MongoDB đang chạy
-cd frontend;                      npm run lint; npm run build
+.\scripts	est.ps1                       # tất cả: 5 Laravel, 3 .NET, notification, ai, frontend
+.\scripts	est.ps1 -Service sales        # một service
+.\scripts	est.ps1 -Service chat,inventory
 ```
 
-Test của Chat và Notification dùng MongoDB thật (`docker compose up -d mongo`). Test tranh chấp đồng thời của Inventory chạy 20 luồng song song trên SQLite tạm.
+> Test Laravel đặt cứng mật khẩu `erp_user` là `erp_secret` (xem `phpunit.xml`), nên `MYSQL_PASSWORD` trong `.env` phải là `erp_secret` khi chạy test PHP trên máy dev. CI vẫn chạy test trực tiếp trên runner (`.github/workflows/ci.yml`).
+
+Test tranh chấp đồng thời của Inventory chạy 20 luồng song song trên MySQL tạm.
 
 ## 9. Cấu trúc thư mục
 
@@ -253,12 +232,12 @@ Test của Chat và Notification dùng MongoDB thật (`docker compose up -d mon
 smart-erp/
 ├── docker-compose.yml          # Toàn bộ hệ thống; profile "monitoring" cho Grafana/Prometheus/Loki/Alloy
 ├── docker-compose.prod.yml     # Override production: bắt buộc secret, chỉ mở gateway và frontend
+├── docker-compose.test.yml     # Override cho scripts/test.ps1: chạy stage `test` của từng Dockerfile
 ├── infrastructure/
 │   ├── kong/                   # Khai báo route, rate limit, timeout, plugin của gateway
 │   ├── mysql/init/             # Tạo các schema erp_*_db và user ứng dụng
 │   ├── rabbitmq/               # definitions.json (exchange, queue, binding, DLX), bật plugin Prometheus
 │   └── monitoring/             # Loki, Alloy, Prometheus (kèm luật cảnh báo), dashboard Grafana
-├── gateway/nginx.conf          # Gateway cũ, chỉ dùng cho profile rollback
 ├── packages/shared-kernel/     # Hợp đồng dùng chung (envelope, outbox model, enum)
 ├── services/
 │   ├── identity-service/       # :8001  Laravel · RBAC, JWT
@@ -272,11 +251,10 @@ smart-erp/
 │   ├── chat-service/           # :8009  .NET · Chat, SignalR, MongoDB
 │   └── ai-service/             # :8010  Python · Trợ lý AI, kho phân tích MySQL
 ├── frontend/                   # Vue 3 + PrimeVue + Tailwind CSS
-├── scripts/                    # deploy, smoke test, kiểm tra cấu hình production, replay dead letter
+├── scripts/                    # deploy, test, smoke test, kiểm tra cấu hình production, replay dead letter
 ├── docs/                       # Đặc tả API, event, kiến trúc, triển khai, ảnh kiến trúc
 ├── rules/                      # Quy chuẩn giao diện
-├── setup.ps1 / setup.bat       # Cài đặt lần đầu
-└── start_dev.ps1 / start_dev.bat
+└── .env.example                # Mẫu biến môi trường; sao chép thành .env
 ```
 
 ## 10. Tài liệu

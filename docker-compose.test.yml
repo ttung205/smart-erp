@@ -1,0 +1,88 @@
+# Chạy test trong container, không cần cài PHP/.NET/Node trên máy:
+#   scripts/test.ps1                 # mọi service
+#   scripts/test.ps1 -Service sales  # một service
+# Mỗi <service>-test build stage `test` của Dockerfile (khác stage `runtime` chạy thật) và dùng database *_test,
+# tách khỏi dữ liệu dev (xem infrastructure/mysql/init/02-create-test-databases.sql).
+# Dùng kèm docker-compose.yml: docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm --build sales-test
+
+x-test-mysql: &test-mysql "Server=mysql;Port=3306;User=erp_user;Password=${MYSQL_PASSWORD:-erp_secret};TreatTinyAsBoolean=true;"
+x-test-mongo: &test-mongo "mongodb://mongo:27017/?directConnection=true"
+
+services:
+  # --- Laravel: phpunit.xml trỏ DB tới 127.0.0.1:3306 (erp_user / erp_secret) nên dùng chung network namespace với mysql ---
+  # Lưu ý: phpunit.xml đặt cứng mật khẩu erp_user là erp_secret, nên MYSQL_PASSWORD trong .env phải là erp_secret khi chạy test PHP.
+  identity-test:
+    build: { context: ./services/identity-service, target: test }
+    image: smart-erp-identity-service-test:latest
+    network_mode: "service:mysql"
+    depends_on: { mysql: { condition: service_healthy } }
+
+  catalog-test:
+    build: { context: ./services/catalog-service, target: test }
+    image: smart-erp-catalog-service-test:latest
+    network_mode: "service:mysql"
+    depends_on: { mysql: { condition: service_healthy } }
+
+  sales-test:
+    build: { context: ./services/sales-service, target: test }
+    image: smart-erp-sales-service-test:latest
+    network_mode: "service:mysql"
+    depends_on: { mysql: { condition: service_healthy } }
+
+  eoffice-test:
+    build: { context: ./services/eoffice-service, target: test }
+    image: smart-erp-eoffice-service-test:latest
+    network_mode: "service:mysql"
+    depends_on: { mysql: { condition: service_healthy } }
+
+  finance-test:
+    build: { context: ./services/finance-service, target: test }
+    image: smart-erp-finance-service-test:latest
+    network_mode: "service:mysql"
+    depends_on: { mysql: { condition: service_healthy } }
+
+  # --- .NET: test tự tạo database tạm erp_<service>_<guid>_test ---
+  purchase-test:
+    build: { context: ./services/purchase-service, target: test }
+    image: smart-erp-purchase-service-test:latest
+    environment:
+      TEST_MYSQL_CONNECTION: *test-mysql
+    networks: [erp-network]
+    depends_on: { mysql: { condition: service_healthy } }
+
+  inventory-test:
+    build: { context: ./services/inventory-service, target: test }
+    image: smart-erp-inventory-service-test:latest
+    environment:
+      TEST_MYSQL_CONNECTION: *test-mysql
+    networks: [erp-network]
+    depends_on: { mysql: { condition: service_healthy } }
+
+  chat-test:
+    build: { context: ./services/chat-service, target: test }
+    image: smart-erp-chat-service-test:latest
+    environment:
+      CHAT_TEST_MONGO: *test-mongo
+    networks: [erp-network]
+    depends_on: { mongo: { condition: service_healthy } }
+
+  # --- Node ---
+  notification-test:
+    build: { context: ./services/notification-service, target: test }
+    image: smart-erp-notification-service-test:latest
+    environment:
+      MONGODB_URI: *test-mongo
+    volumes:
+      # routing.test.js đối chiếu binding với file định nghĩa RabbitMQ của repo (nằm ngoài thư mục service)
+      - ./infrastructure/rabbitmq:/infrastructure/rabbitmq:ro
+    networks: [erp-network]
+    depends_on: { mongo: { condition: service_healthy } }
+
+  # --- Không cần database ---
+  frontend-test:
+    build: { context: ./frontend, target: test }
+    image: smart-erp-frontend-test:latest
+
+  ai-test:
+    build: { context: ./services/ai-service, target: test }
+    image: smart-erp-ai-service-test:latest
