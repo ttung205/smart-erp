@@ -2,6 +2,8 @@
 param(
     [switch]$SkipBuild,
     [switch]$SkipMigrations,
+    # Nạp dữ liệu mẫu (tài khoản, danh mục...). Chỉ dùng cho lần dựng đầu tiên của database.
+    [switch]$Seed,
     # Dùng docker-compose.prod.yml: bắt buộc secret thật, chỉ publish gateway/frontend
     [switch]$Production
 )
@@ -41,6 +43,14 @@ try {
             Write-Host "Running migrations for $service..."
             docker compose run --rm --no-deps $service php artisan migrate --force
             if ($LASTEXITCODE -ne 0) { throw "Migration failed for $service." }
+        }
+    }
+
+    if ($Seed) {
+        foreach ($service in @("identity-service", "catalog-service", "eoffice-service", "finance-service")) {
+            Write-Host "Seeding $service..."
+            docker compose run --rm --no-deps $service php artisan db:seed --force
+            if ($LASTEXITCODE -ne 0) { throw "Seeding failed for $service." }
         }
     }
 

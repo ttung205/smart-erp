@@ -24,6 +24,8 @@ public sealed class InventoryApiFactory : WebApplicationFactory<Program>
             configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:MySqlConnection"] = _connectionString,
+                // Test chạy ở môi trường Development, không có secret trong appsettings.json (compose cấp ở runtime).
+                ["Jwt:Secret"] = "integration-test-secret-not-used-in-production",
                 // Database tạm còn trống: để ứng dụng tự nạp dữ liệu mẫu (kho, tồn kho) mà các test dựa vào.
                 ["AUTO_SEED"] = "true"
             });

@@ -121,9 +121,9 @@ flowchart TB
 
 Notes:
 
-- `gateway-legacy` is behind Compose profile `legacy-gateway`; it is rollback infrastructure, not part of the default topology. Evidence: `docker-compose.yml — gateway-legacy`; `gateway/nginx.conf`.
+- The former Nginx gateway (`gateway-legacy`, profile `legacy-gateway`) has been removed; Kong is the only gateway. Evidence: `docker-compose.yml — gateway`.
 - Compose initializes `erp_analytics_db` and `erp_chat_db`, but current AI and Chat containers do not use them. This is **CONFIGURED_ONLY**. Evidence: `01-create-databases.sql`; `Chat.Infrastructure.DependencyInjection.AddInfrastructure`; `ai-service/app/config.py`.
-- Compose comments say PHP 8.3, while every Laravel Dockerfile uses `php:8.4-cli-alpine`; Composer accepts `^8.3`. Runtime image evidence wins. Evidence: service Dockerfiles and each root `composer.json`.
+- Compose comments say PHP 8.3, while every Laravel Dockerfile uses `php:8.4-fpm-alpine`; Composer accepts `^8.3`. Runtime image evidence wins. Evidence: service Dockerfiles and each root `composer.json`.
 
 ## 5. Service catalog
 
@@ -423,7 +423,7 @@ Evidence: `SalesOrderController.store:56-230`; `SalesOrderController.submitAppro
 - Public host ports expose every backend directly (`8001`–`8010`) in addition to Kong `8000`; the gateway is therefore not the sole network boundary on the host.
 - MySQL and RabbitMQ have named volumes and health checks. Notification/Chat/AI data and chat files have named volumes. Laravel/Purchase/Inventory data persists in MySQL.
 - Gateway waits for all ten service health checks. A degraded optional AI/Chat service prevents the default gateway from becoming startable, creating broad startup coupling.
-- Laravel containers run `php artisan serve`, not PHP-FPM; this is a development server used in the production Compose environment.
+- Laravel containers run PHP-FPM behind Nginx (`docker/start-web`) as `www-data`; the Dockerfiles are multi-stage (`php-base`, `vendor`, `test`, `runtime`) and the last stage is the runtime image. Evidence: service Dockerfiles; `docker/start-web`.
 - `AUTO_SEED=true` is set for Identity, Catalog, Sales, E-Office, and Finance; entrypoint behavior determines whether production startup mutates seed data. Evidence: Compose and each `docker-entrypoint.sh`.
 - Compose pins Kong (`3.9.1`), MySQL (`8.0`), RabbitMQ (`3.13-management-alpine`), Node (`22-alpine`), Python (`3.12-slim`), and .NET (`10.0`); frontend/runtime Nginx and Mailpit use floating tags.
 
@@ -452,7 +452,6 @@ Not implemented: distributed tracing (OpenTelemetry), log/metric alert delivery 
 | High | Every backend port is host-published. | Kong header stripping/policy can be bypassed by direct host access. | `docker-compose.yml` ports |
 | Medium | Gateway startup depends on health of all ten services. | One optional service blocks the single API entry point. | `docker-compose.yml — gateway.depends_on` |
 | Medium | Outbox implementations differ: Laravel has confirms+mandatory, .NET workers mark published after `BasicPublish` without confirms. | Delivery guarantees are inconsistent and weaker for Purchase/Inventory. | Laravel `RabbitMqPublisher.publish`; .NET relay workers |
-| Medium | PHP API containers use `artisan serve` with production env. | Throughput/process management bottleneck and unsuitable production serving model. | Laravel Dockerfiles and Compose `APP_ENV=production` |
 | Medium | Chat attachments are local volume files; MongoDB runs as a single-node replica set without authentication (bound to 127.0.0.1 in development, unpublished in production). | Chat cannot scale across nodes (shared storage and SignalR backplane missing); anyone on `erp-network` can reach MongoDB. | Compose `mongo`, `chat_files` |
 | Medium | Shared symmetric JWT secret across all services. | Any compromised verifier can mint tokens; no key rotation/revocation evidence. | Compose `JWT_SECRET`; verifier/issuer implementations |
 | Medium | Rabbit declarations are duplicated between static definitions and consumer startup code. | Argument/binding drift can close channels or change effective topology. | `definitions.json`; `RabbitMqConnection.TryConnect`; Notification `consumer.setup` |

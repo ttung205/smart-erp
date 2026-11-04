@@ -9,4 +9,3 @@
 *.db-wal
 *.sqlite
 TestResults/
-tests/

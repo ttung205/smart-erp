@@ -32,11 +32,17 @@ async function run() {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
-  child.stdout.on('data', (d) => process.stdout.write(`[Service STDOUT] ${d}`));
+  // Chờ đến khi service báo đã lắng nghe thay vì ngủ cố định: máy chậm hoặc đang tải nặng khởi động lâu hơn 1,5s.
+  let markReady;
+  const ready = new Promise((resolve) => { markReady = resolve; });
+  child.stdout.on('data', (d) => {
+    process.stdout.write(`[Service STDOUT] ${d}`);
+    if (String(d).includes('Running on port')) markReady();
+  });
   child.stderr.on('data', (d) => process.stderr.write(`[Service STDERR] ${d}`));
 
-  // Đợi service khởi động
-  await sleep(1500);
+  const started = await Promise.race([ready.then(() => true), sleep(20000).then(() => false)]);
+  if (!started) throw new Error('Notification service không khởi động trong 20 giây.');
 
   const token = generateToken(1);
   console.log('[Test Client] Kết nối Socket.IO tới http://127.0.0.1:8006...');

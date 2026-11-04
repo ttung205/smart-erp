@@ -150,9 +150,6 @@ services:
       JWT_SECRET: *jwt-secret
       MYSQL_PASSWORD: *analytics-db-password
 
-  gateway-legacy:
-    ports: !reset []
-
   prometheus:
     ports: !reset []
 

@@ -1,4 +1,4 @@
-# Stage 1: Build
+# Stage 1 (build): restore + publish
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
@@ -14,7 +14,13 @@ RUN dotnet restore src/Inventory.Api/Inventory.Api.csproj
 COPY src/ src/
 RUN dotnet publish src/Inventory.Api/Inventory.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
 
-# Stage 2: Runtime
+# Stage 2 (test): docker build --target test, chạy test bằng scripts/test.ps1. Có SDK + thư mục tests/.
+FROM build AS test
+COPY InventoryService.slnx ./
+COPY tests/ tests/
+CMD ["dotnet", "test", "--nologo", "--verbosity", "minimal"]
+
+# Stage 3 (runtime): stage cuối cùng = image chạy thật, chỉ có runtime + kết quả publish
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 

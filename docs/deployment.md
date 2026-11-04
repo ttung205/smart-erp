@@ -4,8 +4,8 @@
 
 The default gateway is Kong OSS in DB-less mode. Its version is pinned in
 `docker-compose.yml`, and all routes and plugins are declared in
-`infrastructure/kong/kong.yml`. The old Nginx gateway remains available only as
-the `legacy-gateway` profile for rollback and comparison.
+`infrastructure/kong/kong.yml`. The former Nginx gateway has been removed; roll back
+Kong by redeploying a previous image tag or commit.
 
 Kong provides:
 
@@ -127,16 +127,6 @@ The MySQL init directory runs only when the data volume is created. Editing an
 init script does not update an existing volume. Apply new permissions or schema
 changes through versioned migrations or an explicit DBA operation; do not
 delete the volume to force initialization.
-
-To compare the previous gateway without replacing Kong:
-
-```powershell
-docker compose --profile legacy-gateway up -d gateway-legacy
-# Nginx legacy gateway is exposed on http://localhost:8100
-```
-
-To roll back Kong traffic, stop the `gateway` service and temporarily change
-the legacy port mapping from `8100:80` to `8000:80`, then run the smoke test.
 
 ## Known limitation
 
