@@ -11,6 +11,14 @@ x-mysql-password: &mysql-password ${MYSQL_PASSWORD:?MYSQL_PASSWORD chưa đặt 
 x-rabbit-password: &rabbit-password ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)}
 x-jwt-secret: &jwt-secret ${JWT_SECRET:?JWT_SECRET chưa đặt trong .env/môi trường (xem .env.example)}
 x-internal-key: &internal-key ${INTERNAL_SERVICE_KEY:?INTERNAL_SERVICE_KEY chưa đặt trong .env/môi trường (xem .env.example)}
+x-identity-db-password: &identity-db-password ${IDENTITY_DB_PASSWORD:?IDENTITY_DB_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)}
+x-catalog-db-password: &catalog-db-password ${CATALOG_DB_PASSWORD:?CATALOG_DB_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)}
+x-purchase-db-password: &purchase-db-password ${PURCHASE_DB_PASSWORD:?PURCHASE_DB_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)}
+x-inventory-db-password: &inventory-db-password ${INVENTORY_DB_PASSWORD:?INVENTORY_DB_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)}
+x-sales-db-password: &sales-db-password ${SALES_DB_PASSWORD:?SALES_DB_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)}
+x-eoffice-db-password: &eoffice-db-password ${EOFFICE_DB_PASSWORD:?EOFFICE_DB_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)}
+x-finance-db-password: &finance-db-password ${FINANCE_DB_PASSWORD:?FINANCE_DB_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)}
+x-analytics-db-password: &analytics-db-password ${ANALYTICS_DB_PASSWORD:?ANALYTICS_DB_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)}
 
 services:
   mysql:
@@ -18,6 +26,16 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)}
       MYSQL_PASSWORD: *mysql-password
+      IDENTITY_DB_PASSWORD: *identity-db-password
+      CATALOG_DB_PASSWORD: *catalog-db-password
+      PURCHASE_DB_PASSWORD: *purchase-db-password
+      INVENTORY_DB_PASSWORD: *inventory-db-password
+      SALES_DB_PASSWORD: *sales-db-password
+      EOFFICE_DB_PASSWORD: *eoffice-db-password
+      FINANCE_DB_PASSWORD: *finance-db-password
+      ANALYTICS_DB_PASSWORD: *analytics-db-password
+      # erp_user (test/công cụ dev) không có quyền trên dữ liệu thật ở Production
+      MYSQL_DEV_TOOLS_ACCESS: "false"
 
   mongo:
     ports: !reset []
@@ -34,7 +52,7 @@ services:
     ports: !reset []
     environment:
       APP_KEY: ${IDENTITY_APP_KEY:?IDENTITY_APP_KEY chưa đặt trong .env/môi trường (xem .env.example)}
-      DB_PASSWORD: *mysql-password
+      DB_PASSWORD: *identity-db-password
       JWT_SECRET: *jwt-secret
       INTERNAL_SERVICE_KEY: *internal-key
 
@@ -42,7 +60,7 @@ services:
     ports: !reset []
     environment:
       APP_KEY: ${CATALOG_APP_KEY:?CATALOG_APP_KEY chưa đặt trong .env/môi trường (xem .env.example)}
-      DB_PASSWORD: *mysql-password
+      DB_PASSWORD: *catalog-db-password
       JWT_SECRET: *jwt-secret
       INTERNAL_SERVICE_KEY: *internal-key
       RABBITMQ_PASSWORD: *rabbit-password
@@ -50,13 +68,13 @@ services:
   catalog-relay:
     environment:
       APP_KEY: ${CATALOG_APP_KEY:?CATALOG_APP_KEY chưa đặt trong .env/môi trường (xem .env.example)}
-      DB_PASSWORD: *mysql-password
+      DB_PASSWORD: *catalog-db-password
       RABBITMQ_PASSWORD: *rabbit-password
 
   purchase-service:
     ports: !reset []
     environment:
-      ConnectionStrings__MySqlConnection: "Server=mysql;Port=3306;Database=erp_purchase_db;User=erp_user;Password=${MYSQL_PASSWORD:?MYSQL_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)};TreatTinyAsBoolean=true;"
+      ConnectionStrings__MySqlConnection: "Server=mysql;Port=3306;Database=erp_purchase_db;User=erp_purchase;Password=${PURCHASE_DB_PASSWORD:?PURCHASE_DB_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)};TreatTinyAsBoolean=true;"
       RabbitMQ__Password: *rabbit-password
       Jwt__Secret: *jwt-secret
       Services__InternalKey: *internal-key
@@ -64,7 +82,7 @@ services:
   inventory-service:
     ports: !reset []
     environment:
-      ConnectionStrings__MySqlConnection: "Server=mysql;Port=3306;Database=erp_inventory_db;User=erp_user;Password=${MYSQL_PASSWORD:?MYSQL_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)};"
+      ConnectionStrings__MySqlConnection: "Server=mysql;Port=3306;Database=erp_inventory_db;User=erp_inventory;Password=${INVENTORY_DB_PASSWORD:?INVENTORY_DB_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)};"
       RabbitMQ__Password: *rabbit-password
       Jwt__Secret: *jwt-secret
       Services__InternalKey: *internal-key
@@ -73,7 +91,7 @@ services:
     ports: !reset []
     environment:
       APP_KEY: ${SALES_APP_KEY:?SALES_APP_KEY chưa đặt trong .env/môi trường (xem .env.example)}
-      DB_PASSWORD: *mysql-password
+      DB_PASSWORD: *sales-db-password
       JWT_SECRET: *jwt-secret
       INTERNAL_SERVICE_KEY: *internal-key
       RABBITMQ_PASSWORD: *rabbit-password
@@ -81,13 +99,13 @@ services:
   sales-scheduler:
     environment:
       APP_KEY: ${SALES_APP_KEY:?SALES_APP_KEY chưa đặt trong .env/môi trường (xem .env.example)}
-      DB_PASSWORD: *mysql-password
+      DB_PASSWORD: *sales-db-password
       INTERNAL_SERVICE_KEY: *internal-key
 
   sales-relay:
     environment:
       APP_KEY: ${SALES_APP_KEY:?SALES_APP_KEY chưa đặt trong .env/môi trường (xem .env.example)}
-      DB_PASSWORD: *mysql-password
+      DB_PASSWORD: *sales-db-password
       RABBITMQ_PASSWORD: *rabbit-password
 
   notification-service:
@@ -101,7 +119,7 @@ services:
     ports: !reset []
     environment:
       APP_KEY: ${EOFFICE_APP_KEY:?EOFFICE_APP_KEY chưa đặt trong .env/môi trường (xem .env.example)}
-      DB_PASSWORD: *mysql-password
+      DB_PASSWORD: *eoffice-db-password
       JWT_SECRET: *jwt-secret
       INTERNAL_SERVICE_KEY: *internal-key
       RABBITMQ_PASSWORD: *rabbit-password
@@ -109,14 +127,14 @@ services:
   eoffice-relay:
     environment:
       APP_KEY: ${EOFFICE_APP_KEY:?EOFFICE_APP_KEY chưa đặt trong .env/môi trường (xem .env.example)}
-      DB_PASSWORD: *mysql-password
+      DB_PASSWORD: *eoffice-db-password
       RABBITMQ_PASSWORD: *rabbit-password
 
   finance-service:
     ports: !reset []
     environment:
       APP_KEY: ${FINANCE_APP_KEY:?FINANCE_APP_KEY chưa đặt trong .env/môi trường (xem .env.example)}
-      DB_PASSWORD: *mysql-password
+      DB_PASSWORD: *finance-db-password
       JWT_SECRET: *jwt-secret
       INTERNAL_SERVICE_KEY: *internal-key
 
@@ -130,7 +148,7 @@ services:
     ports: !reset []
     environment:
       JWT_SECRET: *jwt-secret
-      MYSQL_PASSWORD: *mysql-password
+      MYSQL_PASSWORD: *analytics-db-password
 
   gateway-legacy:
     ports: !reset []
