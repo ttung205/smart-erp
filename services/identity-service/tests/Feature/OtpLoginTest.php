@@ -153,6 +153,16 @@ class OtpLoginTest extends TestCase
         $this->assertMatchesRegularExpression('/^AC-\d{4}$/', (string) DB::table('users')->where('id', $id)->value('employee_code'));
     }
 
+    /** Mã ER-xxxx chưa ai dùng: mã nhân viên sinh ngẫu nhiên nên không được đặt cứng trong test. */
+    private function freeCode(): string
+    {
+        do {
+            $code = sprintf('ER-%04d', random_int(0, 9999));
+        } while (DB::table('users')->where('employee_code', $code)->exists());
+
+        return $code;
+    }
+
     private function adminToken(): string
     {
         return (string) $this->postJson('/api/login', ['employee_code' => 'admin@erp.local', 'password' => 'password123'])->json('data.token');
@@ -175,11 +185,12 @@ class OtpLoginTest extends TestCase
         Mail::fake();
         $this->postJson('/api/login/otp/request', ['employee_code' => $this->code])->assertOk();
 
-        $this->withToken($this->adminToken())->putJson("/api/users/{$id}", ['employee_code' => 'er-4321', 'email' => 'moi@example.com'])
+        $newCode = $this->freeCode();
+        $this->withToken($this->adminToken())->putJson("/api/users/{$id}", ['employee_code' => strtolower($newCode), 'email' => 'moi@example.com'])
             ->assertOk();
 
         $row = DB::table('users')->where('id', $id)->first(['employee_code', 'email']);
-        $this->assertSame('ER-4321', $row->employee_code);
+        $this->assertSame($newCode, $row->employee_code);
         $this->assertSame('moi@example.com', $row->email);
         // OTP gửi tới email cũ bị vô hiệu.
         $this->assertSame(0, DB::table('login_otps')->where('user_id', $id)->whereNull('consumed_at')->count());
@@ -206,7 +217,7 @@ class OtpLoginTest extends TestCase
 
         $this->withToken($token)->putJson("/api/users/{$targetId}", ['email' => 'chiem@example.com'])
             ->assertForbidden()->assertJsonPath('error.code', 'PERMISSION_DENIED');
-        $this->withToken($token)->putJson("/api/users/{$targetId}", ['employee_code' => 'ER-0001'])->assertForbidden();
+        $this->withToken($token)->putJson("/api/users/{$targetId}", ['employee_code' => $this->freeCode()])->assertForbidden();
         // Các trường khác vẫn sửa được.
         $this->withToken($token)->putJson("/api/users/{$targetId}", ['name' => 'Ten Moi'])->assertOk();
     }
