@@ -3,7 +3,14 @@
 # - Tự chạy một lần khi volume MySQL còn trống (docker-entrypoint-initdb.d).
 # - Chạy lại được trên volume đã có (đổi mật khẩu, thêm quyền): scripts/apply-db-users.ps1
 # Mật khẩu lấy từ biến môi trường của container mysql (docker-compose.yml / .env).
+#
+# QUAN TRỌNG: toàn bộ nội dung nằm trong một shell con ( ... ). Entrypoint của MySQL CHẠY file .sh có quyền thực thi,
+# nhưng NẠP THẲNG (source) file không có quyền thực thi, đúng như khi git clone trên Linux. Nếu nạp thẳng, `set -u`
+# rò rỉ sang entrypoint và nó chết ở bước sau với "MYSQL_ONETIME_PASSWORD: unbound variable". Shell con giữ các tùy
+# chọn này ở bên trong; lỗi thật (exit khác 0) vẫn làm entrypoint dừng như mong muốn.
+(
 set -euo pipefail
+
 
 sql_escape() {
     printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e "s/'/''/g"
@@ -69,3 +76,4 @@ sql+="FLUSH PRIVILEGES;"
 
 MYSQL_PWD="${MYSQL_ROOT_PASSWORD}" mysql --protocol=socket -uroot -e "$sql"
 echo "03-create-service-users: đã cấp tài khoản cho 8 service và erp_backup (dev tools access: ${MYSQL_DEV_TOOLS_ACCESS:-true})."
+)
