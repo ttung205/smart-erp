@@ -1,0 +1,114 @@
+name: Deploy production
+
+# Triển khai lên EC2 sau khi "Build images" trên main thành công. Không dùng SSH và không mở cổng 22:
+#   1. GitHub xin token tạm thời của AWS qua OIDC (không lưu khóa AWS lâu dài trong Secrets).
+#   2. Gọi AWS Systems Manager (SSM) Run Command; agent trên EC2 tự chạy scripts/deploy-aws.sh.
+#   3. Job chờ lệnh chạy xong và in log ra đây; script lỗi thì job đỏ.
+# Job nằm trong GitHub Environment "production": bật "Required reviewers" ở Settings > Environments để
+# mỗi lần deploy phải được duyệt tay.
+#
+# Cần khai báo ở Settings > Secrets and variables > Actions > tab Variables (không phải Secrets):
+#   AWS_REGION            ví dụ ap-southeast-1
+#   EC2_INSTANCE_ID       ví dụ i-0123456789abcdef0
+#   AWS_DEPLOY_ROLE_ARN   ARN của IAM role cho GitHub, ví dụ arn:aws:iam::123456789012:role/github-deploy-smart-erp
+#
+# Chạy tay (workflow_dispatch) để triển khai lại hoặc quay lui: nhập image_tag, ví dụ sha-1a2b3c4.
+on:
+  workflow_run:
+    workflows: [Build images]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Thẻ image cần triển khai (sha-xxxxxxx hoặc latest). Để trống: latest"
+        required: false
+        default: latest
+
+permissions:
+  id-token: write # xin token OIDC để assume role AWS
+  contents: read
+
+# Hai lần deploy không bao giờ chạy song song; lần sau chờ lần trước, không hủy giữa chừng.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy (production)
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 40
+    # workflow_run chạy cho mọi lần Build images kết thúc: chỉ deploy khi nó là push vào main và thành công.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main')
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+    steps:
+      - name: Xác định thẻ image
+        id: tag
+        env:
+          INPUT_TAG: ${{ inputs.image_tag }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            tag="sha-${HEAD_SHA::7}"
+          else
+            tag="${INPUT_TAG:-latest}"
+          fi
+          # Chỉ nhận thẻ có dạng an toàn vì giá trị này được ghép vào lệnh chạy trên máy chủ.
+          [[ "$tag" =~ ^(latest|sha-[0-9a-f]{7,40})$ ]] || { echo "Thẻ image không hợp lệ: $tag" >&2; exit 1; }
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Triển khai image: $tag"
+
+      - name: Đăng nhập AWS bằng OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: gha-deploy-${{ github.run_id }}
+
+      - name: Gửi lệnh deploy tới EC2 qua SSM
+        id: send
+        env:
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          # Chạy bằng user ubuntu (không phải root) để file trong /opt/smart-erp không bị đổi chủ sở hữu.
+          remote="cd /opt/smart-erp && git pull --ff-only && IMAGE_TAG=${IMAGE_TAG} scripts/deploy-aws.sh"
+          command_id=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --comment "deploy ${IMAGE_TAG} (run ${GITHUB_RUN_ID})" \
+            --timeout-seconds 60 \
+            --parameters "{\"executionTimeout\":[\"2100\"],\"commands\":[\"sudo -u ubuntu -H bash -lc '${remote}'\"]}" \
+            --query "Command.CommandId" --output text)
+          echo "command_id=$command_id" >> "$GITHUB_OUTPUT"
+          echo "Đã gửi lệnh SSM: $command_id"
+
+      - name: Chờ deploy hoàn tất
+        env:
+          COMMAND_ID: ${{ steps.send.outputs.command_id }}
+        run: |
+          # Deploy kéo image và chạy migration có thể mất vài chục phút, lâu hơn waiter mặc định của AWS CLI (~8 phút).
+          status=Pending
+          for _ in $(seq 1 240); do
+            status=$(aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+              --query Status --output text 2>/dev/null || echo Pending)
+            case "$status" in
+              Success|Failed|Cancelled|TimedOut|Cancelling) break ;;
+            esac
+            sleep 10
+          done
+          echo "Trạng thái: $status"
+          echo "----- stdout (24 000 ký tự cuối do SSM giữ lại) -----"
+          aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+            --query StandardOutputContent --output text || true
+          echo "----- stderr -----"
+          aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+            --query StandardErrorContent --output text || true
+          [ "$status" = "Success" ] || { echo "Deploy không thành công ($status)." >&2; exit 1; }
