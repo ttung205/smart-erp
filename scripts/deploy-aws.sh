@@ -3,22 +3,22 @@
 # Chạy trong /opt/smart-erp, cần file .env (có COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml:docker-compose.aws.yml).
 #   scripts/deploy-aws.sh                  triển khai phiên bản latest
 #   IMAGE_TAG=sha-1a2b3c4 scripts/deploy-aws.sh   triển khai (hoặc quay lui) đúng một commit
-#   DEMO_PASSWORD='...' SEED=1 scripts/deploy-aws.sh
-#                                          lần dựng database đầu tiên: nạp tài khoản mẫu (chỉ identity) rồi ĐỔI MẬT KHẨU
-#                                          của chúng thành DEMO_PASSWORD (>= 14 ký tự) trước khi bật hệ thống ra Internet.
-#                                          Thiếu DEMO_PASSWORD thì từ chối nạp (seeder dùng mật khẩu công khai password123).
+#   SEED=1 IDENTITY_ADMIN_EMAIL=... IDENTITY_ADMIN_NAME=... IDENTITY_ADMIN_PASSWORD='...' EMPLOYEE_CODE_PREFIX=AC scripts/deploy-aws.sh
+#                                          lần dựng database đầu tiên: nạp phòng ban, vai trò, quyền (KHÔNG có tài khoản mẫu) rồi
+#                                          tạo Super Admin đầu tiên. Mật khẩu >= 14 ký tự. Đăng nhập bằng mã nhân viên in ra ở cuối bước này
+#                                          (OTP gửi về IDENTITY_ADMIN_EMAIL, cần SMTP thật trong .env).
+#   PURGE_DEMO_USERS=1 scripts/deploy-aws.sh   xóa các tài khoản mẫu @erp.local còn sót từ lần triển khai cũ
 #   SEED_SERVICES="identity-service catalog-service" ... chọn thêm service khác để nạp dữ liệu mẫu (mặc định chỉ identity)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 [ -f .env ] || { echo "Chưa có .env. Tạo bằng scripts/aws/make-prod-env.ps1 rồi dán lên máy chủ." >&2; exit 1; }
 
-# Kiểm tra sớm để thất bại ngay (không đợi kéo image mười mấy phút rồi mới báo thiếu mật khẩu).
-# Seeder tạo 18 tài khoản (kể cả SUPER_ADMIN) với mật khẩu công khai password123: không bao giờ để chúng tồn tại
-# trên máy chủ ra Internet, nên bắt buộc đổi mật khẩu NGAY sau khi nạp và TRƯỚC khi bật gateway.
-if [ "${SEED:-0}" = 1 ]; then
-  : "${DEMO_PASSWORD:?Đặt DEMO_PASSWORD (>= 14 ký tự) để đổi mật khẩu tài khoản mẫu ngay sau khi nạp}"
-  [ "${#DEMO_PASSWORD}" -ge 14 ] || { echo "DEMO_PASSWORD quá ngắn (cần >= 14 ký tự)." >&2; exit 1; }
+# Kiểm tra sớm để thất bại ngay (không đợi kéo image mười mấy phút rồi mới báo thiếu thông tin).
+if [ "${SEED:-0}" = 1 ] && [ -n "${IDENTITY_ADMIN_EMAIL:-}" ]; then
+  : "${IDENTITY_ADMIN_NAME:?Đặt IDENTITY_ADMIN_NAME (họ tên Super Admin)}"
+  : "${IDENTITY_ADMIN_PASSWORD:?Đặt IDENTITY_ADMIN_PASSWORD (>= 14 ký tự)}"
+  [ "${#IDENTITY_ADMIN_PASSWORD}" -ge 14 ] || { echo "IDENTITY_ADMIN_PASSWORD quá ngắn (cần >= 14 ký tự)." >&2; exit 1; }
 fi
 
 export IMAGE_TAG="${IMAGE_TAG:-latest}"
@@ -47,20 +47,20 @@ for svc in identity-service catalog-service sales-service eoffice-service financ
 done
 
 if [ "${SEED:-0}" = 1 ]; then
-  # Chạy lại deploy khi hệ thống ĐÃ bật ra Internet: tắt cửa vào (Caddy, Kong) trong lúc nạp và đổi mật khẩu để không có
-  # lúc nào password123 truy cập được từ ngoài. Bước "Bật toàn bộ hệ thống" bên dưới sẽ bật lại chúng.
-  docker compose stop caddy gateway || true
   seed_services="${SEED_SERVICES:-identity-service}"
-  echo "== Nạp dữ liệu mẫu: $seed_services"
+  echo "== Nạp dữ liệu nền: $seed_services"
   for svc in $seed_services; do
     docker compose run --rm --no-deps "$svc" php artisan db:seed --force
   done
-  case " $seed_services " in
-    *" identity-service "*)
-      echo "== Đổi mật khẩu tài khoản mẫu"
-      scripts/aws/set-demo-password.sh
-      ;;
-  esac
+  if [ -n "${IDENTITY_ADMIN_EMAIL:-}" ]; then
+    echo "== Tạo Super Admin đầu tiên"
+    docker compose run --rm --no-deps -e IDENTITY_ADMIN_PASSWORD="$IDENTITY_ADMIN_PASSWORD" identity-service       php artisan identity:bootstrap-admin --email="$IDENTITY_ADMIN_EMAIL" --name="$IDENTITY_ADMIN_NAME" --prefix="${EMPLOYEE_CODE_PREFIX:-}"
+  fi
+fi
+
+if [ "${PURGE_DEMO_USERS:-0}" = 1 ]; then
+  echo "== Xóa tài khoản mẫu @erp.local"
+  docker compose run --rm --no-deps identity-service php artisan identity:purge-demo-users --force
 fi
 
 echo "== Bật toàn bộ hệ thống"

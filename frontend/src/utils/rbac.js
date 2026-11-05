@@ -13,8 +13,6 @@
  */
 export function isSuperAdmin(user) {
   if (!user) return false;
-  if (user.email === 'admin@erp.local') return true;
-  if (user.name && user.name.includes('Super Admin')) return true;
   if (Array.isArray(user.roles)) {
     return user.roles.some(r => {
       if (typeof r === 'string') return r.toUpperCase() === 'SUPER_ADMIN';

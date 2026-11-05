@@ -1,45 +1,95 @@
 <template>
   <div class="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-    <div class="w-full max-w-[580px] flex flex-col gap-4">
-      <!-- 1. Brand Header -->
-      <div class="text-center flex flex-col items-center gap-1.5">
+    <div class="w-full max-w-[440px] flex flex-col gap-4">
+      <div class="text-center flex flex-col items-center gap-1">
         <div class="w-11 h-11 rounded-[6px] bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center text-xl mb-1">
           <i class="pi pi-bolt"></i>
         </div>
         <h1 class="text-[22px] font-bold text-slate-900 m-0 tracking-tight">Đăng Nhập Smart ERP</h1>
-        <p class="text-[13px] text-slate-500 m-0">Hệ thống quản trị nguồn lực doanh nghiệp phân tán</p>
+        <p class="text-xs text-slate-500 m-0">Sử dụng mã nhân viên do công ty cấp</p>
       </div>
 
-      <!-- 2. Main Login Card (100% TailwindCSS, Flat, Hairline Border, Bo góc 6px) -->
-      <div class="bg-white border border-slate-200 rounded-[6px] p-6 shadow-none">
-        <!-- Error Alert -->
-        <Message
-          v-if="errorMessage"
-          severity="error"
-          :closable="true"
-          class="mb-4 rounded-[6px]"
-          @close="errorMessage = ''"
-        >
+      <div class="bg-white border border-slate-200 rounded-[6px] p-6 shadow-none flex flex-col gap-4">
+        <Tabs :value="mode" @update:value="switchMode">
+          <TabList>
+            <Tab value="otp">Đăng nhập bằng OTP</Tab>
+            <Tab value="password">Mã nhân viên và mật khẩu</Tab>
+          </TabList>
+        </Tabs>
+
+        <Message v-if="errorMessage" severity="error" :closable="true" class="rounded-[6px]" @close="errorMessage = ''">
           {{ errorMessage }}
         </Message>
+        <Message v-else-if="infoMessage" severity="info" :closable="false" class="rounded-[6px]">
+          {{ infoMessage }}
+        </Message>
 
-        <form @submit.prevent="handleSubmit" class="flex flex-col gap-4">
-          <div class="flex flex-col gap-1.5">
-            <label for="login-email" class="text-xs font-semibold text-slate-700">Email tài khoản</label>
+        <!-- Đăng nhập bằng OTP -->
+        <form v-if="mode === 'otp'" class="flex flex-col gap-4" @submit.prevent="otpSent ? verifyOtp() : requestOtp()">
+          <div class="flex flex-col gap-2">
+            <label for="login-code-otp" class="text-xs font-semibold text-slate-700">Mã nhân viên</label>
             <IconField>
-              <InputIcon class="pi pi-envelope" />
+              <InputIcon class="pi pi-id-card" />
               <InputText
-                id="login-email"
-                v-model="email"
-                type="email"
-                placeholder="Ví dụ: admin@erp.local"
-                class="w-full rounded-[6px]"
+                id="login-code-otp"
+                v-model="employeeCode"
+                placeholder="Ví dụ: AC-2005"
+                class="w-full rounded-[6px] uppercase"
+                autocomplete="username"
+                maxlength="10"
+                :disabled="otpSent || submitting"
                 required
               />
             </IconField>
           </div>
 
-          <div class="flex flex-col gap-1.5">
+          <template v-if="otpSent">
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-semibold text-slate-700">Mã OTP gồm 6 chữ số</label>
+              <InputOtp v-model="otp" :length="6" integer-only :disabled="submitting" class="justify-center" />
+              <span class="text-xs text-slate-500">Mã có hiệu lực 5 phút và chỉ dùng một lần.</span>
+            </div>
+            <div class="flex justify-between items-center text-xs">
+              <Button type="button" label="Đổi mã nhân viên" text size="small" :disabled="submitting" @click="resetOtp" />
+              <Button
+                type="button"
+                :label="resendIn > 0 ? `Gửi lại mã sau ${resendIn}s` : 'Gửi lại mã OTP'"
+                text
+                size="small"
+                :disabled="resendIn > 0 || submitting"
+                @click="requestOtp"
+              />
+            </div>
+          </template>
+
+          <Button
+            type="submit"
+            :label="otpSent ? 'Xác nhận đăng nhập' : 'Gửi mã OTP về email'"
+            :icon="otpSent ? 'pi pi-sign-in' : 'pi pi-send'"
+            :loading="submitting"
+            :disabled="otpSent && otp.length !== 6"
+            class="w-full h-10 text-sm rounded-[6px]"
+          />
+        </form>
+
+        <!-- Đăng nhập bằng mật khẩu -->
+        <form v-else class="flex flex-col gap-4" @submit.prevent="loginWithPassword">
+          <div class="flex flex-col gap-2">
+            <label for="login-code-password" class="text-xs font-semibold text-slate-700">Mã nhân viên</label>
+            <IconField>
+              <InputIcon class="pi pi-id-card" />
+              <InputText
+                id="login-code-password"
+                v-model="employeeCode"
+                placeholder="Ví dụ: AC-2005"
+                class="w-full rounded-[6px] uppercase"
+                autocomplete="username"
+                maxlength="10"
+                required
+              />
+            </IconField>
+          </div>
+          <div class="flex flex-col gap-2">
             <label for="login-password" class="text-xs font-semibold text-slate-700">Mật khẩu</label>
             <IconField>
               <InputIcon class="pi pi-lock" />
@@ -47,104 +97,138 @@
                 id="login-password"
                 v-model="password"
                 type="password"
-                placeholder="Nhập mật khẩu..."
+                placeholder="Nhập mật khẩu"
                 class="w-full rounded-[6px]"
+                autocomplete="current-password"
                 required
               />
             </IconField>
           </div>
-
-          <div class="flex justify-between items-center text-xs">
-            <div class="flex items-center gap-2">
-              <Checkbox v-model="rememberMe" :binary="true" inputId="remember-me" />
-              <label for="remember-me" class="text-xs text-slate-700 cursor-pointer select-none">Ghi nhớ phiên đăng nhập</label>
-            </div>
-            <span class="text-slate-500 text-[11px]">Mật khẩu mẫu: <code class="bg-slate-50 border border-slate-200 px-1 py-0.5 rounded-[4px] font-mono text-indigo-600">password123</code></span>
-          </div>
-
           <Button
             type="submit"
-            label="Đăng Nhập Hệ Thống"
+            label="Đăng nhập"
             icon="pi pi-sign-in"
-            :loading="loading"
+            :loading="submitting"
             class="w-full h-10 text-sm rounded-[6px]"
           />
         </form>
-      </div>
-
-      <!-- 3. Helper Panel: Chọn nhanh tài khoản theo vai trò -->
-      <div class="bg-white border border-slate-200 rounded-[6px] p-4 flex flex-col gap-3 shadow-none">
-        <div class="flex justify-between items-center">
-          <div class="flex items-center gap-2">
-            <i class="pi pi-users text-indigo-600"></i>
-            <span class="text-xs font-bold text-slate-900">Chọn nhanh tài khoản theo vai trò (11 Roles chuẩn):</span>
-          </div>
-          <span class="text-[11px] text-slate-500">Bấm vào vai trò để tự động điền</span>
-        </div>
-
-        <div class="grid grid-cols-2 gap-2 max-h-[240px] overflow-y-auto pr-1">
-          <button
-            v-for="role in systemRoles"
-            :key="role.code"
-            type="button"
-            class="flex justify-between items-center p-2 rounded-[6px] border border-slate-200 bg-slate-50 cursor-pointer text-left transition-colors hover:bg-slate-100 hover:border-indigo-200"
-            :class="{ 'bg-indigo-50 border-indigo-600': email === role.sampleEmail }"
-            @click="selectRoleAccount(role)"
-          >
-            <div class="flex flex-col min-w-0 pr-2">
-              <span class="text-xs font-semibold text-slate-900 truncate">{{ role.name }}</span>
-              <span class="text-[11px] text-slate-500 font-mono">{{ role.sampleEmail }}</span>
-            </div>
-            <Tag
-              :severity="role.severity"
-              :value="role.badge"
-              class="text-[10px] py-0.5 px-1.5 rounded-[6px] shrink-0"
-            />
-          </button>
-        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 import InputText from 'primevue/inputtext';
+import InputOtp from 'primevue/inputotp';
 import Button from 'primevue/button';
-import Checkbox from 'primevue/checkbox';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
-import Tag from 'primevue/tag';
 import Message from 'primevue/message';
-import { SYSTEM_ROLES } from '../../constants/permissions.constant';
+import Tabs from 'primevue/tabs';
+import TabList from 'primevue/tablist';
+import Tab from 'primevue/tab';
+import { authApi } from '../../api/auth.api';
 
-defineProps({
-  loading: {
-    type: Boolean,
-    default: false
-  }
-});
+const emit = defineEmits(['authenticated']);
 
-const emit = defineEmits(['login']);
-
-const email = ref('admin@erp.local');
-const password = ref('password123');
-const rememberMe = ref(true);
+const mode = ref('otp');
+const employeeCode = ref('');
+const password = ref('');
+const otp = ref('');
+const otpSent = ref(false);
+const resendIn = ref(0);
+const submitting = ref(false);
 const errorMessage = ref('');
-const systemRoles = SYSTEM_ROLES;
+const infoMessage = ref('');
+let timer = null;
 
-const selectRoleAccount = (role) => {
-  email.value = role.sampleEmail;
-  password.value = 'password123';
+const normalizedCode = computed(() => employeeCode.value.trim().toUpperCase());
+
+function switchMode(value) {
+  mode.value = value;
   errorMessage.value = '';
-};
+  infoMessage.value = '';
+  password.value = '';
+  resetOtp();
+}
 
-const handleSubmit = () => {
-  if (!email.value || !password.value) {
-    errorMessage.value = 'Vui lòng nhập đầy đủ email và mật khẩu.';
+function resetOtp() {
+  otpSent.value = false;
+  otp.value = '';
+  infoMessage.value = '';
+  stopCountdown();
+}
+
+function startCountdown(seconds) {
+  stopCountdown();
+  resendIn.value = seconds;
+  timer = setInterval(() => {
+    resendIn.value -= 1;
+    if (resendIn.value <= 0) stopCountdown();
+  }, 1000);
+}
+
+function stopCountdown() {
+  if (timer) clearInterval(timer);
+  timer = null;
+  resendIn.value = 0;
+}
+
+async function requestOtp() {
+  if (!normalizedCode.value) {
+    errorMessage.value = 'Vui lòng nhập mã nhân viên.';
     return;
   }
+  submitting.value = true;
   errorMessage.value = '';
-  emit('login', { email: email.value.trim(), password: password.value });
-};
+  try {
+    const res = await authApi.requestOtp(normalizedCode.value);
+    otpSent.value = true;
+    otp.value = '';
+    infoMessage.value = res.data?.message || 'Mã OTP đã được gửi tới email đăng ký của nhân viên.';
+    startCountdown(res.data?.resend_after || 60);
+  } catch (error) {
+    errorMessage.value = error.message || 'Chưa gửi được mã OTP. Vui lòng thử lại.';
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function verifyOtp() {
+  if (otp.value.length !== 6) {
+    errorMessage.value = 'Vui lòng nhập đủ 6 chữ số của mã OTP.';
+    return;
+  }
+  submitting.value = true;
+  errorMessage.value = '';
+  try {
+    const res = await authApi.verifyOtp(normalizedCode.value, otp.value);
+    emit('authenticated', res);
+  } catch (error) {
+    errorMessage.value = error.message || 'Mã OTP không đúng hoặc đã hết hạn.';
+    otp.value = '';
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function loginWithPassword() {
+  if (!normalizedCode.value || !password.value) {
+    errorMessage.value = 'Vui lòng nhập đầy đủ mã nhân viên và mật khẩu.';
+    return;
+  }
+  submitting.value = true;
+  errorMessage.value = '';
+  try {
+    const res = await authApi.login(normalizedCode.value, password.value);
+    emit('authenticated', res);
+  } catch (error) {
+    errorMessage.value = error.message || 'Mã nhân viên hoặc mật khẩu không chính xác.';
+  } finally {
+    submitting.value = false;
+  }
+}
+
+onBeforeUnmount(stopCountdown);
 </script>

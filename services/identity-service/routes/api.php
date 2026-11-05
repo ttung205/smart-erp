@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Route;
 // 1. Health check & Authentication (công khai)
 Route::get('/health', [AuthController::class, 'health']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login/otp/request', [AuthController::class, 'requestOtp']);
+Route::post('/login/otp/verify', [AuthController::class, 'verifyOtp']);
 Route::get('/company/logo', [CompanyController::class, 'logo']);
 Route::get('/me', [AuthController::class, 'me'])->middleware('jwt');
 

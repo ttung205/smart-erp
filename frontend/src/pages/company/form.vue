@@ -62,6 +62,9 @@ const sections = [
     { key: 'email', label: 'Email' }, { key: 'accounting_email', label: 'Email kế toán' },
     { key: 'website', label: 'Website' }
   ] },
+  { title: 'Mã nhân viên', fields: [
+    { key: 'employee_code_prefix', label: 'Tiền tố mã nhân viên (tối đa 2 chữ cái, ví dụ AC → AC-2005)', max: 2 }
+  ] },
   { title: 'Tài khoản ngân hàng', fields: [
     { key: 'bank_beneficiary', label: 'Chủ tài khoản' }, { key: 'bank_account_number', label: 'Số tài khoản', max: 100 },
     { key: 'bank_name', label: 'Ngân hàng' }, { key: 'bank_branch', label: 'Chi nhánh ngân hàng' }
@@ -81,6 +84,9 @@ async function save() {
   saving.value = true;
   error.value = '';
   try {
+    const prefix = (form.value.employee_code_prefix || '').trim().toUpperCase();
+    if (prefix && !/^[A-Z]{1,2}$/.test(prefix)) { error.value = 'Tiền tố mã nhân viên chỉ gồm tối đa 2 chữ cái (A-Z).'; saving.value = false; return; }
+    form.value.employee_code_prefix = prefix;
     const payload = Object.fromEntries(fieldNames.map(key => [key, form.value[key] || null]));
     const response = await companyApi.update(payload);
     form.value = response.data;

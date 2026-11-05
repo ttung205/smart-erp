@@ -51,7 +51,8 @@ const fields = [
   { key: 'hotline', label: 'Hotline' }, { key: 'email', label: 'Email' },
   { key: 'accounting_email', label: 'Email kế toán' }, { key: 'website', label: 'Website' },
   { key: 'bank_beneficiary', label: 'Chủ tài khoản' }, { key: 'bank_account_number', label: 'Số tài khoản' },
-  { key: 'bank_name', label: 'Ngân hàng' }, { key: 'bank_branch', label: 'Chi nhánh ngân hàng' }
+  { key: 'bank_name', label: 'Ngân hàng' }, { key: 'bank_branch', label: 'Chi nhánh ngân hàng' },
+  { key: 'employee_code_prefix', label: 'Tiền tố mã nhân viên' }
 ];
 async function load() {
   loading.value = true;
