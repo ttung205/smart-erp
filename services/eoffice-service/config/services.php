@@ -5,11 +5,11 @@ return [
     'identity' => [
         // Không có giá trị mặc định: thiếu JWT_SECRET thì service báo lỗi cấu hình thay vì âm thầm dùng secret công khai
         'jwt_secret' => env('JWT_SECRET'),
-        'url' => env('IDENTITY_SERVICE_URL', 'http://127.0.0.1:8001'),
+        'url' => env('IDENTITY_SERVICE_URL'),
     ],
 
     'finance' => [
-        'url' => env('FINANCE_SERVICE_URL', 'http://127.0.0.1:8008'),
+        'url' => env('FINANCE_SERVICE_URL'),
     ],
 
     'internal' => [
@@ -18,7 +18,7 @@ return [
     ],
 
     'rabbitmq' => [
-        'host' => env('RABBITMQ_HOST', '127.0.0.1'),
+        'host' => env('RABBITMQ_HOST'),
         'port' => (int) env('RABBITMQ_PORT', 5672),
         'user' => env('RABBITMQ_USER', 'erp_rabbit'),
         'password' => env('RABBITMQ_PASSWORD', 'rabbit_secret'),

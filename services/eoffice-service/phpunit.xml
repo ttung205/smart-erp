@@ -21,6 +21,9 @@
         <env name="APP_ENV" value="testing"/>
         <env name="JWT_SECRET" value="phpunit-jwt-secret"/>
         <env name="INTERNAL_SERVICE_KEY" value="phpunit-internal-key"/>
+        <!-- Địa chỉ service khác chỉ là test double (Http::fake). Code chạy thật không có giá trị mặc định, compose cấp qua env. -->
+        <env name="IDENTITY_SERVICE_URL" value="http://127.0.0.1:8001" force="true"/>
+        <env name="FINANCE_SERVICE_URL" value="http://127.0.0.1:8008" force="true"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>

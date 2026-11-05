@@ -51,7 +51,7 @@ return [
     ],
 
     'catalog' => [
-        'url' => rtrim(env('CATALOG_SERVICE_URL', 'http://127.0.0.1:8002'), '/'),
+        'url' => rtrim((string) env('CATALOG_SERVICE_URL'), '/'),
         'timeout' => (int) env('CATALOG_SERVICE_TIMEOUT', 3),
     ],
 

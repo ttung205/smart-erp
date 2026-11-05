@@ -3,7 +3,8 @@
 # (hoặc scripts/deploy.ps1 -Production, tự kiểm tra cấu hình trước khi chạy)
 #
 # Khác biệt so với Development:
-#   1. Mọi secret là BẮT BUỘC (${VAR:?}) - thiếu biến thì `docker compose config` báo lỗi, không bao giờ dùng giá trị mặc định công khai.
+#   1. Mọi secret là BẮT BUỘC (${VAR:?}), giống docker-compose.yml - thiếu biến thì `docker compose config` báo lỗi. Khác ở chỗ
+#      file này còn được scripts/validate-prod-config.ps1 kiểm tra độ dài và không cho dùng giá trị mẫu (change-me-*).
 #   2. Chỉ gateway (8000) và frontend (5175) được publish ra host; các service/hạ tầng khác chỉ truy cập qua mạng Docker erp-network.
 # Không đổi nghiệp vụ, API contract hay schema database.
 
