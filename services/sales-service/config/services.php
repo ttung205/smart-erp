@@ -43,25 +43,25 @@ return [
     | Docker containers, Kubernetes DNS and localized development environments.
     */
     'inventory' => [
-        'url' => rtrim(env('INVENTORY_SERVICE_URL', 'http://127.0.0.1:8004'), '/'),
+        'url' => rtrim((string) env('INVENTORY_SERVICE_URL'), '/'),
         'timeout' => (int) env('INVENTORY_SERVICE_TIMEOUT', 3),
     ],
 
     'identity' => [
-        'url' => rtrim(env('IDENTITY_SERVICE_URL', 'http://127.0.0.1:8001'), '/'),
+        'url' => rtrim((string) env('IDENTITY_SERVICE_URL'), '/'),
         'timeout' => (int) env('IDENTITY_SERVICE_TIMEOUT', 3),
         // Không có giá trị mặc định: thiếu JWT_SECRET thì service báo lỗi cấu hình thay vì âm thầm dùng secret công khai
         'jwt_secret' => env('JWT_SECRET'),
     ],
 
     'catalog' => [
-        'url' => rtrim(env('CATALOG_SERVICE_URL', 'http://127.0.0.1:8002'), '/'),
+        'url' => rtrim((string) env('CATALOG_SERVICE_URL'), '/'),
         'timeout' => (int) env('CATALOG_SERVICE_TIMEOUT', 3),
     ],
 
     // Khách hàng/người liên hệ: tạm do catalog-service giữ, sẽ chuyển sang partner-service (architecture.md §2.1)
     'partner' => [
-        'url' => rtrim(env('PARTNER_SERVICE_URL') ?: env('CATALOG_SERVICE_URL', 'http://127.0.0.1:8002'), '/'),
+        'url' => rtrim((string) (env('PARTNER_SERVICE_URL') ?: env('CATALOG_SERVICE_URL')), '/'),
         'timeout' => (int) env('PARTNER_SERVICE_TIMEOUT', 3),
     ],
 
@@ -71,12 +71,12 @@ return [
     ],
 
     'finance' => [
-        'url' => rtrim(env('FINANCE_SERVICE_URL', 'http://127.0.0.1:8008'), '/'),
+        'url' => rtrim((string) env('FINANCE_SERVICE_URL'), '/'),
         'timeout' => (int) env('FINANCE_SERVICE_TIMEOUT', 5),
     ],
 
     'rabbitmq' => [
-        'host' => env('RABBITMQ_HOST', '127.0.0.1'),
+        'host' => env('RABBITMQ_HOST'),
         'port' => (int) env('RABBITMQ_PORT', 5672),
         'user' => env('RABBITMQ_USER', 'erp_rabbit'),
         'password' => env('RABBITMQ_PASSWORD', 'rabbit_secret'),

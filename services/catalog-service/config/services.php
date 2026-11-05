@@ -41,7 +41,7 @@ return [
     |--------------------------------------------------------------------------
     */
     'identity' => [
-        'url' => rtrim(env('IDENTITY_SERVICE_URL', 'http://127.0.0.1:8001'), '/'),
+        'url' => rtrim((string) env('IDENTITY_SERVICE_URL'), '/'),
         'timeout' => (int) env('IDENTITY_SERVICE_TIMEOUT', 3),
         // Không có giá trị mặc định: thiếu JWT_SECRET thì service báo lỗi cấu hình thay vì âm thầm dùng secret công khai
         'jwt_secret' => env('JWT_SECRET'),
@@ -52,12 +52,12 @@ return [
     ],
 
     'inventory' => [
-        'url' => rtrim(env('INVENTORY_SERVICE_URL', 'http://127.0.0.1:8004'), '/'),
+        'url' => rtrim((string) env('INVENTORY_SERVICE_URL'), '/'),
         'timeout' => (int) env('INVENTORY_SERVICE_TIMEOUT', 3),
     ],
 
     'rabbitmq' => [
-        'host' => env('RABBITMQ_HOST', '127.0.0.1'),
+        'host' => env('RABBITMQ_HOST'),
         'port' => (int) env('RABBITMQ_PORT', 5672),
         'user' => env('RABBITMQ_USER', 'erp_rabbit'),
         'password' => env('RABBITMQ_PASSWORD', 'rabbit_secret'),
