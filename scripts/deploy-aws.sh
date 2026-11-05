@@ -28,7 +28,14 @@ echo "== Kiểm tra cấu hình"
 docker compose config --quiet
 
 echo "== Kéo image từ GHCR"
-docker compose pull --quiet
+# Kéo image qua Internet thỉnh thoảng bị ngắt giữa chừng (vd "connection reset by peer"). Docker giữ lại các lớp đã tải
+# nên thử lại chỉ tải phần còn thiếu. Thử tối đa 4 lần rồi mới dừng.
+for attempt in 1 2 3 4; do
+  docker compose pull --quiet && break
+  [ "$attempt" = 4 ] && { echo "Kéo image thất bại sau 4 lần thử." >&2; exit 1; }
+  echo "Kéo image lỗi (lần $attempt/4), chờ 15 giây rồi thử lại..."
+  sleep 15
+done
 
 echo "== Bật hạ tầng"
 docker compose up -d --no-build --wait mysql rabbitmq mongo
@@ -40,6 +47,9 @@ for svc in identity-service catalog-service sales-service eoffice-service financ
 done
 
 if [ "${SEED:-0}" = 1 ]; then
+  # Chạy lại deploy khi hệ thống ĐÃ bật ra Internet: tắt cửa vào (Caddy, Kong) trong lúc nạp và đổi mật khẩu để không có
+  # lúc nào password123 truy cập được từ ngoài. Bước "Bật toàn bộ hệ thống" bên dưới sẽ bật lại chúng.
+  docker compose stop caddy gateway || true
   seed_services="${SEED_SERVICES:-identity-service}"
   echo "== Nạp dữ liệu mẫu: $seed_services"
   for svc in $seed_services; do
