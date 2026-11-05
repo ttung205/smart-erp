@@ -28,7 +28,14 @@ echo "== Kiểm tra cấu hình"
 docker compose config --quiet
 
 echo "== Kéo image từ GHCR"
-docker compose pull --quiet
+# Kéo image qua Internet thỉnh thoảng bị ngắt giữa chừng (vd "connection reset by peer"). Docker giữ lại các lớp đã tải
+# nên thử lại chỉ tải phần còn thiếu. Thử tối đa 4 lần rồi mới dừng.
+for attempt in 1 2 3 4; do
+  docker compose pull --quiet && break
+  [ "$attempt" = 4 ] && { echo "Kéo image thất bại sau 4 lần thử." >&2; exit 1; }
+  echo "Kéo image lỗi (lần $attempt/4), chờ 15 giây rồi thử lại..."
+  sleep 15
+done
 
 echo "== Bật hạ tầng"
 docker compose up -d --no-build --wait mysql rabbitmq mongo
