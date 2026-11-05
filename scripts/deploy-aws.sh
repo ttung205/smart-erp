@@ -3,11 +3,24 @@
 # Chạy trong /opt/smart-erp, cần file .env (có COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml:docker-compose.aws.yml).
 #   scripts/deploy-aws.sh                  triển khai phiên bản latest
 #   IMAGE_TAG=sha-1a2b3c4 scripts/deploy-aws.sh   triển khai (hoặc quay lui) đúng một commit
-#   SEED=1 scripts/deploy-aws.sh           nạp dữ liệu mẫu (chỉ lần dựng database đầu tiên)
+#   DEMO_PASSWORD='...' SEED=1 scripts/deploy-aws.sh
+#                                          lần dựng database đầu tiên: nạp tài khoản mẫu (chỉ identity) rồi ĐỔI MẬT KHẨU
+#                                          của chúng thành DEMO_PASSWORD (>= 14 ký tự) trước khi bật hệ thống ra Internet.
+#                                          Thiếu DEMO_PASSWORD thì từ chối nạp (seeder dùng mật khẩu công khai password123).
+#   SEED_SERVICES="identity-service catalog-service" ... chọn thêm service khác để nạp dữ liệu mẫu (mặc định chỉ identity)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 [ -f .env ] || { echo "Chưa có .env. Tạo bằng scripts/aws/make-prod-env.ps1 rồi dán lên máy chủ." >&2; exit 1; }
+
+# Kiểm tra sớm để thất bại ngay (không đợi kéo image mười mấy phút rồi mới báo thiếu mật khẩu).
+# Seeder tạo 18 tài khoản (kể cả SUPER_ADMIN) với mật khẩu công khai password123: không bao giờ để chúng tồn tại
+# trên máy chủ ra Internet, nên bắt buộc đổi mật khẩu NGAY sau khi nạp và TRƯỚC khi bật gateway.
+if [ "${SEED:-0}" = 1 ]; then
+  : "${DEMO_PASSWORD:?Đặt DEMO_PASSWORD (>= 14 ký tự) để đổi mật khẩu tài khoản mẫu ngay sau khi nạp}"
+  [ "${#DEMO_PASSWORD}" -ge 14 ] || { echo "DEMO_PASSWORD quá ngắn (cần >= 14 ký tự)." >&2; exit 1; }
+fi
+
 export IMAGE_TAG="${IMAGE_TAG:-latest}"
 echo "== Phiên bản image: $IMAGE_TAG"
 
@@ -27,10 +40,17 @@ for svc in identity-service catalog-service sales-service eoffice-service financ
 done
 
 if [ "${SEED:-0}" = 1 ]; then
-  echo "== Nạp dữ liệu mẫu"
-  for svc in identity-service catalog-service eoffice-service finance-service; do
+  seed_services="${SEED_SERVICES:-identity-service}"
+  echo "== Nạp dữ liệu mẫu: $seed_services"
+  for svc in $seed_services; do
     docker compose run --rm --no-deps "$svc" php artisan db:seed --force
   done
+  case " $seed_services " in
+    *" identity-service "*)
+      echo "== Đổi mật khẩu tài khoản mẫu"
+      scripts/aws/set-demo-password.sh
+      ;;
+  esac
 fi
 
 echo "== Bật toàn bộ hệ thống"
