@@ -78,7 +78,7 @@ Ba lớp file compose, mỗi lớp **chồng** lên lớp trước (`-f a -f b`)
 
 | File | Mục đích |
 |---|---|
-| `docker-compose.yml` | Nền: dev, có giá trị mặc định cho máy local |
+| `docker-compose.yml` | Nền: dev. Secret bắt buộc lấy từ `.env` (`${VAR:?}`), không có giá trị mặc định công khai; chỉ cổng, tên host... mới có mặc định |
 | `docker-compose.prod.yml` | Production: mọi secret **bắt buộc** (`${VAR:?}`), `ports: !reset []` để chỉ gateway và frontend ra ngoài |
 | `docker-compose.test.yml` | Test: thêm `<svc>-test` build `target: test` |
 
@@ -118,7 +118,7 @@ Lợi ích để trình bày: **không còn "dev khác prod"**. Lỗi thiếu ex
 Đ: Lớp ghi của container thì mất khi xoá container. Dữ liệu quan trọng đặt ở **volume** (`mysql_data`, `mongo_data`, `rabbitmq_data`, `chat_files`) nên sống độc lập với container.
 
 **H: Secret để ở đâu, có nằm trong image không?**
-Đ: Không. Image không chứa secret (`.env` bị `.dockerignore` loại). Secret truyền lúc chạy qua biến môi trường từ file `.env` (không commit). Production dùng `${VAR:?}` để thiếu secret là compose từ chối chạy, và `validate-prod-config.ps1` kiểm tra độ dài, giá trị mặc định.
+Đ: Không. Image không chứa secret (`.env` bị `.dockerignore` loại). Secret truyền lúc chạy qua biến môi trường từ file `.env` (không commit). Cả dev lẫn production đều dùng `${VAR:?}` nên thiếu secret là compose từ chối chạy; riêng production còn có `validate-prod-config.ps1` kiểm tra độ dài và giá trị mẫu.
 
 **H: Scale một service lên nhiều bản được không?**
 Đ: API stateless thì `docker compose up --scale` được (cần đặt gateway/load balancer phía trước). Relay outbox và chat (SignalR) thì không, xem bài 04.

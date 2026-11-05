@@ -5,7 +5,7 @@
 # tách khỏi dữ liệu dev (xem infrastructure/mysql/init/02-create-test-databases.sql).
 # Dùng kèm docker-compose.yml: docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm --build sales-test
 
-x-test-mysql: &test-mysql "Server=mysql;Port=3306;User=erp_user;Password=${MYSQL_PASSWORD:-erp_secret};TreatTinyAsBoolean=true;"
+x-test-mysql: &test-mysql "Server=mysql;Port=3306;User=erp_user;Password=${MYSQL_PASSWORD:?MYSQL_PASSWORD chưa đặt trong .env (copy .env.example thành .env)};TreatTinyAsBoolean=true;"
 x-test-mongo: &test-mongo "mongodb://mongo:27017/?directConnection=true"
 
 services:
