@@ -1,0 +1,26 @@
+# Caddy: cửa vào duy nhất từ Internet. Tự xin và gia hạn chứng chỉ HTTPS cho SITE_ADDRESS và
+# chuyển HTTP (cổng 80) sang HTTPS.
+#
+# - /api/* và /health đi THẲNG vào Kong (gateway:8000). WebSocket (Socket.IO, SignalR) đi qua bình thường.
+# - /grafana* đi vào Grafana (chỉ chạy khi bật profile monitoring; không bật thì trả 502). Grafana tự đòi đăng nhập.
+# - Mọi thứ còn lại (trang web Vue) đi vào frontend (nginx chỉ phục vụ file tĩnh).
+#
+# Vì sao API không đi qua nginx của frontend: Caddy ghi ĐÈ X-Forwarded-For bằng IP thật của người dùng
+# (không tin giá trị do người dùng tự gửi), Kong lấy IP đó để giới hạn tần suất theo từng người dùng.
+# Nếu qua nginx, nginx sẽ ghi đè bằng địa chỉ của Caddy và mọi người dùng bị tính chung một IP.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy gateway:8000
+	}
+	handle /health {
+		reverse_proxy gateway:8000
+	}
+	handle /grafana* {
+		reverse_proxy grafana:3000
+	}
+	handle {
+		reverse_proxy frontend:80
+	}
+}

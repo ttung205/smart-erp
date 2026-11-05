@@ -176,7 +176,7 @@ Lệnh hay dùng: `docker compose ps`, `docker compose logs -f <service>`, `dock
 ### 5.4. Sao lưu và phục hồi
 
 ```powershell
-docker compose run --rm backup                  # sao lưu MySQL + MongoDB + tệp chat vào ./backups/<UTC>/
+docker compose run --rm backup                  # sao lưu MySQL + MongoDB + tệp chat vào ./backups/database-backup-<yyyymmdd>-<NN>/
 docker compose run --rm backup list             # liệt kê các bản
 docker compose run --rm recovery verify         # thử phục hồi vào schema tạm, không đụng dữ liệu thật
 docker compose run --rm recovery restore latest --mysql=erp_sales_db --yes   # PHỤC HỒI (ghi đè), dừng service ghi trước

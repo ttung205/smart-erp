@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Sao lưu và phục hồi dữ liệu Smart ERP (MySQL, MongoDB, tệp đính kèm chat).
 #
-#   backup                      sao lưu mọi thứ vào /backups/<thời điểm UTC>/ (và lên S3 nếu có BACKUP_S3_URI)
+#   backup                      sao lưu mọi thứ vào /backups/database-backup-<yyyymmdd>-<NN>/ (và lên S3 nếu có BACKUP_S3_URI)
 #   list                        liệt kê các bản sao lưu
 #   verify  [bản|latest]        kiểm tra toàn vẹn + thử phục hồi vào schema tạm rồi xóa (không đụng dữ liệu thật)
 #   restore [bản|latest] --mysql[=schema,...] --mongo[=db,...] --files --yes
@@ -16,7 +16,11 @@ RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-7}"
 MYSQL_HOST="${MYSQL_HOST:-mysql}"
 MONGO_URI="${MONGO_URI:-mongodb://mongo:27017/?replicaSet=rs0}"
 FILES_DIR="${BACKUP_FILES_DIR:-/data/chat_files}"
-SET_RE='^[0-9]{8}T[0-9]{6}Z$'
+# Tên bản: database-backup-yyyymmdd-NN (NN là số thứ tự trong ngày, bắt đầu từ 01).
+# Ngày trong tên tính theo giờ địa phương = UTC + BACKUP_DAY_OFFSET_HOURS (mặc định 7: giờ Việt Nam).
+# Thời điểm chính xác luôn nằm trong manifest.json (created_at theo UTC, created_at_local theo giờ địa phương).
+DAY_OFFSET_HOURS="${BACKUP_DAY_OFFSET_HOURS:-7}"
+SET_RE='^database-backup-[0-9]{8}-[0-9]{2,}$'
 
 log() { printf '%s %s\n' "$(date -u +%H:%M:%S)" "$*"; }
 die() { printf 'LỖI: %s\n' "$*" >&2; exit 1; }
@@ -33,17 +37,24 @@ schemas_of_server() {
 
 # Chỉ database của ứng dụng (erp_*); bỏ admin/config/local của chính MongoDB
 mongo_dbs() {
-  mongosh --quiet "$MONGO_URI" --eval 'db.adminCommand({listDatabases:1,nameOnly:true}).databases.map(d=>d.name).filter(n=>n.startsWith("erp_")).join(" ")' | tr ' ' $'
-'
+  mongosh --quiet "$MONGO_URI" --eval 'db.adminCommand({listDatabases:1,nameOnly:true}).databases.map(d=>d.name).filter(n=>n.startsWith("erp_")).join(" ")' | tr ' ' '\n'
 }
 
 # ---------------------------------------------------------------------------------------------
 cmd_backup() {
   need MYSQL_BACKUP_USER MYSQL_BACKUP_PASSWORD
-  local ts started dir tmp
-  ts=$(date -u +%Y%m%dT%H%M%SZ)
+  local name started dir tmp day idx
   started=$(date -u +%s)
-  dir="$BACKUP_ROOT/$ts"
+  day=$(date -u -d "@$((started + DAY_OFFSET_HOURS * 3600))" +%Y%m%d)
+  mkdir -p "$BACKUP_ROOT"
+  # Chọn số thứ tự trống đầu tiên trong ngày. mkdir (không -p) chỉ thành công cho đúng một tiến trình,
+  # nên hai lần sao lưu chạy chồng nhau không bao giờ nhận cùng một tên.
+  for ((idx = 1; ; idx++)); do
+    name=$(printf 'database-backup-%s-%02d' "$day" "$idx")
+    [ -e "$BACKUP_ROOT/$name" ] && continue
+    mkdir "$BACKUP_ROOT/$name.partial" 2> /dev/null && break
+  done
+  dir="$BACKUP_ROOT/$name"
   tmp="$dir.partial"
   mkdir -p "$tmp/mysql" "$tmp/mongo" "$tmp/files"
   trap 'rm -rf "$tmp"' EXIT
@@ -74,7 +85,7 @@ cmd_backup() {
     done
   fi
 
-  if [ -d "$FILES_DIR" ] && [ -n "$(ls -A "$FILES_DIR" 2>/dev/null)" ]; then
+  if [ -d "$FILES_DIR" ] && [ -n "$(ls -A "$FILES_DIR" 2> /dev/null)" ]; then
     log "Tệp đính kèm chat: $FILES_DIR"
     tar -czf "$tmp/files/chat_files.tar.gz" -C "$FILES_DIR" .
   else
@@ -89,39 +100,48 @@ cmd_backup() {
   done < <(find "$tmp" -type f -name '*.gz' -print0)
   (cd "$tmp" && find . -type f -name '*.gz' -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
 
-  local finished version
+  local finished version mongo_json schemas_json
   finished=$(date -u +%s)
   version=$(as_backup -N -B -e "SELECT VERSION()")
+  mongo_json=$(for f in "$tmp"/mongo/*.archive.gz; do
+      [ -e "$f" ] || continue
+      printf '%s\t%s\n' "$(basename "$f" .archive.gz)" "$(stat -c %s "$f")"
+    done | jq -Rn '[inputs | split("\t") | {key: .[0], value: (.[1]|tonumber)}] | from_entries')
+  schemas_json=$(while read -r sname tables; do
+      printf '%s\t%s\t%s\n' "$sname" "$tables" "$(stat -c %s "$tmp/mysql/$sname.sql.gz")"
+    done < "$counts" | jq -Rn '[inputs | split("\t") | {key: .[0], value: {tables: (.[1]|tonumber), dump_bytes: (.[2]|tonumber)}}] | from_entries')
   jq -n \
-    --arg set "$ts" --arg created "$(date -u -d "@$started" +%Y-%m-%dT%H:%M:%SZ)" \
+    --arg set "$name" \
+    --arg created "$(date -u -d "@$started" +%Y-%m-%dT%H:%M:%SZ)" \
+    --arg local "$(date -u -d "@$((started + DAY_OFFSET_HOURS * 3600))" +%Y-%m-%dT%H:%M:%S)$(printf '%+03d:00' "$DAY_OFFSET_HOURS")" \
     --argjson duration "$((finished - started))" --arg version "$version" \
-    --argjson mongo "$(for f in "$tmp"/mongo/*.archive.gz; do [ -e "$f" ] && printf '%s	%s
-' "$(basename "$f" .archive.gz)" "$(stat -c %s "$f")"; done       | jq -Rn '[inputs | split("	") | {key: .[0], value: (.[1]|tonumber)}] | from_entries')" \
-    --argjson files "$(stat -c %s "$tmp/files/chat_files.tar.gz" 2>/dev/null || echo 0)" \
-    --argjson schemas "$(while read -r name tables; do
-        printf '%s\t%s\t%s\n' "$name" "$tables" "$(stat -c %s "$tmp/mysql/$name.sql.gz")"
-      done < "$counts" | jq -Rn '[inputs | split("\t") | {key: .[0], value: {tables: (.[1]|tonumber), dump_bytes: (.[2]|tonumber)}}] | from_entries')" \
-    '{set: $set, created_at: $created, duration_seconds: $duration, mysql_version: $version,
+    --argjson mongo "$mongo_json" --argjson schemas "$schemas_json" \
+    --argjson files "$(stat -c %s "$tmp/files/chat_files.tar.gz" 2> /dev/null || echo 0)" \
+    '{set: $set, created_at: $created, created_at_local: $local, duration_seconds: $duration, mysql_version: $version,
       mysql_schemas: $schemas, mongo_databases: $mongo, chat_files_bytes: $files}' > "$tmp/manifest.json"
   rm -f "$counts"
 
   mv "$tmp" "$dir"
   trap - EXIT
-  echo "$ts" > "$BACKUP_ROOT/LATEST"
-  log "Xong bản $ts: $(du -sh "$dir" | cut -f1) trong $((finished - started)) giây"
+  echo "$name" > "$BACKUP_ROOT/LATEST"
+  log "Xong bản $name: $(du -sh "$dir" | cut -f1) trong $((finished - started)) giây"
 
-  prune_old_sets "$ts"
-  upload_to_s3 "$dir" "$ts"
+  prune_old_sets "$name"
+  upload_to_s3 "$dir" "$name"
 }
 
+# Xóa bản cũ hơn RETENTION_DAYS ngày (tính theo created_at trong manifest). Không bao giờ xóa bản vừa tạo.
 prune_old_sets() {
-  local keep=$1 cutoff d name
-  cutoff=$(date -u -d "-${RETENTION_DAYS} days" +%Y%m%dT%H%M%SZ)
+  local keep=$1 d name created limit
+  limit=$(($(date -u +%s) - RETENTION_DAYS * 86400))
   for d in "$BACKUP_ROOT"/*/; do
     name=$(basename "$d")
-    if [[ $name =~ $SET_RE ]] && [[ $name < $cutoff ]] && [ "$name" != "$keep" ]; then
-      log "Xóa bản cũ hơn ${RETENTION_DAYS} ngày: $name"
-      rm -rf "$d"
+    if [[ $name =~ $SET_RE ]] && [ "$name" != "$keep" ] && [ -f "$d/manifest.json" ]; then
+      created=$(date -u -d "$(jq -r .created_at "$d/manifest.json")" +%s)
+      if [ "$created" -lt "$limit" ]; then
+        log "Xóa bản cũ hơn ${RETENTION_DAYS} ngày: $name"
+        rm -rf "$d"
+      fi
     elif [[ $name == *.partial ]] && [ -n "$(find "$d" -maxdepth 0 -mmin +1440)" ]; then
       rm -rf "$d"
     fi
@@ -129,13 +149,13 @@ prune_old_sets() {
 }
 
 upload_to_s3() {
-  local dir=$1 ts=$2 uri="${BACKUP_S3_URI:-}"
+  local dir=$1 name=$2 uri="${BACKUP_S3_URI:-}"
   [ -n "$uri" ] || { log "Không đặt BACKUP_S3_URI: chỉ lưu cục bộ"; return 0; }
-  uri="${uri%/}/$ts"
+  uri="${uri%/}/$name"
   log "Đẩy lên $uri"
   # manifest.json đẩy sau cùng: có manifest nghĩa là bản trên S3 đã đủ
   if aws s3 sync "$dir" "$uri/" --exclude manifest.json --only-show-errors \
-     && aws s3 cp "$dir/manifest.json" "$uri/manifest.json" --only-show-errors; then
+    && aws s3 cp "$dir/manifest.json" "$uri/manifest.json" --only-show-errors; then
     log "Đã đẩy lên S3"
   else
     printf 'LỖI: đẩy lên S3 thất bại, bản cục bộ vẫn còn tại %s\n' "$dir" >&2
@@ -150,28 +170,28 @@ resolve_set() {
     [ -f "$BACKUP_ROOT/LATEST" ] || die "chưa có bản sao lưu nào"
     want=$(cat "$BACKUP_ROOT/LATEST")
   fi
-  [[ $want =~ $SET_RE ]] || die "tên bản sao lưu không hợp lệ: $want"
+  [[ $want =~ $SET_RE ]] || die "tên bản sao lưu không hợp lệ: $want (dạng database-backup-yyyymmdd-NN)"
   [ -f "$BACKUP_ROOT/$want/manifest.json" ] || die "không có bản $want (hoặc chưa hoàn tất)"
   printf '%s' "$BACKUP_ROOT/$want"
 }
 
 cmd_list() {
   local latest d name
-  latest=$(cat "$BACKUP_ROOT/LATEST" 2>/dev/null || true)
-  printf '%-18s %8s %7s %9s  %s\n' BẢN DUNG_LƯỢNG SCHEMA THỜI_GIAN GHI_CHÚ
+  latest=$(cat "$BACKUP_ROOT/LATEST" 2> /dev/null || true)
+  printf '%-28s %-19s %10s %7s %10s  %s\n' BẢN TẠO_LÚC_GIỜ_VN DUNG_LƯỢNG SCHEMA THỜI_GIAN GHI_CHÚ
   for d in "$BACKUP_ROOT"/*/; do
     name=$(basename "$d")
     [[ $name =~ $SET_RE ]] && [ -f "$d/manifest.json" ] || continue
-    printf '%-18s %8s %7s %8ss  %s\n' "$name" "$(du -sh "$d" | cut -f1)" \
-      "$(jq '.mysql_schemas | length' "$d/manifest.json")" "$(jq .duration_seconds "$d/manifest.json")" \
-      "$([ "$name" = "$latest" ] && echo mới nhất)"
+    printf '%-28s %-19s %10s %7s %9ss  %s\n' "$name" "$(jq -r '.created_at_local[0:19]' "$d/manifest.json")" \
+      "$(du -sh "$d" | cut -f1)" "$(jq '.mysql_schemas | length' "$d/manifest.json")" \
+      "$(jq .duration_seconds "$d/manifest.json")" "$([ "$name" = "$latest" ] && echo mới nhất)"
   done
 }
 
 # ---------------------------------------------------------------------------------------------
 cmd_verify() {
   need MYSQL_BACKUP_USER MYSQL_ROOT_PASSWORD
-  local set started s tmpdb want got failed=0
+  local set started f s tmpdb want got failed=0
   set=$(resolve_set "${1:-latest}")
   started=$(date +%s)
   log "Kiểm tra bản $(basename "$set")"
@@ -188,7 +208,12 @@ cmd_verify() {
     want=$(jq -r ".mysql_schemas[\"$s\"].tables" "$set/manifest.json")
     got=$(as_root -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$tmpdb' AND table_type='BASE TABLE'")
     as_root -e "DROP DATABASE \`$tmpdb\`"
-    if [ "$want" = "$got" ]; then log "MySQL $s: phục hồi thử OK ($got bảng)"; else log "MySQL $s: SAI số bảng (manifest $want, phục hồi $got)"; failed=1; fi
+    if [ "$want" = "$got" ]; then
+      log "MySQL $s: phục hồi thử OK ($got bảng)"
+    else
+      log "MySQL $s: SAI số bảng (manifest $want, phục hồi $got)"
+      failed=1
+    fi
   done
 
   local m db err
@@ -199,16 +224,19 @@ cmd_verify() {
     if gunzip -c "$m" | mongorestore --uri="$MONGO_URI" --archive --nsFrom='$db$.$col$' --nsTo='restore_check_$db$.$col$' 2> "$err"; then
       log "MongoDB $db: phục hồi thử OK ($(mongosh --quiet "$MONGO_URI" --eval "db.getSiblingDB('restore_check_$db').getCollectionNames().length") collection)"
     else
-      log "MongoDB $db: THẤT BẠI: $(tail -3 "$err")"; failed=1
+      log "MongoDB $db: THẤT BẠI: $(tail -3 "$err")"
+      failed=1
     fi
     mongosh --quiet "$MONGO_URI" --eval "db.getSiblingDB('restore_check_$db').dropDatabase()" > /dev/null
     rm -f "$err"
   done
 
-  [ -f "$set/files/chat_files.tar.gz" ] && { tar -tzf "$set/files/chat_files.tar.gz" > /dev/null && log "Tệp chat: giải nén thử OK"; }
+  if [ -f "$set/files/chat_files.tar.gz" ]; then
+    tar -tzf "$set/files/chat_files.tar.gz" > /dev/null && log "Tệp chat: giải nén thử OK"
+  fi
 
   [ "$failed" = 0 ] || die "kiểm tra THẤT BẠI"
-  log "KIỂM TRA THÀNH CÔNG sau $(( $(date +%s) - started )) giây"
+  log "KIỂM TRA THÀNH CÔNG sau $(($(date +%s) - started)) giây"
 }
 
 # ---------------------------------------------------------------------------------------------
@@ -227,9 +255,9 @@ cmd_restore() {
       *) want=$arg ;;
     esac
   done
-  [ -n "$do_mysql" ] || [ -n "$do_mongo" ] || [ "$do_files" = 1 ] || die "chọn thứ cần phục hồi: --mysql[=schema,...] --mongo --files"
+  [ -n "$do_mysql" ] || [ -n "$do_mongo" ] || [ "$do_files" = 1 ] || die "chọn thứ cần phục hồi: --mysql[=schema,...] --mongo[=db,...] --files"
 
-  local set s
+  local set s f
   set=$(resolve_set "$want")
   local -a targets=()
   if [ -n "$do_mysql" ]; then
@@ -244,7 +272,9 @@ cmd_restore() {
   local -a mtargets=()
   if [ -n "$do_mongo" ]; then
     if [ "$do_mongo" = all ]; then
-      for f in "$set"/mongo/*.archive.gz; do [ -e "$f" ] && mtargets+=("$(basename "$f" .archive.gz)"); done
+      for f in "$set"/mongo/*.archive.gz; do
+        [ -e "$f" ] && mtargets+=("$(basename "$f" .archive.gz)")
+      done
     else
       IFS=, read -r -a mtargets <<< "$do_mongo"
       for s in "${mtargets[@]}"; do [ -f "$set/mongo/$s.archive.gz" ] || die "bản này không có database Mongo $s"; done
@@ -252,39 +282,49 @@ cmd_restore() {
     [ "${#mtargets[@]}" -gt 0 ] || die "bản này không có database Mongo nào"
   fi
 
-  echo "KẾ HOẠCH PHỤC HỒI từ bản $(basename "$set") (tạo lúc $(jq -r .created_at "$set/manifest.json")):"
-  [ -n "$do_mysql" ] && echo "  - MySQL: XÓA rồi dựng lại ${targets[*]}"
-  [ -n "$do_mongo" ] && echo "  - MongoDB: XÓA rồi nạp lại ${mtargets[*]}"
-  [ "$do_files" = 1 ] && echo "  - Tệp chat: giải nén đè vào $FILES_DIR"
+  echo "KẾ HOẠCH PHỤC HỒI từ bản $(basename "$set") (tạo lúc $(jq -r .created_at_local "$set/manifest.json") giờ địa phương):"
+  if [ -n "$do_mysql" ]; then echo "  - MySQL: XÓA rồi dựng lại ${targets[*]}"; fi
+  if [ -n "$do_mongo" ]; then echo "  - MongoDB: XÓA rồi nạp lại ${mtargets[*]}"; fi
+  if [ "$do_files" = 1 ]; then echo "  - Tệp chat: giải nén đè vào $FILES_DIR"; fi
   echo "  Dữ liệu sau thời điểm sao lưu sẽ MẤT. Hãy dừng các service ghi vào dữ liệu này trước."
-  if [ "$yes" != 1 ]; then echo "Chưa làm gì cả. Thêm --yes để thực hiện."; exit 3; fi
+  if [ "$yes" != 1 ]; then
+    echo "Chưa làm gì cả. Thêm --yes để thực hiện."
+    exit 3
+  fi
 
-  local started=$(date +%s) t0
+  local started t0
+  started=$(date +%s)
   for s in "${targets[@]}"; do
-    t0=$(date +%s); log "MySQL: phục hồi $s"
+    t0=$(date +%s)
+    log "MySQL: phục hồi $s"
     as_root -e "DROP DATABASE IF EXISTS \`$s\`"
     gunzip -c "$set/mysql/$s.sql.gz" | as_root
-    log "MySQL $s xong sau $(( $(date +%s) - t0 )) giây"
+    log "MySQL $s xong sau $(($(date +%s) - t0)) giây"
   done
   for s in "${mtargets[@]}"; do
-    t0=$(date +%s); log "MongoDB: phục hồi $s"
+    t0=$(date +%s)
+    log "MongoDB: phục hồi $s"
     gunzip -c "$set/mongo/$s.archive.gz" | mongorestore --uri="$MONGO_URI" --archive --drop --quiet
-    log "MongoDB $s xong sau $(( $(date +%s) - t0 )) giây"
+    log "MongoDB $s xong sau $(($(date +%s) - t0)) giây"
   done
   if [ "$do_files" = 1 ]; then
     [ -f "$set/files/chat_files.tar.gz" ] || die "bản này không có tệp chat"
     mkdir -p "$FILES_DIR" && tar -xzf "$set/files/chat_files.tar.gz" -C "$FILES_DIR"
     log "Tệp chat đã giải nén"
   fi
-  log "PHỤC HỒI XONG sau $(( $(date +%s) - started )) giây (đây là RTO đo được cho phần vừa làm)"
+  log "PHỤC HỒI XONG sau $(($(date +%s) - started)) giây (đây là RTO đo được cho phần vừa làm)"
 }
 
 case "${1:-help}" in
-  backup)  cmd_backup ;;
-  list)    cmd_list ;;
-  verify)  shift; cmd_verify "$@" ;;
-  restore) shift; cmd_restore "$@" ;;
-  *)
-    sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
+  backup) cmd_backup ;;
+  list) cmd_list ;;
+  verify)
+    shift
+    cmd_verify "$@"
     ;;
+  restore)
+    shift
+    cmd_restore "$@"
+    ;;
+  *) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//' ;;
 esac

@@ -27,11 +27,11 @@ Câu trả lời chốt: *"Dữ liệu sinh ra từ nghiệp vụ thì sao lưu;
         │ (tài khoản erp_backup, CHỈ ĐỌC)                  │ (root, chỉ khi người vận hành chủ động)
         ▼                                                   ▼
   mysqldump × 9 schema ─┐                       verify  : thử phục hồi vào schema tạm, rồi xóa
-  mongodump × 2 database ├─► ./backups/<UTC>/   restore : phục hồi vào dữ liệu THẬT (cần --yes)
+  mongodump × 2 database ├─► ./backups/database-backup-<yyyymmdd>-<NN>/   restore : phục hồi vào dữ liệu THẬT (cần --yes)
   tar tệp chat ─────────┘      │
                                 ├─ mysql/*.sql.gz   mongo/*.archive.gz   files/chat_files.tar.gz
                                 ├─ SHA256SUMS       manifest.json
-                                └─► (tùy chọn) aws s3 sync → s3://bucket/smart-erp/<UTC>/
+                                └─► (tùy chọn) aws s3 sync → s3://bucket/smart-erp/database-backup-<yyyymmdd>-<NN>/
 ```
 
 | Quyết định | Vì sao |
@@ -42,6 +42,8 @@ Câu trả lời chốt: *"Dữ liệu sinh ra từ nghiệp vụ thì sao lưu;
 | `mysqldump --single-transaction` | Bản chụp nhất quán của từng schema mà không khoá bảng, nên hệ thống vẫn phục vụ trong lúc sao lưu |
 | Mỗi schema/database một tệp | Phục hồi riêng được một schema (vd chỉ `erp_sales_db`) mà không đụng schema khác |
 | Ghi vào thư mục `*.partial`, xong mới đổi tên | Bản dang dở không bao giờ bị nhầm là bản hợp lệ |
+| Tên `database-backup-yyyymmdd-NN` (NN là số thứ tự trong ngày, tạo bằng `mkdir` nguyên tử) | Dễ đọc, sắp xếp theo thời gian đúng; hai lần sao lưu chạy chồng nhau không bao giờ trùng tên (đã thử: nhận `-01` và `-02`). Ngày tính theo giờ Việt Nam (UTC+7, đổi bằng `BACKUP_DAY_OFFSET_HOURS`); thời điểm chính xác nằm trong `manifest.json` (`created_at` UTC, `created_at_local`) |
+| Xoá bản cũ theo `created_at` trong manifest, không theo tên | Đúng với mọi cách đặt tên, và không bao giờ xoá bản vừa tạo |
 | `gzip -t` + `SHA256SUMS` + `manifest.json` | Phát hiện tệp hỏng/rỗng ngay lúc sao lưu và sau này |
 | Đẩy `manifest.json` lên S3 **sau cùng** | Có manifest trên S3 nghĩa là bản đó đã đủ |
 | Giữ 7 ngày cục bộ (`BACKUP_RETENTION_DAYS`), không bao giờ xoá bản mới nhất | Không đầy ổ đĩa, nhưng luôn còn ít nhất một bản |
@@ -60,7 +62,7 @@ docker compose stop sales-service sales-relay sales-scheduler          # dừng 
 docker compose run --rm recovery restore latest --mysql=erp_sales_db --yes
 docker compose up -d sales-service sales-relay sales-scheduler
 ```
-Các lựa chọn của `restore`: `--mysql` (tất cả) hoặc `--mysql=a,b`, `--mongo` hoặc `--mongo=db`, `--files`; bản cụ thể bằng tên (vd `20261105T030011Z`) hoặc `latest`.
+Các lựa chọn của `restore`: `--mysql` (tất cả) hoặc `--mysql=a,b`, `--mongo` hoặc `--mongo=db`, `--files`; bản cụ thể bằng tên (vd `database-backup-20261105-02`) hoặc `latest`.
 
 ## 4. Số liệu đo thật (máy dev, dữ liệu mẫu)
 
@@ -69,7 +71,7 @@ Các lựa chọn của `restore`: `--mysql` (tất cả) hoặc `--mysql=a,b`, 
 | Dữ liệu MySQL | ~515 MB (sales 277 MB, finance 82 MB, inventory 78 MB, analytics 50 MB, ...) |
 | Một bản sao lưu | **38 MB** (nén ~13 lần), 9 schema + 2 database Mongo |
 | Thời gian sao lưu | **8 đến 15 giây**, hệ thống vẫn chạy |
-| `verify` toàn bộ (phục hồi thử cả 9 schema + 2 database Mongo vào chỗ tạm) | **107 giây** |
+| `verify` toàn bộ (phục hồi thử cả 9 schema + 2 database Mongo vào chỗ tạm) | **107 đến 160 giây** (hai lần đo, thay đổi theo tải của máy) |
 | Phục hồi `erp_sales_db` (277 MB) | **48 giây** |
 
 ### Diễn tập thảm hoạ (đã chạy)
@@ -170,7 +172,7 @@ Trạng thái kiểm thử đường S3: **chỉ mới thử đường lỗi** (
 
 ## 9. Thực hành (để có ảnh cho báo cáo)
 
-1. **Sao lưu và xem kết quả:** `docker compose run --rm backup`, rồi mở `backups\<mã thời gian>\manifest.json` và xem `SHA256SUMS`.
+1. **Sao lưu và xem kết quả:** `docker compose run --rm backup`, rồi mở `backups\database-backup-<yyyymmdd>-<NN>\manifest.json` và xem `SHA256SUMS`.
 2. **Kiểm chứng:** `docker compose run --rm recovery verify`, chụp phần "KIỂM TRA THÀNH CÔNG".
 3. **Diễn tập thảm hoạ nhỏ** (an toàn, trên bảng ít dữ liệu):
    ```powershell
