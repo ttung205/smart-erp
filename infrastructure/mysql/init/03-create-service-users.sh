@@ -42,6 +42,17 @@ while IFS='|' read -r user password_var schema; do
     sql+="GRANT ALL PRIVILEGES ON \`${schema}\`.* TO '${user}'@'%';"
 done <<< "$SERVICE_USERS"
 
+# erp_backup: chỉ ĐỌC mọi schema erp_*_db (kể cả schema thêm sau này) để mysqldump; không ghi được gì.
+# Phục hồi dùng root và chỉ khi người vận hành chủ động chạy (docker compose run --rm recovery ...).
+if [ -z "${BACKUP_DB_PASSWORD:-}" ]; then
+    echo "03-create-service-users: thiếu biến BACKUP_DB_PASSWORD" >&2
+    exit 1
+fi
+backup_escaped="$(sql_escape "$BACKUP_DB_PASSWORD")"
+sql+="CREATE USER IF NOT EXISTS 'erp_backup'@'%' IDENTIFIED BY '${backup_escaped}';"
+sql+="ALTER USER 'erp_backup'@'%' IDENTIFIED BY '${backup_escaped}';"
+sql+="GRANT SELECT, SHOW VIEW, TRIGGER, EVENT, LOCK TABLES ON \`erp\_%\_db\`.* TO 'erp_backup'@'%';"
+
 for schema in $ANALYTICS_SOURCES; do
     sql+="GRANT SELECT ON \`${schema}\`.* TO 'erp_analytics'@'%';"
 done
@@ -57,4 +68,4 @@ done
 sql+="FLUSH PRIVILEGES;"
 
 MYSQL_PWD="${MYSQL_ROOT_PASSWORD}" mysql --protocol=socket -uroot -e "$sql"
-echo "03-create-service-users: đã cấp tài khoản cho 8 service (dev tools access: ${MYSQL_DEV_TOOLS_ACCESS:-true})."
+echo "03-create-service-users: đã cấp tài khoản cho 8 service và erp_backup (dev tools access: ${MYSQL_DEV_TOOLS_ACCESS:-true})."

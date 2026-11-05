@@ -21,6 +21,7 @@ services:
       EOFFICE_DB_PASSWORD: ${EOFFICE_DB_PASSWORD:?EOFFICE_DB_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
       FINANCE_DB_PASSWORD: ${FINANCE_DB_PASSWORD:?FINANCE_DB_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
       ANALYTICS_DB_PASSWORD: ${ANALYTICS_DB_PASSWORD:?ANALYTICS_DB_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
+      BACKUP_DB_PASSWORD: ${BACKUP_DB_PASSWORD:?BACKUP_DB_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
       MYSQL_DEV_TOOLS_ACCESS: "true"
     ports:
       - "127.0.0.1:3306:3306"
@@ -129,6 +130,59 @@ services:
     networks:
       - erp-network
 
+
+  # Sao lưu và phục hồi (profile ops, chỉ chạy khi gọi): xem docs/learning/defense/07-sao-luu.md
+  #   docker compose run --rm backup            sao lưu ngay
+  #   docker compose run --rm backup list       liệt kê bản sao lưu
+  #   docker compose run --rm recovery verify   thử phục hồi vào schema tạm (không đụng dữ liệu thật)
+  backup:
+    profiles: ["ops"]
+    build:
+      context: ./infrastructure/backup
+    image: smart-erp-backup:latest
+    command: ["backup"]
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_BACKUP_USER: erp_backup
+      MYSQL_BACKUP_PASSWORD: ${BACKUP_DB_PASSWORD:?BACKUP_DB_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
+      MONGO_URI: mongodb://mongo:27017/?replicaSet=rs0
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      # Đặt s3://<bucket>/<thư mục> để tự đẩy lên S3 (trên EC2 dùng IAM role, không cần khóa)
+      BACKUP_S3_URI: ${BACKUP_S3_URI:-}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-ap-southeast-1}
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/backups
+      - chat_files:/data/chat_files:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    networks:
+      - erp-network
+
+  # Phục hồi dùng quyền root nên tách riêng khỏi backup (backup chỉ có tài khoản chỉ đọc)
+  recovery:
+    profiles: ["ops"]
+    build:
+      context: ./infrastructure/backup
+    image: smart-erp-backup:latest
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_BACKUP_USER: erp_backup
+      MYSQL_BACKUP_PASSWORD: ${BACKUP_DB_PASSWORD:?BACKUP_DB_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
+      MONGO_URI: mongodb://mongo:27017/?replicaSet=rs0
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/backups
+      - chat_files:/data/chat_files
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    networks:
+      - erp-network
 
   # =========================================================================
   # 2. MICROSERVICES BACKEND

@@ -23,6 +23,9 @@ compose-resolved.json
 *.pem
 *.key
 
+# Bản sao lưu dữ liệu (chứa dữ liệu thật, không bao giờ commit)
+backups/
+
 # Local Databases
 # File SQLite lạc chỗ do cấu hình DB sai (DB_DATABASE trỏ tên schema MySQL khi DB_CONNECTION=sqlite)
 services/*/erp_*_db
