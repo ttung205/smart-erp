@@ -25,7 +25,4 @@ CREATE DATABASE IF NOT EXISTS `erp_analytics_db` CHARACTER SET utf8mb4 COLLATE u
 -- 8. Finance Service Database
 CREATE DATABASE IF NOT EXISTS `erp_finance_db` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- 9. Chat Service Database (khi chuyển từ SQLite sang MySQL)
-CREATE DATABASE IF NOT EXISTS `erp_chat_db` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
 -- Quyền truy cập: mỗi service một tài khoản riêng, xem 03-create-service-users.sh
