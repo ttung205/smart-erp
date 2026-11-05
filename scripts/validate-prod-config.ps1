@@ -1,7 +1,9 @@
 ﻿[CmdletBinding()]
 param(
     # Chạy với secret giả lập (không đọc .env thật) để kiểm tra chính sách của docker-compose.prod.yml
-    [switch]$SelfTest
+    [switch]$SelfTest,
+    # Kiểm tra thêm lớp docker-compose.aws.yml (Caddy + image GHCR): khi đó chỉ cổng 80 và 443 được publish
+    [switch]$Aws
 )
 
 # Kiểm tra cấu hình Production trước khi deploy. Không bao giờ in giá trị secret, chỉ in tên biến.
@@ -16,7 +18,10 @@ $secretNames = @(
     "SALES_DB_PASSWORD", "EOFFICE_DB_PASSWORD", "FINANCE_DB_PASSWORD", "ANALYTICS_DB_PASSWORD",
     "GRAFANA_ADMIN_PASSWORD", "MONGO_EXPRESS_PASSWORD", "BACKUP_DB_PASSWORD"
 )
-$allowedPublishedPorts = @("8000", "5175")
+if ($Aws) { $secretNames += "SITE_ADDRESS" }
+$allowedPublishedPorts = if ($Aws) { @("80", "443") } else { @("8000", "5175") }
+$composeFiles = @("-f", "docker-compose.yml", "-f", "docker-compose.prod.yml")
+if ($Aws) { $composeFiles += @("-f", "docker-compose.aws.yml") }
 $errors = New-Object System.Collections.Generic.List[string]
 $saved = @{}
 $emptyEnv = Join-Path ([IO.Path]::GetTempPath()) "smart-erp-empty.env"
@@ -26,7 +31,7 @@ function Compose-Json {
     $envArgs = if ($SelfTest) { @("--env-file", $script:emptyEnv) } else { @() }
     $previous = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
-    try { $json = docker compose @envArgs -f docker-compose.yml -f docker-compose.prod.yml config --format json 2>$null }
+    try { $json = docker compose @envArgs @composeFiles config --format json 2>$null }
     finally { $ErrorActionPreference = $previous }
     if ($LASTEXITCODE -ne 0) { return $null }
     return ($json -join "`n")

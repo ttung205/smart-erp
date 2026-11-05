@@ -1,0 +1,76 @@
+# Override cho máy chủ AWS (EC2). Dùng SAU docker-compose.yml và docker-compose.prod.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.aws.yml up -d --no-build
+# (trên máy chủ đặt COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml:docker-compose.aws.yml trong .env
+#  thì chỉ cần gõ `docker compose ...`).
+#
+# Khác biệt so với production thường:
+#   1. Dùng image dựng sẵn từ GHCR (workflow build-images.yml), không build trên máy chủ.
+#      IMAGE_TAG chọn phiên bản: latest, hoặc sha-<7 ký tự> để quay lui đúng một commit.
+#   2. Caddy đứng trước, tự xin chứng chỉ HTTPS (Let's Encrypt). Chỉ Caddy mở cổng 80 và 443 ra ngoài;
+#      gateway và frontend không còn publish cổng nào ra máy chủ.
+# Không đổi nghiệp vụ, API hay schema database.
+
+services:
+  identity-service:
+    image: ${REGISTRY:-ghcr.io/ttung205}/smart-erp-identity-service:${IMAGE_TAG:-latest}
+  catalog-service:
+    image: ${REGISTRY:-ghcr.io/ttung205}/smart-erp-catalog-service:${IMAGE_TAG:-latest}
+  catalog-relay:
+    image: ${REGISTRY:-ghcr.io/ttung205}/smart-erp-catalog-service:${IMAGE_TAG:-latest}
+  purchase-service:
+    image: ${REGISTRY:-ghcr.io/ttung205}/smart-erp-purchase-service:${IMAGE_TAG:-latest}
+  inventory-service:
+    image: ${REGISTRY:-ghcr.io/ttung205}/smart-erp-inventory-service:${IMAGE_TAG:-latest}
+  sales-service:
+    image: ${REGISTRY:-ghcr.io/ttung205}/smart-erp-sales-service:${IMAGE_TAG:-latest}
+  sales-relay:
+    image: ${REGISTRY:-ghcr.io/ttung205}/smart-erp-sales-service:${IMAGE_TAG:-latest}
+  sales-scheduler:
+    image: ${REGISTRY:-ghcr.io/ttung205}/smart-erp-sales-service:${IMAGE_TAG:-latest}
+  notification-service:
+    image: ${REGISTRY:-ghcr.io/ttung205}/smart-erp-notification-service:${IMAGE_TAG:-latest}
+  eoffice-service:
+    image: ${REGISTRY:-ghcr.io/ttung205}/smart-erp-eoffice-service:${IMAGE_TAG:-latest}
+  eoffice-relay:
+    image: ${REGISTRY:-ghcr.io/ttung205}/smart-erp-eoffice-service:${IMAGE_TAG:-latest}
+  finance-service:
+    image: ${REGISTRY:-ghcr.io/ttung205}/smart-erp-finance-service:${IMAGE_TAG:-latest}
+  chat-service:
+    image: ${REGISTRY:-ghcr.io/ttung205}/smart-erp-chat-service:${IMAGE_TAG:-latest}
+  ai-service:
+    image: ${REGISTRY:-ghcr.io/ttung205}/smart-erp-ai-service:${IMAGE_TAG:-latest}
+  backup:
+    image: ${REGISTRY:-ghcr.io/ttung205}/smart-erp-backup:${IMAGE_TAG:-latest}
+  recovery:
+    image: ${REGISTRY:-ghcr.io/ttung205}/smart-erp-backup:${IMAGE_TAG:-latest}
+
+  # Gateway và frontend chỉ nói chuyện trong mạng Docker; Caddy là cửa duy nhất ra Internet
+  gateway:
+    ports: !reset []
+  frontend:
+    image: ${REGISTRY:-ghcr.io/ttung205}/smart-erp-frontend:${IMAGE_TAG:-latest}
+    ports: !reset []
+
+  # HTTPS tự động. SITE_ADDRESS là tên miền trỏ về máy chủ, ví dụ 13-250-1-2.sslip.io hoặc erp.example.com
+  caddy:
+    image: caddy:2
+    container_name: erp-caddy
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?SITE_ADDRESS chưa đặt trong .env (tên miền trỏ về máy chủ, xem docs/learning/defense/08-devops-aws.md)}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infrastructure/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Lưu chứng chỉ: mất volume này thì Caddy xin lại, dễ chạm giới hạn số lần cấp của Let's Encrypt
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+    networks:
+      - erp-network
+
+volumes:
+  caddy_data:
+  caddy_config:
