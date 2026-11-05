@@ -64,6 +64,38 @@ class EmployeeCodeService
         return $assigned;
     }
 
+    /**
+     * Đổi tiền tố cho mọi mã đã cấp, giữ nguyên 4 số (AC-2005 → SE-2005).
+     * Số trùng nhau giữa hai nhân viên (chỉ xảy ra với dữ liệu cũ có nhiều tiền tố) được sinh lại cho người sau.
+     */
+    public function applyPrefix(string $prefix): void
+    {
+        DB::transaction(function () use ($prefix): void {
+            $users = DB::table('users')->whereNotNull('employee_code')->orderBy('id')->lockForUpdate()->get(['id', 'employee_code']);
+            $taken = [];
+            foreach ($users as $user) {
+                $taken[substr((string) $user->employee_code, -4)] = true;
+            }
+
+            $seen = [];
+            foreach ($users as $user) {
+                $digits = substr((string) $user->employee_code, -4);
+                if (! ctype_digit($digits) || isset($seen[$digits])) {
+                    do {
+                        $digits = sprintf('%04d', random_int(0, 9999));
+                    } while (isset($taken[$digits]) || isset($seen[$digits]));
+                    $taken[$digits] = true;
+                }
+                $seen[$digits] = true;
+
+                $newCode = "{$prefix}-{$digits}";
+                if ($newCode !== $user->employee_code) {
+                    DB::table('users')->where('id', $user->id)->update(['employee_code' => $newCode]);
+                }
+            }
+        });
+    }
+
     private function isDuplicate(QueryException $exception): bool
     {
         return (string) $exception->getCode() === '23000' || ($exception->errorInfo[1] ?? null) === 1062;

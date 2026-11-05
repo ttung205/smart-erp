@@ -87,8 +87,13 @@ class CompanyController extends Controller
             $validated['employee_code_prefix'] = strtoupper($validated['employee_code_prefix']);
         }
 
+        $oldPrefix = $codes->prefix();
         $this->saveProfile($validated);
-        // Có tiền tố rồi thì nhân viên chưa có mã được gán mã ngay; mã đã cấp không bị đổi.
+        // Đổi tiền tố thì đổi luôn mã đã cấp (giữ 4 số); nhân viên chưa có mã được gán mã ngay.
+        $newPrefix = $codes->prefix();
+        if ($newPrefix !== null && $oldPrefix !== null && $newPrefix !== $oldPrefix) {
+            $codes->applyPrefix($newPrefix);
+        }
         $codes->assignMissing();
 
         return $this->show();

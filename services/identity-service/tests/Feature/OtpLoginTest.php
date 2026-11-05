@@ -153,6 +153,64 @@ class OtpLoginTest extends TestCase
         $this->assertMatchesRegularExpression('/^AC-\d{4}$/', (string) DB::table('users')->where('id', $id)->value('employee_code'));
     }
 
+    private function adminToken(): string
+    {
+        return (string) $this->postJson('/api/login', ['employee_code' => 'admin@erp.local', 'password' => 'password123'])->json('data.token');
+    }
+
+    public function test_changing_company_prefix_rewrites_existing_codes_keeping_digits(): void
+    {
+        $before = DB::table('users')->pluck('employee_code', 'id')->all();
+
+        $this->withToken($this->adminToken())->putJson('/api/company', ['name' => 'Cong ty', 'employee_code_prefix' => 'se'])->assertOk();
+
+        foreach (DB::table('users')->pluck('employee_code', 'id') as $id => $code) {
+            $this->assertSame('SE-'.substr($before[$id], -4), $code);
+        }
+    }
+
+    public function test_super_admin_can_change_employee_code_and_email(): void
+    {
+        $id = DB::table('users')->where('email', 'sale@erp.local')->value('id');
+        Mail::fake();
+        $this->postJson('/api/login/otp/request', ['employee_code' => $this->code])->assertOk();
+
+        $this->withToken($this->adminToken())->putJson("/api/users/{$id}", ['employee_code' => 'er-4321', 'email' => 'moi@example.com'])
+            ->assertOk();
+
+        $row = DB::table('users')->where('id', $id)->first(['employee_code', 'email']);
+        $this->assertSame('ER-4321', $row->employee_code);
+        $this->assertSame('moi@example.com', $row->email);
+        // OTP gửi tới email cũ bị vô hiệu.
+        $this->assertSame(0, DB::table('login_otps')->where('user_id', $id)->whereNull('consumed_at')->count());
+    }
+
+    public function test_employee_code_must_use_company_prefix_and_be_unique(): void
+    {
+        $token = $this->adminToken();
+        $id = DB::table('users')->where('email', 'sale@erp.local')->value('id');
+        $other = DB::table('users')->where('email', 'finance@erp.local')->value('employee_code');
+
+        $this->withToken($token)->putJson("/api/users/{$id}", ['employee_code' => 'ZZ-1234'])->assertStatus(422);
+        $this->withToken($token)->putJson("/api/users/{$id}", ['employee_code' => 'ER-12'])->assertStatus(422);
+        $this->withToken($token)->putJson("/api/users/{$id}", ['employee_code' => $other])->assertStatus(422);
+    }
+
+    public function test_non_super_admin_cannot_change_email_or_employee_code(): void
+    {
+        $permissionId = DB::table('permissions')->where('code', 'employee.manage')->value('id');
+        $roleId = DB::table('roles')->where('code', 'SALE')->value('id');
+        DB::table('role_permissions')->insert(['role_id' => $roleId, 'permission_id' => $permissionId]);
+        $token = $this->postJson('/api/login', ['employee_code' => $this->code, 'password' => 'password123'])->json('data.token');
+        $targetId = DB::table('users')->where('email', 'finance@erp.local')->value('id');
+
+        $this->withToken($token)->putJson("/api/users/{$targetId}", ['email' => 'chiem@example.com'])
+            ->assertForbidden()->assertJsonPath('error.code', 'PERMISSION_DENIED');
+        $this->withToken($token)->putJson("/api/users/{$targetId}", ['employee_code' => 'ER-0001'])->assertForbidden();
+        // Các trường khác vẫn sửa được.
+        $this->withToken($token)->putJson("/api/users/{$targetId}", ['name' => 'Ten Moi'])->assertOk();
+    }
+
     public function test_email_html_escapes_content_and_contains_otp(): void
     {
         $html = (new LoginOtpMail('<b>An</b>', 'AC-2005', '123456', 5, 'Cong ty & Co'))->renderHtml();
