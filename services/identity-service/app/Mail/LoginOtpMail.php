@@ -33,12 +33,7 @@ class LoginOtpMail extends Mailable
         $name = $e($this->employeeName);
         $code = $e($this->employeeCode);
         $company = $e($this->companyName);
-        $digits = '';
-        foreach (str_split($this->otp) as $digit) {
-            $digits .= '<td style="width:44px;height:56px;text-align:center;vertical-align:middle;background:#F8FAFC;'
-                .'border:1px solid #E2E8F0;border-radius:6px;font-family:Consolas,\'Courier New\',monospace;'
-                .'font-size:28px;font-weight:700;color:#4F46E5;">'.$e($digit).'</td><td style="width:8px;"></td>';
-        }
+        $otp = $e($this->otp);
         $ttl = $this->ttlMinutes;
 
         return <<<HTML
@@ -65,7 +60,13 @@ class LoginOtpMail extends Mailable
         </p>
       </td></tr>
       <tr><td align="center" style="padding:24px 32px;">
-        <table role="presentation" cellpadding="0" cellspacing="0"><tr>{$digits}</tr></table>
+        <!-- Cả 6 số nằm trong MỘT phần tử văn bản liền mạch: nhấn đúp để chọn, sao chép ra đúng "123456" -->
+        <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+          <td align="center" style="padding:12px 24px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
+            <span style="font-family:Consolas,'Courier New',monospace;font-size:32px;line-height:40px;font-weight:700;letter-spacing:8px;color:#4F46E5;-webkit-user-select:all;user-select:all;">{$otp}</span>
+          </td>
+        </tr></table>
+        <p style="margin:8px 0 0 0;font-size:12px;color:#64748B;text-align:center;">Nhấn đúp vào mã để chọn rồi sao chép.</p>
       </td></tr>
       <tr><td style="padding:0 32px 24px 32px;">
         <p style="margin:0;font-size:13px;line-height:20px;color:#334155;">

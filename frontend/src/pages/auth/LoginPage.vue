@@ -46,7 +46,7 @@
           <template v-if="otpSent">
             <div class="flex flex-col gap-2">
               <label class="text-xs font-semibold text-slate-700">Mã OTP gồm 6 chữ số</label>
-              <InputOtp v-model="otp" :length="6" integer-only :disabled="submitting" class="justify-center" />
+              <InputOtp v-model="otp" :length="6" integer-only :disabled="submitting" class="justify-center" @paste.capture="pasteOtp" />
               <span class="text-xs text-slate-500">Mã có hiệu lực 5 phút và chỉ dùng một lần.</span>
             </div>
             <div class="flex justify-between items-center text-xs">
@@ -151,6 +151,14 @@ function switchMode(value) {
   infoMessage.value = '';
   password.value = '';
   resetOtp();
+}
+
+// Dán mã từ email: bỏ khoảng trắng, xuống dòng, ký tự lạ và điền đủ 6 số bất kể con trỏ đang ở ô nào
+function pasteOtp(event) {
+  const digits = (event.clipboardData?.getData('text') || '').replace(/\D/g, '').slice(0, 6);
+  event.preventDefault();
+  event.stopPropagation();
+  if (digits) otp.value = digits;
 }
 
 function resetOtp() {
