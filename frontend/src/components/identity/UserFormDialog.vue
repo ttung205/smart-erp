@@ -176,10 +176,6 @@ defineProps({
     type: Boolean,
     default: false
   },
-  form: {
-    type: Object,
-    default: () => ({})
-  },
   departments: {
     type: Array,
     default: () => []
@@ -199,4 +195,7 @@ defineProps({
 });
 
 defineEmits(['update:visible', 'save']);
+
+// Form do trang cha sở hữu; defineModel cho phép v-model trên các trường mà không sửa prop trực tiếp
+const form = defineModel('form', { type: Object, default: () => ({}) });
 </script>
