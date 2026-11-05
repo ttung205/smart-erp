@@ -18,6 +18,25 @@
         />
       </div>
 
+      <!-- Mã nhân viên: chỉ Super Admin được đổi 4 số, tiền tố do công ty cấu hình -->
+      <div v-if="isEditing" class="flex flex-col gap-1.5">
+        <label class="block text-xs font-semibold text-slate-700">Mã Nhân Viên</label>
+        <div v-if="codePrefix" class="flex items-center gap-2">
+          <span class="px-3 py-1.5 rounded-[6px] border border-slate-200 bg-slate-50 font-mono text-xs font-semibold text-slate-700">{{ codePrefix }}-</span>
+          <InputText
+            v-model="form.employee_code_digits"
+            placeholder="4 chữ số"
+            size="small"
+            maxlength="4"
+            inputmode="numeric"
+            class="!rounded-[6px] font-mono w-28"
+            :disabled="!canEditLogin"
+          />
+        </div>
+        <span v-else class="font-mono text-xs text-slate-500">Chưa có mã. Cấu hình tiền tố ở màn hình Công ty.</span>
+        <span v-if="!canEditLogin" class="text-[11px] text-slate-500">Chỉ Super Admin được đổi mã nhân viên.</span>
+      </div>
+
       <!-- Email -->
       <div class="flex flex-col gap-1.5">
         <label class="block text-xs font-semibold text-slate-700">Địa Chỉ Email *</label>
@@ -26,8 +45,9 @@
           placeholder="email@example.com"
           size="small"
           class="!rounded-[6px] font-mono"
-          :disabled="isEditing"
+          :disabled="isEditing && !canEditLogin"
         />
+        <span v-if="isEditing && !canEditLogin" class="text-[11px] text-slate-500">Chỉ Super Admin được đổi email. OTP đăng nhập gửi về email này.</span>
       </div>
 
       <!-- Mật khẩu -->
@@ -140,6 +160,14 @@ import Checkbox from 'primevue/checkbox';
 import Button from 'primevue/button';
 
 defineProps({
+  canEditLogin: {
+    type: Boolean,
+    default: false
+  },
+  codePrefix: {
+    type: String,
+    default: ''
+  },
   visible: {
     type: Boolean,
     default: false
@@ -147,10 +175,6 @@ defineProps({
   isEditing: {
     type: Boolean,
     default: false
-  },
-  form: {
-    type: Object,
-    default: () => ({})
   },
   departments: {
     type: Array,
@@ -171,4 +195,7 @@ defineProps({
 });
 
 defineEmits(['update:visible', 'save']);
+
+// Form do trang cha sở hữu; defineModel cho phép v-model trên các trường mà không sửa prop trực tiếp
+const form = defineModel('form', { type: Object, default: () => ({}) });
 </script>

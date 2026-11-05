@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use OpenApi\Attributes as OA;
 
 class UserController extends Controller
@@ -224,7 +225,7 @@ class UserController extends Controller
             new OA\Response(response: 422, description: 'VALIDATION_FAILED, hoặc chọn cấp dưới làm quản lý (tạo vòng lặp)'),
         ]
     )]
-    public function update(Request $request, $id)
+    public function update(Request $request, $id, EmployeeCodeService $codes)
     {
         $user = DB::table('users')->where('id', $id)->first();
         if (! $user) {
@@ -234,13 +235,37 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:150',
             'email' => 'sometimes|required|email|max:150|unique:users,email,'.$id,
+            'employee_code' => ['sometimes', 'required', 'string', 'regex:/^[A-Za-z]{1,2}-\d{4}$/', Rule::unique('users', 'employee_code')->ignore($id)],
             'password' => 'nullable|string|min:6',
             'department_id' => 'nullable|exists:departments,id',
             'line_manager_id' => 'nullable|exists:users,id|not_in:'.$id,
             'is_active' => 'nullable|boolean',
             'role_ids' => 'nullable|array',
             'role_ids.*' => 'exists:roles,id',
-        ], ['line_manager_id.not_in' => 'Nhân viên không thể là quản lý trực tiếp của chính mình.']);
+        ], [
+            'line_manager_id.not_in' => 'Nhân viên không thể là quản lý trực tiếp của chính mình.',
+            'employee_code.regex' => 'Mã nhân viên gồm tiền tố chữ cái và 4 chữ số, ví dụ AC-2005.',
+            'employee_code.unique' => 'Mã nhân viên này đã có người dùng.',
+        ]);
+
+        $emailChanged = isset($validated['email']) && $validated['email'] !== $user->email;
+        $codeChanged = isset($validated['employee_code']) && strtoupper($validated['employee_code']) !== $user->employee_code;
+        if (($emailChanged || $codeChanged) && ! $request->attributes->get('actor')->hasAnyRole('SUPER_ADMIN')) {
+            // Email và mã nhân viên là thông tin đăng nhập (OTP gửi về email): chỉ Super Admin được đổi.
+            return response()->json(['success' => false, 'error' => [
+                'code' => 'PERMISSION_DENIED',
+                'message' => 'Chỉ Super Admin được đổi email hoặc mã nhân viên.',
+            ]], 403);
+        }
+        if ($codeChanged) {
+            $prefix = $codes->prefix();
+            if ($prefix === null || strtoupper(strstr($validated['employee_code'], '-', true)) !== $prefix) {
+                return response()->json(['success' => false, 'error' => [
+                    'code' => 'VALIDATION_FAILED',
+                    'message' => 'Mã nhân viên phải bắt đầu bằng tiền tố công ty'.($prefix ? " ({$prefix})." : '. Công ty chưa cấu hình tiền tố.'),
+                ]], 422);
+            }
+        }
 
         if (! empty($validated['line_manager_id']) && $this->managesIndirectly((int) $id, (int) $validated['line_manager_id'])) {
             return response()->json(['success' => false, 'message' => 'Không thể chọn cấp dưới làm quản lý trực tiếp (tạo vòng lặp duyệt).'], 422);
@@ -252,6 +277,9 @@ class UserController extends Controller
         }
         if (isset($validated['email'])) {
             $updateData['email'] = $validated['email'];
+        }
+        if ($codeChanged) {
+            $updateData['employee_code'] = strtoupper($validated['employee_code']);
         }
         if (! empty($validated['password'])) {
             $updateData['password_hash'] = Hash::make($validated['password']);
@@ -268,6 +296,10 @@ class UserController extends Controller
         $updateData['updated_at'] = now();
 
         DB::table('users')->where('id', $id)->update($updateData);
+        if ($emailChanged || $codeChanged) {
+            // OTP đang chờ gửi tới email cũ không còn giá trị.
+            DB::table('login_otps')->where('user_id', $id)->whereNull('consumed_at')->update(['consumed_at' => now()]);
+        }
 
         if (isset($validated['role_ids'])) {
             DB::table('user_roles')->where('user_id', $id)->delete();

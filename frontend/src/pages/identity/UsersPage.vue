@@ -195,6 +195,8 @@
       :departments="departments"
       :roles="roles"
       :manager-options="lineManagerOptions"
+      :can-edit-login="isSuperAdmin(currentUser)"
+      :code-prefix="editingCodePrefix"
       :loading="loading.save"
       @save="saveUser"
     />
@@ -213,7 +215,7 @@ import Column from 'primevue/column';
 import PageHeader from '../../components/common/PageHeader.vue';
 import UserFormDialog from '../../components/identity/UserFormDialog.vue';
 import { identityApi } from '../../api/identity.api';
-import { canManage } from '../../utils/rbac';
+import { canManage, isSuperAdmin } from '../../utils/rbac';
 
 const props = defineProps({
   currentUser: {
@@ -241,6 +243,7 @@ const filters = reactive({
   roleId: null
 });
 
+const editingCodePrefix = ref('');
 const dialogVisible = ref(false);
 const isEditing = ref(false);
 const editingId = ref(null);
@@ -248,6 +251,7 @@ const editingId = ref(null);
 const form = reactive({
   name: '',
   email: '',
+  employee_code_digits: '',
   password: '',
   department_id: null,
   line_manager_id: null,
@@ -338,6 +342,8 @@ const openCreateDialog = () => {
   editingId.value = null;
   form.name = '';
   form.email = '';
+  form.employee_code_digits = '';
+  editingCodePrefix.value = '';
   form.password = '';
   form.department_id = null;
   form.line_manager_id = null;
@@ -351,6 +357,9 @@ const openEditDialog = (user) => {
   editingId.value = user.id;
   form.name = user.name;
   form.email = user.email;
+  const [codePrefix = '', codeDigits = ''] = (user.employee_code || '').split('-');
+  editingCodePrefix.value = codeDigits ? codePrefix : '';
+  form.employee_code_digits = codeDigits;
   form.password = '';
   form.department_id = user.department_id;
   form.line_manager_id = user.line_manager_id || null;
@@ -381,6 +390,15 @@ const saveUser = async () => {
     };
     if (form.password) {
       payload.password = form.password;
+    }
+    if (isEditing.value && editingCodePrefix.value && isSuperAdmin(props.currentUser)) {
+      const digits = (form.employee_code_digits || '').trim();
+      if (!/^\d{4}$/.test(digits)) {
+        toast.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Mã nhân viên cần đúng 4 chữ số', life: 3000 });
+        loading.save = false;
+        return;
+      }
+      payload.employee_code = `${editingCodePrefix.value}-${digits}`;
     }
 
     if (isEditing.value) {
