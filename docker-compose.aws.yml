@@ -7,7 +7,9 @@
 #   1. Dùng image dựng sẵn từ GHCR (workflow build-images.yml), không build trên máy chủ.
 #      IMAGE_TAG chọn phiên bản: latest, hoặc sha-<7 ký tự> để quay lui đúng một commit.
 #   2. Caddy đứng trước, tự xin chứng chỉ HTTPS (Let's Encrypt). Chỉ Caddy mở cổng 80 và 443 ra ngoài;
-#      gateway và frontend không còn publish cổng nào ra máy chủ.
+#      gateway, frontend, Grafana và Prometheus không publish cổng nào ra máy chủ.
+#   3. Grafana (profile monitoring) phục vụ tại https://<SITE_ADDRESS>/grafana/ qua Caddy, đăng nhập bằng
+#      GRAFANA_ADMIN_PASSWORD. Prometheus và Loki vẫn chỉ nằm trong mạng Docker.
 # Không đổi nghiệp vụ, API hay schema database.
 
 services:
@@ -49,6 +51,17 @@ services:
     ports: !reset []
   frontend:
     image: ${REGISTRY:-ghcr.io/ttung205}/smart-erp-frontend:${IMAGE_TAG:-latest}
+    ports: !reset []
+
+  # Giám sát: Grafana nằm sau Caddy ở đường dẫn con /grafana/. Chỉ có hiệu lực khi bật profile monitoring
+  # (COMPOSE_PROFILES=monitoring trong .env). Không cho đăng ký, không cho truy cập ẩn danh.
+  grafana:
+    ports: !reset []
+    environment:
+      GF_SERVER_ROOT_URL: https://${SITE_ADDRESS}/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+  prometheus:
     ports: !reset []
 
   # HTTPS tự động. SITE_ADDRESS là tên miền trỏ về máy chủ, ví dụ 13-250-1-2.sslip.io hoặc erp.example.com

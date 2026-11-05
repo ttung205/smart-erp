@@ -31,6 +31,8 @@ $lines = @(
     "SITE_ADDRESS=$SiteAddress",
     "# Phiên bản image: latest hoặc sha-<7 ký tự> để quay lui đúng một commit",
     "IMAGE_TAG=latest",
+    "# Bật giám sát (Grafana tại /grafana/, Prometheus, Loki, Alloy). Bỏ dòng này nếu cần tiết kiệm RAM (~330 MiB)",
+    "COMPOSE_PROFILES=monitoring",
     "",
     "# ---- MySQL (root và erp_user chỉ được tạo ở lần khởi động đầu của volume mysql_data) ----",
     "MYSQL_ROOT_PASSWORD=$(New-Hex 24)",
