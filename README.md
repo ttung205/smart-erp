@@ -184,29 +184,28 @@ docker compose run --rm recovery restore latest --mysql=erp_sales_db --yes   # P
 
 Đặt `BACKUP_S3_URI=s3://<bucket>/smart-erp` trong `.env` để tự đẩy lên S3. Chi tiết, số liệu RTO/RPO và cách đưa lên AWS: [docs/learning/defense/07-sao-luu.md](docs/learning/defense/07-sao-luu.md).
 
-## 6. Tài khoản mẫu
+## 6. Tài khoản và đăng nhập
 
-Mật khẩu mặc định của mọi tài khoản: **`password123`**
+Đăng nhập bằng **mã nhân viên** (dạng `AC-2005`: tiền tố tối đa 2 chữ cái do công ty cấu hình ở màn hình Công ty, cộng 4 số ngẫu nhiên). Có hai cách:
 
-| Email | Vai trò | Mô tả |
-| :--- | :--- | :--- |
-| `admin@erp.local` | `SUPER_ADMIN` | Toàn quyền hệ thống |
-| `sale@erp.local` | `SALE` | Chuyên viên kinh doanh |
-| `sale.manager@erp.local` | `SALE_MANAGER` | Trưởng phòng kinh doanh, duyệt báo giá / đơn hàng |
-| `purchase@erp.local` | `PURCHASE` | Chuyên viên mua hàng |
-| `purchase.manager@erp.local` | `PURCHASE_MANAGER` | Trưởng phòng mua hàng |
-| `technical@erp.local` | `TECHNICAL` | Kỹ thuật viên |
-| `technical.manager@erp.local` | `TECHNICAL_MANAGER` | Trưởng phòng kỹ thuật |
-| `finance@erp.local` | `FINANCE_ACCOUNTING` | Chuyên viên kế toán |
-| `finance.manager@erp.local` | `FINANCE_ACCOUNTING_MANAGER` | Kế toán trưởng |
-| `logistic@erp.local` | `LOGISTIC` | Chuyên viên kho vận |
-| `logistic.manager@erp.local` | `LOGISTIC_MANAGER` | Trưởng phòng kho vận |
+- **OTP**: nhập mã nhân viên, mã OTP 6 số được gửi về email của nhân viên (hiệu lực 5 phút, dùng một lần, tối đa 5 lần nhập sai).
+- **Mật khẩu**: mã nhân viên và mật khẩu.
 
-**Demo thông báo realtime:**
-1. Mở 2 trình duyệt (hoặc 1 cửa sổ thường + 1 cửa sổ ẩn danh).
-2. Đăng nhập `sale@erp.local` ở cửa sổ thứ nhất, `sale.manager@erp.local` ở cửa sổ thứ hai.
-3. Ở cửa sổ sale: tạo báo giá rồi bấm **Gửi duyệt**.
-4. Chuông ở cửa sổ manager sáng lên ngay. Manager duyệt xong thì sale nhận thông báo kết quả.
+Hệ thống mới không có sẵn tài khoản. Tạo Super Admin đầu tiên:
+
+```bash
+docker compose run --rm --no-deps -e IDENTITY_ADMIN_PASSWORD='<mật khẩu >= 14 ký tự>' identity-service   php artisan identity:bootstrap-admin --email=admin@congty.vn --name="Nguyễn Văn A" --prefix=AC
+```
+
+Lệnh in ra mã nhân viên của quản trị viên. Các nhân viên khác thêm ở màn hình Nhân viên, mã được cấp tự động. Email OTP cần SMTP thật (`SMTP_*` trong `.env`); mặc định chỉ trỏ Mailpit (http://localhost:8125) để xem thử.
+
+Môi trường **dev/test** có thể nạp 11 tài khoản mẫu (mật khẩu `password123`, tiền tố `ER`, mã in ra ở màn hình Nhân viên). Seeder này từ chối chạy ở production:
+
+```bash
+docker compose run --rm identity-service php artisan db:seed --class=DemoUserSeeder
+```
+
+Hệ thống đã lỡ có tài khoản mẫu `@erp.local`: xem rồi xóa bằng `php artisan identity:purge-demo-users` (thêm `--force` để xóa thật).
 
 ## 7. Quan sát hệ thống
 

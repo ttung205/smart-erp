@@ -215,6 +215,15 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET chưa đặt trong .env (copy .env.example thành .env)}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?INTERNAL_SERVICE_KEY chưa đặt trong .env (copy .env.example thành .env)}
       AUTO_SEED: "false"
+      # Gửi email OTP đăng nhập. Mặc định trỏ Mailpit (chỉ xem thử); production đặt SMTP_* thật trong .env
+      MAIL_MAILER: smtp
+      MAIL_HOST: ${SMTP_HOST:-mailpit}
+      MAIL_PORT: ${SMTP_PORT:-1025}
+      MAIL_USERNAME: ${SMTP_USER:-}
+      MAIL_PASSWORD: ${SMTP_PASS:-}
+      MAIL_SCHEME: ${SMTP_SCHEME:-}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@smarterp.local}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Smart ERP}
     depends_on:
       mysql:
         condition: service_healthy

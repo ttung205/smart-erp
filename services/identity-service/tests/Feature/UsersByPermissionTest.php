@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Database\Seeders\DemoUserSeeder;
 use Database\Seeders\IdentitySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +21,7 @@ class UsersByPermissionTest extends TestCase
 
     public function test_returns_active_users_holding_the_permission_or_module_manage(): void
     {
-        $this->seed(IdentitySeeder::class);
+        $this->seed([IdentitySeeder::class, DemoUserSeeder::class]);
 
         $expected = DB::table('users')
             ->join('user_roles', 'users.id', '=', 'user_roles.user_id')
@@ -42,7 +43,7 @@ class UsersByPermissionTest extends TestCase
 
     public function test_inactive_users_are_excluded(): void
     {
-        $this->seed(IdentitySeeder::class);
+        $this->seed([IdentitySeeder::class, DemoUserSeeder::class]);
         $userId = $this->getJson('/api/users/by-permission?permissions=order.approve')->json('data.0.id');
         DB::table('users')->where('id', $userId)->update(['is_active' => false]);
 

@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\EmployeeCodeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
 
 class UserController extends Controller
@@ -100,7 +102,7 @@ class UserController extends Controller
             ->join('permissions', 'role_permissions.permission_id', '=', 'permissions.id')
             ->whereIn('permissions.code', $codes)
             ->where('users.is_active', true)
-            ->select('users.id', 'users.name', 'users.email')
+            ->select('users.id', 'users.employee_code', 'users.name', 'users.email')
             ->distinct()
             ->orderBy('users.id')
             ->get();
@@ -132,7 +134,7 @@ class UserController extends Controller
     #[OA\Post(
         path: '/users',
         summary: 'Tạo người dùng',
-        description: 'Yêu cầu quyền employee.manage hoặc users.manage. Nếu không gửi mật khẩu, tài khoản được tạo với mật khẩu mặc định password123.',
+        description: 'Yêu cầu quyền employee.manage hoặc users.manage. Mã nhân viên được tự cấp theo tiền tố cấu hình ở công ty. Nếu không gửi mật khẩu, tài khoản nhận mật khẩu ngẫu nhiên không ai biết và đăng nhập bằng OTP.',
         tags: ['Người dùng'],
         requestBody: new OA\RequestBody(
             required: true,
@@ -156,7 +158,7 @@ class UserController extends Controller
             new OA\Response(response: 422, description: 'VALIDATION_FAILED: email trùng hoặc dữ liệu sai'),
         ]
     )]
-    public function store(Request $request)
+    public function store(Request $request, EmployeeCodeService $codes)
     {
         $validated = $request->validate([
             'name' => 'required|string|max:150',
@@ -172,13 +174,15 @@ class UserController extends Controller
         $id = DB::table('users')->insertGetId([
             'name' => $validated['name'],
             'email' => $validated['email'],
-            'password_hash' => Hash::make($validated['password'] ?? 'password123'),
+            'password_hash' => Hash::make($validated['password'] ?? Str::random(40)),
             'department_id' => $validated['department_id'] ?? null,
             'line_manager_id' => $validated['line_manager_id'] ?? null,
             'is_active' => array_key_exists('is_active', $validated) ? ($validated['is_active'] ? 1 : 0) : 1,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+
+        $codes->assign((int) $id);
 
         if (! empty($validated['role_ids'])) {
             foreach ($validated['role_ids'] as $roleId) {
@@ -311,6 +315,7 @@ class UserController extends Controller
             ->leftJoin('users as line_managers', 'users.line_manager_id', '=', 'line_managers.id')
             ->select(
                 'users.id',
+                'users.employee_code',
                 'users.name',
                 'users.email',
                 'users.is_active',

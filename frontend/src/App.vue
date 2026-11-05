@@ -4,7 +4,7 @@
     <ConfirmDialog />
 
     <!-- A. MÀN HÌNH ĐĂNG NHẬP CHUẨN KHI CHƯA XÁC THỰC HOẶC Ở ROUTE /login -->
-    <LoginPage v-if="!currentUser || route.path === '/login'" :loading="loading.login" @login="submitLogin" />
+    <LoginPage v-if="!currentUser || route.path === '/login'" @authenticated="applySession" />
 
     <!-- B. GIAO DIỆN CHÍNH ERP KHI ĐÃ ĐĂNG NHẬP THÀNH CÔNG -->
     <div v-else class="flex min-h-screen bg-slate-50">
@@ -84,7 +84,6 @@ const jwtToken = ref(storage.getToken());
 const currentUser = ref(parseJwt(jwtToken.value));
 
 const loading = reactive({
-  login: false,
   createProduct: false
 });
 
@@ -112,48 +111,29 @@ const checkHealth = async () => {
   health.sales = hSales;
 };
 
-// Submit Login Action
-const submitLogin = async ({ email, password }) => {
-  loading.login = true;
-  try {
-    const res = await authApi.login(email, password);
-    if (res.data && res.data.token) {
-      jwtToken.value = res.data.token;
-      storage.setToken(jwtToken.value);
-      if (res.data.user) {
-        currentUser.value = {
-          ...parseJwt(jwtToken.value),
-          ...res.data.user
-        };
-      } else {
-        currentUser.value = parseJwt(jwtToken.value);
-      }
+// Nhận phiên đăng nhập từ LoginPage (đăng nhập bằng mật khẩu hoặc OTP)
+const applySession = async (res) => {
+  if (!res.data || !res.data.token) return;
+  jwtToken.value = res.data.token;
+  storage.setToken(jwtToken.value);
+  currentUser.value = res.data.user
+    ? { ...parseJwt(jwtToken.value), ...res.data.user }
+    : parseJwt(jwtToken.value);
 
-      const permsCount = currentUser.value && currentUser.value.permissions ? currentUser.value.permissions.length : 0;
-      toast.add({
-        severity: 'success',
-        summary: 'Đăng nhập thành công',
-        detail: `Xin chào ${currentUser.value.name || 'Người dùng'}. Cấp phát ${permsCount} quyền hệ thống.`,
-        life: 3000
-      });
+  const permsCount = currentUser.value && currentUser.value.permissions ? currentUser.value.permissions.length : 0;
+  toast.add({
+    severity: 'success',
+    summary: 'Đăng nhập thành công',
+    detail: `Xin chào ${currentUser.value.name || 'Người dùng'}. Cấp phát ${permsCount} quyền hệ thống.`,
+    life: 3000
+  });
 
-      fetchAllData();
-      let target = route.query.redirect || '/intro';
-      if (target === '/login' || target === '/') {
-        target = '/intro';
-      }
-      await router.replace(target);
-    }
-  } catch (error) {
-    toast.add({
-      severity: 'error',
-      summary: 'Đăng nhập không thành công',
-      detail: error.message || 'Tài khoản hoặc mật khẩu không chính xác.',
-      life: 4000
-    });
-  } finally {
-    loading.login = false;
+  fetchAllData();
+  let target = route.query.redirect || '/intro';
+  if (target === '/login' || target === '/') {
+    target = '/intro';
   }
+  await router.replace(target);
 };
 
 const logout = () => {

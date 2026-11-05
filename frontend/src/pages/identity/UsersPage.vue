@@ -40,7 +40,7 @@
       <div class="flex flex-wrap items-center gap-3">
         <InputText
           v-model="filters.search"
-          placeholder="Tìm theo tên hoặc email..."
+          placeholder="Tìm theo mã nhân viên, tên hoặc email..."
           size="small"
           class="w-64 !rounded-[6px]"
         />
@@ -97,6 +97,12 @@
             Không tìm thấy nhân viên nào phù hợp.
           </div>
         </template>
+
+        <Column field="employee_code" header="Mã NV" style="width: 110px">
+          <template #body="{ data }">
+            <span class="text-xs font-mono font-semibold text-slate-700">{{ data.employee_code || '—' }}</span>
+          </template>
+        </Column>
 
         <!-- Cột 1: Thông tin nhân sự -->
         <Column header="Nhân Viên" style="min-width: 220px">
@@ -274,7 +280,8 @@ const filteredUsers = computed(() => {
       const q = filters.search.toLowerCase().trim();
       const name = (u.name || '').toLowerCase();
       const email = (u.email || '').toLowerCase();
-      return name.includes(q) || email.includes(q);
+      const code = (u.employee_code || '').toLowerCase();
+      return name.includes(q) || email.includes(q) || code.includes(q);
     }
     return true;
   });

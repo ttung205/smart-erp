@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\EmployeeCodeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -51,6 +52,7 @@ class CompanyController extends Controller
                     new OA\Property(property: 'bank_name', type: 'string', nullable: true, maxLength: 255),
                     new OA\Property(property: 'bank_branch', type: 'string', nullable: true, maxLength: 255),
                     new OA\Property(property: 'bank_beneficiary', type: 'string', nullable: true, maxLength: 255),
+                    new OA\Property(property: 'employee_code_prefix', type: 'string', nullable: true, maxLength: 2, example: 'AC', description: 'Tiền tố mã nhân viên, tối đa 2 chữ cái'),
                 ]
             )
         ),
@@ -61,7 +63,7 @@ class CompanyController extends Controller
             new OA\Response(response: 422, description: 'VALIDATION_FAILED: dữ liệu sai định dạng'),
         ]
     )]
-    public function update(Request $request): JsonResponse
+    public function update(Request $request, EmployeeCodeService $codes): JsonResponse
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -78,9 +80,16 @@ class CompanyController extends Controller
             'bank_name' => ['nullable', 'string', 'max:255'],
             'bank_branch' => ['nullable', 'string', 'max:255'],
             'bank_beneficiary' => ['nullable', 'string', 'max:255'],
-        ]);
+            'employee_code_prefix' => ['nullable', 'string', 'regex:/^[A-Za-z]{1,2}$/'],
+        ], ['employee_code_prefix.regex' => 'Tiền tố mã nhân viên gồm tối đa 2 chữ cái (A-Z).']);
+
+        if (isset($validated['employee_code_prefix'])) {
+            $validated['employee_code_prefix'] = strtoupper($validated['employee_code_prefix']);
+        }
 
         $this->saveProfile($validated);
+        // Có tiền tố rồi thì nhân viên chưa có mã được gán mã ngay; mã đã cấp không bị đổi.
+        $codes->assignMissing();
 
         return $this->show();
     }

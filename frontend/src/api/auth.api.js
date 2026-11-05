@@ -7,10 +7,24 @@ export const authApi = {
       .catch(() => false);
   },
 
-  login(email, password) {
+  login(employeeCode, password) {
     return apiClient('/api/v1/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ employee_code: employeeCode, password })
+    });
+  },
+
+  requestOtp(employeeCode) {
+    return apiClient('/api/v1/auth/login/otp/request', {
+      method: 'POST',
+      body: JSON.stringify({ employee_code: employeeCode })
+    });
+  },
+
+  verifyOtp(employeeCode, otp) {
+    return apiClient('/api/v1/auth/login/otp/verify', {
+      method: 'POST',
+      body: JSON.stringify({ employee_code: employeeCode, otp })
     });
   },
 

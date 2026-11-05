@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Auth\JwtIssuer;
 use App\Auth\JwtVerifier;
+use Database\Seeders\DemoUserSeeder;
 use Database\Seeders\IdentitySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,7 @@ class AuthenticationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed(IdentitySeeder::class);
+        $this->seed([IdentitySeeder::class, DemoUserSeeder::class]);
     }
 
     private function login(string $email): string
