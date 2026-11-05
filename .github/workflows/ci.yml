@@ -143,7 +143,8 @@ jobs:
 
       - run: composer install --no-interaction --no-progress --prefer-dist
 
-      - run: touch .env && php artisan key:generate --force
+      # key:generate chỉ thay dòng APP_KEY= có sẵn, nên file .env phải có dòng này (file rỗng thì không sinh được khoá)
+      - run: echo "APP_KEY=" > .env && php artisan key:generate --force
 
       - run: php artisan test --compact
 
