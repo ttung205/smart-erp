@@ -173,6 +173,17 @@ Mỗi Dockerfile là **multi-stage**: `runtime` là stage cuối (image chạy t
 
 Lệnh hay dùng: `docker compose ps`, `docker compose logs -f <service>`, `docker compose exec <service> sh`, `docker compose down` (giữ dữ liệu) và `docker compose down -v` (xóa cả volume).
 
+### 5.4. Sao lưu và phục hồi
+
+```powershell
+docker compose run --rm backup                  # sao lưu MySQL + MongoDB + tệp chat vào ./backups/<UTC>/
+docker compose run --rm backup list             # liệt kê các bản
+docker compose run --rm recovery verify         # thử phục hồi vào schema tạm, không đụng dữ liệu thật
+docker compose run --rm recovery restore latest --mysql=erp_sales_db --yes   # PHỤC HỒI (ghi đè), dừng service ghi trước
+```
+
+Đặt `BACKUP_S3_URI=s3://<bucket>/smart-erp` trong `.env` để tự đẩy lên S3. Chi tiết, số liệu RTO/RPO và cách đưa lên AWS: [docs/learning/defense/07-sao-luu.md](docs/learning/defense/07-sao-luu.md).
+
 ## 6. Tài khoản mẫu
 
 Mật khẩu mặc định của mọi tài khoản: **`password123`**

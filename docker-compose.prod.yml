@@ -20,6 +20,7 @@ x-sales-db-password: &sales-db-password ${SALES_DB_PASSWORD:?SALES_DB_PASSWORD c
 x-eoffice-db-password: &eoffice-db-password ${EOFFICE_DB_PASSWORD:?EOFFICE_DB_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)}
 x-finance-db-password: &finance-db-password ${FINANCE_DB_PASSWORD:?FINANCE_DB_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)}
 x-analytics-db-password: &analytics-db-password ${ANALYTICS_DB_PASSWORD:?ANALYTICS_DB_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)}
+x-backup-db-password: &backup-db-password ${BACKUP_DB_PASSWORD:?BACKUP_DB_PASSWORD chưa đặt trong .env/môi trường (xem .env.example)}
 
 services:
   mysql:
@@ -35,6 +36,7 @@ services:
       EOFFICE_DB_PASSWORD: *eoffice-db-password
       FINANCE_DB_PASSWORD: *finance-db-password
       ANALYTICS_DB_PASSWORD: *analytics-db-password
+      BACKUP_DB_PASSWORD: *backup-db-password
       # erp_user (test/công cụ dev) không có quyền trên dữ liệu thật ở Production
       MYSQL_DEV_TOOLS_ACCESS: "false"
 

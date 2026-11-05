@@ -1019,7 +1019,7 @@ class InvoiceController extends Controller
             ]];
         }
 
-        $inventoryUrl = config('services.inventory.url', 'http://127.0.0.1:8004');
+        $inventoryUrl = config('services.inventory.url');
         try {
             // Inventory Service yêu cầu JWT: chuyển tiếp token của người dùng đang thao tác
             $response = InternalHttp::inventory($token)
@@ -1070,7 +1070,7 @@ class InvoiceController extends Controller
      */
     protected function releaseStockForInvoice(string $invoiceNumber, ?string $token = null): array
     {
-        $inventoryUrl = config('services.inventory.url', 'http://127.0.0.1:8004');
+        $inventoryUrl = config('services.inventory.url');
         try {
             $response = InternalHttp::inventory($token)
                 ->post("{$inventoryUrl}/api/v1/inventory/stocks/release/document", ['order_id' => $invoiceNumber]);
@@ -1115,7 +1115,7 @@ class InvoiceController extends Controller
         $results = [];
         $items = $inv->items ?: [];
         $orderNumber = $inv->deliveryRequest?->order_number ?: $inv->invoice_number;
-        $inventoryUrl = config('services.inventory.url', 'http://127.0.0.1:8004');
+        $inventoryUrl = config('services.inventory.url');
 
         foreach ($items as $item) {
             $productId = $item->product_id ?: $item->orderItem?->product_id ?: $item->deliveryRequestItem?->product_id;
