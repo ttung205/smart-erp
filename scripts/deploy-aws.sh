@@ -40,6 +40,9 @@ for svc in identity-service catalog-service sales-service eoffice-service financ
 done
 
 if [ "${SEED:-0}" = 1 ]; then
+  # Chạy lại deploy khi hệ thống ĐÃ bật ra Internet: tắt cửa vào (Caddy, Kong) trong lúc nạp và đổi mật khẩu để không có
+  # lúc nào password123 truy cập được từ ngoài. Bước "Bật toàn bộ hệ thống" bên dưới sẽ bật lại chúng.
+  docker compose stop caddy gateway || true
   seed_services="${SEED_SERVICES:-identity-service}"
   echo "== Nạp dữ liệu mẫu: $seed_services"
   for svc in $seed_services; do
