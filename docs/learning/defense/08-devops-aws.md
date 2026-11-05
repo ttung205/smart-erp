@@ -125,7 +125,29 @@ Mọi máy EC2 nằm trong một mạng riêng ảo (**VPC**). Bạn dùng **VPC
 - Bucket **chưa bật versioning**: nếu bản sao lưu bị ghi đè cùng tên thì không khôi phục bản cũ được (tên bản sao lưu có số thứ tự nên rủi ro thấp).
 - Security Group cho phép outbound tất cả.
 
-## 6. Tự kiểm tra
+## 6. Nhật ký sự cố khi triển khai (để trả lời "kể một lần xử lý sự cố")
+
+### Sự cố 1. "Error establishing SSH connection" khi bấm Connect
+- **Hiện tượng:** không vào được máy EC2 ngay sau khi tạo.
+- **Giả thuyết đúng:** tab mặc định của nút Connect là EC2 Instance Connect, **dùng SSH qua cổng 22**, mà Security Group cố ý không mở cổng 22.
+- **Cách giải quyết:** chọn tab **Session Manager**. Lỗi này chính là bằng chứng Security Group hoạt động đúng.
+- **Bài học:** đóng cổng 22 là chủ ý, đường quản trị là Session Manager.
+
+### Sự cố 2. `connection reset by peer` khi kéo image
+- **Hiện tượng:** `docker compose pull` dừng ở lớp của chat-service, các image khác đã tải xong.
+- **Nguyên nhân:** sự cố mạng thoáng qua tới máy chủ lưu image của GitHub, không phải lỗi cấu hình.
+- **Cách giải quyết:** Docker giữ lại các lớp đã tải nên chạy lại chỉ tải phần còn thiếu. Sau đó thêm vòng tự thử lại 4 lần vào `deploy-aws.sh`.
+- **Bài học:** thao tác qua Internet phải chịu được lỗi tạm thời (retry), đúng tinh thần chương 8.
+
+### Sự cố 3. MySQL lần đầu: `MYSQL_ONETIME_PASSWORD: unbound variable`
+- **Hiện tượng:** `erp-mysql is unhealthy` khi triển khai lần đầu; sau đó container tự lên lại và `healthy`.
+- **Giả thuyết ban đầu (sai):** healthcheck không có `start_period`, MySQL khởi tạo chậm hơn 50 giây. Log cho thấy khởi tạo chỉ mất ~10 giây nên giả thuyết này sai.
+- **Cách tìm ra:** so sánh log máy chủ với log máy dev. Máy dev ghi `running ...03-...sh`, máy chủ ghi `sourcing ...03-...sh`.
+- **Nguyên nhân gốc:** `git clone` trên Linux cho file `.sh` quyền 644 (không thực thi), nên entrypoint của MySQL **nạp thẳng** file vào shell của nó. Dòng `set -euo pipefail` trong script rò rỉ sang entrypoint và `set -u` làm nó chết ở bước sau. Trên Windows mọi file bind-mount đều hiện là thực thi được nên không bao giờ gặp.
+- **Cách sửa:** đặt quyền thực thi trong git **và** bọc script trong shell con để dù bị nạp thẳng cũng không rò rỉ. Đã tái hiện lỗi bằng một image có file 644 trước khi sửa, và kiểm chứng cả hai đường sau khi sửa.
+- **Bài học:** môi trường dev (Windows) khác production (Linux) ở những chi tiết nhỏ như quyền file; lỗi chỉ lộ khi chạy trên môi trường thật. Khi chẩn đoán, **đừng tin giả thuyết đầu tiên, hãy so sánh log của hai môi trường**.
+
+## 7. Tự kiểm tra
 - [ ] Giải thích vì sao đặt Budget và nó có chặn chi tiêu không.
 - [ ] Kể 3 thiết lập bảo mật của bucket và mỗi cái chống rủi ro nào.
 - [ ] Phân biệt trust policy với permission policy của một IAM role.
