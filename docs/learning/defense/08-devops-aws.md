@@ -86,11 +86,55 @@ Hai permission policy:
 ### 2.6. VPC mặc định
 Mọi máy EC2 nằm trong một mạng riêng ảo (**VPC**). Bạn dùng **VPC mặc định**: AWS đã dựng sẵn mạng con công khai và cổng Internet. Đơn giản cho bài tập. Một hệ thống sản xuất thật sẽ tự dựng VPC với mạng con **riêng** cho cơ sở dữ liệu (không có đường ra Internet) và mạng con công khai chỉ cho tầng web. Đây là điểm yếu bạn nên tự nói trước khi thầy hỏi.
 
-### 2.7. Tài khoản mẫu: không bao giờ để mật khẩu công khai trên máy chủ ra Internet
-- **Vấn đề:** seeder của identity tạo sẵn 18 tài khoản (có SUPER_ADMIN) với mật khẩu cố định `password123`, công khai trong README. Trên máy dev thì tiện, nhưng trên một địa chỉ HTTPS công khai thì ai cũng đăng nhập được với quyền cao nhất.
-- **Vì sao nguy hiểm ngay cả khi tên miền ít người biết:** khi Caddy xin chứng chỉ, tên miền được ghi vào **nhật ký chứng chỉ công khai (Certificate Transparency)**. Có các chương trình tự động theo dõi nhật ký đó và dò thử các tên miền mới trong vài phút.
-- **Cách xử lý (đã làm trong `scripts/deploy-aws.sh`):** `SEED=1` chỉ nạp identity và **bắt buộc có `DEMO_PASSWORD`** (từ 14 ký tự), kiểm tra ngay đầu script. Nạp xong script đổi mật khẩu của mọi tài khoản `@erp.local` thành mật khẩu đó, tất cả diễn ra **trước khi bật gateway**, nên không có thời điểm nào `password123` tồn tại trên máy chủ công khai. Script `scripts/aws/set-demo-password.sh` dùng riêng được về sau.
-- **Nguyên tắc:** thất bại sớm (không để mất 10 phút kéo image rồi mới báo thiếu mật khẩu), an toàn mặc định (thiếu mật khẩu thì từ chối chứ không nạp mật khẩu yếu), và chỉ đụng tới đúng nhóm tài khoản mẫu (người dùng thật không bị ảnh hưởng).
+### 2.7. Tài khoản đầu tiên: không có tài khoản mẫu với mật khẩu công khai
+- **Vấn đề ban đầu:** seeder tạo sẵn 18 tài khoản (có SUPER_ADMIN) với mật khẩu cố định `password123`, công khai trong README. Trên máy dev thì tiện, nhưng trên địa chỉ HTTPS công khai thì ai cũng đăng nhập được với quyền cao nhất. Tên miền mới còn bị các chương trình tự động theo dõi **nhật ký chứng chỉ công khai (Certificate Transparency)** và dò thử trong vài phút sau khi cấp chứng chỉ.
+- **Cách xử lý ban đầu:** nạp tài khoản mẫu rồi đổi mật khẩu ngay trước khi bật gateway. Hiệu quả nhưng vẫn là "dọn dẹp sau khi tạo".
+- **Cách xử lý cuối cùng (tốt hơn):** production **không bao giờ có tài khoản mẫu**. `SEED=1` chỉ nạp phòng ban, vai trò và quyền, rồi lệnh `identity:bootstrap-admin` tạo **một** Super Admin với mật khẩu mạnh (từ 14 ký tự) do bạn cung cấp. Lệnh `identity:purge-demo-users` xoá các tài khoản `@erp.local` còn sót.
+- **Đăng nhập:** bằng **mã nhân viên** (dạng `AC-2005`) kèm **OTP gửi qua email** (6 số, sống 5 phút, dùng một lần, tối đa 5 lần sai) hoặc mật khẩu. OTP chỉ lưu mã băm HMAC; số lần thử và việc tiêu thụ mã dùng UPDATE có điều kiện nên các yêu cầu song song không vượt được giới hạn (đúng cơ chế chương 6).
+- **Nguyên tắc:** an toàn mặc định (không tạo ra thứ nguy hiểm rồi mới sửa), thất bại sớm (thiếu thông tin thì script dừng ngay đầu), và tách bạch dữ liệu nền với dữ liệu người dùng.
+- **Email OTP qua Amazon SES** (tài khoản đã ở chế độ production, các địa chỉ đã được xác minh). Thông tin kết nối SMTP nằm trong `.env` trên máy chủ chứ không nằm trong Git. Lưu ý: SES qua SMTP dùng **khoá SMTP của IAM user (lâu dài)**, trái với nguyên tắc "không có khoá dài hạn". Vì vậy IAM user đó chỉ nên có quyền gửi email.
+
+### 2.8. CD: tự động triển khai không cần khoá AWS và không cần cổng 22
+**Chuỗi hoạt động khi bạn merge vào `main`:**
+```
+push vào main ─► CI (chạy test)            ┐
+              └► Build images (12 image) ──┴─► Deploy production
+                                                 1. verify-ci   : CI của ĐÚNG commit này phải xanh, nếu đỏ thì dừng ngay
+                                                 2. chờ duyệt   : environment "production" có 1 người duyệt bắt buộc
+                                                 3. OIDC        : GitHub xin token tạm thời, AWS cấp quyền của role deploy
+                                                 4. SSM         : gửi lệnh tới EC2 (không SSH): git pull + scripts/deploy-aws.sh
+                                                 5. smoke test  : kiểm tra các route /health qua HTTPS; lỗi thì job đỏ
+```
+
+**OIDC là gì và vì sao tốt hơn Access Key?** Cách "dễ" là tạo Access Key rồi dán vào GitHub Secrets: khoá đó không hết hạn, lộ là dùng được từ khắp nơi. Với OIDC, mỗi lần chạy GitHub tự ký một **token tạm thời** ghi rõ "tôi là workflow của repo X, môi trường Y". AWS kiểm tra chữ ký rồi cấp quyền của một IAM role trong **tối đa 1 giờ**. **Không có khoá dài hạn nào nằm trong GitHub** (mục Secrets trống, chỉ có 3 biến không nhạy cảm: Region, ID máy, ARN của role).
+
+**Trust policy của role `github-deploy-smart-erp` (ai được đóng vai role này):**
+```json
+{ "Effect": "Allow",
+  "Principal": { "Federated": "arn:aws:iam::<ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com" },
+  "Action": "sts:AssumeRoleWithWebIdentity",
+  "Condition": { "StringEquals": {
+      "token.actions.githubusercontent.com:sub": "repo:<owner>@<id>/smart-erp@<id>:environment:production",
+      "token.actions.githubusercontent.com:aud": "sts.amazonaws.com" } } }
+```
+- **`sub` (chủ thể):** chỉ token của **đúng repo này, đúng môi trường `production`** mới được. Dùng `StringEquals` (so khớp chính xác), không dùng ký tự đại diện. Giá trị có kèm **ID số** của chủ sở hữu và repo, nên xoá repo rồi ai đó tạo lại cùng tên cũng không khớp.
+- **`aud` (đối tượng nhận):** token phải dành cho AWS STS, không dùng lại token của dịch vụ khác.
+- Vì `sub` có `environment:production`, **chỉ job đã được người duyệt cho chạy** mới lấy được quyền AWS. Cổng duyệt tay vì thế còn là một lớp bảo vệ của AWS chứ không chỉ của GitHub.
+
+**Các lớp bảo vệ khác trong `deploy.yml`:**
+- **Kiểm tra thẻ image bằng biểu thức chính quy** (`latest` hoặc `sha-` kèm chữ số hex) vì giá trị này được ghép vào lệnh chạy trên máy chủ: chống chèn lệnh.
+- **`concurrency`:** hai lần deploy không bao giờ chạy song song.
+- Lệnh chạy bằng user `ubuntu`, không phải root, nên file trong `/opt/smart-erp` không bị đổi chủ.
+- **Quay lui:** chạy tay workflow với `image_tag` là `sha-xxxxxxx` để về đúng một commit trước đó.
+
+**Đã vá thêm sau khi rà soát:**
+| Điểm yếu | Vá |
+|---|---|
+| Deploy kích hoạt bởi "Build images", không xét CI: commit có CI đỏ vẫn tới bước chờ duyệt | Job `verify-ci` chạy **trước** và dừng nếu CI của cùng commit không xanh (đã thử với commit đỏ thật và commit xanh thật) |
+| Sửa tài liệu cũng build lại 12 image và xin duyệt deploy | `paths-ignore` cho `docs/**` và `**.md` |
+| EC2 đang dừng thì lỗi khó hiểu | Thông báo rõ: bật máy rồi chạy lại bằng `workflow_dispatch` |
+
+**Còn lại (nói thật khi bị hỏi):** môi trường `production` chưa giới hạn nhánh được deploy (nên đặt chỉ `main` ở Settings → Environments); quyền của role (policy `ssm-deploy-smart-erp`) cần được rà soát để chỉ cho gửi lệnh tới **đúng một instance** với tài liệu `AWS-RunShellScript`; repo công khai nên log workflow ai cũng đọc được (không được in bí mật ra log).
 
 ## 3. Vì sao tất cả điều này thuộc môn "ứng dụng phân tán"?
 
@@ -117,6 +161,15 @@ Mọi máy EC2 nằm trong một mạng riêng ảo (**VPC**). Bạn dùng **VPC
 
 **H: Chi phí? Làm sao tránh phát sinh?**
 Đ: Dùng credit 120 USD, đặt Budget 20 USD để cảnh báo qua email, dừng máy khi không dùng, và dọn tài nguyên (Elastic IP, bucket, EC2) sau khi nộp bài.
+
+**H: CD của em hoạt động thế nào? Vì sao không dùng Access Key của AWS trong GitHub?**
+Đ: GitHub dùng OIDC: mỗi lần chạy, nó ký một token tạm thời nói rõ repo và môi trường; AWS kiểm tra chữ ký rồi cấp quyền của một IAM role trong tối đa 1 giờ. Không có khoá dài hạn nào nằm trong GitHub nên không có gì để lộ. Role chỉ cho đóng vai khi token đúng repo và đúng môi trường `production`.
+
+**H: Làm sao đảm bảo không ai deploy mã lỗi lên production?**
+Đ: Nhiều lớp: CI của đúng commit phải xanh (job `verify-ci`), môi trường `production` bắt buộc một người duyệt tay, và vì quyền AWS gắn với môi trường đó nên chỉ job đã được duyệt mới lấy được quyền. Sai thì quay lui bằng cách chạy tay với `image_tag` của commit trước.
+
+**H: Sao deploy bằng SSM mà không SSH?**
+Đ: SSM gửi lệnh qua kết nối mà chính máy chủ chủ động mở ra AWS, nên không cần mở cổng 22. Xác thực bằng IAM và có nhật ký, không có khoá SSH nào để quản lý hay bị lộ.
 
 ## 5. Điểm yếu (nói thật khi bị hỏi)
 - Dùng **VPC mặc định**, mạng con công khai cho tất cả; chưa tách mạng con riêng cho database.
