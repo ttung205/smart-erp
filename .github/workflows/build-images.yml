@@ -8,6 +8,10 @@ name: Build images
 on:
   push:
     branches: [main]
+    # Chỉ sửa tài liệu thì không build lại image và không kích hoạt deploy (Deploy production chạy sau workflow này).
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
   pull_request:
     paths:
       - .github/workflows/build-images.yml
