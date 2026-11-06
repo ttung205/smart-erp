@@ -28,6 +28,7 @@ on:
 permissions:
   id-token: write # xin token OIDC để assume role AWS
   contents: read
+  actions: read # job verify-ci đọc kết quả CI của cùng commit
 
 # Hai lần deploy không bao giờ chạy song song; lần sau chờ lần trước, không hủy giữa chừng.
 concurrency:
@@ -35,17 +36,52 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Chặn từ sớm: CI của ĐÚNG commit này phải xanh thì mới được xin người duyệt. Commit có CI đỏ không bao giờ tới bước chờ duyệt.
+  # (Build images và CI chạy song song nên CI có thể chưa xong: chờ tối đa khoảng 10 phút.) Chạy tay (quay lui) bỏ qua bước này.
+  verify-ci:
+    name: verify CI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Chờ và kiểm tra CI của cùng commit
+        run: |
+          for _ in $(seq 1 60); do
+            line=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${SHA}&event=push" \
+              --jq '.workflow_runs[0] | if . == null then "none none" else "\(.status) \(.conclusion)" end' 2>/dev/null || echo "none none")
+            read -r status conclusion <<< "$line"
+            echo "CI của ${SHA:0:7}: status=$status conclusion=$conclusion"
+            if [ "$status" = completed ]; then
+              [ "$conclusion" = success ] && exit 0
+              echo "CI của commit này không xanh ($conclusion): không triển khai." >&2
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "Hết thời gian chờ CI của commit ${SHA:0:7}." >&2
+          exit 1
+
   deploy:
     name: deploy (production)
+    needs: verify-ci
     runs-on: ubuntu-24.04
     environment: production
     timeout-minutes: 40
-    # workflow_run chạy cho mọi lần Build images kết thúc: chỉ deploy khi nó là push vào main và thành công.
+    # workflow_run chạy cho mọi lần Build images kết thúc: chỉ deploy khi nó là push vào main và thành công, và (với workflow_run)
+    # CI của cùng commit đã xanh. verify-ci bị bỏ qua khi chạy tay nên điều kiện dưới chấp nhận kết quả skipped.
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.head_branch == 'main')
+      !cancelled() && needs.verify-ci.result != 'failure' && (
+        github.event_name == 'workflow_dispatch' ||
+        (github.event.workflow_run.conclusion == 'success' &&
+         github.event.workflow_run.event == 'push' &&
+         github.event.workflow_run.head_branch == 'main'))
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
       INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
@@ -86,7 +122,11 @@ jobs:
             --comment "deploy ${IMAGE_TAG} (run ${GITHUB_RUN_ID})" \
             --timeout-seconds 60 \
             --parameters "{\"executionTimeout\":[\"2100\"],\"commands\":[\"sudo -u ubuntu -H bash -lc '${remote}'\"]}" \
-            --query "Command.CommandId" --output text)
+            --query "Command.CommandId" --output text) || {
+            echo "Không gửi được lệnh tới ${INSTANCE_ID}: máy EC2 đang dừng hoặc SSM Agent chưa online." >&2
+            echo "Bật máy (EC2 > Start instance), chờ 2 đến 3 phút rồi chạy lại workflow này bằng workflow_dispatch." >&2
+            exit 1
+          }
           echo "command_id=$command_id" >> "$GITHUB_OUTPUT"
           echo "Đã gửi lệnh SSM: $command_id"
 
