@@ -1,0 +1,27 @@
+# Vai trò máy A (AZ thứ nhất) trong chế độ HA. Dùng sau docker-compose.ha.yml (xem hướng dẫn ở đầu file đó).
+# Máy A chạy trọn bộ ứng dụng và CÒN gánh các thành phần chỉ được phép chạy một bản:
+#   - RabbitMQ và Mongo (một node, là điểm lỗi đơn còn lại, đã ghi trong tài liệu chịu lỗi)
+#   - relay outbox (catalog, sales, eoffice) và sales-scheduler: relay Laravel không khóa nên chạy hai nơi sẽ phát trùng event
+#   - chat-service và notification-service: trạng thái kết nối realtime nằm trong bộ nhớ từng process
+#   - sao lưu (profile ops) và giám sát (profile monitoring, đặt COMPOSE_PROFILES=monitoring trong .env của máy A)
+# Máy B phải gọi được RabbitMQ của máy A, nên cổng 5672 được publish ra máy chủ (security group chỉ cho nhóm sg-app).
+# Grafana publish cổng 3000 để ALB chuyển /grafana vào đúng máy này (security group chỉ cho sg-alb).
+
+services:
+  rabbitmq:
+    ports: !override
+      - "5672:5672"
+  grafana:
+    ports: !override
+      - "3000:3000"
+
+  # MySQL ở RDS nên sao lưu/phục hồi không chờ container mysql. Phục hồi dùng tài khoản quản trị RDS:
+  # đặt MYSQL_ROOT_USER=admin và MYSQL_ROOT_PASSWORD=<mật khẩu quản trị RDS> trong .env của máy A.
+  backup:
+    depends_on: !override
+      mongo:
+        condition: service_healthy
+  recovery:
+    depends_on: !override
+      mongo:
+        condition: service_healthy

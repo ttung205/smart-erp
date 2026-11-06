@@ -18,8 +18,13 @@ routes=(
   /api/v1/chat/health /api/v1/ai/health
 )
 
+# SMOKE_SKIP="chat notifications": bỏ các tuyến chứa từ khóa này (máy B của chế độ HA không chạy chúng)
 failed=0
 for route in "${routes[@]}"; do
+  skip=0
+  for word in ${SMOKE_SKIP:-}; do [[ "$route" == *"$word"* ]] && skip=1; done
+  [ "$skip" = 1 ] && { printf '%-34s bỏ qua
+' "$route"; continue; }
   code=000
   # Lần đầu Caddy có thể còn đang xin chứng chỉ: thử lại tối đa 12 lần, mỗi lần cách 5 giây
   for attempt in $(seq 1 12); do

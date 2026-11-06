@@ -74,6 +74,11 @@ done
 
 sql+="FLUSH PRIVILEGES;"
 
-MYSQL_PWD="${MYSQL_ROOT_PASSWORD}" mysql --protocol=socket -uroot -e "$sql"
+if [ -n "${MYSQL_ADMIN_HOST:-}" ]; then
+    # MySQL ở xa (RDS): kết nối TCP bằng tài khoản quản trị của RDS, xem scripts/aws/rds-init.sh
+    MYSQL_PWD="${MYSQL_ADMIN_PASSWORD:?thiếu MYSQL_ADMIN_PASSWORD}" mysql -h"${MYSQL_ADMIN_HOST}" -u"${MYSQL_ADMIN_USER:-admin}" -e "$sql"
+else
+    MYSQL_PWD="${MYSQL_ROOT_PASSWORD}" mysql --protocol=socket -uroot -e "$sql"
+fi
 echo "03-create-service-users: đã cấp tài khoản cho 8 service và erp_backup (dev tools access: ${MYSQL_DEV_TOOLS_ACCESS:-true})."
 )

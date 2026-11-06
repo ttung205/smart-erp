@@ -25,7 +25,11 @@ public static class DependencyInjection
 
         // RabbitMQ Connection & Background Workers
         services.AddSingleton<Inventory.Infrastructure.Messaging.RabbitMqConnection>();
-        services.AddHostedService<Inventory.Infrastructure.Messaging.OutboxPublisherWorker>();
+        // Nhiều bản sao (HA): chỉ một máy chạy relay (Outbox__RelayEnabled=false ở các máy còn lại) để không phát event trùng.
+        if (!string.Equals(configuration["Outbox:RelayEnabled"], "false", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddHostedService<Inventory.Infrastructure.Messaging.OutboxPublisherWorker>();
+        }
         services.AddHostedService<Inventory.Infrastructure.Messaging.RabbitMqConsumerWorker>();
 
         return services;

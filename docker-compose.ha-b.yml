@@ -1,0 +1,60 @@
+# Vai trò máy B (AZ thứ hai) trong chế độ HA. Dùng sau docker-compose.ha.yml (xem hướng dẫn ở đầu file đó).
+# Máy B chỉ chạy tầng ứng dụng không giữ trạng thái. RabbitMQ nằm ở máy A: đặt RABBITMQ_HOST=<IP private của máy A> trong .env.
+# Không chạy ở máy B (profile ha-a-only, không bao giờ được bật): RabbitMQ, Mongo, mailpit, relay outbox, scheduler,
+# chat, notification. Relay outbox viết bằng .NET (purchase, inventory) nằm trong chính process dịch vụ nên tắt bằng
+# Outbox__RelayEnabled=false.
+
+services:
+  rabbitmq:
+    profiles: ["ha-a-only"]
+  mongo:
+    profiles: ["ha-a-only"]
+  mailpit:
+    profiles: ["ha-a-only"]
+  catalog-relay:
+    profiles: ["ha-a-only"]
+  sales-relay:
+    profiles: ["ha-a-only"]
+  sales-scheduler:
+    profiles: ["ha-a-only"]
+  eoffice-relay:
+    profiles: ["ha-a-only"]
+  chat-service:
+    profiles: ["ha-a-only"]
+  notification-service:
+    profiles: ["ha-a-only"]
+
+  purchase-service:
+    environment:
+      Outbox__RelayEnabled: "false"
+    depends_on: !override {}
+  inventory-service:
+    environment:
+      Outbox__RelayEnabled: "false"
+    depends_on: !override {}
+  catalog-service:
+    depends_on: !override {}
+  eoffice-service:
+    depends_on: !override {}
+  sales-service:
+    depends_on: !override {}
+
+  # Kong chạy được khi thiếu chat và notification: tuyến /api/v1/chat và /api/v1/notifications chỉ được ALB gửi vào máy A
+  gateway:
+    depends_on: !override
+      ai-service:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+      eoffice-service:
+        condition: service_healthy
+      finance-service:
+        condition: service_healthy
+      identity-service:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+      purchase-service:
+        condition: service_healthy
+      sales-service:
+        condition: service_healthy
