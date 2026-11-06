@@ -1,0 +1,66 @@
+# High Availability trên AWS: 2 EC2 (2 AZ) sau Application Load Balancer, MySQL ở RDS Multi-AZ, file đính kèm trên EFS.
+# Dùng SAU docker-compose.yml, docker-compose.prod.yml, docker-compose.aws.yml và TRƯỚC file vai trò:
+#   máy A: COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml:docker-compose.aws.yml:docker-compose.ha.yml:docker-compose.ha-a.yml
+#   máy B: COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml:docker-compose.aws.yml:docker-compose.ha.yml:docker-compose.ha-b.yml
+# (đặt trong .env trên máy chủ). Chế độ một máy cũ (không có hai file ha) vẫn dùng được, không bị ảnh hưởng.
+#
+# Khác biệt so với chế độ một máy:
+#   1. MySQL nằm ở RDS: container mysql bị tắt (profile local-db). Trỏ bằng MYSQL_HOST=<endpoint RDS> trong .env.
+#   2. ALB kết thúc TLS, nên Caddy bị tắt (profile legacy-caddy). Frontend (nginx) nghe cổng 80 để ALB gọi vào.
+#   3. Mỗi máy chạy trọn bộ ứng dụng; các service gọi nhau qua Docker DNS cục bộ trên cùng máy.
+#   4. Thư mục tệp đính kèm của sales là EFS dùng chung (mount ở /mnt/efs/sales trên máy chủ, xem docs).
+# Phần chỉ chạy một nơi (RabbitMQ, Mongo, relay, scheduler, chat, notification, backup, giám sát) nằm ở ha-a.yml.
+# Không đổi nghiệp vụ, API hay schema database.
+
+services:
+  # DB là RDS: không chạy container mysql trên máy chủ HA
+  mysql:
+    profiles: ["local-db"]
+
+  # ALB đã lo HTTPS; Caddy chỉ dùng cho chế độ một máy
+  caddy:
+    profiles: ["legacy-caddy"]
+
+  frontend:
+    ports: !override
+      - "80:80"
+
+  # Tệp đính kèm (storage_path('app/private'), disk 'local') phải thấy được từ cả hai máy
+  sales-service:
+    volumes:
+      # create_host_path: false -> nếu EFS chưa được mount, container KHÔNG khởi động (thay vì âm thầm ghi vào đĩa cục bộ)
+      - type: bind
+        source: ${SALES_FILES_DIR:-/mnt/efs/sales}
+        target: /var/www/html/storage/app/private
+        bind:
+          create_host_path: false
+    depends_on: !override
+      rabbitmq:
+        condition: service_healthy
+
+  # Bỏ phụ thuộc vào container mysql (đã ở RDS); giữ phụ thuộc khác.
+  # Phụ thuộc rabbitmq giữ nguyên ở chế độ chung: máy A có rabbitmq cục bộ. Máy B ghi đè lại trong ha-b.yml.
+  identity-service:
+    depends_on: !override {}
+  finance-service:
+    depends_on: !override {}
+  ai-service:
+    depends_on: !override
+      identity-service:
+        condition: service_healthy
+  catalog-service:
+    depends_on: !override
+      rabbitmq:
+        condition: service_healthy
+  eoffice-service:
+    depends_on: !override
+      rabbitmq:
+        condition: service_healthy
+  inventory-service:
+    depends_on: !override
+      rabbitmq:
+        condition: service_healthy
+  purchase-service:
+    depends_on: !override
+      rabbitmq:
+        condition: service_healthy

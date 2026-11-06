@@ -118,7 +118,7 @@ services:
     container_name: erp-mongo-express
     restart: unless-stopped
     environment:
-      ME_CONFIG_MONGODB_URL: mongodb://mongo:27017/?replicaSet=rs0
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_HOST:-mongo}:27017/?replicaSet=rs0
       ME_CONFIG_MONGODB_ENABLE_ADMIN: "true"          # liệt kê được mọi database
       ME_CONFIG_BASICAUTH_USERNAME: admin
       ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_EXPRESS_PASSWORD:?MONGO_EXPRESS_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
@@ -142,10 +142,10 @@ services:
     image: smart-erp-backup:latest
     command: ["backup"]
     environment:
-      MYSQL_HOST: mysql
+      MYSQL_HOST: ${MYSQL_HOST:-mysql}
       MYSQL_BACKUP_USER: erp_backup
       MYSQL_BACKUP_PASSWORD: ${BACKUP_DB_PASSWORD:?BACKUP_DB_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
-      MONGO_URI: mongodb://mongo:27017/?replicaSet=rs0
+      MONGO_URI: mongodb://${MONGO_HOST:-mongo}:27017/?replicaSet=rs0
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
       # Đặt s3://<bucket>/<thư mục> để tự đẩy lên S3 (trên EC2 dùng IAM role, không cần khóa)
       BACKUP_S3_URI: ${BACKUP_S3_URI:-}
@@ -168,11 +168,12 @@ services:
       context: ./infrastructure/backup
     image: smart-erp-backup:latest
     environment:
-      MYSQL_HOST: mysql
+      MYSQL_HOST: ${MYSQL_HOST:-mysql}
       MYSQL_BACKUP_USER: erp_backup
       MYSQL_BACKUP_PASSWORD: ${BACKUP_DB_PASSWORD:?BACKUP_DB_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
+      MYSQL_ROOT_USER: ${MYSQL_ROOT_USER:-root}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
-      MONGO_URI: mongodb://mongo:27017/?replicaSet=rs0
+      MONGO_URI: mongodb://${MONGO_HOST:-mongo}:27017/?replicaSet=rs0
     volumes:
       - ${BACKUP_DIR:-./backups}:/backups
       - chat_files:/data/chat_files
@@ -207,7 +208,7 @@ services:
       APP_DEBUG: "false"
       APP_URL: http://localhost:8000
       DB_CONNECTION: mysql
-      DB_HOST: mysql
+      DB_HOST: ${MYSQL_HOST:-mysql}
       DB_PORT: 3306
       DB_DATABASE: erp_identity_db
       DB_USERNAME: erp_identity
@@ -255,14 +256,14 @@ services:
       APP_DEBUG: "false"
       APP_URL: http://localhost:8000
       DB_CONNECTION: mysql
-      DB_HOST: mysql
+      DB_HOST: ${MYSQL_HOST:-mysql}
       DB_PORT: 3306
       DB_DATABASE: erp_catalog_db
       DB_USERNAME: erp_catalog
       DB_PASSWORD: ${CATALOG_DB_PASSWORD:?CATALOG_DB_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET chưa đặt trong .env (copy .env.example thành .env)}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?INTERNAL_SERVICE_KEY chưa đặt trong .env (copy .env.example thành .env)}
-      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER:-erp_rabbit}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
@@ -294,12 +295,12 @@ services:
       LOG_CHANNEL: stderr
       APP_KEY: ${CATALOG_APP_KEY:?CATALOG_APP_KEY chưa đặt trong .env (copy .env.example thành .env)}
       DB_CONNECTION: mysql
-      DB_HOST: mysql
+      DB_HOST: ${MYSQL_HOST:-mysql}
       DB_PORT: 3306
       DB_DATABASE: erp_catalog_db
       DB_USERNAME: erp_catalog
       DB_PASSWORD: ${CATALOG_DB_PASSWORD:?CATALOG_DB_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
-      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER:-erp_rabbit}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
@@ -325,8 +326,8 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: "http://+:8003"
-      ConnectionStrings__MySqlConnection: "Server=mysql;Port=3306;Database=erp_purchase_db;User=erp_purchase;Password=${PURCHASE_DB_PASSWORD:?PURCHASE_DB_PASSWORD chưa đặt trong .env (copy .env.example thành .env)};TreatTinyAsBoolean=true;"
-      RabbitMQ__HostName: rabbitmq
+      ConnectionStrings__MySqlConnection: "Server=${MYSQL_HOST:-mysql};Port=3306;Database=erp_purchase_db;User=erp_purchase;Password=${PURCHASE_DB_PASSWORD:?PURCHASE_DB_PASSWORD chưa đặt trong .env (copy .env.example thành .env)};TreatTinyAsBoolean=true;"
+      RabbitMQ__HostName: ${RABBITMQ_HOST:-rabbitmq}
       RabbitMQ__Port: 5672
       RabbitMQ__UserName: ${RABBITMQ_USER:-erp_rabbit}
       RabbitMQ__Password: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
@@ -365,8 +366,8 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: "http://+:8004"
-      ConnectionStrings__MySqlConnection: "Server=mysql;Port=3306;Database=erp_inventory_db;User=erp_inventory;Password=${INVENTORY_DB_PASSWORD:?INVENTORY_DB_PASSWORD chưa đặt trong .env (copy .env.example thành .env)};"
-      RabbitMQ__HostName: rabbitmq
+      ConnectionStrings__MySqlConnection: "Server=${MYSQL_HOST:-mysql};Port=3306;Database=erp_inventory_db;User=erp_inventory;Password=${INVENTORY_DB_PASSWORD:?INVENTORY_DB_PASSWORD chưa đặt trong .env (copy .env.example thành .env)};"
+      RabbitMQ__HostName: ${RABBITMQ_HOST:-rabbitmq}
       RabbitMQ__Port: 5672
       RabbitMQ__UserName: ${RABBITMQ_USER:-erp_rabbit}
       RabbitMQ__Password: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
@@ -407,7 +408,7 @@ services:
       APP_DEBUG: "false"
       APP_URL: http://localhost:8000
       DB_CONNECTION: mysql
-      DB_HOST: mysql
+      DB_HOST: ${MYSQL_HOST:-mysql}
       DB_PORT: 3306
       DB_DATABASE: erp_sales_db
       # Trạng thái circuit breaker (Sales chưa có bảng cache trong MySQL; chỉ cần sống trong container)
@@ -416,7 +417,7 @@ services:
       DB_PASSWORD: ${SALES_DB_PASSWORD:?SALES_DB_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET chưa đặt trong .env (copy .env.example thành .env)}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?INTERNAL_SERVICE_KEY chưa đặt trong .env (copy .env.example thành .env)}
-      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER:-erp_rabbit}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
@@ -452,12 +453,12 @@ services:
       LOG_CHANNEL: stderr
       APP_KEY: ${SALES_APP_KEY:?SALES_APP_KEY chưa đặt trong .env (copy .env.example thành .env)}
       DB_CONNECTION: mysql
-      DB_HOST: mysql
+      DB_HOST: ${MYSQL_HOST:-mysql}
       DB_PORT: 3306
       DB_DATABASE: erp_sales_db
       DB_USERNAME: erp_sales
       DB_PASSWORD: ${SALES_DB_PASSWORD:?SALES_DB_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
-      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER:-erp_rabbit}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
@@ -482,7 +483,7 @@ services:
       CACHE_STORE: file
       APP_KEY: ${SALES_APP_KEY:?SALES_APP_KEY chưa đặt trong .env (copy .env.example thành .env)}
       DB_CONNECTION: mysql
-      DB_HOST: mysql
+      DB_HOST: ${MYSQL_HOST:-mysql}
       DB_PORT: 3306
       DB_DATABASE: erp_sales_db
       DB_USERNAME: erp_sales
@@ -519,8 +520,8 @@ services:
       # Tải tệp đính kèm email từ service sở hữu (khóa nội bộ) lúc gửi
       SALES_SERVICE_URL: http://sales-service:8005
       PURCHASE_SERVICE_URL: http://purchase-service:8003
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-erp_rabbit}:${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}@rabbitmq:5672
-      MONGODB_URI: mongodb://mongo:27017/?replicaSet=rs0
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-erp_rabbit}:${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}@${RABBITMQ_HOST:-rabbitmq}:5672
+      MONGODB_URI: mongodb://${MONGO_HOST:-mongo}:27017/?replicaSet=rs0
       NOTIFICATION_DB_NAME: erp_notification_db
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?INTERNAL_SERVICE_KEY chưa đặt trong .env (copy .env.example thành .env)}
     depends_on:
@@ -558,7 +559,7 @@ services:
       APP_DEBUG: "false"
       APP_URL: http://localhost:8000
       DB_CONNECTION: mysql
-      DB_HOST: mysql
+      DB_HOST: ${MYSQL_HOST:-mysql}
       DB_PORT: 3306
       DB_DATABASE: erp_eoffice_db
       DB_USERNAME: erp_eoffice
@@ -567,7 +568,7 @@ services:
       IDENTITY_SERVICE_URL: http://identity-service:8001
       FINANCE_SERVICE_URL: http://finance-service:8008
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?INTERNAL_SERVICE_KEY chưa đặt trong .env (copy .env.example thành .env)}
-      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER:-erp_rabbit}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
@@ -599,12 +600,12 @@ services:
       LOG_CHANNEL: stderr
       APP_KEY: ${EOFFICE_APP_KEY:?EOFFICE_APP_KEY chưa đặt trong .env (copy .env.example thành .env)}
       DB_CONNECTION: mysql
-      DB_HOST: mysql
+      DB_HOST: ${MYSQL_HOST:-mysql}
       DB_PORT: 3306
       DB_DATABASE: erp_eoffice_db
       DB_USERNAME: erp_eoffice
       DB_PASSWORD: ${EOFFICE_DB_PASSWORD:?EOFFICE_DB_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
-      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER:-erp_rabbit}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
@@ -636,7 +637,7 @@ services:
       APP_DEBUG: "false"
       APP_URL: http://localhost:8000
       DB_CONNECTION: mysql
-      DB_HOST: mysql
+      DB_HOST: ${MYSQL_HOST:-mysql}
       DB_PORT: 3306
       DB_DATABASE: erp_finance_db
       DB_USERNAME: erp_finance
@@ -669,7 +670,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: "http://+:8009"
-      ConnectionStrings__ChatMongoConnection: "mongodb://mongo:27017/?replicaSet=rs0"
+      ConnectionStrings__ChatMongoConnection: "mongodb://${MONGO_HOST:-mongo}:27017/?replicaSet=rs0"
       Mongo__Database: erp_chat_db
       Storage__Root: "/app/chat-files"
       Jwt__Secret: ${JWT_SECRET:?JWT_SECRET chưa đặt trong .env (copy .env.example thành .env)}
@@ -711,7 +712,7 @@ services:
       SYNC_INTERVAL_SECONDS: 300
       # Mặc định TẮT: ETL đọc thẳng schema của các service khác (xem docs/deployment.md). Bật cho demo: AI_WAREHOUSE_SYNC_ENABLED=true
       WAREHOUSE_SYNC_ENABLED: ${AI_WAREHOUSE_SYNC_ENABLED:-false}
-      MYSQL_HOST: mysql
+      MYSQL_HOST: ${MYSQL_HOST:-mysql}
       MYSQL_PORT: 3306
       MYSQL_USER: erp_analytics
       MYSQL_PASSWORD: ${ANALYTICS_DB_PASSWORD:?ANALYTICS_DB_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}

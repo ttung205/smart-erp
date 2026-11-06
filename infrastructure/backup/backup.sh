@@ -29,7 +29,8 @@ need() { local v; for v in "$@"; do [ -n "${!v:-}" ] || die "thiếu biến môi
 # mysql_as <user> <mật khẩu> <tham số...>: mật khẩu qua biến môi trường, không lộ trên dòng lệnh
 mysql_as() { local user=$1 pass=$2; shift 2; MYSQL_PWD="$pass" mysql -h"$MYSQL_HOST" -u"$user" "$@"; }
 as_backup() { mysql_as "$MYSQL_BACKUP_USER" "$MYSQL_BACKUP_PASSWORD" "$@"; }
-as_root() { mysql_as root "$MYSQL_ROOT_PASSWORD" "$@"; }
+# Tài khoản quản trị: root với MySQL trong container; ở RDS đặt MYSQL_ROOT_USER=admin (tên người dùng quản trị của RDS)
+as_root() { mysql_as "${MYSQL_ROOT_USER:-root}" "$MYSQL_ROOT_PASSWORD" "$@"; }
 
 schemas_of_server() {
   as_backup -N -B -e "SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE 'erp\\_%\\_db' ORDER BY 1"
