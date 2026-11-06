@@ -4,7 +4,7 @@
 #
 # Chạy MỘT LẦN trên EC2, trong /opt/smart-erp, sau khi RDS đã tạo xong và .env có MYSQL_HOST=<endpoint RDS>:
 #   scripts/aws/rds-init.sh
-# Script hỏi mật khẩu quản trị của RDS (nhập ẩn, không lưu vào đâu). Có thể chạy lại an toàn (CREATE ... IF NOT EXISTS,
+# Mật khẩu quản trị RDS đọc từ MYSQL_ROOT_PASSWORD trong .env (hoặc hỏi nếu thiếu). Có thể chạy lại an toàn (CREATE ... IF NOT EXISTS,
 # ALTER USER đặt lại mật khẩu theo .env).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -12,7 +12,13 @@ cd "$(dirname "$0")/../.."
 [ -f .env ] || { echo "Chưa có .env trong $(pwd)." >&2; exit 1; }
 host=$(grep -E '^MYSQL_HOST=' .env | cut -d= -f2- || true)
 [ -n "$host" ] || { echo "Chưa có MYSQL_HOST=<endpoint RDS> trong .env." >&2; exit 1; }
-admin_user="${MYSQL_ADMIN_USER:-admin}"
+# Tài khoản quản trị RDS lấy từ .env (MYSQL_ROOT_USER, MYSQL_ROOT_PASSWORD) để không phải gõ lại; đặt MYSQL_ADMIN_USER /
+# MYSQL_ADMIN_PASSWORD trong môi trường để dùng giá trị khác. Không có cả hai nơi thì hỏi (nhập ẩn).
+admin_user="${MYSQL_ADMIN_USER:-$(grep -E '^MYSQL_ROOT_USER=' .env | cut -d= -f2- || true)}"
+admin_user="${admin_user:-admin}"
+if [ -z "${MYSQL_ADMIN_PASSWORD:-}" ]; then
+  MYSQL_ADMIN_PASSWORD=$(grep -E '^MYSQL_ROOT_PASSWORD=' .env | cut -d= -f2- || true)
+fi
 if [ -z "${MYSQL_ADMIN_PASSWORD:-}" ]; then
   read -rsp "Mật khẩu quản trị RDS (người dùng $admin_user): " MYSQL_ADMIN_PASSWORD; echo
 fi
