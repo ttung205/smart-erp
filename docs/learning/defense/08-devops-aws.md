@@ -1,209 +1,326 @@
 # 08. DevOps trên AWS: những gì đã dựng và vì sao
 
-> Bài này giải thích **mục đích** của từng thứ bạn đã tạo trên console (Budget, Credits, S3, IAM role, Security Group), nó liên quan gì tới hệ thống phân tán, và thầy có thể hỏi gì.
-> Phần deploy (EC2, Caddy, Grafana, image GHCR) sẽ được bổ sung vào bài này sau khi triển khai xong.
+> Bài này giải thích **mục đích** của từng thứ đã dựng trên AWS (S3, IAM, Security Group, ALB, RDS, EFS, CD), nó liên quan gì tới hệ thống phân tán, thầy có thể hỏi gì, và những sự cố thật đã gặp.
+> Cập nhật 07/11/2026: hệ thống đã chuyển từ **một EC2** sang **kiến trúc HA hai AZ** (hai EC2 sau Application Load Balancer, MySQL ở RDS Multi-AZ, tệp trên EFS). Số liệu chịu lỗi nằm ở bài `08-chiu-loi.md`.
 
-## 1. Bức tranh tổng thể
+## 1. Bức tranh tổng thể (kiến trúc hiện tại)
 
+```text
+ Người dùng ─https─► erp.transportbooking.xyz (DNS: CNAME → ALB, ở PA Việt Nam)
+                         │
+              ┌──────────▼───────────────────────────────────────────────┐
+              │ Application Load Balancer `erp-alb` (2 AZ, chứng chỉ ACM) │
+              │  mặc định ─────────► tg-erp-web      (EC2-A và EC2-B)     │
+              │  /api/v1/chat*, /api/v1/notifications* ► tg-erp-realtime  │ (chỉ A, stickiness)
+              │  /grafana* ────────► tg-erp-grafana  (chỉ A, cổng 3000)   │
+              └──────────┬───────────────────────────────┬───────────────┘
+                         │                               │
+              EC2-A (AZ 1a)                         EC2-B (AZ 1b)
+              nginx → Kong → các service            nginx → Kong → các service
+              + RabbitMQ, Mongo, relay, scheduler,
+                chat, notification, giám sát, sao lưu
+                         │                               │
+                         └─────► RDS MySQL 8.4 Multi-AZ (primary + standby) ◄─────┘
+                         └─────► EFS (tệp đính kèm sales, mount ở cả 2 AZ) ◄──────┘
+
+ Quản trị: IAM + Session Manager (không cổng 22, không khóa SSH)
+ Sao lưu : IAM role của EC2 ─► S3 `smart-erp-backup`
+ Triển khai: GitHub Actions ─OIDC─► IAM role ─SSM─► từng EC2 (máy A rồi máy B)
 ```
- Người dùng ──https (443) / http (80)──►[ Security Group ]──► EC2 (Ubuntu + Docker)
-                                         tường lửa           │
-                                                              ├─ Caddy ─► Kong ─► các service ─► MySQL, Mongo, RabbitMQ
-                                                              │            (cùng chạy trong Docker, như trên máy bạn)
-                                                              │
- Bạn (quản trị) ──IAM + Session Manager──► EC2                │  (không cần cổng 22, không cần khóa SSH)
-                                                              │
-                                  IAM role gắn vào EC2 ───────┴──► S3 bucket smart-erp-backup (bản sao lưu)
-```
 
-Ba nguyên tắc xuyên suốt, thầy rất thích nghe:
+Bốn nguyên tắc xuyên suốt, thầy rất thích nghe:
 1. **Đặc quyền tối thiểu (least privilege):** mỗi thứ chỉ được làm đúng việc nó cần.
-2. **Không có bí mật dài hạn nằm trên máy chủ:** dùng quyền tạm thời của IAM role thay vì Access Key.
-3. **Diện tấn công nhỏ nhất:** chỉ mở đúng hai cổng, mọi thứ còn lại đóng.
+2. **Không có bí mật dài hạn nằm trên máy chủ hay trong GitHub:** dùng quyền tạm thời (IAM role, OIDC).
+3. **Diện tấn công nhỏ nhất:** chỉ ALB nhận traffic từ Internet; EC2, RDS, EFS chỉ nhận từ tầng ngay trước nó.
+4. **Không điểm lỗi đơn ở tầng web và DB:** hai máy ở hai AZ, một DB Multi-AZ. (Những điểm lỗi đơn còn lại được liệt kê thẳng ở mục 5.)
 
 ## 2. Từng bước: mục đích, nếu bỏ qua thì sao, kiểm tra thế nào
 
 ### 2.1. Chọn Region Singapore
-- **Là gì:** AWS đặt máy ở nhiều khu vực địa lý (Region). Mỗi tài nguyên (EC2, S3 bucket) thuộc **một** Region. IAM và Billing là dịch vụ toàn cầu nên ô Region hiện "Global".
-- **Vì sao Singapore (ap-southeast-1):** gần Việt Nam nhất trong các Region mở cho tài khoản bạn, nên độ trễ thấp và giá hợp lý.
-- **Nếu bỏ qua:** tạo nhầm ở Region khác thì máy, bucket và Security Group nằm rải rác, không thấy nhau (Security Group không dùng chung giữa các Region), và dễ quên xoá.
+- **Là gì:** AWS đặt máy ở nhiều khu vực địa lý (Region). Mỗi tài nguyên (EC2, S3, RDS) thuộc **một** Region. IAM và Billing là dịch vụ toàn cầu nên ô Region hiện "Global".
+- **Vì sao Singapore (ap-southeast-1):** gần Việt Nam nhất trong các Region mở cho tài khoản, nên độ trễ thấp.
+- **Nếu bỏ qua:** tạo nhầm Region thì tài nguyên rải rác, không thấy nhau (Security Group, chứng chỉ ACM không dùng chung giữa các Region; chứng chỉ cho ALB phải ở **cùng Region với ALB**).
 
-### 2.2. Budget 20 USD
-- **Là gì:** một cảnh báo chi phí gửi email khi chi tiêu thực tế hoặc dự báo chạm ngưỡng.
-- **Hiểu đúng:** Budget **chỉ cảnh báo, không tự chặn chi tiêu**. Đây là lưới an toàn để không bị "hoá đơn bất ngờ" nếu quên tắt máy.
-- **Credits (120 USD):** AWS trừ tiền credit trước khi tính vào thẻ của bạn. Bạn có 100 USD Free Tier và 20 USD tặng khi tạo Budget, hạn đến 27/10/2027. Trang Credits cho biết còn bao nhiêu.
-- **Nếu bỏ qua:** một máy `m7i-flex.large` chạy cả tháng tốn vài chục USD; không cảnh báo thì chỉ biết khi hết credit.
+### 2.2. Budget cảnh báo chi phí
+- **Là gì:** một cảnh báo gửi email khi chi tiêu thực tế hoặc dự báo chạm ngưỡng. Budget **chỉ cảnh báo, không tự chặn**.
+- **Credits (120 USD):** AWS trừ credit trước khi tính vào thẻ. Trang Credits cho biết còn bao nhiêu.
+- **Với kiến trúc HA** chi phí tăng (xem mục 2.12): ước tính khoảng 7 USD mỗi ngày khi bật liên tục. Vì vậy nên đặt ngưỡng cảnh báo cao hơn lúc còn một máy (kiểm tra lại Budget đang đặt ở mức nào).
+- **Nếu bỏ qua:** quên tắt máy hay ALB thì chỉ biết khi hết credit.
 
 ### 2.3. S3 bucket `smart-erp-backup`
-**S3** là kho lưu **đối tượng** (file) với độ bền rất cao, tách biệt khỏi máy EC2. Đây là nơi giữ bản sao lưu. Lý do phải tách: nếu máy EC2 hỏng hoặc bị xoá thì bản sao lưu nằm cùng máy cũng mất theo (xem bài 07, điểm yếu "bản cục bộ nằm cùng máy").
-
-Ba thiết lập bạn đã bật, mỗi cái chống một rủi ro khác nhau:
+**S3** là kho lưu **đối tượng** (file) với độ bền rất cao, tách biệt khỏi máy EC2. Lý do phải tách: nếu máy EC2 hỏng hoặc bị xóa thì bản sao lưu nằm cùng máy cũng mất theo (xem bài 07).
 
 | Thiết lập | Chống rủi ro | Giải thích |
 |---|---|---|
-| **Block all public access** | **Rò rỉ dữ liệu** | Bản sao lưu chứa dữ liệu thật của công ty. Rất nhiều vụ lộ dữ liệu nổi tiếng là do bucket vô tình để công khai. Bật chặn này thì dù ai đó lỡ cấu hình sai (ACL, policy) bucket vẫn không thể công khai |
-| **Mã hoá SSE-S3** | **Lộ dữ liệu khi lấy được đĩa/ổ lưu trữ** | S3 mã hoá dữ liệu khi lưu (AES-256, khoá do AWS quản lý), trong suốt với ứng dụng. Đây là mã hoá *at rest* |
-| **Lifecycle rule 14 ngày** | **Chi phí tăng mãi và dữ liệu cũ tồn tại vô thời hạn** | S3 tự xoá bản sao lưu cũ hơn 14 ngày. Là chính sách lưu giữ (retention) ở phía đám mây, bổ sung cho 7 ngày ở phía máy chủ |
+| **Block all public access** | Rò rỉ dữ liệu | Bản sao lưu chứa dữ liệu thật. Bật chặn này thì dù ai lỡ cấu hình sai (ACL, policy) bucket vẫn không công khai được |
+| **Mã hóa SSE-S3** | Lộ dữ liệu khi lấy được ổ lưu trữ | AES-256 khi lưu (*at rest*), trong suốt với ứng dụng |
+| **Lifecycle rule 14 ngày** | Chi phí tăng mãi, dữ liệu cũ tồn tại vô hạn | S3 tự xóa bản cũ hơn 14 ngày; bổ sung cho retention 7 ngày phía máy chủ |
 
-- **Prefix `smart-erp/`:** S3 không có thư mục thật, chỉ có tên đối tượng; phần `smart-erp/` đứng đầu tên gọi là prefix và hoạt động như thư mục. Dùng prefix để một bucket phục vụ nhiều mục đích mà quyền vẫn tách bạch.
-- **Nếu bỏ qua mã hoá hay chặn công khai:** vẫn chạy, nhưng khi bị hỏi về bảo mật dữ liệu sao lưu thì không trả lời được.
+- **Prefix `smart-erp/`:** S3 không có thư mục thật; phần đứng đầu tên là prefix, hoạt động như thư mục và dùng để giới hạn quyền.
 
-### 2.4. IAM role `smart-erp-ec2-role`
-Đây là phần quan trọng nhất về bảo mật, cũng là phần dễ hiểu sai nhất.
+### 2.4. IAM role của EC2 (`ec2-ssm-smart-erp`)
+**Vấn đề:** máy EC2 cần ghi lên S3. Cách "dễ" là tạo Access Key rồi dán vào `.env`: khóa đó **không hết hạn**, lộ là dùng được từ khắp nơi.
 
-**Vấn đề:** máy EC2 cần ghi lên S3. Cách "dễ" là tạo một Access Key rồi dán vào file `.env` trên máy chủ. Nhược điểm: khoá đó **không hết hạn**, ai lấy được file (lộ repo, lộ ảnh chụp, máy chủ bị xâm nhập) là dùng được từ bất cứ đâu.
+**Cách đúng:** IAM role. Máy "đóng vai" một role và AWS cấp **thông tin đăng nhập tạm thời, tự xoay vòng** (qua IMDSv2). Không có khóa dài hạn để lộ. Cả hai máy (A và B) dùng cùng một instance profile.
 
-**Cách đúng (đã làm): IAM role.** Máy EC2 "đóng vai" một role và AWS cấp cho nó **thông tin đăng nhập tạm thời, tự xoay vòng** (hết hạn sau vài giờ). Không có khoá lâu dài nào để lộ.
-
-Một role luôn có hai phần, đừng nhầm:
-| Phần | Trả lời câu hỏi | Ở đây |
+Một role luôn có hai phần:
+| Phần | Trả lời | Ở đây |
 |---|---|---|
-| **Trust policy** (chính sách tin cậy) | *Ai được phép đóng vai role này?* | Dịch vụ EC2. Bước "Trusted entity: AWS service → EC2" trong lúc tạo role chính là tạo phần này |
-| **Permission policy** (chính sách quyền) | *Role này được làm gì?* | Hai policy bên dưới |
+| **Trust policy** | *Ai được đóng vai role này?* | Dịch vụ EC2 |
+| **Permission policy** | *Role này được làm gì?* | Hai policy bên dưới |
 
 Hai permission policy:
-1. **`AmazonSSMManagedInstanceCore`** (do AWS viết sẵn): cho phép chương trình **SSM Agent** trên máy EC2 đăng ký với dịch vụ Systems Manager. Nhờ đó bạn mở được **Session Manager**: một cửa sổ dòng lệnh vào máy ngay trên trình duyệt, được xác thực bằng IAM, **không cần cổng 22 và không cần khoá SSH**. Thiếu policy này thì máy không xuất hiện trong Session Manager và bạn không có cách nào vào máy.
-2. **Inline policy `smart-erp-backup-s3`** (do bạn viết, "gắn cứng" vào role):
-   - `s3:PutObject` + `s3:GetObject` chỉ trên `smart-erp-backup/smart-erp/*`: ghi bản sao lưu, và đọc lại khi phục hồi.
-   - `s3:ListBucket` chỉ trên chính bucket đó: liệt kê các bản.
-   - **Không có `DeleteObject`:** nếu máy chủ bị xâm nhập, kẻ tấn công **không xoá được các bản sao lưu** (chống ransomware). Việc xoá cũ do chính S3 làm (lifecycle), không do máy chủ.
+1. **`AmazonSSMManagedInstanceCore`** (AWS viết sẵn): cho SSM Agent đăng ký với Systems Manager, nhờ đó có **Session Manager** (cửa sổ dòng lệnh trên trình duyệt, xác thực bằng IAM, **không cần cổng 22**).
+2. **Inline policy `smart-erp-backup-s3`**:
+   - `s3:ListBucket` (và `GetBucketLocation`) trên **chính bucket**;
+   - `s3:PutObject` + `s3:GetObject` chỉ trên `smart-erp-backup/smart-erp/*`;
+   - **không có `DeleteObject`:** máy chủ bị xâm nhập cũng không xóa được bản sao lưu (chống ransomware); việc xóa bản cũ do lifecycle của S3 làm.
 
-**Instance profile:** EC2 không gắn trực tiếp role mà gắn qua một "instance profile" (cái hộp chứa role). Khi tạo role cho EC2 trên console, AWS tự tạo profile cùng tên, nên bạn không thấy bước này.
+> Quyền S3 của role này từng **thiếu** (sự cố 4 ở mục 6): `aws s3 sync` cần `ListBucket` ở cấp bucket; thiếu thì sao lưu lên S3 bị `AccessDenied`.
 
-> **Câu chốt:** "Máy chủ không giữ khoá AWS nào. Nó nhận quyền tạm thời từ IAM role, chỉ ghi được vào một thư mục của một bucket và không xoá được gì."
+> **Câu chốt:** "Máy chủ không giữ khóa AWS nào. Nó nhận quyền tạm thời từ IAM role, chỉ ghi được vào một thư mục của một bucket và không xóa được gì."
 
-### 2.5. Security Group `smart-erp-web-sg`
-- **Là gì:** tường lửa ảo gắn vào máy EC2. Mặc định **chặn mọi kết nối vào**; bạn chỉ khai báo những gì được **cho phép**.
-- **Stateful:** nếu cho phép một kết nối đi vào thì phản hồi của nó tự động được đi ra mà không cần khai báo thêm (khác NACL, vốn là stateless, phải khai báo hai chiều).
-- **Hai quy tắc đã tạo:**
-  - **Cổng 443 (HTTPS):** người dùng truy cập hệ thống.
-  - **Cổng 80 (HTTP):** Caddy cần cổng này để **xin chứng chỉ Let's Encrypt** (Let's Encrypt gọi vào cổng 80 để chứng minh bạn sở hữu tên miền) và để chuyển người dùng từ http sang https.
-  - Nguồn `0.0.0.0/0` (mọi nơi) vì đây là website công khai.
-- **Vì sao KHÔNG mở cổng 22 (SSH):** cổng 22 là mục tiêu số một của các chương trình dò mật khẩu tự động, chỉ vài phút sau khi máy lên mạng đã bị dò. Session Manager thay thế SSH, **an toàn hơn**: xác thực bằng IAM (có MFA), mọi phiên được ghi lại, không có cổng nào để tấn công.
-- **Outbound mặc định cho phép tất cả:** máy cần chủ động đi ra để tải image từ GHCR, cài gói, xin chứng chỉ và ghi lên S3. (Giới hạn outbound chặt hơn là hướng nâng cao.)
-- **Nếu bỏ qua:** máy không có Security Group riêng sẽ dùng nhóm mặc định, thường quá rộng hoặc kín nhầm.
+### 2.5. Security Group: mỗi tầng chỉ nhận từ tầng ngay trước nó
+**Security Group** là tường lửa ảo gắn vào tài nguyên: mặc định **chặn mọi kết nối vào**, bạn chỉ khai báo cái được phép. **Stateful:** phản hồi của kết nối được phép tự được đi ra.
+
+Từ khi có HA, thay một nhóm cũ (`smart-erp-web-sg`, mở 80/443 cho cả Internet) bằng **bốn nhóm theo vai trò**, quy tắc tham chiếu **nhóm nguồn** chứ không dùng IP:
+
+| Nhóm | Gắn vào | Cho phép vào (inbound) |
+|---|---|---|
+| `erp-alb` | ALB | 80 và 443 từ mọi nơi (đây là cửa duy nhất ra Internet) |
+| `erp-app` | EC2-A, EC2-B | 80 và 3000 **từ `erp-alb`**; 5672 (RabbitMQ) **từ chính `erp-app`** (máy B gọi RabbitMQ của máy A) |
+| `erp-rds` | RDS | 3306 **từ `erp-app`** |
+| `erp-efs` | mount target EFS | 2049 (NFS) **từ `erp-app`** |
+
+- **Vì sao tham chiếu nhóm, không mở theo IP/cổng:** quy tắc của RDS là "cho nhóm `erp-app` vào cổng 3306". Máy mới chỉ cần được gắn `erp-app` là tự có quyền (máy B, máy thay thế); không phải sửa quy tắc hay nhớ IP. Quy tắc nằm ở **phía nhận** (RDS quyết định ai được vào DB), không phải phía gọi.
+- **Vì sao KHÔNG mở cổng 22:** cổng 22 bị dò mật khẩu tự động liên tục. Session Manager thay thế SSH, xác thực bằng IAM, ghi lại phiên, không có cổng nào để tấn công.
+- **Máy A đã gỡ nhóm cũ** nên không còn truy cập thẳng từ Internet (đã kiểm tra: `http://<IP máy A>` hết thời gian chờ); chỉ vào được qua ALB.
+- **Outbound mặc định cho phép tất cả:** máy cần đi ra để tải image GHCR, cài gói, ghi S3, nối SSM. (Giới hạn chặt hơn là hướng nâng cao.)
 
 ### 2.6. VPC mặc định
-Mọi máy EC2 nằm trong một mạng riêng ảo (**VPC**). Bạn dùng **VPC mặc định**: AWS đã dựng sẵn mạng con công khai và cổng Internet. Đơn giản cho bài tập. Một hệ thống sản xuất thật sẽ tự dựng VPC với mạng con **riêng** cho cơ sở dữ liệu (không có đường ra Internet) và mạng con công khai chỉ cho tầng web. Đây là điểm yếu bạn nên tự nói trước khi thầy hỏi.
+Mọi máy nằm trong một **VPC**. Dùng VPC mặc định (`172.31.0.0/16`, ba subnet công khai ở 1a, 1b, 1c): AWS đã dựng sẵn mạng con và cổng Internet. Đơn giản cho bài tập, và đủ cho HA hai AZ. Một hệ thống sản xuất thật sẽ tự dựng VPC với **mạng con riêng** cho DB/EC2 (không có đường ra Internet, đi ra qua NAT). Đây là điểm yếu nên tự nói trước (mục 5). Hệ quả cụ thể: mỗi EC2 cần **IP công khai** để kéo image và nối SSM vì không có NAT.
 
 ### 2.7. Tài khoản đầu tiên: không có tài khoản mẫu với mật khẩu công khai
-- **Vấn đề ban đầu:** seeder tạo sẵn 18 tài khoản (có SUPER_ADMIN) với mật khẩu cố định `password123`, công khai trong README. Trên máy dev thì tiện, nhưng trên địa chỉ HTTPS công khai thì ai cũng đăng nhập được với quyền cao nhất. Tên miền mới còn bị các chương trình tự động theo dõi **nhật ký chứng chỉ công khai (Certificate Transparency)** và dò thử trong vài phút sau khi cấp chứng chỉ.
-- **Cách xử lý ban đầu:** nạp tài khoản mẫu rồi đổi mật khẩu ngay trước khi bật gateway. Hiệu quả nhưng vẫn là "dọn dẹp sau khi tạo".
-- **Cách xử lý cuối cùng (tốt hơn):** production **không bao giờ có tài khoản mẫu**. `SEED=1` chỉ nạp phòng ban, vai trò và quyền, rồi lệnh `identity:bootstrap-admin` tạo **một** Super Admin với mật khẩu mạnh (từ 14 ký tự) do bạn cung cấp. Lệnh `identity:purge-demo-users` xoá các tài khoản `@erp.local` còn sót.
-- **Đăng nhập:** bằng **mã nhân viên** (dạng `AC-2005`) kèm **OTP gửi qua email** (6 số, sống 5 phút, dùng một lần, tối đa 5 lần sai) hoặc mật khẩu. OTP chỉ lưu mã băm HMAC; số lần thử và việc tiêu thụ mã dùng UPDATE có điều kiện nên các yêu cầu song song không vượt được giới hạn (đúng cơ chế chương 6).
-- **Nguyên tắc:** an toàn mặc định (không tạo ra thứ nguy hiểm rồi mới sửa), thất bại sớm (thiếu thông tin thì script dừng ngay đầu), và tách bạch dữ liệu nền với dữ liệu người dùng.
-- **Email OTP qua Amazon SES** (tài khoản đã ở chế độ production, các địa chỉ đã được xác minh). Thông tin kết nối SMTP nằm trong `.env` trên máy chủ chứ không nằm trong Git. Lưu ý: SES qua SMTP dùng **khoá SMTP của IAM user (lâu dài)**, trái với nguyên tắc "không có khoá dài hạn". Vì vậy IAM user đó chỉ nên có quyền gửi email.
+- **Vấn đề:** seeder tạo sẵn 18 tài khoản (có SUPER_ADMIN) với mật khẩu cố định công khai. Ở máy dev thì tiện, nhưng trên địa chỉ HTTPS công khai thì ai cũng vào được với quyền cao nhất. Tên miền mới còn bị các chương trình theo dõi **nhật ký chứng chỉ công khai (Certificate Transparency)** dò thử trong vài phút sau khi cấp chứng chỉ.
+- **Cách xử lý cuối cùng:** production **không bao giờ có tài khoản mẫu**. `SEED=1` chỉ nạp phòng ban, vai trò, quyền, rồi `identity:bootstrap-admin` tạo **một** Super Admin với mật khẩu mạnh (từ 14 ký tự). `identity:purge-demo-users` xóa các tài khoản `@erp.local` còn sót.
+- **Đăng nhập:** bằng **mã nhân viên** kèm **OTP gửi email** (6 số, sống 5 phút, dùng một lần, tối đa 5 lần sai, chỉ lưu mã băm HMAC; số lần thử và việc tiêu thụ dùng UPDATE có điều kiện nên các yêu cầu song song không vượt giới hạn, đúng cơ chế chương 6) hoặc mật khẩu.
+- **Email OTP qua Amazon SES** (production, địa chỉ/tên miền đã xác minh bằng DKIM). Thông tin SMTP nằm trong `.env` trên máy chủ, không nằm trong Git. Lưu ý: SES qua SMTP dùng khóa SMTP của một IAM user (**dài hạn**), trái nguyên tắc "không khóa dài hạn", nên IAM user đó chỉ nên có quyền gửi email.
 
-### 2.8. CD: tự động triển khai không cần khoá AWS và không cần cổng 22
-**Chuỗi hoạt động khi bạn merge vào `main`:**
-```
+### 2.8. CD: tự động triển khai không cần khóa AWS và không cần cổng 22
+**Chuỗi hoạt động khi merge vào `main`:**
+```text
 push vào main ─► CI (chạy test)            ┐
               └► Build images (12 image) ──┴─► Deploy production
-                                                 1. verify-ci   : CI của ĐÚNG commit này phải xanh, nếu đỏ thì dừng ngay
-                                                 2. chờ duyệt   : environment "production" có 1 người duyệt bắt buộc
-                                                 3. OIDC        : GitHub xin token tạm thời, AWS cấp quyền của role deploy
-                                                 4. SSM         : gửi lệnh tới EC2 (không SSH): git pull + scripts/deploy-aws.sh
-                                                 5. smoke test  : kiểm tra các route /health qua HTTPS; lỗi thì job đỏ
+                    1. verify-ci   : CI của ĐÚNG commit này phải xanh, đỏ thì dừng
+                    2. chờ duyệt   : environment "production" có người duyệt bắt buộc
+                    3. OIDC        : GitHub xin token tạm thời, AWS cấp quyền của role deploy
+                    4. SSM         : gửi lệnh tới TỪNG máy, lần lượt (A rồi B): git pull + scripts/deploy-aws.sh
+                    5. smoke test  : mỗi máy tự kiểm tra các route /health của chính nó; lỗi thì dừng, máy sau giữ nguyên
 ```
 
-**OIDC là gì và vì sao tốt hơn Access Key?** Cách "dễ" là tạo Access Key rồi dán vào GitHub Secrets: khoá đó không hết hạn, lộ là dùng được từ khắp nơi. Với OIDC, mỗi lần chạy GitHub tự ký một **token tạm thời** ghi rõ "tôi là workflow của repo X, môi trường Y". AWS kiểm tra chữ ký rồi cấp quyền của một IAM role trong **tối đa 1 giờ**. **Không có khoá dài hạn nào nằm trong GitHub** (mục Secrets trống, chỉ có 3 biến không nhạy cảm: Region, ID máy, ARN của role).
+**OIDC là gì và vì sao tốt hơn Access Key?** Cách "dễ" là dán Access Key vào GitHub Secrets: khóa không hết hạn, lộ là dùng được từ khắp nơi. Với OIDC, mỗi lần chạy GitHub tự ký một **token tạm thời** ghi rõ "tôi là workflow của repo X, môi trường Y". AWS kiểm tra chữ ký rồi cấp quyền của một IAM role trong **tối đa 1 giờ**. **Không có khóa dài hạn trong GitHub** (Secrets trống; chỉ có các biến không nhạy cảm: Region, ID hai máy, ARN của role).
 
-**Trust policy của role `github-deploy-smart-erp` (ai được đóng vai role này):**
-```json
-{ "Effect": "Allow",
-  "Principal": { "Federated": "arn:aws:iam::<ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com" },
-  "Action": "sts:AssumeRoleWithWebIdentity",
-  "Condition": { "StringEquals": {
-      "token.actions.githubusercontent.com:sub": "repo:<owner>@<id>/smart-erp@<id>:environment:production",
-      "token.actions.githubusercontent.com:aud": "sts.amazonaws.com" } } }
-```
-- **`sub` (chủ thể):** chỉ token của **đúng repo này, đúng môi trường `production`** mới được. Dùng `StringEquals` (so khớp chính xác), không dùng ký tự đại diện. Giá trị có kèm **ID số** của chủ sở hữu và repo, nên xoá repo rồi ai đó tạo lại cùng tên cũng không khớp.
-- **`aud` (đối tượng nhận):** token phải dành cho AWS STS, không dùng lại token của dịch vụ khác.
-- Vì `sub` có `environment:production`, **chỉ job đã được người duyệt cho chạy** mới lấy được quyền AWS. Cổng duyệt tay vì thế còn là một lớp bảo vệ của AWS chứ không chỉ của GitHub.
+**Trust policy của role `github-deploy-smart-erp`:** `Principal` là OIDC provider của GitHub; điều kiện `sub` giới hạn **đúng repo này, đúng môi trường `production`** (so khớp chính xác `StringEquals`, kèm ID số của chủ sở hữu và repo nên xóa repo rồi tạo lại cùng tên cũng không khớp); `aud` phải là `sts.amazonaws.com`. Vì `sub` có `environment:production`, **chỉ job đã được người duyệt cho chạy** mới lấy được quyền AWS; cổng duyệt tay còn là lớp bảo vệ phía AWS.
 
-**Các lớp bảo vệ khác trong `deploy.yml`:**
-- **Kiểm tra thẻ image bằng biểu thức chính quy** (`latest` hoặc `sha-` kèm chữ số hex) vì giá trị này được ghép vào lệnh chạy trên máy chủ: chống chèn lệnh.
-- **`concurrency`:** hai lần deploy không bao giờ chạy song song.
-- Lệnh chạy bằng user `ubuntu`, không phải root, nên file trong `/opt/smart-erp` không bị đổi chủ.
-- **Quay lui:** chạy tay workflow với `image_tag` là `sha-xxxxxxx` để về đúng một commit trước đó.
+**Permission policy của role (quyền tối thiểu):** `ssm:SendCommand` **chỉ trên hai instance (A và B) và tài liệu `AWS-RunShellScript`**; `ssm:GetCommandInvocation` (AWS không cho giới hạn theo tài nguyên nên là `*`). Thêm máy mới phải thêm ARN của nó vào đây, nếu không CD báo `AccessDenied` ở máy đó.
 
-**Đã vá thêm sau khi rà soát:**
+**Các lớp bảo vệ khác trong `deploy.yml`:** kiểm tra thẻ image bằng biểu thức chính quy (`latest` hoặc `sha-` + hex) vì giá trị này được ghép vào lệnh chạy trên máy chủ (chống chèn lệnh); `concurrency` để hai lần deploy không song song; chạy bằng user `ubuntu` (không phải root); quay lui bằng cách chạy tay với `image_tag` của commit trước.
+
+**Triển khai cuốn chiếu (A rồi B):** luôn còn ít nhất một máy phục vụ; máy A lỗi thì máy B giữ nguyên bản cũ. Đã đo: **không phải zero-downtime**, mỗi máy có cửa sổ khoảng 20–30 giây lỗi một phần vì ALB chưa kịp loại máy đang tạo lại container (bài `08-chiu-loi.md`, thí nghiệm A4). Muốn bằng 0 cần rút máy khỏi ALB trước khi deploy.
+
+**Bài học về biến Actions:** GitHub **chụp giá trị biến lúc tạo run**. Lần đầu CD bỏ sót máy B vì biến `EC2_INSTANCE_ID_B` được tạo *sau* khi run được tạo; dòng `INSTANCE_IDS:` trong log chỉ có một ID. Chạy lại (re-run) mới nhận biến.
+
+**Đã vá sau rà soát:**
 | Điểm yếu | Vá |
 |---|---|
-| Deploy kích hoạt bởi "Build images", không xét CI: commit có CI đỏ vẫn tới bước chờ duyệt | Job `verify-ci` chạy **trước** và dừng nếu CI của cùng commit không xanh (đã thử với commit đỏ thật và commit xanh thật) |
-| Sửa tài liệu cũng build lại 12 image và xin duyệt deploy | `paths-ignore` cho `docs/**` và `**.md` |
-| EC2 đang dừng thì lỗi khó hiểu | Thông báo rõ: bật máy rồi chạy lại bằng `workflow_dispatch` |
+| Deploy không xét CI, commit CI đỏ vẫn tới bước chờ duyệt | Job `verify-ci` chạy **trước** và dừng nếu CI của cùng commit không xanh |
+| Sửa tài liệu cũng build lại 12 image và xin duyệt | `paths-ignore` cho `docs/**` và `**.md` |
+| EC2 đang dừng thì lỗi khó hiểu | Thông báo rõ: bật máy rồi chạy lại |
+| Quyền SSM của role rộng hơn cần thiết | Giới hạn theo từng ARN máy (đã rà soát; nay gồm hai máy) |
 
-**Còn lại (nói thật khi bị hỏi):** môi trường `production` chưa giới hạn nhánh được deploy (nên đặt chỉ `main` ở Settings → Environments); quyền của role (policy `ssm-deploy-smart-erp`) cần được rà soát để chỉ cho gửi lệnh tới **đúng một instance** với tài liệu `AWS-RunShellScript`; repo công khai nên log workflow ai cũng đọc được (không được in bí mật ra log).
+**Còn lại (nói thật khi bị hỏi):** environment `production` chưa chắc đã giới hạn nhánh được deploy (nên đặt chỉ `main`); repo công khai nên log workflow ai cũng đọc được (không được in bí mật ra log).
+
+### 2.9. ALB, chứng chỉ ACM và DNS
+- **ALB (Application Load Balancer, L7):** nhận HTTPS từ Internet, chuyển tới các EC2 theo **target group**, kiểm tra sức khỏe từng máy (`/health` mỗi 10 giây; cần vài lần thất bại liên tiếp mới loại máy), kết thúc TLS, hỗ trợ WebSocket. Đặt ở **hai AZ** nên bản thân nó không phải một máy đơn lẻ. Dùng ALB của AWS thay vì tự dựng Nginx/HAProxy để tránh tạo SPOF mới.
+- **Ba target group và luật định tuyến** (listener 443, luật xét theo thứ tự **Priority** nhỏ đến lớn, mặc định xét cuối): Priority 10 `/api/v1/chat*` và `/api/v1/notifications*` → `tg-erp-realtime` (chỉ máy A, có stickiness vì SignalR/Socket.IO giữ trạng thái trong bộ nhớ); Priority 20 `/grafana*` → `tg-erp-grafana` (chỉ máy A, cổng **3000**: cổng mặc định của target group là 80 nhưng đăng ký máy với cổng 3000); mặc định → `tg-erp-web` (cả hai máy). Listener 80 chuyển hướng **301** sang HTTPS.
+- **Stickiness** phải bật ở **cả thuộc tính của target group lẫn luật của listener**, nếu không ALB bỏ qua.
+- **Chứng chỉ ACM (miễn phí, tự gia hạn):** ACM cấp chứng chỉ sau khi chứng minh bạn sở hữu tên miền bằng **bản ghi CNAME xác minh** đặt trong DNS. **Không xóa** bản ghi đó sau này vì ACM dùng nó để tự gia hạn. Chứng chỉ phải ở cùng Region với ALB.
+- **DNS ở PA Việt Nam:** `erp` là **CNAME** trỏ tới tên DNS của ALB (không dùng bản ghi A vì ALB đổi IP theo thời gian; một tên không thể vừa có A vừa có CNAME). TTL hạ xuống 300 giây trước khi chuyển để đổi nhanh và đổi ngược nhanh. Giữ nguyên các bản ghi DKIM/DMARC của SES. Ô Host ở trang DNS của nhà đăng ký chỉ nhận phần đứng **trước** tên miền gốc (xem sự cố 5).
+
+### 2.10. RDS MySQL Multi-AZ
+- **Vì sao một DB dùng chung (không phải mỗi máy một MySQL):** chốt chống bán âm `UPDATE ... WHERE quantity >= :qty` chỉ đúng khi mọi request đi qua cùng một bản dữ liệu; hai DB độc lập thì hai đơn có thể cùng lấy hàng cuối ở hai nơi.
+- **Multi-AZ DB instance (2 máy):** primary + standby ở AZ khác, ghi **đồng bộ**; khi hỏng AWS chuyển endpoint sang standby (khoảng 1 phút), **không mất dữ liệu đã commit**. Standby **không phục vụ truy vấn** (khác read replica: bất đồng bộ, đọc được). Đã thử *Reboot with failover*: PHP gián đoạn ~7s, .NET ~19s (bài chịu lỗi).
+- **Cấu hình đã chọn:** MySQL **8.4** (8.0 đã hết hỗ trợ tiêu chuẩn từ 31/07/2026, giữ lại phải trả Extended Support), `db.t4g.small`, gp3 **20 GiB**, tắt storage autoscaling, không public, security group `erp-rds`. Mật khẩu quản trị tối đa **41 ký tự** (giới hạn của RDS).
+- **Khởi tạo:** `scripts/aws/rds-init.sh` dùng đúng `01-create-databases.sql` và `03-create-service-users.sh` như môi trường một máy, chạy qua mạng bằng tài khoản `admin`, nên quyền hạn **giống hệt** (mỗi service một tài khoản chỉ có quyền trên schema của mình, `erp_backup` chỉ đọc).
+- **Chuyển dữ liệu:** dùng chính công cụ sao lưu/phục hồi của dự án (bài 07): sao lưu từ MySQL cũ rồi `recovery restore latest --mysql --yes` vào RDS. 8 schema mất **12 giây**.
+- **Bài học chi phí:** form tạo RDS tự điền 200 GiB (cho ước tính 129 USD/tháng). Dung lượng ổ RDS **chỉ tăng được, không giảm được**, nên phải xóa và tạo lại với 20 GiB.
+
+### 2.11. EFS: tệp đính kèm dùng chung
+- Disk `local` của Laravel nằm trong container, nên upload ở máy A không thấy ở máy B. **EFS** là ổ NFS chia sẻ qua nhiều AZ, mount ở `/mnt/efs` trên cả hai máy (`fstab` với `_netdev` và `hard`; `hard` để khi mất kết nối tạm thời thì chờ và thử lại thay vì báo lỗi làm hỏng file đang ghi).
+- Thư mục `/mnt/efs/sales` thuộc uid 33 (`www-data`, người dùng PHP trong container).
+- Compose mount thư mục này với `create_host_path: false`: nếu EFS chưa mount, container sales **không khởi động** thay vì ghi âm thầm vào đĩa cục bộ (khi đó mỗi máy một bản file).
+- Đã kiểm tra: khởi động lại máy B, EFS tự mount trước khi Docker chạy, 10 container tự lên.
+
+### 2.12. Dựng máy mới bằng script (user data), và bảng chi phí
+- **`scripts/aws/bootstrap-ec2.sh`** dán vào ô *User data* khi tạo EC2: tự cài Docker, mount EFS, `git clone`. Việc còn lại làm tay qua Session Manager: dán `.env`, chạy `deploy-aws.sh`. Đây là một dạng *Infrastructure as Code* nhỏ: máy hỏng thì dựng lại y hệt.
+- **Vì sao dựng máy B từ Ubuntu trắng, không tạo AMI từ máy A:** AMI của A mang theo các container đang chạy với `restart: unless-stopped` (relay, scheduler, RabbitMQ, Mongo), nên B khởi động sẽ tự bật chúng trước khi bạn đổi `.env`, gây relay chạy hai nơi; còn mang theo cả `.env` cũ chứa secret.
+- **Hai file `.env` (máy A, máy B) dùng chung một bộ secret**, sinh trong **một lần chạy** `make-prod-env.ps1 -Ha`. Chung `JWT_SECRET` thì token do máy này ký máy kia mới chấp nhận; chung mật khẩu DB thì cả hai vào được RDS. Chạy lại script là đổi **toàn bộ** secret của cả hai.
+
+| Thành phần | Ước tính (khi bật liên tục) |
+|---|---|
+| 2 × EC2 `m7i-flex.large` | ~4,8 USD/ngày |
+| RDS Multi-AZ `db.t4g.small` | ~2 USD/ngày |
+| ALB | ~0,6 USD/ngày (không dừng được, chỉ xóa) |
+| EFS, S3, Elastic IP, EBS | vài chục cent/ngày |
+
+**Kiểm soát chi phí giữa các buổi:** Stop (không Terminate) hai EC2 và Stop RDS (tự bật lại sau 7 ngày). Bật theo thứ tự **RDS → máy A → máy B** để service không khởi động khi DB chưa sẵn sàng.
+
+### 2.13. Quy trình chuyển từ một máy sang HA (đã làm thật, có thể kể lại)
+1. Dừng các service ghi dữ liệu (giữ MySQL/Mongo/RabbitMQ chạy).
+2. Sao lưu cuối cùng (và đẩy S3).
+3. Chuyển nhánh code, thay `.env` bằng bản HA của máy A.
+4. `rds-init.sh`: dựng schema và tài khoản trên RDS.
+5. `recovery restore latest --mysql --yes`: đổ dữ liệu vào RDS (12 giây).
+6. Gỡ Caddy (HA để frontend nghe cổng 80), đặt lại mật khẩu RabbitMQ (volume cũ không nhận mật khẩu mới), `deploy-aws.sh`.
+7. Dựng máy B từ script, dán `.env` của B, deploy.
+8. Tạo target group, ALB, luật định tuyến, chứng chỉ ACM; kiểm tra bằng cách gọi thẳng vào ALB trước khi động tới DNS.
+9. Đổi DNS (A → CNAME); gỡ security group cũ khỏi máy A.
+Khoảng ngừng phục vụ chỉ nằm ở bước 1–6 (hệ thống chưa có người dùng thật).
 
 ## 3. Vì sao tất cả điều này thuộc môn "ứng dụng phân tán"?
 
 | Chương rubric | Phần AWS liên quan |
 |---|---|
-| **Ch5 Định danh** | IAM role (định danh máy chủ bằng quyền tạm thời), JWT giữa các service, chứng chỉ TLS (Let's Encrypt) định danh website, DNS |
-| **Ch7 Sao lưu** | S3 bên ngoài máy chủ, mã hoá, lifecycle, quyền không xoá được |
-| **Ch8 Chịu lỗi** | Giám sát Grafana, khởi động lại tự động (`restart: unless-stopped`), image có thẻ theo commit để quay lui |
-| **Ch2 Kiến trúc** | Cùng một kiến trúc microservice chạy bằng Docker trên một máy chủ đám mây |
+| **Ch2 Kiến trúc** | Kiến trúc microservice chạy trên nhiều máy ở nhiều AZ; tách tầng (ALB → web/API → DB Multi-AZ); phần giữ trạng thái (realtime, broker) được ghim vào một máy có chủ đích |
+| **Ch3 Tiến trình & luồng** | Mỗi máy chạy nhiều container; relay chỉ chạy ở một máy vì không khóa dòng |
+| **Ch4 Trao đổi thông tin** | ALB định tuyến theo đường dẫn; RabbitMQ giữa hai máy qua IP private; WebSocket qua ALB |
+| **Ch5 Định danh** | IAM role (máy), OIDC (pipeline), chứng chỉ ACM và DNS (website), JWT (người dùng) |
+| **Ch6 Đồng bộ hóa** | Một DB dùng chung để giữ atomic guard; relay một nơi; EFS dùng chung |
+| **Ch7 Sao lưu** | S3 ngoài máy chủ, mã hóa, lifecycle, quyền không xóa được; phục hồi 12 giây vào RDS |
+| **Ch8 Chịu lỗi** | Hai AZ, ALB health check, RDS Multi-AZ, deploy cuốn chiếu; số liệu đo thật ở bài `08-chiu-loi.md` |
 
 ## 4. Thầy có thể hỏi
 
 **H: Vì sao dùng IAM role mà không dùng Access Key?**
-Đ: Access Key không hết hạn, nằm trên máy chủ nên lộ là dùng được từ khắp nơi. IAM role cấp quyền tạm thời, tự xoay vòng, không có khoá nào để lộ.
+Đ: Access Key không hết hạn, nằm trên máy chủ nên lộ là dùng được từ khắp nơi. IAM role cấp quyền tạm thời, tự xoay vòng, không khóa nào để lộ.
 
 **H: Sao không mở cổng SSH để quản trị?**
-Đ: Cổng 22 bị dò mật khẩu liên tục. Session Manager xác thực bằng IAM, ghi nhật ký mọi phiên và không cần mở cổng nào, nên an toàn hơn và vẫn vào được máy.
+Đ: Cổng 22 bị dò mật khẩu liên tục. Session Manager xác thực bằng IAM, ghi nhật ký phiên và không cần mở cổng nào.
 
-**H: Bucket sao lưu có thể bị công khai không? Dữ liệu có được mã hoá không?**
-Đ: Không: bật "Block all public access" nên dù cấu hình sai bucket vẫn không công khai được. Dữ liệu mã hoá khi lưu bằng SSE-S3 (AES-256). Máy chủ chỉ ghi và đọc được trong một thư mục, không có quyền xoá.
+**H: Bucket sao lưu có thể công khai không? Dữ liệu có mã hóa không?**
+Đ: Không: bật "Block all public access". Mã hóa khi lưu bằng SSE-S3 (AES-256). Máy chủ chỉ ghi/đọc được một thư mục, không có quyền xóa.
 
-**H: Security Group và firewall thường khác gì? Stateful nghĩa là gì?**
-Đ: Security Group là tường lửa ảo gắn vào máy, chặn mặc định mọi kết nối vào và chỉ mở những gì khai báo. Stateful nghĩa là kết nối đã được cho phép thì phản hồi tự được đi ra, không cần luật chiều ngược lại.
+**H: Security Group khác firewall thường thế nào? Stateful nghĩa là gì?**
+Đ: Tường lửa ảo gắn vào tài nguyên, chặn mặc định và chỉ mở cái khai báo. Stateful: kết nối đã được phép thì phản hồi tự được đi ra.
 
-**H: Chi phí? Làm sao tránh phát sinh?**
-Đ: Dùng credit 120 USD, đặt Budget 20 USD để cảnh báo qua email, dừng máy khi không dùng, và dọn tài nguyên (Elastic IP, bucket, EC2) sau khi nộp bài.
+**H: Vì sao quy tắc của RDS cho nguồn là một security group mà không phải IP hay `0.0.0.0/0`?**
+Đ: Nhóm là "danh tính theo vai trò": máy nào mang nhãn `erp-app` tự có quyền, không phải nhớ IP. `0.0.0.0/0` cho cả Internet chạm cổng DB, dù có mật khẩu mạnh cũng chỉ là lớp bảo vệ duy nhất thay vì nhiều lớp. Mỗi tầng chỉ nhận từ tầng ngay trước nó.
+
+**H: Vì sao không để mỗi EC2 một MySQL?**
+Đ: Dữ liệu không thống nhất, chốt chống bán âm (UPDATE có điều kiện) mất tác dụng giữa hai DB. Dùng một DB Multi-AZ, ghi đồng bộ sang bản chờ.
+
+**H: Vì sao dùng ALB của AWS mà không tự dựng Nginx/HAProxy?**
+Đ: Tự dựng lại thành điểm lỗi đơn mới. ALB chạy nhiều AZ, có health check, kết thúc HTTPS bằng chứng chỉ ACM, định tuyến theo đường dẫn, hỗ trợ WebSocket.
+
+**H: Sao chat và notification không chạy ở cả hai máy?**
+Đ: Trạng thái kết nối (SignalR, Socket.IO) nằm trong bộ nhớ từng process nên người ở máy này không nhận tin của người ở máy kia. Muốn chạy hai bản phải thêm backplane (Redis). Hiện ghim vào máy A, ghi rõ là điểm lỗi đơn còn lại.
+
+**H: Vì sao relay outbox chỉ chạy một máy?**
+Đ: Relay Laravel đọc 50 dòng rồi phát, không khóa dòng; chạy hai nơi sẽ phát trùng. Consumer idempotent chịu được trùng, nhưng cố ý tránh. Các relay .NET nằm trong process dịch vụ nên tắt bằng `Outbox__RelayEnabled=false` ở máy B.
 
 **H: CD của em hoạt động thế nào? Vì sao không dùng Access Key của AWS trong GitHub?**
-Đ: GitHub dùng OIDC: mỗi lần chạy, nó ký một token tạm thời nói rõ repo và môi trường; AWS kiểm tra chữ ký rồi cấp quyền của một IAM role trong tối đa 1 giờ. Không có khoá dài hạn nào nằm trong GitHub nên không có gì để lộ. Role chỉ cho đóng vai khi token đúng repo và đúng môi trường `production`.
+Đ: GitHub dùng OIDC: mỗi lần chạy ký một token tạm thời nói rõ repo và môi trường; AWS kiểm tra chữ ký rồi cấp quyền của một IAM role trong tối đa 1 giờ. Không khóa dài hạn trong GitHub. Role chỉ cho đóng vai khi token đúng repo và môi trường `production`.
 
 **H: Làm sao đảm bảo không ai deploy mã lỗi lên production?**
-Đ: Nhiều lớp: CI của đúng commit phải xanh (job `verify-ci`), môi trường `production` bắt buộc một người duyệt tay, và vì quyền AWS gắn với môi trường đó nên chỉ job đã được duyệt mới lấy được quyền. Sai thì quay lui bằng cách chạy tay với `image_tag` của commit trước.
+Đ: Nhiều lớp: CI của đúng commit phải xanh (`verify-ci`), môi trường `production` bắt buộc người duyệt, quyền AWS gắn với môi trường đó, và deploy cuốn chiếu có smoke test từng máy (máy đầu lỗi thì máy sau giữ nguyên). Sai thì quay lui bằng cách chạy tay với `image_tag` của commit trước.
 
-**H: Sao deploy bằng SSM mà không SSH?**
-Đ: SSM gửi lệnh qua kết nối mà chính máy chủ chủ động mở ra AWS, nên không cần mở cổng 22. Xác thực bằng IAM và có nhật ký, không có khoá SSH nào để quản lý hay bị lộ.
+**H: Deploy của em có zero-downtime không?**
+Đ: Không hoàn toàn. Luôn còn một máy phục vụ nhưng ALB cần vài lần health check mới loại máy đang cập nhật, nên mỗi máy có cửa sổ ~20–30 giây lỗi một phần (đã đo). Muốn bằng 0 cần rút máy khỏi ALB trước khi deploy.
+
+**H: Vì sao dựng máy B bằng script mà không sao chép AMI?**
+Đ: AMI mang theo container đang chạy (relay, scheduler, broker) tự bật khi máy khởi động, và mang cả secret cũ. Máy trắng + script sạch hơn, lặp lại được, và script chính là tài liệu.
+
+**H: Chi phí? Làm sao tránh phát sinh?**
+Đ: Credit 120 USD; HA khoảng 7 USD/ngày khi bật liên tục. Đặt Budget, dừng EC2 và RDS giữa các buổi (bật RDS trước), và xóa ALB, RDS, EFS, Elastic IP, bucket sau khi nộp bài.
+
+**H: Vì sao chọn MySQL 8.4 mà không phải 8.0?**
+Đ: 8.0 hết hỗ trợ tiêu chuẩn trên RDS từ 31/07/2026; giữ lại phải trả Extended Support. 8.4 là bản LTS còn hỗ trợ; đã kiểm tra migration và các script khởi tạo chạy được trên 8.4.
 
 ## 5. Điểm yếu (nói thật khi bị hỏi)
-- Dùng **VPC mặc định**, mạng con công khai cho tất cả; chưa tách mạng con riêng cho database.
-- **Một máy EC2, một Availability Zone:** máy hoặc vùng hỏng thì cả hệ thống ngừng. Chưa có cân bằng tải hay tự mở rộng.
-- Tài khoản dùng vai trò **toàn quyền** (AccountFullAccessRole) cho tiện, chưa tách quyền theo công việc.
-- Bucket **chưa bật versioning**: nếu bản sao lưu bị ghi đè cùng tên thì không khôi phục bản cũ được (tên bản sao lưu có số thứ tự nên rủi ro thấp).
+- **Máy A là điểm lỗi đơn cho phần "một bản"**: RabbitMQ, Mongo, relay, scheduler, chat, notification, Grafana, sao lưu. A chết ⇒ realtime ngừng, sự kiện nằm trong outbox chờ A lên lại; web/API vẫn chạy nhờ máy B (đã đo).
+- **Không có Auto Scaling:** máy chết thì phải tự Start hoặc dựng máy mới bằng script (~5–8 phút).
+- **Cửa sổ ~50 giây** lỗi một phần khi mất máy (health check); ALB không tự thử lại request đã gửi vào máy chết.
+- **Một Region**; sao lưu S3 cùng vùng; chưa có sao chép chéo vùng.
+- **VPC mặc định**, mạng con công khai cho tất cả (EC2 cần IP công khai vì không có NAT); chưa tách mạng con riêng cho DB.
+- **Health check mới ở mức liveness** (đặc biệt `inventory /health` không chạm DB); ALB chỉ đo tới Kong.
+- **Bí mật nằm trong `.env`** trên từng máy (chmod 600); tốt hơn là Secrets Manager hoặc SSM Parameter Store.
+- Tài khoản dùng vai trò **toàn quyền** cho tiện, chưa tách quyền theo công việc.
+- Bucket **chưa bật versioning**.
 - Security Group cho phép outbound tất cả.
+- Container MySQL cũ và volume dữ liệu cũ vẫn còn trên máy A để làm đường lui (nên dọn khi chắc chắn không cần).
 
 ## 6. Nhật ký sự cố khi triển khai (để trả lời "kể một lần xử lý sự cố")
 
 ### Sự cố 1. "Error establishing SSH connection" khi bấm Connect
 - **Hiện tượng:** không vào được máy EC2 ngay sau khi tạo.
-- **Giả thuyết đúng:** tab mặc định của nút Connect là EC2 Instance Connect, **dùng SSH qua cổng 22**, mà Security Group cố ý không mở cổng 22.
+- **Nguyên nhân:** tab mặc định của nút Connect là EC2 Instance Connect, **dùng SSH qua cổng 22**, mà Security Group cố ý không mở cổng 22.
 - **Cách giải quyết:** chọn tab **Session Manager**. Lỗi này chính là bằng chứng Security Group hoạt động đúng.
-- **Bài học:** đóng cổng 22 là chủ ý, đường quản trị là Session Manager.
 
 ### Sự cố 2. `connection reset by peer` khi kéo image
-- **Hiện tượng:** `docker compose pull` dừng ở lớp của chat-service, các image khác đã tải xong.
-- **Nguyên nhân:** sự cố mạng thoáng qua tới máy chủ lưu image của GitHub, không phải lỗi cấu hình.
-- **Cách giải quyết:** Docker giữ lại các lớp đã tải nên chạy lại chỉ tải phần còn thiếu. Sau đó thêm vòng tự thử lại 4 lần vào `deploy-aws.sh`.
-- **Bài học:** thao tác qua Internet phải chịu được lỗi tạm thời (retry), đúng tinh thần chương 8.
+- **Nguyên nhân:** sự cố mạng thoáng qua tới máy chủ lưu image, không phải lỗi cấu hình.
+- **Cách giải quyết:** Docker giữ lại các lớp đã tải nên chạy lại chỉ tải phần còn thiếu; thêm vòng tự thử lại 4 lần vào `deploy-aws.sh`.
+- **Bài học:** thao tác qua Internet phải chịu được lỗi tạm thời (retry).
 
 ### Sự cố 3. MySQL lần đầu: `MYSQL_ONETIME_PASSWORD: unbound variable`
-- **Hiện tượng:** `erp-mysql is unhealthy` khi triển khai lần đầu; sau đó container tự lên lại và `healthy`.
-- **Giả thuyết ban đầu (sai):** healthcheck không có `start_period`, MySQL khởi tạo chậm hơn 50 giây. Log cho thấy khởi tạo chỉ mất ~10 giây nên giả thuyết này sai.
-- **Cách tìm ra:** so sánh log máy chủ với log máy dev. Máy dev ghi `running ...03-...sh`, máy chủ ghi `sourcing ...03-...sh`.
-- **Nguyên nhân gốc:** `git clone` trên Linux cho file `.sh` quyền 644 (không thực thi), nên entrypoint của MySQL **nạp thẳng** file vào shell của nó. Dòng `set -euo pipefail` trong script rò rỉ sang entrypoint và `set -u` làm nó chết ở bước sau. Trên Windows mọi file bind-mount đều hiện là thực thi được nên không bao giờ gặp.
-- **Cách sửa:** đặt quyền thực thi trong git **và** bọc script trong shell con để dù bị nạp thẳng cũng không rò rỉ. Đã tái hiện lỗi bằng một image có file 644 trước khi sửa, và kiểm chứng cả hai đường sau khi sửa.
-- **Bài học:** môi trường dev (Windows) khác production (Linux) ở những chi tiết nhỏ như quyền file; lỗi chỉ lộ khi chạy trên môi trường thật. Khi chẩn đoán, **đừng tin giả thuyết đầu tiên, hãy so sánh log của hai môi trường**.
+- **Giả thuyết ban đầu (sai):** healthcheck thiếu `start_period`. Log cho thấy khởi tạo chỉ ~10 giây nên sai.
+- **Cách tìm ra:** so sánh log máy chủ với máy dev: dev ghi `running ...03-...sh`, máy chủ ghi `sourcing ...03-...sh`.
+- **Nguyên nhân gốc:** `git clone` trên Linux cho file `.sh` quyền 644 (không thực thi), nên entrypoint của MySQL **nạp thẳng** file; `set -u` trong script rò rỉ sang entrypoint. Trên Windows mọi file bind-mount đều thực thi được nên không gặp.
+- **Cách sửa:** đặt quyền thực thi trong git **và** bọc script trong shell con.
+- **Bài học:** dev (Windows) khác production (Linux) ở chi tiết nhỏ như quyền file; khi chẩn đoán đừng tin giả thuyết đầu tiên, hãy so sánh log hai môi trường.
+
+### Sự cố 4. Sao lưu lên S3 bị `AccessDenied` (ListBucket)
+- **Hiện tượng:** `backup` tạo xong bản cục bộ nhưng bước đẩy S3 lỗi: *not authorized to perform s3:ListBucket on arn:aws:s3:::smart-erp-backup*.
+- **Nguyên nhân:** role đang gắn vào EC2 (`ec2-ssm-smart-erp`) có quyền SSM nhưng **chưa có quyền S3**. `aws s3 sync` cần liệt kê bucket trước.
+- **Cách sửa:** thêm inline policy `smart-erp-backup-s3` (ListBucket trên bucket; Put/Get chỉ trên prefix `smart-erp/*`; không Delete).
+- **Bài học:** `ListBucket` áp dụng cho bucket chứ không phải object, nên cần một dòng `Resource` riêng; kiểm tra quyền sao lưu **trước** khi cần phục hồi.
+
+### Sự cố 5. Chứng chỉ ACM mãi ở "Pending validation"
+- **Hiện tượng:** đã thêm bản ghi CNAME xác minh mà chứng chỉ không được cấp.
+- **Cách tìm ra:** tra DNS công khai (`nslookup`) cho **tên đầy đủ** mà ACM yêu cầu: không tồn tại; còn tên thiếu phần `.erp` lại tồn tại.
+- **Nguyên nhân:** ô Host của trang DNS chỉ nhận phần đứng trước tên miền gốc; đã điền thiếu `.erp` nên bản ghi rơi sai chỗ.
+- **Bài học:** kiểm tra bản ghi DNS bằng công cụ tra cứu bên ngoài thay vì tin vào giao diện nhập.
+
+### Sự cố 6. RDS: `mysql 8.0 reached end of standard support`
+- **Hiện tượng:** tạo RDS báo lỗi vì 8.0 đã hết hỗ trợ tiêu chuẩn.
+- **Cách xử lý:** chuyển sang MySQL 8.4, kiểm chứng trước trên máy dev (script khởi tạo, migration Laravel, hai service .NET) rồi mới tạo.
+- **Hệ quả phụ:** bản tạo đầu bị lệch cấu hình (Multi-AZ = No, 200 GiB). Vì ổ RDS không giảm được dung lượng nên phải xóa và tạo lại. Bài học: **chụp trang Configuration và ước tính chi phí trước khi bấm Create**.
+
+### Sự cố 7. Công cụ phục hồi báo `Access denied for user 'root'`
+- **Hiện tượng:** `recovery restore` đăng nhập RDS bằng `root` (RDS chỉ có `admin`).
+- **Nguyên nhân:** sửa `backup.sh` đã có trong repo, nhưng công cụ chạy từ **image** kéo về từ GHCR (build từ `main`, bản cũ cứng `root`).
+- **Cách sửa:** build image từ nhánh (thẻ theo commit) rồi `IMAGE_TAG=sha-... docker compose pull recovery backup`.
+- **Bài học:** code trên máy chủ và code trong image là hai thứ riêng; muốn thay đổi có hiệu lực phải build lại và kéo image mới.
+
+### Sự cố 8. RabbitMQ không có người dùng nào
+- **Hiện tượng:** `rabbitmqctl change_password` báo user không tồn tại; `list_users` trống.
+- **Nguyên nhân:** người dùng mặc định chỉ được tạo ở **lần khởi tạo đầu** của volume; sau khi container được tạo lại thì không có tài khoản nào (chưa xác định chắc nguyên nhân sâu hơn; nghi cơ sở dữ liệu node được dựng lại).
+- **Cách sửa:** tạo lại `erp_rabbit` bằng `add_user`, `set_user_tags administrator`, `set_permissions`. Không mất dữ liệu nghiệp vụ vì sự kiện chưa gửi vẫn nằm trong outbox.
+- **Bài học:** các dịch vụ chỉ đọc mật khẩu từ `.env` lúc khởi tạo (RabbitMQ, Grafana); đổi `.env` sau đó không đổi mật khẩu thật.
+
+### Sự cố 9. CD bỏ sót máy B
+- **Hiện tượng:** deploy "thành công" nhưng không thấy log của máy B.
+- **Nguyên nhân:** log ghi `INSTANCE_IDS: i-0f33...` (chỉ máy A). Biến `EC2_INSTANCE_ID_B` được tạo sau khi run được tạo, và GitHub chụp giá trị biến lúc tạo run.
+- **Cách sửa:** chạy lại (re-run) run đó; lần này log có hai khối (A rồi B), mỗi khối kết thúc bằng smoke test đạt.
+- **Bài học:** luôn đọc dòng biến trong log trước khi kết luận deploy xong.
 
 ## 7. Tự kiểm tra
+- [ ] Vẽ lại sơ đồ mục 1 không nhìn tài liệu, chỉ ra đường đi của một request chat và một request web.
 - [ ] Giải thích vì sao đặt Budget và nó có chặn chi tiêu không.
-- [ ] Kể 3 thiết lập bảo mật của bucket và mỗi cái chống rủi ro nào.
-- [ ] Phân biệt trust policy với permission policy của một IAM role.
-- [ ] Giải thích vì sao role không có quyền xoá và vì sao không dùng Access Key.
-- [ ] Nói được vì sao mở cổng 80 mà không mở cổng 22.
-- [ ] Vẽ lại sơ đồ mục 1 mà không nhìn tài liệu.
+- [ ] Kể 3 thiết lập bảo mật của bucket S3 và mỗi cái chống rủi ro nào.
+- [ ] Phân biệt trust policy với permission policy của một IAM role; vì sao role không có quyền xóa.
+- [ ] Giải thích bốn security group và vì sao quy tắc tham chiếu nhóm thay vì IP.
+- [ ] Vì sao một DB Multi-AZ chứ không phải hai MySQL độc lập? Multi-AZ khác read replica thế nào?
+- [ ] Vì sao chat và notification phải ghim vào máy A? Vì sao relay chỉ chạy một máy?
+- [ ] Mô tả chuỗi CD và vì sao OIDC an toàn hơn Access Key; vì sao CD lần đầu bỏ sót máy B.
+- [ ] Vì sao CNAME mà không dùng bản ghi A cho `erp`? Chứng chỉ ACM được xác minh thế nào?
+- [ ] Kể một sự cố trong mục 6 từ hiện tượng đến bài học.
