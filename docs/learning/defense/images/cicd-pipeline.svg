@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1290 752" width="1290" height="752" role="img" aria-label="Luồng CI/CD: merge vào main, CI và build image chạy song song, verify-ci, người duyệt, OIDC vào AWS, SSM gửi lệnh deploy tới máy A rồi máy B, mỗi máy có smoke test." style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif)">
+<defs>
+<marker id="arr-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--d-teal,#0b7a75)"/></marker>
+<marker id="arr-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--d-amber,#b45309)"/></marker>
+<marker id="arr-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--d-muted,#5b6b7a)"/></marker>
+<marker id="arr-data" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--d-data,#1f4f8f)"/></marker>
+</defs>
+<rect x="0" y="0" width="1290" height="752" rx="0" style="fill:var(--d-bg,#ffffff);"/>
+<text x="30" y="40" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12px;font-weight:600;fill:var(--d-muted,#5b6b7a)">GitHub</text>
+<rect x="30" y="64" width="190" height="112" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
+<text x="42" y="86" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13px;font-weight:600;fill:var(--d-fg,#17212b)">1 · Merge vào main</text>
+<text x="42" y="106" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">PR đã được duyệt</text>
+<text x="42" y="123" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">CI cũng chạy trên PR</text>
+<text x="42" y="140" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">(sửa docs/** không build)</text>
+<rect x="260" y="64" width="250" height="52" rx="6" style="fill:var(--d-ec2,#eaf2f8);stroke:var(--d-teal,#0b7a75);stroke-width:1.3;"/>
+<text x="272" y="86" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13px;font-weight:600;fill:var(--d-teal,#0b7a75)">2a · CI</text>
+<text x="272" y="106" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">tests: Laravel, .NET, Node, Python, UI</text>
+<rect x="260" y="124" width="250" height="52" rx="6" style="fill:var(--d-ec2,#eaf2f8);stroke:var(--d-teal,#0b7a75);stroke-width:1.3;"/>
+<text x="272" y="146" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13px;font-weight:600;fill:var(--d-teal,#0b7a75)">2b · Build images</text>
+<text x="272" y="166" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">12 image → GHCR, thẻ sha-xxxxxxx</text>
+<rect x="550" y="64" width="200" height="112" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
+<text x="562" y="86" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13px;font-weight:600;fill:var(--d-fg,#17212b)">3 · verify-ci</text>
+<text x="562" y="106" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">CI của đúng commit này</text>
+<text x="562" y="123" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">phải xanh, đỏ thì dừng</text>
+<text x="562" y="140" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">chờ tối đa ~10 phút</text>
+<rect x="790" y="64" width="200" height="112" rx="6" style="fill:var(--d-amberbg,#fdf1dc);stroke:var(--d-amber,#b45309);stroke-width:1.3;"/>
+<text x="802" y="86" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13px;font-weight:600;fill:var(--d-amber,#b45309)">4 · Chờ duyệt</text>
+<text x="802" y="106" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">environment production</text>
+<text x="802" y="123" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">1 người duyệt bắt buộc</text>
+<text x="802" y="140" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">(Required reviewer)</text>
+<rect x="1030" y="64" width="230" height="112" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
+<text x="1042" y="86" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13px;font-weight:600;fill:var(--d-fg,#17212b)">Chạy tay để quay lui</text>
+<text x="1042" y="106" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">workflow_dispatch</text>
+<text x="1042" y="123" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">image_tag = sha-commit cũ</text>
+<text x="1042" y="140" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">bỏ qua verify-ci</text>
+<polyline points="220,120 240,120 240,90 258,90" style="fill:none;stroke:var(--d-teal,#0b7a75);stroke-width:1.8;" marker-end="url(#arr-teal)"/>
+<polyline points="240,120 240,150 258,150" style="fill:none;stroke:var(--d-teal,#0b7a75);stroke-width:1.8;" marker-end="url(#arr-teal)"/>
+<polyline points="510,90 530,90 530,120 548,120" style="fill:none;stroke:var(--d-teal,#0b7a75);stroke-width:1.8;" marker-end="url(#arr-teal)"/>
+<polyline points="510,150 530,150 530,120" style="fill:none;stroke:var(--d-teal,#0b7a75);stroke-width:1.8;"/>
+<text x="560" y="192" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">chạy khi Build images xong</text>
+<polyline points="750,120 788,120" style="fill:none;stroke:var(--d-teal,#0b7a75);stroke-width:1.8;" marker-end="url(#arr-teal)"/>
+<polyline points="1028,120 992,120" style="fill:none;stroke:var(--d-muted,#5b6b7a);stroke-width:1.8;stroke-dasharray:4 4;" marker-end="url(#arr-muted)"/>
+<polyline points="385,176 385,214" style="fill:none;stroke:var(--d-data,#1f4f8f);stroke-width:1.8;" marker-end="url(#arr-data)"/>
+<text x="393" y="200" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-data,#1f4f8f)">đẩy image</text>
+<rect x="290" y="214" width="190" height="44" rx="6" style="fill:var(--d-databg,#e7eefa);stroke:var(--d-data,#1f4f8f);stroke-width:1.3;"/>
+<text x="385" y="232" text-anchor="middle" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12px;font-weight:600;fill:var(--d-data,#1f4f8f)">GHCR  ghcr.io/ttung205</text>
+<text x="385" y="249" text-anchor="middle" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-muted,#5b6b7a)">12 image, công khai</text>
+<polyline points="890,176 890,204 125,204 125,298" style="fill:none;stroke:var(--d-teal,#0b7a75);stroke-width:1.8;" marker-end="url(#arr-teal)"/>
+<text x="900" y="198" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">tiếp tục ở hàng dưới (job deploy)</text>
+<text x="30" y="286" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12px;font-weight:600;fill:var(--d-muted,#5b6b7a)">AWS</text>
+<rect x="30" y="300" width="190" height="112" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
+<text x="42" y="322" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13px;font-weight:600;fill:var(--d-fg,#17212b)">5 · OIDC vào AWS</text>
+<text x="42" y="342" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">GitHub ký token tạm thời</text>
+<text x="42" y="359" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">role github-deploy, ≤ 1 giờ</text>
+<text x="42" y="376" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">chỉ repo này + production</text>
+<rect x="250" y="300" width="210" height="112" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
+<text x="262" y="322" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13px;font-weight:600;fill:var(--d-fg,#17212b)">6 · SSM Run Command</text>
+<text x="262" y="342" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">AWS-RunShellScript</text>
+<text x="262" y="359" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">quyền chỉ cho 2 máy này</text>
+<text x="262" y="376" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">không SSH, không cổng 22</text>
+<polyline points="220,356 248,356" style="fill:none;stroke:var(--d-teal,#0b7a75);stroke-width:1.8;" marker-end="url(#arr-teal)"/>
+<polyline points="460,356 498,356" style="fill:none;stroke:var(--d-teal,#0b7a75);stroke-width:1.8;" marker-end="url(#arr-teal)"/>
+<rect x="500" y="300" width="340" height="214" rx="8" style="fill:var(--d-ec2,#eaf2f8);stroke:var(--d-sg,#6b7f93);stroke-width:1.3;stroke-dasharray:6 4;"/>
+<text x="512" y="322" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13px;font-weight:600;fill:var(--d-fg,#17212b)">7a · Máy A (làm trước)</text>
+<text x="512" y="346" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· git pull --ff-only</text>
+<text x="512" y="368" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· deploy-aws.sh, IMAGE_TAG=sha-xxxxxxx</text>
+<text x="512" y="390" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· kéo image từ GHCR (thử lại 4 lần)</text>
+<text x="512" y="412" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· migration Laravel (chỉ máy A)</text>
+<text x="512" y="434" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· docker compose up -d --wait</text>
+<text x="512" y="456" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· smoke test /health ngay trên máy</text>
+<text x="512" y="494" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-amber,#b45309)">lỗi ở bước nào thì dừng, máy B giữ bản cũ</text>
+<rect x="880" y="300" width="380" height="214" rx="8" style="fill:var(--d-ec2,#eaf2f8);stroke:var(--d-sg,#6b7f93);stroke-width:1.3;stroke-dasharray:6 4;"/>
+<text x="892" y="322" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13px;font-weight:600;fill:var(--d-fg,#17212b)">7b · Máy B (sau, khi A thành công)</text>
+<text x="892" y="346" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· git pull --ff-only</text>
+<text x="892" y="368" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· deploy-aws.sh, HA_ROLE=b</text>
+<text x="892" y="390" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· kéo image từ GHCR</text>
+<text x="892" y="412" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· không migration, không bật hạ tầng</text>
+<text x="892" y="434" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· docker compose up -d --wait</text>
+<text x="892" y="456" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· smoke test (bỏ chat, notification)</text>
+<polyline points="840,400 878,400" style="fill:none;stroke:var(--d-teal,#0b7a75);stroke-width:1.8;" marker-end="url(#arr-teal)"/>
+<text x="859" y="392" text-anchor="middle" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-teal,#0b7a75)">A xanh</text>
+<polyline points="480,236 670,236 670,298" style="fill:none;stroke:var(--d-data,#1f4f8f);stroke-width:1.8;" marker-end="url(#arr-data)"/>
+<polyline points="670,236 1070,236 1070,298" style="fill:none;stroke:var(--d-data,#1f4f8f);stroke-width:1.8;" marker-end="url(#arr-data)"/>
+<text x="575" y="230" text-anchor="middle" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-data,#1f4f8f)">kéo image sha-xxxxxxx</text>
+<rect x="30" y="548" width="410" height="184" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
+<text x="42" y="570" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13px;font-weight:600;fill:var(--d-fg,#17212b)">Chặn lỗi trước khi lên production</text>
+<text x="42" y="596" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">CI đỏ thì không tới bước duyệt (verify-ci)</text>
+<text x="42" y="618" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">một người duyệt tay mới được chạy tiếp</text>
+<text x="42" y="640" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">thẻ image phải khớp: latest hoặc sha-hex</text>
+<text x="42" y="662" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">quyền AWS chỉ cấp cho job đã được duyệt</text>
+<text x="42" y="684" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">hai lần deploy không bao giờ chạy song song</text>
+<text x="42" y="706" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">không có khóa AWS dài hạn trong GitHub</text>
+<rect x="470" y="548" width="360" height="184" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
+<text x="482" y="570" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13px;font-weight:600;fill:var(--d-fg,#17212b)">Triển khai cuốn chiếu</text>
+<text x="482" y="596" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">luôn còn ít nhất một máy phục vụ qua ALB</text>
+<text x="482" y="618" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">máy A lỗi: dừng, máy B giữ nguyên bản cũ</text>
+<text x="482" y="640" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">mỗi máy tự smoke test, không đi qua ALB</text>
+<text x="482" y="662" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">quay lui: chạy tay với image_tag cũ</text>
+<text x="482" y="684" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">SSM gửi lệnh qua kết nối do chính máy mở ra</text>
+<text x="482" y="706" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">log công khai nên không in bí mật</text>
+<rect x="860" y="548" width="400" height="184" rx="6" style="fill:var(--d-amberbg,#fdf1dc);stroke:var(--d-amber,#b45309);stroke-width:1.3;"/>
+<text x="872" y="570" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13px;font-weight:600;fill:var(--d-amber,#b45309)">Đã đo và đã gặp</text>
+<text x="872" y="596" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">deploy máy A khoảng 63 s, máy B khoảng 70 s</text>
+<text x="872" y="618" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">mỗi máy có 20 đến 30 s lỗi một phần:</text>
+<text x="872" y="640" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">  chưa phải zero-downtime</text>
+<text x="872" y="662" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">biến Actions được chụp lúc tạo run:</text>
+<text x="872" y="684" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">  lần đầu bỏ sót máy B (re-run thì nhận)</text>
+<text x="872" y="706" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">sửa docs/** không build, không deploy</text>
+</svg>

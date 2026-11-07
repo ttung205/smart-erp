@@ -5,6 +5,10 @@
 
 ## 1. Bức tranh tổng thể (kiến trúc hiện tại)
 
+![Kiến trúc AWS của Smart ERP: ALB, hai EC2 ở hai AZ, RDS Multi-AZ, EFS](images/aws-ha-architecture.png)
+
+*Hình 1. Kiến trúc AWS hiện tại. Bản vector: [aws-ha-architecture.svg](images/aws-ha-architecture.svg). Bản chữ của cùng sơ đồ nằm ngay dưới.*
+
 ```text
  Người dùng ─https─► erp.transportbooking.xyz (DNS: CNAME → ALB, ở PA Việt Nam)
                          │
@@ -107,6 +111,10 @@ Mọi máy nằm trong một **VPC**. Dùng VPC mặc định (`172.31.0.0/16`, 
 - **Email OTP qua Amazon SES** (production, địa chỉ/tên miền đã xác minh bằng DKIM). Thông tin SMTP nằm trong `.env` trên máy chủ, không nằm trong Git. Lưu ý: SES qua SMTP dùng khóa SMTP của một IAM user (**dài hạn**), trái nguyên tắc "không khóa dài hạn", nên IAM user đó chỉ nên có quyền gửi email.
 
 ### 2.8. CD: tự động triển khai không cần khóa AWS và không cần cổng 22
+![Luồng CI/CD: merge, CI và build image, verify-ci, duyệt, OIDC, SSM, máy A rồi máy B](images/cicd-pipeline.png)
+
+*Hình 2. Luồng CI/CD. Bản vector: [cicd-pipeline.svg](images/cicd-pipeline.svg).*
+
 **Chuỗi hoạt động khi merge vào `main`:**
 ```text
 push vào main ─► CI (chạy test)            ┐
