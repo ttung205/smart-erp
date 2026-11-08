@@ -8,6 +8,13 @@
 # Sau khi chạy xong: Stop máy, rồi EC2 → Actions → Image and templates → Create image.
 set -euo pipefail
 
+# Script này chuyển nhánh git của thư mục dự án (checkout main) nên có thể xóa chính file đang chạy; bash đọc script
+# dần từng dòng, nên phải chạy bản sao ở /tmp để không bị hỏng giữa chừng.
+if [ -z "${BAKE_REEXEC:-}" ]; then
+  cp "$0" /tmp/bake-ami.sh
+  BAKE_REEXEC=1 exec bash /tmp/bake-ami.sh "$@"
+fi
+
 IMAGE_TAG="${IMAGE_TAG:?Đặt IMAGE_TAG=sha-xxxxxxx (thẻ image hiện đang chạy ở production)}"
 REGISTRY="${REGISTRY:-ghcr.io/ttung205}"
 APP_DIR=/opt/smart-erp
