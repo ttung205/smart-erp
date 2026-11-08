@@ -10,7 +10,8 @@ name: Deploy production
 # Cần khai báo ở Settings > Secrets and variables > Actions > tab Variables (không phải Secrets):
 #   AWS_REGION            ví dụ ap-southeast-1
 #   EC2_INSTANCE_ID       ví dụ i-0123456789abcdef0 (máy A; trong chế độ HA là máy giữ RabbitMQ)
-#   EC2_INSTANCE_ID_B     (tùy chọn) máy B của chế độ HA; được deploy SAU máy A
+#   ASG_NAME              tên Auto Scaling Group của tầng ứng dụng, ví dụ erp-app-asg (deploy SAU máy A, từng máy InService)
+#   IMAGE_TAG_PARAM       (tùy chọn) tham số SSM lưu thẻ image đang chạy, mặc định /smart-erp/prod/image-tag
 #   AWS_DEPLOY_ROLE_ARN   ARN của IAM role cho GitHub, ví dụ arn:aws:iam::123456789012:role/github-deploy-smart-erp
 #
 # Chạy tay (workflow_dispatch) để triển khai lại hoặc quay lui: nhập image_tag, ví dụ sha-1a2b3c4.
@@ -85,8 +86,10 @@ jobs:
          github.event.workflow_run.head_branch == 'main'))
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
-      # Máy A trước, máy B sau (EC2_INSTANCE_ID_B có thể để trống khi chỉ chạy một máy)
-      INSTANCE_IDS: ${{ vars.EC2_INSTANCE_ID }} ${{ vars.EC2_INSTANCE_ID_B }}
+      # Máy A (máy riêng giữ RabbitMQ, Mongo, relay, chat). Các máy ứng dụng được tìm theo Auto Scaling Group lúc chạy.
+      INSTANCE_IDS: ${{ vars.EC2_INSTANCE_ID }}
+      ASG_NAME: ${{ vars.ASG_NAME }}
+      IMAGE_TAG_PARAM: ${{ vars.IMAGE_TAG_PARAM || '/smart-erp/prod/image-tag' }}
     steps:
       - name: Xác định thẻ image
         id: tag
@@ -111,26 +114,49 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           role-session-name: gha-deploy-${{ github.run_id }}
 
-      - name: Deploy lần lượt từng máy qua SSM (A trước, B sau)
+      - name: Deploy cuốn chiếu (máy A trước, rồi từng máy trong Auto Scaling Group)
         env:
           IMAGE_TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          # Triển khai cuốn chiếu: xong máy A (kèm smoke test chính máy đó) mới sang máy B, nên luôn còn ít nhất một máy
-          # phục vụ qua ALB. Máy A lỗi thì dừng, máy B giữ nguyên phiên bản cũ. Không đặt EC2_INSTANCE_ID_B thì chỉ deploy một máy.
+          # Triển khai cuốn chiếu: xong một máy (kèm smoke test chính máy đó) mới sang máy kế, nên luôn còn máy phục vụ qua ALB.
+          # Máy nào lỗi thì dừng, các máy sau giữ nguyên phiên bản cũ.
+          # Máy A là máy riêng (RabbitMQ, Mongo, relay, chat) nên đi theo ID. Máy ứng dụng nằm trong Auto Scaling Group
+          # đổi liên tục (ASG thay máy hỏng, tự mở rộng), nên được tìm lúc chạy: chỉ lấy máy đang InService.
           # Chạy bằng user ubuntu (không phải root) để file trong /opt/smart-erp không bị đổi chủ sở hữu.
           remote="cd /opt/smart-erp && git pull --ff-only && IMAGE_TAG=${IMAGE_TAG} scripts/deploy-aws.sh"
-          for instance in $INSTANCE_IDS; do
+          instances="$INSTANCE_IDS"
+          if [ -n "${ASG_NAME:-}" ]; then
+            asg_ids=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names "$ASG_NAME" \
+              --query "AutoScalingGroups[0].Instances[?LifecycleState=='InService'].InstanceId" --output text)
+            echo "Máy InService trong ${ASG_NAME}: ${asg_ids:-không có}"
+            instances="$instances $asg_ids"
+          fi
+          # Bỏ trùng và khoảng trắng thừa, giữ thứ tự (A đứng đầu)
+          instances=$(echo $instances | tr ' ' '\n' | awk 'NF && !seen[$0]++' | tr '\n' ' ')
+          [ -n "$instances" ] || { echo "Không có máy nào để deploy (kiểm tra biến EC2_INSTANCE_ID và ASG_NAME)." >&2; exit 1; }
+          echo "Thứ tự deploy: $instances"
+          first=1
+          for instance in $instances; do
+            # Chờ giữa hai máy để ALB kịp coi máy vừa deploy là healthy trước khi máy kế bị khởi động lại
+            [ "$first" = 1 ] || sleep 30
+            first=0
             echo "=================== Deploy ${IMAGE_TAG} lên ${instance} ==================="
-            command_id=$(aws ssm send-command               --instance-ids "$instance"               --document-name "AWS-RunShellScript"               --comment "deploy ${IMAGE_TAG} (run ${GITHUB_RUN_ID})"               --timeout-seconds 60               --parameters "{\"executionTimeout\":[\"2100\"],\"commands\":[\"sudo -u ubuntu -H bash -lc '${remote}'\"]}"               --query "Command.CommandId" --output text) || {
-              echo "Không gửi được lệnh tới ${instance}: máy EC2 đang dừng hoặc SSM Agent chưa online." >&2
-              echo "Bật máy (EC2 > Start instance), chờ 2 đến 3 phút rồi chạy lại workflow này bằng workflow_dispatch." >&2
+            command_id=$(aws ssm send-command \
+              --instance-ids "$instance" \
+              --document-name "AWS-RunShellScript" \
+              --comment "deploy ${IMAGE_TAG} (run ${GITHUB_RUN_ID})" \
+              --timeout-seconds 60 \
+              --parameters "{\"executionTimeout\":[\"2100\"],\"commands\":[\"sudo -u ubuntu -H bash -lc '${remote}'\"]}" \
+              --query "Command.CommandId" --output text) || {
+              echo "Không gửi được lệnh tới ${instance}: máy đang dừng, SSM Agent chưa online, hoặc role thiếu quyền." >&2
               exit 1
             }
             echo "Đã gửi lệnh SSM: $command_id"
             # Deploy kéo image và chạy migration có thể mất vài chục phút, lâu hơn waiter mặc định của AWS CLI (~8 phút).
             status=Pending
             for _ in $(seq 1 240); do
-              status=$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$instance"                 --query Status --output text 2>/dev/null || echo Pending)
+              status=$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$instance" \
+                --query Status --output text 2>/dev/null || echo Pending)
               case "$status" in
                 Success|Failed|Cancelled|TimedOut|Cancelling) break ;;
               esac
@@ -138,8 +164,14 @@ jobs:
             done
             echo "Trạng thái ${instance}: $status"
             echo "----- stdout (24 000 ký tự cuối do SSM giữ lại) -----"
-            aws ssm get-command-invocation --command-id "$command_id" --instance-id "$instance"               --query StandardOutputContent --output text || true
+            aws ssm get-command-invocation --command-id "$command_id" --instance-id "$instance" \
+              --query StandardOutputContent --output text || true
             echo "----- stderr -----"
-            aws ssm get-command-invocation --command-id "$command_id" --instance-id "$instance"               --query StandardErrorContent --output text || true
+            aws ssm get-command-invocation --command-id "$command_id" --instance-id "$instance" \
+              --query StandardErrorContent --output text || true
             [ "$status" = "Success" ] || { echo "Deploy lên ${instance} không thành công ($status). Các máy sau không được triển khai." >&2; exit 1; }
           done
+          # Mọi máy đã chạy bản mới: ghi thẻ này làm "phiên bản đang chạy" để máy mới của ASG khởi động đúng bản.
+          # (Chỉ ghi khi TẤT CẢ máy thành công; nếu có máy lỗi thì dừng ở trên và tham số giữ thẻ cũ.)
+          aws ssm put-parameter --name "$IMAGE_TAG_PARAM" --type String --value "$IMAGE_TAG" --overwrite > /dev/null
+          echo "Đã ghi ${IMAGE_TAG} vào tham số ${IMAGE_TAG_PARAM}"
