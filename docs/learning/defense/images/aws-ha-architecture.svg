@@ -31,7 +31,7 @@
 <rect x="76" y="210" width="262" height="70" rx="6" style="fill:var(--d-ec2,#eaf2f8);stroke:var(--d-teal,#0b7a75);stroke-width:1.3;"/>
 <text x="86" y="230" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:12.5px;font-weight:600;fill:var(--d-teal,#0b7a75)">tg-erp-web</text>
 <text x="86" y="247" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">mặc định</text>
-<text x="86" y="264" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">máy A + máy B, cổng 80</text>
+<text x="86" y="264" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">máy A + máy ASG, cổng 80</text>
 <rect x="350" y="210" width="290" height="70" rx="6" style="fill:var(--d-amberbg,#fdf1dc);stroke:var(--d-amber,#b45309);stroke-width:1.3;"/>
 <text x="360" y="230" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:12.5px;font-weight:600;fill:var(--d-amber,#b45309)">tg-erp-realtime</text>
 <text x="360" y="247" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">/api/v1/chat*  /api/v1/notifications*</text>
@@ -72,7 +72,7 @@
 <text x="283" y="559" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-fg,#17212b)">Grafana · Loki</text>
 <text x="283" y="575" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-muted,#5b6b7a)">sao lưu → S3</text>
 <rect x="525" y="348" width="370" height="252" rx="8" style="fill:var(--d-ec2,#eaf2f8);stroke:var(--d-sg,#6b7f93);stroke-width:1.3;stroke-dasharray:6 4;"/>
-<text x="535" y="366" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13px;font-weight:600;fill:var(--d-fg,#17212b)">EC2-B  smart-erp-app-b</text>
+<text x="535" y="366" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13px;font-weight:600;fill:var(--d-fg,#17212b)">Máy ASG  (erp-app-asg)</text>
 <text x="885" y="366" text-anchor="end" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11px;font-weight:400;fill:var(--d-sg,#6b7f93)">SG erp-app</text>
 <rect x="535" y="376" width="350" height="30" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
 <text x="710" y="396" text-anchor="middle" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:12px;font-weight:500;fill:var(--d-fg,#17212b)">nginx :80  →  Kong :8000</text>
@@ -80,11 +80,11 @@
 <text x="710" y="435" text-anchor="middle" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">identity · catalog · sales · inventory</text>
 <text x="710" y="453" text-anchor="middle" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">purchase · eoffice · finance · ai</text>
 <rect x="535" y="490" width="350" height="94" rx="6" style="fill:none;stroke:var(--d-line,#9fb0c0);stroke-width:1.3;stroke-dasharray:4 4;"/>
-<text x="547" y="510" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-muted,#5b6b7a)">Không chạy ở máy B:</text>
+<text x="547" y="510" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-muted,#5b6b7a)">Máy ASG không chạy:</text>
 <text x="547" y="527" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">RabbitMQ, Mongo, relay, scheduler,</text>
 <text x="547" y="543" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">chat, notification, giám sát, sao lưu</text>
-<text x="547" y="565" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11px;font-weight:400;fill:var(--d-muted,#5b6b7a)">Outbox__RelayEnabled=false</text>
-<text x="547" y="579" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-muted,#5b6b7a)">gọi RabbitMQ của máy A bằng IP private</text>
+<text x="547" y="565" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-muted,#5b6b7a)">gọi RabbitMQ của máy A (IP private)</text>
+<text x="547" y="579" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-muted,#5b6b7a)">1 đến 3 máy, tự dựng từ AMI, .env lấy từ SSM</text>
 <polyline points="525,562 457,562" style="fill:none;stroke:var(--d-teal,#0b7a75);stroke-width:1.8;" marker-end="url(#arr-teal)"/>
 <text x="491" y="554" text-anchor="middle" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-teal,#0b7a75)">AMQP 5672</text>
 <polyline points="250,600 250,650 780,650" style="fill:none;stroke:var(--d-data,#1f4f8f);stroke-width:1.8;"/>
@@ -106,12 +106,12 @@
 <polyline points="282,756 348,756" style="fill:none;stroke:var(--d-data,#1f4f8f);stroke-width:1.6;" marker-end="url(#arr-data)" marker-start="url(#arr-data)"/>
 <text x="315" y="748" text-anchor="middle" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-data,#1f4f8f)">đồng bộ</text>
 <text x="76" y="814" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">8 schema · 8 tài khoản riêng cho từng service + erp_backup chỉ đọc</text>
-<text x="76" y="834" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">failover tự động khoảng 1 phút, endpoint không đổi</text>
+<text x="76" y="834" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">nằm trong subnet riêng (không có đường ra Internet); failover ~1 phút</text>
 <text x="76" y="854" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">đã đo: PHP gián đoạn ~7 s, .NET ~19 s</text>
 <rect x="640" y="690" width="280" height="180" rx="8" style="fill:var(--d-box,#ffffff);stroke:var(--d-sg,#6b7f93);stroke-width:1.3;stroke-dasharray:6 4;"/>
 <text x="906" y="706" text-anchor="end" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11px;font-weight:400;fill:var(--d-sg,#6b7f93)">SG erp-efs</text>
 <text x="656" y="710" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12.5px;font-weight:600;fill:var(--d-fg,#17212b)">EFS · tệp đính kèm của sales</text>
-<text x="656" y="742" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">mount target ở cả 2 AZ</text>
+<text x="656" y="742" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">mount target ở subnet riêng 1a và 1b</text>
 <text x="656" y="762" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">/mnt/efs/sales trên mỗi máy</text>
 <text x="656" y="790" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">chia sẻ giữa hai máy, container</text>
 <text x="656" y="808" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">không khởi động nếu EFS chưa mount</text>
@@ -125,11 +125,11 @@
 <text x="1002" y="296" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">OIDC, chỉ môi trường production</text>
 <rect x="990" y="346" width="250" height="66" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
 <text x="1002" y="366" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12.5px;font-weight:600;fill:var(--d-fg,#17212b)">Systems Manager</text>
-<text x="1002" y="384" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">Run Command: deploy máy A rồi B</text>
-<text x="1002" y="401" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">Session Manager: quản trị</text>
+<text x="1002" y="384" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">Run Command: deploy A rồi ASG</text>
+<text x="1002" y="401" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">Parameter Store: env-app, image-tag</text>
 <rect x="990" y="436" width="250" height="62" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
 <text x="1002" y="456" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12.5px;font-weight:600;fill:var(--d-fg,#17212b)">IAM role ec2-ssm-smart-erp</text>
-<text x="1002" y="474" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">gắn vào cả 2 EC2, quyền tạm thời</text>
+<text x="1002" y="474" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">gắn vào A và ASG, quyền tạm thời</text>
 <rect x="990" y="522" width="250" height="72" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
 <text x="1002" y="542" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12.5px;font-weight:600;fill:var(--d-fg,#17212b)">S3 smart-erp-backup</text>
 <text x="1002" y="560" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">ghi từ máy A bằng IAM role</text>
