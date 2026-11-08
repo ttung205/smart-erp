@@ -14,7 +14,7 @@
 ```text
 Người dùng → erp.transportbooking.xyz (CNAME → ALB)
  ALB (HTTPS 443, chứng chỉ ACM, health check /health mỗi 10s) ở 2 AZ
-  ├ tg-erp-web  (mặc định)   → EC2-A (đứng riêng) + Auto Scaling Group erp-app-asg (Min 1, Desired 1, Max 2, AZ 1b), cổng 80
+  ├ tg-erp-web  (mặc định)   → EC2-A (đứng riêng) + Auto Scaling Group erp-app-asg (Min 1, Desired 2, Max 3, AZ 1a và 1b), cổng 80
   ├ tg-erp-realtime (/api/v1/chat*, /api/v1/notifications*, stickiness) → chỉ EC2-A
   └ tg-erp-grafana  (/grafana*)  → chỉ EC2-A, cổng 3000
  Mỗi máy ứng dụng: nginx → Kong → các service (gọi nhau qua Docker DNS cục bộ trên cùng máy)
@@ -125,7 +125,7 @@ Lưu ý khi trình bày số liệu:
 20. **Nếu ASG đang scale-in mà chạy CD thì sao?** CD hỏi ASG máy nào đang InService lúc chạy, deploy từng máy và chỉ ghi `image-tag` khi tất cả thành công; máy mới sinh ra trong lúc deploy đọc thẻ cũ (đã được xác nhận) nên không chạy bản chưa kiểm chứng.
 
 ## 8. Kịch bản demo chịu lỗi (6 phút, dùng khi bảo vệ)
-Chuẩn bị (trước ~30 phút): bật RDS, rồi máy A, rồi đặt ASG Min = 1, Desired = 1, Max = 2 (máy ASG tự dựng từ AMI, khoảng 3 đến 4 phút). Mở `https://erp.transportbooking.xyz/health`, trang Targets của `tg-erp-web` (2 máy healthy: A và máy ASG; 3 máy sau khi tạo tải), tab Activity của ASG và Grafana (`/grafana/`).
+Chuẩn bị (trước ~30 phút): bật RDS, rồi máy A, rồi đặt ASG Min = 1, Desired = 2, Max = 3 (máy ASG tự dựng từ AMI, khoảng 3 đến 4 phút). Mở `https://erp.transportbooking.xyz/health`, trang Targets của `tg-erp-web` (3 máy healthy: A và hai máy ASG; 4 máy sau khi tạo tải), tab Activity của ASG và Grafana (`/grafana/`).
 1. Chạy máy đo (vòng lặp `curl` mỗi giây tới `/api/v1/sales/health`) trên terminal chiếu lên màn hình.
 2. **Terminate một máy ASG** trong console. Chỉ cho giảng viên: vài lỗi 502 hoặc timeout trong khoảng 30 giây rồi 200 trở lại (ALB loại máy chết); nói: *còn hai máy phục vụ nên không có downtime toàn phần*. Mở tab Activity: sau khoảng 1 phút ASG ghi dòng tạo máy thay thế; khoảng 2,5 phút sau máy mới healthy. Nói: *hệ thống tự phục hồi, không cần ai can thiệp*.
 3. (Tùy thời gian) **Reboot RDS with failover**: `sales` ngừng khoảng 8 giây rồi tự phục hồi; nói: *Multi-AZ đồng bộ, endpoint không đổi, DB nằm trong subnet riêng*.
