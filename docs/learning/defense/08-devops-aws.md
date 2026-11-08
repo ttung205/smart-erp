@@ -19,7 +19,7 @@
               │  /grafana* ────────► tg-erp-grafana  (chỉ A, cổng 3000)   │
               └──────────┬───────────────────────────────┬───────────────┘
                          │                               │
-              EC2-A (AZ 1a, đứng riêng)      Auto Scaling Group erp-app-asg (1–3 máy, AZ 1a và 1b)
+              EC2-A (AZ 1a, đứng riêng)      Auto Scaling Group erp-app-asg (1–2 máy, chỉ AZ 1b)
               nginx → Kong → service         nginx → Kong → service; dựng từ golden AMI;
               + RabbitMQ, Mongo, relay,      .env và thẻ image lấy từ SSM Parameter Store
                 chat, notification, ...
@@ -205,14 +205,14 @@ Khoảng ngừng phục vụ chỉ nằm ở bước 1–6 (hệ thống chưa c
 - **Golden AMI** `erp-app-ami-sha-2cea7c0`: Ubuntu + Docker + AWS CLI + 9 image ứng dụng kéo sẵn (`scripts/aws/bake-ami.sh`). **Không có `.env` và không có container** (script kiểm tra trước khi tạo AMI). Dựng từ một máy sạch, không chụp từ máy đang chạy vì sẽ kèm bí mật.
 - **SSM Parameter Store:** `/smart-erp/prod/env-app` (SecureString, **tier Advanced** vì `.env` hơn 4 KB, giới hạn của tier Standard) và `/smart-erp/prod/image-tag` (String, do CD cập nhật). IAM role của máy chỉ được `ssm:GetParameter` đúng hai tham số này.
 - **Launch template** `erp-app-lt`: AMI, `m7i-flex.large`, role `ec2-ssm-smart-erp`, security group `erp-app`, IMDSv2 bắt buộc, IP công khai, thẻ `Name = erp-app-asg`, user data = `scripts/aws/asg-boot.sh`.
-- **ASG** `erp-app-asg`: Min 1, Desired 2, Max 3, hai subnet công khai (1a và 1b), gắn `tg-erp-web`, health check loại ELB, grace period 420 giây.
+- **ASG** `erp-app-asg`: Min 1, Desired 1, Max 2, một subnet công khai (1b, để máy ASG luôn khác AZ với máy A ở 1a), gắn `tg-erp-web`, health check loại ELB, grace period 420 giây.
 - **Chính sách mở rộng** `erp-requests-per-target`: target tracking theo **ALBRequestCountPerTarget**, ngưỡng 300 request mỗi máy mỗi phút, instance warmup 240 giây.
 
 **Máy mới tự cấu hình** (`asg-boot.sh`): mount EFS → lấy `.env` và thẻ image từ SSM → `git pull` → `deploy-aws.sh` với `HA_ROLE=b` (không migration, không bật hạ tầng). Đo: user data chạy khoảng **89 giây**; cộng khởi động hệ điều hành và ALB kiểm tra thành khoảng 2,5 phút.
 
-**Đo được (08-chiu-loi.md, A6 đến A8):** terminate một máy → ASG phát hiện sau ~55s, tạo máy thay dưới 10s sau đó, người dùng chỉ thấy lỗi lẻ ~30s; tải → cảnh báo sau ~6 phút, ASG tăng 2 → 3 sau 13s; hết tải → giảm sau ~18 phút, mỗi máy terminate mất ~5 phút (ALB xả kết nối). Tăng nhanh giảm chậm là thiết kế (3 điểm đo để tăng, 15 để giảm).
+**Đo được (08-chiu-loi.md, A6 đến A8):** terminate một máy → ASG phát hiện sau ~55s, tạo máy thay dưới 10s sau đó, người dùng chỉ thấy lỗi lẻ ~30s; tải → cảnh báo sau ~6 phút, ASG tăng 2 → 3 sau 13s (số đo lấy lúc cấu hình cũ Desired 2, Max 3; cơ chế không đổi); hết tải → giảm sau ~18 phút, mỗi máy terminate mất ~5 phút (ALB xả kết nối). Tăng nhanh giảm chậm là thiết kế (3 điểm đo để tăng, 15 để giảm).
 
-**Chi phí:** trạng thái bình thường là máy A + 2 máy ASG = 3 EC2. Giữa các buổi đặt Min và Desired của ASG về 0 (máy ASG tự terminate); nhớ đặt lại Min = 2, Desired = 2 trước buổi bảo vệ (nếu Min = 1, lúc rảnh ASG tự về 1 máy).
+**Chi phí:** trạng thái bình thường là máy A + 1 máy ASG = 2 EC2; tải cao thì ASG thêm 1 máy (tổng 3). Ngưỡng 300 request mỗi máy mỗi phút tính trên cả `tg-erp-web`, nên có cả máy A (2 máy ≈ 600 request mỗi phút thì thêm máy). Giữa các buổi đặt Min và Desired về 0 để dừng chi phí; nhớ đặt lại Min 1, Desired 1, Max 2 trước buổi bảo vệ. Không để Min 0 khi chạy thật: máy A đứng một mình là điểm chết duy nhất, và ASG không tự thêm máy lên từ 0.
 
 ## 3. Vì sao tất cả điều này thuộc môn "ứng dụng phân tán"?
 
