@@ -56,7 +56,7 @@
 <rect x="250" y="300" width="210" height="112" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
 <text x="262" y="322" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13px;font-weight:600;fill:var(--d-fg,#17212b)">6 · SSM Run Command</text>
 <text x="262" y="342" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">AWS-RunShellScript</text>
-<text x="262" y="359" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">quyền chỉ cho 2 máy này</text>
+<text x="262" y="359" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">chỉ máy A và máy của ASG</text>
 <text x="262" y="376" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">không SSH, không cổng 22</text>
 <polyline points="220,356 248,356" style="fill:none;stroke:var(--d-teal,#0b7a75);stroke-width:1.8;" marker-end="url(#arr-teal)"/>
 <polyline points="460,356 498,356" style="fill:none;stroke:var(--d-teal,#0b7a75);stroke-width:1.8;" marker-end="url(#arr-teal)"/>
@@ -68,12 +68,12 @@
 <text x="512" y="412" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· migration Laravel (chỉ máy A)</text>
 <text x="512" y="434" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· docker compose up -d --wait</text>
 <text x="512" y="456" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· smoke test /health ngay trên máy</text>
-<text x="512" y="494" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-amber,#b45309)">lỗi ở bước nào thì dừng, máy B giữ bản cũ</text>
+<text x="512" y="494" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-amber,#b45309)">lỗi ở bước nào thì dừng, máy sau giữ bản cũ</text>
 <rect x="880" y="300" width="380" height="214" rx="8" style="fill:var(--d-ec2,#eaf2f8);stroke:var(--d-sg,#6b7f93);stroke-width:1.3;stroke-dasharray:6 4;"/>
-<text x="892" y="322" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13px;font-weight:600;fill:var(--d-fg,#17212b)">7b · Máy B (sau, khi A thành công)</text>
+<text x="892" y="322" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13px;font-weight:600;fill:var(--d-fg,#17212b)">7b · Từng máy ASG (sau máy A)</text>
 <text x="892" y="346" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· git pull --ff-only</text>
 <text x="892" y="368" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· deploy-aws.sh, HA_ROLE=b</text>
-<text x="892" y="390" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· kéo image từ GHCR</text>
+<text x="892" y="390" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· tìm máy InService theo ASG lúc chạy</text>
 <text x="892" y="412" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· không migration, không bật hạ tầng</text>
 <text x="892" y="434" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· docker compose up -d --wait</text>
 <text x="892" y="456" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">· smoke test (bỏ chat, notification)</text>
@@ -93,8 +93,8 @@
 <rect x="470" y="548" width="360" height="184" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
 <text x="482" y="570" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13px;font-weight:600;fill:var(--d-fg,#17212b)">Triển khai cuốn chiếu</text>
 <text x="482" y="596" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">luôn còn ít nhất một máy phục vụ qua ALB</text>
-<text x="482" y="618" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">máy A lỗi: dừng, máy B giữ nguyên bản cũ</text>
-<text x="482" y="640" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">mỗi máy tự smoke test, không đi qua ALB</text>
+<text x="482" y="618" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">máy nào lỗi: dừng, các máy sau giữ bản cũ</text>
+<text x="482" y="640" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">xong tất cả mới ghi image-tag vào SSM</text>
 <text x="482" y="662" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">quay lui: chạy tay với image_tag cũ</text>
 <text x="482" y="684" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">SSM gửi lệnh qua kết nối do chính máy mở ra</text>
 <text x="482" y="706" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">log công khai nên không in bí mật</text>
