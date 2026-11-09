@@ -1,11 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1290 1010" width="1290" height="1010" role="img" aria-label="Kiến trúc AWS của Smart ERP: người dùng vào ALB qua HTTPS; ALB chia request cho hai EC2 ở hai AZ; cả hai dùng chung RDS MySQL Multi-AZ và EFS; RabbitMQ, chat, notification, relay chỉ chạy ở máy A." style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif)">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1290 1100" width="1290" height="1100" role="img" aria-label="Kiến trúc AWS của Smart ERP: người dùng vào ALB qua HTTPS; ALB chia request cho máy A và các máy của Auto Scaling group ở hai AZ; RDS Multi-AZ và EFS nằm trong subnet riêng; RabbitMQ, chat, notification, relay chỉ chạy ở máy A." style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif)">
 <defs>
 <marker id="arr-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--d-teal,#0b7a75)"/></marker>
 <marker id="arr-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--d-amber,#b45309)"/></marker>
 <marker id="arr-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--d-muted,#5b6b7a)"/></marker>
 <marker id="arr-data" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--d-data,#1f4f8f)"/></marker>
 </defs>
-<rect x="0" y="0" width="1290" height="1010" rx="0" style="fill:var(--d-bg,#ffffff);"/>
+<rect x="0" y="0" width="1290" height="1100" rx="0" style="fill:var(--d-bg,#ffffff);"/>
 <rect x="40" y="30" width="150" height="56" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
 <text x="115" y="54" text-anchor="middle" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13.5px;font-weight:600;fill:var(--d-fg,#17212b)">Người dùng</text>
 <text x="115" y="72" text-anchor="middle" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">trình duyệt</text>
@@ -21,100 +21,113 @@
 <text x="404" y="136" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-muted,#5b6b7a)">2 · CNAME → ALB</text>
 <polyline points="115,86 115,176" style="fill:none;stroke:var(--d-teal,#0b7a75);stroke-width:1.8;" marker-end="url(#arr-teal)"/>
 <text x="123" y="118" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-teal,#0b7a75)">HTTPS 443</text>
-<rect x="20" y="106" width="1250" height="800" rx="10" style="fill:var(--d-aws,#f3f6f9);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
+<rect x="20" y="106" width="1250" height="900" rx="10" style="fill:var(--d-aws,#f3f6f9);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
 <text x="36" y="126" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12px;font-weight:600;fill:var(--d-muted,#5b6b7a)">AWS · Region ap-southeast-1 (Singapore)</text>
-<rect x="40" y="146" width="900" height="740" rx="8" style="fill:none;stroke:var(--d-sg,#6b7f93);stroke-width:1.3;stroke-dasharray:2 4;"/>
+<rect x="40" y="146" width="900" height="840" rx="8" style="fill:none;stroke:var(--d-sg,#6b7f93);stroke-width:1.3;stroke-dasharray:2 4;"/>
 <text x="930" y="164" text-anchor="end" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">VPC mặc định 172.31.0.0/16</text>
 <rect x="60" y="178" width="860" height="112" rx="8" style="fill:var(--d-box,#ffffff);stroke:var(--d-sg,#6b7f93);stroke-width:1.3;stroke-dasharray:6 4;"/>
 <text x="906" y="194" text-anchor="end" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11px;font-weight:400;fill:var(--d-sg,#6b7f93)">SG erp-alb</text>
 <text x="76" y="198" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12.5px;font-weight:600;fill:var(--d-fg,#17212b)">Application Load Balancer erp-alb · 2 AZ · HTTPS 443 · chứng chỉ ACM · health check /health</text>
-<rect x="76" y="210" width="262" height="70" rx="6" style="fill:var(--d-ec2,#eaf2f8);stroke:var(--d-teal,#0b7a75);stroke-width:1.3;"/>
-<text x="86" y="230" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:12.5px;font-weight:600;fill:var(--d-teal,#0b7a75)">tg-erp-web</text>
-<text x="86" y="247" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">mặc định</text>
-<text x="86" y="264" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">máy A + máy ASG, cổng 80</text>
-<rect x="350" y="210" width="290" height="70" rx="6" style="fill:var(--d-amberbg,#fdf1dc);stroke:var(--d-amber,#b45309);stroke-width:1.3;"/>
-<text x="360" y="230" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:12.5px;font-weight:600;fill:var(--d-amber,#b45309)">tg-erp-realtime</text>
-<text x="360" y="247" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">/api/v1/chat*  /api/v1/notifications*</text>
-<text x="360" y="264" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">chỉ máy A, stickiness</text>
-<rect x="652" y="210" width="256" height="70" rx="6" style="fill:var(--d-amberbg,#fdf1dc);stroke:var(--d-amber,#b45309);stroke-width:1.3;"/>
-<text x="662" y="230" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:12.5px;font-weight:600;fill:var(--d-amber,#b45309)">tg-erp-grafana</text>
-<text x="662" y="247" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">/grafana*</text>
-<text x="662" y="264" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">chỉ máy A, cổng 3000</text>
-<polyline points="270,290 270,348" style="fill:none;stroke:var(--d-teal,#0b7a75);stroke-width:1.8;" marker-end="url(#arr-teal)"/>
-<text x="262" y="308" text-anchor="end" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11px;font-weight:400;fill:var(--d-teal,#0b7a75)">tg-erp-web</text>
-<polyline points="700,290 700,348" style="fill:none;stroke:var(--d-teal,#0b7a75);stroke-width:1.8;" marker-end="url(#arr-teal)"/>
-<text x="708" y="308" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11px;font-weight:400;fill:var(--d-teal,#0b7a75)">tg-erp-web</text>
-<polyline points="400,290 400,348" style="fill:none;stroke:var(--d-amber,#b45309);stroke-width:1.8;stroke-dasharray:6 4;" marker-end="url(#arr-amber)"/>
-<text x="408" y="308" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-amber,#b45309)">chat, Grafana: chỉ máy A</text>
-<rect x="70" y="318" width="400" height="294" rx="8" style="fill:none;stroke:var(--d-line,#9fb0c0);stroke-width:1.3;stroke-dasharray:3 4;"/>
-<text x="82" y="336" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-muted,#5b6b7a)">Availability Zone ap-southeast-1a</text>
-<rect x="510" y="318" width="400" height="294" rx="8" style="fill:none;stroke:var(--d-line,#9fb0c0);stroke-width:1.3;stroke-dasharray:3 4;"/>
-<text x="522" y="336" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-muted,#5b6b7a)">Availability Zone ap-southeast-1b</text>
-<rect x="85" y="348" width="370" height="252" rx="8" style="fill:var(--d-ec2,#eaf2f8);stroke:var(--d-sg,#6b7f93);stroke-width:1.3;stroke-dasharray:6 4;"/>
-<text x="95" y="366" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13px;font-weight:600;fill:var(--d-fg,#17212b)">EC2-A  smart-erp-prod</text>
-<text x="445" y="366" text-anchor="end" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11px;font-weight:400;fill:var(--d-sg,#6b7f93)">SG erp-app</text>
-<rect x="95" y="376" width="350" height="30" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
-<text x="270" y="396" text-anchor="middle" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:12px;font-weight:500;fill:var(--d-fg,#17212b)">nginx :80  →  Kong :8000</text>
-<rect x="95" y="414" width="350" height="52" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
-<text x="270" y="435" text-anchor="middle" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">identity · catalog · sales · inventory</text>
-<text x="270" y="453" text-anchor="middle" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">purchase · eoffice · finance · ai</text>
-<text x="100" y="484" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-amber,#b45309)">chỉ chạy 1 bản, ở máy A:</text>
-<rect x="95" y="490" width="172" height="44" rx="6" style="fill:var(--d-amberbg,#fdf1dc);stroke:var(--d-amber,#b45309);stroke-width:1.3;"/>
-<text x="105" y="509" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-fg,#17212b)">RabbitMQ</text>
-<text x="105" y="525" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-muted,#5b6b7a)">Mongo (1 node)</text>
-<rect x="273" y="490" width="172" height="44" rx="6" style="fill:var(--d-amberbg,#fdf1dc);stroke:var(--d-amber,#b45309);stroke-width:1.3;"/>
-<text x="283" y="509" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-fg,#17212b)">relay outbox ×3</text>
-<text x="283" y="525" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-muted,#5b6b7a)">sales-scheduler</text>
-<rect x="95" y="540" width="172" height="44" rx="6" style="fill:var(--d-amberbg,#fdf1dc);stroke:var(--d-amber,#b45309);stroke-width:1.3;"/>
-<text x="105" y="559" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-fg,#17212b)">chat · notification</text>
-<text x="105" y="575" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-muted,#5b6b7a)">(realtime, ghim vào A)</text>
-<rect x="273" y="540" width="172" height="44" rx="6" style="fill:var(--d-amberbg,#fdf1dc);stroke:var(--d-amber,#b45309);stroke-width:1.3;"/>
-<text x="283" y="559" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-fg,#17212b)">Grafana · Loki</text>
-<text x="283" y="575" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-muted,#5b6b7a)">sao lưu → S3</text>
-<rect x="525" y="348" width="370" height="252" rx="8" style="fill:var(--d-ec2,#eaf2f8);stroke:var(--d-sg,#6b7f93);stroke-width:1.3;stroke-dasharray:6 4;"/>
-<text x="535" y="366" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:13px;font-weight:600;fill:var(--d-fg,#17212b)">Máy ASG  (erp-app-asg)</text>
-<text x="885" y="366" text-anchor="end" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11px;font-weight:400;fill:var(--d-sg,#6b7f93)">SG erp-app</text>
-<rect x="535" y="376" width="350" height="30" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
-<text x="710" y="396" text-anchor="middle" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:12px;font-weight:500;fill:var(--d-fg,#17212b)">nginx :80  →  Kong :8000</text>
-<rect x="535" y="414" width="350" height="52" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
-<text x="710" y="435" text-anchor="middle" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">identity · catalog · sales · inventory</text>
-<text x="710" y="453" text-anchor="middle" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">purchase · eoffice · finance · ai</text>
-<rect x="535" y="490" width="350" height="94" rx="6" style="fill:none;stroke:var(--d-line,#9fb0c0);stroke-width:1.3;stroke-dasharray:4 4;"/>
-<text x="547" y="510" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-muted,#5b6b7a)">Máy ASG không chạy:</text>
-<text x="547" y="527" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">RabbitMQ, Mongo, relay, scheduler,</text>
-<text x="547" y="543" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">chat, notification, giám sát, sao lưu</text>
-<text x="547" y="565" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-muted,#5b6b7a)">gọi RabbitMQ của máy A (IP private)</text>
-<text x="547" y="579" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-muted,#5b6b7a)">1 đến 3 máy, tự dựng từ AMI, .env lấy từ SSM</text>
-<polyline points="525,562 457,562" style="fill:none;stroke:var(--d-teal,#0b7a75);stroke-width:1.8;" marker-end="url(#arr-teal)"/>
-<text x="491" y="554" text-anchor="middle" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-teal,#0b7a75)">AMQP 5672</text>
-<polyline points="250,600 250,650 780,650" style="fill:none;stroke:var(--d-data,#1f4f8f);stroke-width:1.8;"/>
-<polyline points="710,600 710,650" style="fill:none;stroke:var(--d-data,#1f4f8f);stroke-width:1.8;"/>
-<text x="515" y="642" text-anchor="middle" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-muted,#5b6b7a)">mạng nội bộ VPC · SG erp-rds và erp-efs chỉ nhận từ SG erp-app</text>
-<polyline points="330,650 330,690" style="fill:none;stroke:var(--d-data,#1f4f8f);stroke-width:1.8;" marker-end="url(#arr-data)"/>
-<text x="338" y="676" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-data,#1f4f8f)">MySQL 3306</text>
-<polyline points="780,650 780,690" style="fill:none;stroke:var(--d-data,#1f4f8f);stroke-width:1.8;" marker-end="url(#arr-data)"/>
-<text x="788" y="676" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-data,#1f4f8f)">NFS 2049</text>
-<rect x="60" y="690" width="550" height="180" rx="8" style="fill:var(--d-box,#ffffff);stroke:var(--d-sg,#6b7f93);stroke-width:1.3;stroke-dasharray:6 4;"/>
-<text x="596" y="706" text-anchor="end" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11px;font-weight:400;fill:var(--d-sg,#6b7f93)">SG erp-rds</text>
-<text x="76" y="710" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12.5px;font-weight:600;fill:var(--d-fg,#17212b)">RDS MySQL 8.4 · Multi-AZ · db.t4g.small · 20 GiB gp3</text>
-<rect x="80" y="724" width="200" height="64" rx="6" style="fill:var(--d-databg,#e7eefa);stroke:var(--d-data,#1f4f8f);stroke-width:1.3;"/>
-<text x="92" y="746" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12.5px;font-weight:600;fill:var(--d-data,#1f4f8f)">Primary</text>
-<text x="92" y="764" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-fg,#17212b)">đọc + ghi, AZ do AWS chọn</text>
-<rect x="350" y="724" width="240" height="64" rx="6" style="fill:var(--d-databg,#e7eefa);stroke:var(--d-data,#1f4f8f);stroke-width:1.3;stroke-dasharray:4 3;"/>
-<text x="362" y="746" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12.5px;font-weight:600;fill:var(--d-data,#1f4f8f)">Standby (AZ khác)</text>
-<text x="362" y="764" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-fg,#17212b)">chờ sẵn, không phục vụ truy vấn</text>
-<polyline points="282,756 348,756" style="fill:none;stroke:var(--d-data,#1f4f8f);stroke-width:1.6;" marker-end="url(#arr-data)" marker-start="url(#arr-data)"/>
-<text x="315" y="748" text-anchor="middle" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-data,#1f4f8f)">đồng bộ</text>
-<text x="76" y="814" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">8 schema · 8 tài khoản riêng cho từng service + erp_backup chỉ đọc</text>
-<text x="76" y="834" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">nằm trong subnet riêng (không có đường ra Internet); failover ~1 phút</text>
-<text x="76" y="854" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">đã đo: PHP gián đoạn ~7 s, .NET ~19 s</text>
-<rect x="640" y="690" width="280" height="180" rx="8" style="fill:var(--d-box,#ffffff);stroke:var(--d-sg,#6b7f93);stroke-width:1.3;stroke-dasharray:6 4;"/>
-<text x="906" y="706" text-anchor="end" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11px;font-weight:400;fill:var(--d-sg,#6b7f93)">SG erp-efs</text>
-<text x="656" y="710" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12.5px;font-weight:600;fill:var(--d-fg,#17212b)">EFS · tệp đính kèm của sales</text>
-<text x="656" y="742" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">mount target ở subnet riêng 1a và 1b</text>
-<text x="656" y="762" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">/mnt/efs/sales trên mỗi máy</text>
-<text x="656" y="790" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">chia sẻ giữa hai máy, container</text>
-<text x="656" y="808" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">không khởi động nếu EFS chưa mount</text>
+<rect x="76" y="210" width="290" height="70" rx="6" style="fill:var(--d-amberbg,#fdf1dc);stroke:var(--d-amber,#b45309);stroke-width:1.3;"/>
+<text x="86" y="230" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:12.5px;font-weight:600;fill:var(--d-amber,#b45309)">tg-erp-realtime</text>
+<text x="86" y="247" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">/api/v1/chat*  /api/v1/notifications*</text>
+<text x="86" y="264" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">chỉ máy A, stickiness</text>
+<rect x="376" y="210" width="200" height="70" rx="6" style="fill:var(--d-amberbg,#fdf1dc);stroke:var(--d-amber,#b45309);stroke-width:1.3;"/>
+<text x="386" y="230" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:12.5px;font-weight:600;fill:var(--d-amber,#b45309)">tg-erp-grafana</text>
+<text x="386" y="247" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">/grafana*</text>
+<text x="386" y="264" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">chỉ máy A, cổng 3000</text>
+<rect x="586" y="210" width="322" height="70" rx="6" style="fill:var(--d-ec2,#eaf2f8);stroke:var(--d-teal,#0b7a75);stroke-width:1.3;"/>
+<text x="596" y="230" text-anchor="start" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:12.5px;font-weight:600;fill:var(--d-teal,#0b7a75)">tg-erp-web</text>
+<text x="596" y="247" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">mặc định</text>
+<text x="596" y="264" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">máy A + mọi máy của Auto Scaling group, cổng 80</text>
+<rect x="48" y="346" width="414" height="616" rx="8" style="fill:none;stroke:var(--d-line,#9fb0c0);stroke-width:1.3;stroke-dasharray:3 4;"/>
+<text x="62" y="364" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-muted,#5b6b7a)">Availability Zone ap-southeast-1a</text>
+<rect x="518" y="346" width="414" height="616" rx="8" style="fill:none;stroke:var(--d-line,#9fb0c0);stroke-width:1.3;stroke-dasharray:3 4;"/>
+<text x="532" y="364" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-muted,#5b6b7a)">Availability Zone ap-southeast-1b</text>
+<rect x="60" y="374" width="390" height="420" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-teal,#0b7a75);stroke-width:1.3;"/>
+<text x="72" y="392" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-teal,#0b7a75)">Public subnet</text>
+<rect x="60" y="812" width="390" height="130" rx="6" style="fill:var(--d-databg,#e7eefa);stroke:var(--d-data,#1f4f8f);stroke-width:1.3;"/>
+<text x="72" y="830" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-data,#1f4f8f)">Private subnet · không có đường ra Internet</text>
+<rect x="530" y="374" width="390" height="420" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-teal,#0b7a75);stroke-width:1.3;"/>
+<text x="542" y="392" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-teal,#0b7a75)">Public subnet</text>
+<rect x="530" y="812" width="390" height="130" rx="6" style="fill:var(--d-databg,#e7eefa);stroke:var(--d-data,#1f4f8f);stroke-width:1.3;"/>
+<text x="542" y="830" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-data,#1f4f8f)">Private subnet · không có đường ra Internet</text>
+<polyline points="330,290 330,404" style="fill:none;stroke:var(--d-amber,#b45309);stroke-width:1.8;stroke-dasharray:6 4;" marker-end="url(#arr-amber)"/>
+<polyline points="396,290 396,404" style="fill:none;stroke:var(--d-amber,#b45309);stroke-width:1.8;stroke-dasharray:6 4;" marker-end="url(#arr-amber)"/>
+<text x="322" y="330" text-anchor="end" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-amber,#b45309)">chat</text>
+<text x="388" y="330" text-anchor="end" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-amber,#b45309)">Grafana</text>
+<polyline points="700,290 700,308 430,308 430,404" style="fill:none;stroke:var(--d-teal,#0b7a75);stroke-width:1.8;" marker-end="url(#arr-teal)"/>
+<polyline points="490,308 490,676" style="fill:none;stroke:var(--d-teal,#0b7a75);stroke-width:1.8;" marker-end="url(#arr-teal)"/>
+<text x="560" y="326" text-anchor="middle" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11px;font-weight:400;fill:var(--d-teal,#0b7a75)">tg-erp-web</text>
+<rect x="72" y="404" width="366" height="250" rx="8" style="fill:var(--d-ec2,#eaf2f8);stroke:var(--d-sg,#6b7f93);stroke-width:1.3;stroke-dasharray:6 4;"/>
+<text x="82" y="424" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12.5px;font-weight:600;fill:var(--d-fg,#17212b)">EC2-A  smart-erp-prod  (ngoài Auto Scaling group)</text>
+<text x="428" y="444" text-anchor="end" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11px;font-weight:400;fill:var(--d-sg,#6b7f93)">SG erp-app</text>
+<rect x="82" y="452" width="346" height="30" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
+<text x="255.0" y="472" text-anchor="middle" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:12px;font-weight:500;fill:var(--d-fg,#17212b)">nginx :80  →  Kong :8000</text>
+<rect x="82" y="490" width="346" height="52" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
+<text x="255.0" y="511" text-anchor="middle" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">identity · catalog · sales · inventory</text>
+<text x="255.0" y="529" text-anchor="middle" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">purchase · eoffice · finance · ai</text>
+<text x="84" y="560" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-amber,#b45309)">chỉ chạy 1 bản, ở máy A:</text>
+<rect x="82" y="568" width="169" height="38" rx="6" style="fill:var(--d-amberbg,#fdf1dc);stroke:var(--d-amber,#b45309);stroke-width:1.3;"/>
+<text x="90" y="584" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-fg,#17212b)">RabbitMQ</text>
+<text x="90" y="599" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">Mongo (1 node)</text>
+<rect x="259" y="568" width="169" height="38" rx="6" style="fill:var(--d-amberbg,#fdf1dc);stroke:var(--d-amber,#b45309);stroke-width:1.3;"/>
+<text x="267" y="584" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-fg,#17212b)">relay outbox ×3</text>
+<text x="267" y="599" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">sales-scheduler</text>
+<rect x="82" y="610" width="169" height="38" rx="6" style="fill:var(--d-amberbg,#fdf1dc);stroke:var(--d-amber,#b45309);stroke-width:1.3;"/>
+<text x="90" y="626" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-fg,#17212b)">chat · notification</text>
+<text x="90" y="641" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">(realtime, ghim vào A)</text>
+<rect x="259" y="610" width="169" height="38" rx="6" style="fill:var(--d-amberbg,#fdf1dc);stroke:var(--d-amber,#b45309);stroke-width:1.3;"/>
+<text x="267" y="626" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-fg,#17212b)">Grafana · Loki</text>
+<text x="267" y="641" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">sao lưu → S3</text>
+<rect x="542" y="404" width="366" height="250" rx="8" style="fill:none;stroke:var(--d-line,#9fb0c0);stroke-width:1.3;stroke-dasharray:4 4;"/>
+<text x="554" y="426" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12.5px;font-weight:600;fill:var(--d-fg,#17212b)">Máy của Auto Scaling group</text>
+<text x="554" y="446" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">cùng bản dựng và cùng cấu hình web như máy A</text>
+<text x="554" y="476" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-amber,#b45309)">không chạy:</text>
+<text x="554" y="495" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">RabbitMQ, Mongo, relay outbox, scheduler</text>
+<text x="554" y="512" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">chat, notification, giám sát, sao lưu</text>
+<text x="554" y="542" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-teal,#0b7a75)">khi khởi động tự làm:</text>
+<text x="554" y="561" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">dựng từ AMI vàng (image đã kéo sẵn, không có .env)</text>
+<text x="554" y="578" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">mount EFS, lấy .env và thẻ image từ SSM</text>
+<text x="554" y="595" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">chạy deploy-aws.sh, ~90 giây rồi báo ALB</text>
+<text x="554" y="626" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-muted,#5b6b7a)">gọi RabbitMQ của máy A qua IP private (AMQP 5672)</text>
+<rect x="72" y="676" width="836" height="106" rx="6" style="fill:none;stroke:var(--d-amber,#b45309);stroke-width:1.5;stroke-dasharray:8 4;"/>
+<text x="84" y="697" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12.5px;font-weight:600;fill:var(--d-amber,#b45309)">Auto Scaling group  erp-app-asg</text>
+<text x="84" y="712" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-amber,#b45309)">Min 1 · Desired 2 · Max 3 · health check ELB</text>
+<rect x="84" y="722" width="342" height="52" rx="6" style="fill:var(--d-ec2,#eaf2f8);stroke:var(--d-sg,#6b7f93);stroke-width:1.3;"/>
+<text x="94" y="742" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12px;font-weight:600;fill:var(--d-fg,#17212b)">Máy ASG · AZ 1a</text>
+<text x="94" y="760" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-muted,#5b6b7a)">nginx → Kong → 8 service · SG erp-app</text>
+<rect x="554" y="722" width="172" height="52" rx="6" style="fill:var(--d-ec2,#eaf2f8);stroke:var(--d-sg,#6b7f93);stroke-width:1.3;"/>
+<text x="564" y="742" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12px;font-weight:600;fill:var(--d-fg,#17212b)">Máy ASG · AZ 1b</text>
+<text x="564" y="760" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-muted,#5b6b7a)">SG erp-app</text>
+<rect x="738" y="722" width="158" height="52" rx="6" style="fill:none;stroke:var(--d-amber,#b45309);stroke-width:1.3;stroke-dasharray:5 4;"/>
+<text x="748" y="742" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:600;fill:var(--d-amber,#b45309)">Máy thêm khi tải cao</text>
+<text x="748" y="760" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-amber,#b45309)">&gt; 300 request/máy/phút</text>
+<polyline points="250,676 250,656" style="fill:none;stroke:var(--d-teal,#0b7a75);stroke-width:1.8;stroke-dasharray:4 4;" marker-end="url(#arr-teal)"/>
+<text x="258" y="669" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-teal,#0b7a75)">AMQP 5672</text>
+<rect x="72" y="840" width="180" height="90" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-data,#1f4f8f);stroke-width:1.3;"/>
+<text x="80" y="858" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12px;font-weight:600;fill:var(--d-data,#1f4f8f)">EFS · target 1a</text>
+<text x="246" y="858" text-anchor="end" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:9.5px;font-weight:400;fill:var(--d-sg,#6b7f93)">SG erp-efs</text>
+<text x="80" y="876" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-fg,#17212b)">tệp đính kèm của sales</text>
+<text x="80" y="891" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">/mnt/efs/sales, NFS 2049</text>
+<rect x="262" y="840" width="176" height="90" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-data,#1f4f8f);stroke-width:1.3;stroke-dasharray:4 3;"/>
+<text x="270" y="858" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12px;font-weight:600;fill:var(--d-data,#1f4f8f)">RDS Standby</text>
+<text x="432" y="858" text-anchor="end" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:9.5px;font-weight:400;fill:var(--d-sg,#6b7f93)">SG erp-rds</text>
+<text x="270" y="876" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-fg,#17212b)">AZ 1a, chờ sẵn</text>
+<text x="270" y="891" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">không phục vụ truy vấn</text>
+<rect x="542" y="840" width="176" height="90" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-data,#1f4f8f);stroke-width:1.3;"/>
+<text x="550" y="858" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12px;font-weight:600;fill:var(--d-data,#1f4f8f)">RDS Primary</text>
+<text x="712" y="858" text-anchor="end" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:9.5px;font-weight:400;fill:var(--d-sg,#6b7f93)">SG erp-rds</text>
+<text x="550" y="876" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-fg,#17212b)">AZ 1b, đọc + ghi</text>
+<text x="550" y="891" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">MySQL 8.4 · 3306</text>
+<rect x="728" y="840" width="180" height="90" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-data,#1f4f8f);stroke-width:1.3;"/>
+<text x="736" y="858" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12px;font-weight:600;fill:var(--d-data,#1f4f8f)">EFS · target 1b</text>
+<text x="902" y="858" text-anchor="end" style="font-family:var(--d-mono,'IBM Plex Mono','Cascadia Mono',Consolas,monospace);font-size:9.5px;font-weight:400;fill:var(--d-sg,#6b7f93)">SG erp-efs</text>
+<text x="736" y="876" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-fg,#17212b)">cùng một hệ thống EFS</text>
+<text x="736" y="891" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">với mount target 1a</text>
+<polyline points="440,886 540,886" style="fill:none;stroke:var(--d-data,#1f4f8f);stroke-width:1.6;" marker-end="url(#arr-data)" marker-start="url(#arr-data)"/>
+<text x="490" y="878" text-anchor="middle" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-data,#1f4f8f)">đồng bộ</text>
+<text x="490" y="906" text-anchor="middle" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-data,#1f4f8f)">Multi-AZ</text>
 <rect x="990" y="178" width="250" height="56" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
 <text x="1002" y="198" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12.5px;font-weight:600;fill:var(--d-fg,#17212b)">ACM</text>
 <text x="1002" y="216" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">chứng chỉ HTTPS cho ALB</text>
@@ -125,11 +138,11 @@
 <text x="1002" y="296" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">OIDC, chỉ môi trường production</text>
 <rect x="990" y="346" width="250" height="66" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
 <text x="1002" y="366" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12.5px;font-weight:600;fill:var(--d-fg,#17212b)">Systems Manager</text>
-<text x="1002" y="384" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">Run Command: deploy A rồi ASG</text>
+<text x="1002" y="384" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">Run Command: deploy A rồi từng máy ASG</text>
 <text x="1002" y="401" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">Parameter Store: env-app, image-tag</text>
 <rect x="990" y="436" width="250" height="62" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
 <text x="1002" y="456" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12.5px;font-weight:600;fill:var(--d-fg,#17212b)">IAM role ec2-ssm-smart-erp</text>
-<text x="1002" y="474" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">gắn vào A và ASG, quyền tạm thời</text>
+<text x="1002" y="474" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">gắn vào A và máy ASG, quyền tạm thời</text>
 <rect x="990" y="522" width="250" height="72" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
 <text x="1002" y="542" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12.5px;font-weight:600;fill:var(--d-fg,#17212b)">S3 smart-erp-backup</text>
 <text x="1002" y="560" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">ghi từ máy A bằng IAM role</text>
@@ -137,33 +150,41 @@
 <rect x="990" y="620" width="250" height="58" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
 <text x="1002" y="640" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12.5px;font-weight:600;fill:var(--d-fg,#17212b)">SES (SMTP)</text>
 <text x="1002" y="658" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">email OTP đăng nhập</text>
+<rect x="990" y="698" width="250" height="72" rx="6" style="fill:var(--d-box,#ffffff);stroke:var(--d-line,#9fb0c0);stroke-width:1.3;"/>
+<text x="1002" y="718" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12.5px;font-weight:600;fill:var(--d-fg,#17212b)">AMI vàng + launch template</text>
+<text x="1002" y="736" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">Ubuntu, Docker, image kéo sẵn</text>
+<text x="1002" y="753" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">không chứa .env hay bí mật</text>
 <polyline points="1240,58 1262,58 1262,289 1242,289" style="fill:none;stroke:var(--d-muted,#5b6b7a);stroke-width:1.8;" marker-end="url(#arr-muted)"/>
 <text x="1276" y="100" text-anchor="start" transform="rotate(90 1276 100)" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">OIDC token tạm thời</text>
 <polyline points="1115,320 1115,346" style="fill:none;stroke:var(--d-muted,#5b6b7a);stroke-width:1.8;" marker-end="url(#arr-muted)"/>
 <text x="1123" y="338" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">assume role</text>
 <polyline points="992,378 942,378" style="fill:none;stroke:var(--d-muted,#5b6b7a);stroke-width:1.8;" marker-end="url(#arr-muted)" marker-start="url(#arr-muted)"/>
+<text x="965" y="372" text-anchor="middle" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">SSM</text>
 <polyline points="992,466 942,466" style="fill:none;stroke:var(--d-muted,#5b6b7a);stroke-width:1.8;"/>
 <polyline points="942,558 988,558" style="fill:none;stroke:var(--d-muted,#5b6b7a);stroke-width:1.8;" marker-end="url(#arr-muted)"/>
 <polyline points="942,649 988,649" style="fill:none;stroke:var(--d-muted,#5b6b7a);stroke-width:1.8;" marker-end="url(#arr-muted)"/>
-<text x="965" y="372" text-anchor="middle" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">SSM</text>
-<rect x="990" y="706" width="250" height="164" rx="6" style="fill:var(--d-amberbg,#fdf1dc);stroke:var(--d-amber,#b45309);stroke-width:1.3;"/>
-<text x="1002" y="726" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12.5px;font-weight:600;fill:var(--d-amber,#b45309)">Điểm lỗi đơn còn lại (máy A)</text>
-<text x="1002" y="746" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">RabbitMQ, Mongo, relay outbox,</text>
-<text x="1002" y="763" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">scheduler, chat, notification,</text>
-<text x="1002" y="780" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">Grafana, sao lưu</text>
-<text x="1002" y="806" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-teal,#0b7a75)">Đã loại: máy web, DB (Multi-AZ),</text>
-<text x="1002" y="823" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-teal,#0b7a75)">ALB, EFS và S3 do AWS chạy</text>
-<text x="1002" y="840" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-teal,#0b7a75)">nhiều AZ</text>
-<text x="40" y="940" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12px;font-weight:600;fill:var(--d-muted,#5b6b7a)">Chú giải</text>
-<rect x="120" y="928" width="28" height="14" rx="3" style="fill:none;stroke:var(--d-sg,#6b7f93);stroke-width:1.3;stroke-dasharray:6 4;"/>
-<text x="156" y="940" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">security group</text>
-<rect x="268" y="928" width="28" height="14" rx="3" style="fill:var(--d-amberbg,#fdf1dc);stroke:var(--d-amber,#b45309);stroke-width:1.3;"/>
-<text x="304" y="940" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">chỉ có một bản (máy A)</text>
-<rect x="470" y="928" width="28" height="14" rx="3" style="fill:var(--d-databg,#e7eefa);stroke:var(--d-data,#1f4f8f);stroke-width:1.3;"/>
-<text x="506" y="940" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">dữ liệu</text>
-<polyline points="590,935 622,935" style="fill:none;stroke:var(--d-teal,#0b7a75);stroke-width:1.8;" marker-end="url(#arr-teal)"/>
-<text x="630" y="940" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">lưu lượng người dùng</text>
-<polyline points="790,935 822,935" style="fill:none;stroke:var(--d-muted,#5b6b7a);stroke-width:1.8;stroke-dasharray:4 4;" marker-end="url(#arr-muted)"/>
-<text x="830" y="940" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">DNS, quản trị, ra Internet</text>
-<text x="40" y="964" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-muted,#5b6b7a)">Mũi tên ra khỏi VPC đi qua Internet gateway; mỗi EC2 có IP công khai vì VPC mặc định không có NAT.</text>
+<polyline points="990,734 942,734" style="fill:none;stroke:var(--d-muted,#5b6b7a);stroke-width:1.8;"/>
+<text x="965" y="727" text-anchor="middle" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:10.5px;font-weight:400;fill:var(--d-muted,#5b6b7a)">ASG</text>
+<rect x="990" y="800" width="250" height="164" rx="6" style="fill:var(--d-amberbg,#fdf1dc);stroke:var(--d-amber,#b45309);stroke-width:1.3;"/>
+<text x="1002" y="820" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12.5px;font-weight:600;fill:var(--d-amber,#b45309)">Điểm lỗi đơn còn lại (máy A)</text>
+<text x="1002" y="840" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">RabbitMQ, Mongo, relay outbox,</text>
+<text x="1002" y="857" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">scheduler, chat, notification,</text>
+<text x="1002" y="874" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">Grafana, sao lưu</text>
+<text x="1002" y="900" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-teal,#0b7a75)">Đã loại: máy web (ASG), DB (Multi-AZ),</text>
+<text x="1002" y="917" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-teal,#0b7a75)">ALB, EFS và S3 do AWS chạy</text>
+<text x="1002" y="934" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-teal,#0b7a75)">nhiều AZ</text>
+<text x="40" y="1044" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:12px;font-weight:600;fill:var(--d-muted,#5b6b7a)">Chú giải</text>
+<rect x="120" y="1032" width="28" height="14" rx="3" style="fill:none;stroke:var(--d-sg,#6b7f93);stroke-width:1.3;stroke-dasharray:6 4;"/>
+<text x="156" y="1044" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">security group</text>
+<rect x="268" y="1032" width="28" height="14" rx="3" style="fill:var(--d-amberbg,#fdf1dc);stroke:var(--d-amber,#b45309);stroke-width:1.3;"/>
+<text x="304" y="1044" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">chỉ có một bản (máy A)</text>
+<rect x="470" y="1032" width="28" height="14" rx="3" style="fill:var(--d-databg,#e7eefa);stroke:var(--d-data,#1f4f8f);stroke-width:1.3;"/>
+<text x="506" y="1044" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">dữ liệu (subnet riêng)</text>
+<rect x="670" y="1032" width="28" height="14" rx="3" style="fill:none;stroke:var(--d-amber,#b45309);stroke-width:1.3;stroke-dasharray:8 4;"/>
+<text x="706" y="1044" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">Auto Scaling group</text>
+<polyline points="850,1039 882,1039" style="fill:none;stroke:var(--d-teal,#0b7a75);stroke-width:1.8;" marker-end="url(#arr-teal)"/>
+<text x="890" y="1044" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">lưu lượng người dùng</text>
+<polyline points="1060,1039 1092,1039" style="fill:none;stroke:var(--d-muted,#5b6b7a);stroke-width:1.8;stroke-dasharray:4 4;" marker-end="url(#arr-muted)"/>
+<text x="1100" y="1044" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11.5px;font-weight:400;fill:var(--d-fg,#17212b)">DNS, quản trị</text>
+<text x="40" y="1068" text-anchor="start" style="font-family:var(--d-sans,'IBM Plex Sans','Segoe UI',Arial,sans-serif);font-size:11px;font-weight:400;fill:var(--d-muted,#5b6b7a)">Mỗi EC2 có IP công khai vì VPC mặc định không có NAT. RDS và EFS ở subnet riêng (route table không có đường tới Internet gateway), chỉ nhận kết nối từ SG erp-app.</text>
 </svg>
