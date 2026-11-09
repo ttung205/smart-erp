@@ -46,3 +46,6 @@ yarn-error.log*
 # OS Files
 .DS_Store
 Thumbs.db
+
+# Skill cài bằng npx skills: bản gốc nằm ở .agents/skills, .claude/skills là liên kết do công cụ tạo
+.claude/skills/
