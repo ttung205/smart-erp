@@ -12,7 +12,7 @@ Ba nguyên tắc khi trả lời:
 ## Chương 1. Mở đầu
 
 **1. Hệ phân tán là gì? Project của em phân tán ở chỗ nào?**
-Là tập hợp máy hoặc tiến trình độc lập, giao tiếp qua mạng, người dùng thấy như một hệ thống. Smart ERP gồm 9 service (PHP, .NET, Node, Python) mỗi service một database riêng, giao tiếp bằng REST, RabbitMQ và WebSocket; hạ tầng AWS chạy nhiều máy sau một load balancer. Chi tiết: bài 00, mục 1 và 2.
+Là tập hợp máy hoặc tiến trình độc lập, giao tiếp qua mạng, người dùng thấy như một hệ thống. Smart ERP gồm 10 service (PHP, .NET, Node, Python) mỗi service một database riêng, giao tiếp bằng REST, RabbitMQ và WebSocket; hạ tầng AWS chạy nhiều máy sau một load balancer. Chi tiết: bài 00, mục 1 và 2.
 
 **2. Vì sao chọn microservice thay vì một khối (monolith)?**
 ERP có nhiều miền tách bạch (bán, mua, kho, kế toán, nhân sự), mỗi miền do một nhóm phụ trách và chọn được công nghệ hợp: kho dùng .NET vì cần transaction chặt, notification dùng Node vì I/O realtime. Mỗi service deploy và hỏng độc lập. Đổi lại phải giải quyết nhất quán dữ liệu, lỗi mạng, message trùng, giám sát nhiều nơi, và phần lớn công sức project nằm ở đó. Chi tiết: bài 00, mục 6.
