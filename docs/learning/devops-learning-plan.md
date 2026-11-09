@@ -164,7 +164,7 @@ Hệ thống chạy trên EC2, truy cập được qua domain có HTTPS. Mọi b
    Nếu muốn dùng image từ GHCR thay cho `build:`, viết thêm file override `docker-compose.ghcr.yml` để ghi đè `image:`.
 5. Gắn Elastic IP; trỏ domain (domain miễn phí hoặc subdomain có sẵn) về IP đó.
 6. Đặt Caddy trước gateway để tự động có HTTPS.
-7. Chạy `scripts/smoke-test.ps1` (hoặc viết bản bash tương đương) để kiểm tra các route.
+7. Chạy `scripts/powershell/smoke-test.ps1` (hoặc viết bản bash tương đương) để kiểm tra các route.
 8. Học thói quen **stop máy sau mỗi buổi học**.
 
 ### 💥 Phá thử

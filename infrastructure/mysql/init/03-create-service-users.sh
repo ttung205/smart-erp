@@ -1,7 +1,7 @@
 #!/bin/bash
 # Mỗi service một tài khoản MySQL, chỉ có quyền trên schema của chính nó: MySQL tự cưỡng chế ranh giới database-per-service.
 # - Tự chạy một lần khi volume MySQL còn trống (docker-entrypoint-initdb.d).
-# - Chạy lại được trên volume đã có (đổi mật khẩu, thêm quyền): scripts/apply-db-users.ps1
+# - Chạy lại được trên volume đã có (đổi mật khẩu, thêm quyền): scripts/powershell/apply-db-users.ps1
 # Mật khẩu lấy từ biến môi trường của container mysql (docker-compose.yml / .env).
 #
 # QUAN TRỌNG: toàn bộ nội dung nằm trong một shell con ( ... ). Entrypoint của MySQL CHẠY file .sh có quyền thực thi,

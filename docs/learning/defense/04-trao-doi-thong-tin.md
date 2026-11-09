@@ -117,7 +117,7 @@ Publisher ──routing key──► [erp.events] (topic, durable)
 | Queue `erp.notification.retry` | [:90](../../../infrastructure/rabbitmq/definitions.json#L90) | TTL 10 giây; hết hạn thì quay lại queue chính (retry có độ trễ) |
 | Queue `erp.dead_letters` | [:122](../../../infrastructure/rabbitmq/definitions.json#L122) | "Nghĩa địa" để người vận hành xem và phát lại |
 
-Phát lại dead letter sau khi sửa lỗi: [scripts/replay-dead-letters.ps1](../../../scripts/replay-dead-letters.ps1) (không `-Replay` thì chỉ liệt kê).
+Phát lại dead letter sau khi sửa lỗi: [scripts/powershell/replay-dead-letters.ps1](../../../scripts/powershell/replay-dead-letters.ps1) (không `-Replay` thì chỉ liệt kê).
 
 Vì sao exchange kiểu **topic**? Một event có thể có nhiều người quan tâm (sales.order.approved → Notification, sau này thêm Analytics). Publisher chỉ biết routing key, không biết ai nhận → **tách rời** (decoupling). Thêm consumer mới không phải sửa publisher.
 
@@ -200,7 +200,7 @@ Sale bấm "Gửi duyệt" → Sales: DB::transaction { cập nhật báo giá; 
 1. **Nhìn topology thật:** mở http://localhost:15672 (user `erp_rabbit`, mật khẩu `RABBITMQ_PASSWORD` trong `.env`), vào **Exchanges → erp.events → Bindings**, đối chiếu với bảng ở mục 3.3.
 2. **Chứng minh outbox** (Bài 2 trong hướng dẫn Adminer): dừng RabbitMQ, tạo báo giá, xem `outbox_events` có dòng `PENDING`, bật lại và thấy chuyển `PUBLISHED`. Chụp ảnh để đưa vào báo cáo.
 3. **Chứng minh circuit breaker:** `docker compose stop inventory-service`, lập hoá đơn vài lần, rồi gọi `GET /api/v1/sales/health` xem `circuit_breakers`. Bật lại và quan sát mạch đóng sau tối đa 30 giây.
-4. **Xem dead letter:** `.\scripts\replay-dead-letters.ps1` để liệt kê (không `-Replay`).
+4. **Xem dead letter:** `.\scripts\powershell\replay-dead-letters.ps1` để liệt kê (không `-Replay`).
 
 ## 9. Tự kiểm tra
 - [ ] Kể 3 kênh giao tiếp và cho mỗi kênh một ví dụ có thật trong code.

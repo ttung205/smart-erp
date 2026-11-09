@@ -1,6 +1,6 @@
 # Chạy test trong container, không cần cài PHP/.NET/Node trên máy:
-#   scripts/test.ps1                 # mọi service
-#   scripts/test.ps1 -Service sales  # một service
+#   scripts/powershell/test.ps1                 # mọi service
+#   scripts/powershell/test.ps1 -Service sales  # một service
 # Mỗi <service>-test build stage `test` của Dockerfile (khác stage `runtime` chạy thật) và dùng database *_test,
 # tách khỏi dữ liệu dev (xem infrastructure/mysql/init/02-create-test-databases.sql).
 # Dùng kèm docker-compose.yml: docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm --build sales-test

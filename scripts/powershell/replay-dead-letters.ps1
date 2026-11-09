@@ -11,8 +11,8 @@
     Chỉ chạy -Replay sau khi đã sửa nguyên nhân lỗi (xem dashboard Logs trên Grafana).
 
 .EXAMPLE
-    ./scripts/replay-dead-letters.ps1                 # liệt kê tối đa 50 message
-    ./scripts/replay-dead-letters.ps1 -Replay -Count 10
+    ./scripts/powershell/replay-dead-letters.ps1                 # liệt kê tối đa 50 message
+    ./scripts/powershell/replay-dead-letters.ps1 -Replay -Count 10
 #>
 [CmdletBinding()]
 param(

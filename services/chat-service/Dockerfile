@@ -14,7 +14,7 @@ RUN dotnet restore src/Chat.Api/Chat.Api.csproj
 COPY src/ src/
 RUN dotnet publish src/Chat.Api/Chat.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
 
-# Stage 2 (test): docker build --target test, chạy test bằng scripts/test.ps1. Có SDK + thư mục tests/.
+# Stage 2 (test): docker build --target test, chạy test bằng scripts/powershell/test.ps1. Có SDK + thư mục tests/.
 FROM build AS test
 COPY ChatService.slnx ./
 COPY tests/ tests/

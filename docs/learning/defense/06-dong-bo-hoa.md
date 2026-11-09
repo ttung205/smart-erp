@@ -51,7 +51,7 @@ Vì sao đúng? InnoDB khoá hàng khi UPDATE; hai UPDATE cùng hàng chạy l�
 ### Bằng chứng chạy được
 Test [InventoryConcurrencyTests.cs:40-102](../../../services/inventory-service/tests/Inventory.Infrastructure.Tests/InventoryConcurrencyTests.cs#L40-L102): **20 luồng song song** cùng xin giữ 10 món khi kho còn 15. Kết quả bắt buộc: đúng 1 thành công, 19 bị `INSUFFICIENT_STOCK`, tồn không bao giờ âm. Chạy lại để chụp ảnh:
 ```powershell
-.\scripts\test.ps1 -Service inventory
+.\scripts\powershell\test.ps1 -Service inventory
 ```
 
 ## 4. Cơ chế 2: UNIQUE làm trọng tài cuối cùng
@@ -171,7 +171,7 @@ Có một khoảng thời gian ngắn (tối đa vài phút) mà hai hệ thốn
 
 **Bài 1. Chứng minh không bán âm.** Chạy test 20 luồng và chụp kết quả:
 ```powershell
-.\scripts\test.ps1 -Service inventory
+.\scripts\powershell\test.ps1 -Service inventory
 ```
 
 **Bài 2. Tận mắt thấy khoá hàng (pessimistic lock).** Mở hai cửa sổ PowerShell, mỗi cái chạy `docker compose exec mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" erp_inventory_db'`.

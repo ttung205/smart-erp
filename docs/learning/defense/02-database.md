@@ -89,7 +89,7 @@ Câu chốt: *"Kiểm tra trong code (if đã xử lý thì bỏ qua) có thể 
 
 ## 7. Migration (thay đổi cấu trúc DB)
 
-- **Laravel:** migration có phiên bản (identity 14, catalog 9, sales 41, eoffice 9, finance 16 file). **Không** tự chạy khi container khởi động (`RUN_MIGRATIONS` mặc định false, [sales docker-entrypoint.sh:47](../../../services/sales-service/docker-entrypoint.sh#L47)); chạy có chủ đích bằng container một lần trong [scripts/deploy.ps1:31-44](../../../scripts/deploy.ps1#L31-L44) trước khi bật app.
+- **Laravel:** migration có phiên bản (identity 14, catalog 9, sales 41, eoffice 9, finance 16 file). **Không** tự chạy khi container khởi động (`RUN_MIGRATIONS` mặc định false, [sales docker-entrypoint.sh:47](../../../services/sales-service/docker-entrypoint.sh#L47)); chạy có chủ đích bằng container một lần trong [scripts/powershell/deploy.ps1:31-44](../../../scripts/powershell/deploy.ps1#L31-L44) trước khi bật app.
   Vì sao không chạy lúc khởi động? Nếu sau này chạy 2 bản sales cùng lúc thì 2 bản cùng migrate → xung đột.
 - **.NET (inventory, purchase):** `EnsureCreatedAsync` + `CREATE TABLE IF NOT EXISTS` ([purchase DbInitializer.cs:12](../../../services/purchase-service/src/Purchase.Infrastructure/Persistence/DbInitializer.cs#L12), [:168-177](../../../services/purchase-service/src/Purchase.Infrastructure/Persistence/DbInitializer.cs#L168)). Đơn giản nhưng **không có lịch sử phiên bản**, không sửa được cột đã có. Hướng cải tiến: EF Core Migrations.
 
@@ -111,8 +111,8 @@ Lý do không tách server:
 |---|---|
 | Tạo user + GRANT, chạy lại được (CREATE IF NOT EXISTS + ALTER) | [03-create-service-users.sh](../../../infrastructure/mysql/init/03-create-service-users.sh) |
 | Mỗi service dùng user riêng | `DB_USERNAME: erp_sales` … trong [docker-compose.yml](../../../docker-compose.yml) |
-| Production bắt buộc đủ 8 mật khẩu, không dùng giá trị mặc định | [docker-compose.prod.yml](../../../docker-compose.prod.yml), [validate-prod-config.ps1](../../../scripts/validate-prod-config.ps1) |
-| Áp lên volume đã có | [scripts/apply-db-users.ps1](../../../scripts/apply-db-users.ps1) |
+| Production bắt buộc đủ 8 mật khẩu, không dùng giá trị mặc định | [docker-compose.prod.yml](../../../docker-compose.prod.yml), [validate-prod-config.ps1](../../../scripts/powershell/validate-prod-config.ps1) |
+| Áp lên volume đã có | [scripts/powershell/apply-db-users.ps1](../../../scripts/powershell/apply-db-users.ps1) |
 
 **Demo trước thầy** (bằng chứng ranh giới do DB cưỡng chế):
 ```bash

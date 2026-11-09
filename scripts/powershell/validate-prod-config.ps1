@@ -11,7 +11,7 @@ param(
 
 # Kiểm tra cấu hình Production trước khi deploy. Không bao giờ in giá trị secret, chỉ in tên biến.
 $ErrorActionPreference = "Stop"
-$root = Split-Path -Parent $PSScriptRoot
+$root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Push-Location $root
 
 $secretNames = @(

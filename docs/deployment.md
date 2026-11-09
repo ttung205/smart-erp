@@ -30,7 +30,7 @@ Kong provides:
 1. Copy `.env.example` to `.env`.
 2. Replace every `change-me` value and generate five independent Laravel
    `APP_KEY` values. Never commit `.env`.
-3. Run `./scripts/deploy.ps1` from PowerShell.
+3. Run `./scripts/powershell/deploy.ps1` from PowerShell.
 4. Open the application at `http://localhost:5175` and Kong at
    `http://localhost:8000`.
 
@@ -44,7 +44,7 @@ only when that stage was completed separately.
 ```powershell
 # Status and health
 docker compose ps
-./scripts/smoke-test.ps1
+./scripts/powershell/smoke-test.ps1
 
 # Follow a service and gateway
 docker compose logs -f --tail 200 sales-service gateway
@@ -58,7 +58,7 @@ docker run --rm -e KONG_DATABASE=off `
   -v "${PWD}/infrastructure/kong/kong.yml:/kong/declarative/kong.yml:ro" `
   kong:3.9.1 kong config parse /kong/declarative/kong.yml
 docker compose up -d --no-deps --force-recreate gateway
-./scripts/smoke-test.ps1
+./scripts/powershell/smoke-test.ps1
 ```
 
 ## Monitoring
@@ -112,8 +112,8 @@ is down: they back off up to 60 s and resume in order once the broker is back.
 Dead letters: after fixing the cause, list and replay them with
 
 ```powershell
-./scripts/replay-dead-letters.ps1            # list only
-./scripts/replay-dead-letters.ps1 -Replay    # re-publish to the original exchange/routing key
+./scripts/powershell/replay-dead-letters.ps1            # list only
+./scripts/powershell/replay-dead-letters.ps1 -Replay    # re-publish to the original exchange/routing key
 ```
 
 ## Database changes and rollback
@@ -121,7 +121,7 @@ Dead letters: after fixing the cause, list and replay them with
 Web containers do not run migrations on startup. Back up MySQL before a schema
 release, run forward-compatible migrations, deploy the application, and only
 remove old columns in a later release. Laravel migration commands are executed
-by `scripts/deploy.ps1`.
+by `scripts/powershell/deploy.ps1`.
 
 The MySQL init directory runs only when the data volume is created. Editing an
 init script does not update an existing volume. Apply new permissions or schema

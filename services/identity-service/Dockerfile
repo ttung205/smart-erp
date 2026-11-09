@@ -22,7 +22,7 @@ COPY . .
 # Mã test không đi vào image chạy thật
 RUN composer dump-autoload --optimize --no-scripts --ignore-platform-reqs     && rm -rf tests
 
-# Stage 3 (test): docker build --target test, chạy test bằng scripts/test.ps1. Có thư viện dev + thư mục tests/.
+# Stage 3 (test): docker build --target test, chạy test bằng scripts/powershell/test.ps1. Có thư viện dev + thư mục tests/.
 FROM php-base AS test
 # GD chỉ cần cho test: UploadedFile::fake()->image() tạo ảnh giả. Image chạy thật không có GD.
 RUN apk add --no-cache libpng libjpeg-turbo freetype     && apk add --no-cache --virtual .gd-build-deps libpng-dev libjpeg-turbo-dev freetype-dev     && docker-php-ext-configure gd --with-freetype --with-jpeg     && docker-php-ext-install -j$(nproc) gd     && apk del .gd-build-deps

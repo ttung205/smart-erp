@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Kiểm tra các route /health đi qua toàn bộ chuỗi: Internet -> Caddy -> frontend (nginx) -> Kong -> service.
-# Bản bash của scripts/smoke-test.ps1 để chạy ngay trên máy chủ Linux.
+# Bản bash của scripts/powershell/smoke-test.ps1 để chạy ngay trên máy chủ Linux.
 #   BASE_URL=https://xxx.sslip.io scripts/smoke-test.sh      (mặc định lấy từ SITE_ADDRESS trong .env)
 set -uo pipefail
 cd "$(dirname "$0")/.."

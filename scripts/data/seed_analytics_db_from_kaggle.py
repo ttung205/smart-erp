@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 import pymysql
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 KAGGLE = ROOT / "kaggle_dataset"
 
 TABLE_OPTIONS = "default charset utf8mb4 collate utf8mb4_unicode_ci"

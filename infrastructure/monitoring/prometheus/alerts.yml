@@ -8,7 +8,7 @@ groups:
           severity: warning
         annotations:
           summary: "Có message trong erp.dead_letters"
-          description: "Consumer đã thử lại 5 lần mà vẫn lỗi. Xem log rồi chạy scripts/replay-dead-letters.ps1."
+          description: "Consumer đã thử lại 5 lần mà vẫn lỗi. Xem log rồi chạy scripts/powershell/replay-dead-letters.ps1."
 
       - alert: ServiceHigh5xx
         expr: |
