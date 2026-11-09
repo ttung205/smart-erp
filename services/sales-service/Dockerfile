@@ -22,7 +22,7 @@ COPY . .
 # Mã test không đi vào image chạy thật
 RUN composer dump-autoload --optimize --no-scripts --ignore-platform-reqs     && rm -rf tests
 
-# Stage 3 (test): docker build --target test, chạy test bằng scripts/test.ps1. Có thư viện dev + thư mục tests/.
+# Stage 3 (test): docker build --target test, chạy test bằng scripts/powershell/test.ps1. Có thư viện dev + thư mục tests/.
 FROM php-base AS test
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 COPY composer.json composer.lock* ./

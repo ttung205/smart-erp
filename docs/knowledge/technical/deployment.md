@@ -29,7 +29,7 @@ Kong cung cấp:
 
 1. Sao chép `.env.example` thành `.env`.
 2. Thay mọi giá trị `change-me` và tạo năm giá trị `APP_KEY` Laravel độc lập. Không bao giờ commit `.env`.
-3. Chạy `./scripts/deploy.ps1` trong PowerShell.
+3. Chạy `./scripts/powershell/deploy.ps1` trong PowerShell.
 4. Mở ứng dụng tại `http://localhost:5175` và Kong tại `http://localhost:8000`.
 
 Script deploy kiểm tra Compose, build image, chờ MySQL và RabbitMQ sẵn sàng, chạy migration Laravel như các job một lần riêng biệt, khởi động toàn bộ stack, rồi kiểm tra mọi route của gateway. Chỉ dùng `-SkipBuild` hoặc `-SkipMigrations` khi giai đoạn đó đã được hoàn thành riêng.
@@ -39,7 +39,7 @@ Script deploy kiểm tra Compose, build image, chờ MySQL và RabbitMQ sẵn s�
 ```powershell
 # Trạng thái và sức khỏe
 docker compose ps
-./scripts/smoke-test.ps1
+./scripts/powershell/smoke-test.ps1
 
 # Theo dõi log một service và gateway
 docker compose logs -f --tail 200 sales-service gateway
@@ -53,7 +53,7 @@ docker run --rm -e KONG_DATABASE=off `
   -v "${PWD}/infrastructure/kong/kong.yml:/kong/declarative/kong.yml:ro" `
   kong:3.9.1 kong config parse /kong/declarative/kong.yml
 docker compose up -d --no-deps --force-recreate gateway
-./scripts/smoke-test.ps1
+./scripts/powershell/smoke-test.ps1
 ```
 
 ## Giám sát
@@ -102,13 +102,13 @@ Các relay outbox (Sales, E-Office, Catalog trong PHP; Purchase, Inventory trong
 Dead letter: sau khi sửa nguyên nhân, liệt kê và replay bằng:
 
 ```powershell
-./scripts/replay-dead-letters.ps1            # chỉ liệt kê
-./scripts/replay-dead-letters.ps1 -Replay    # publish lại vào exchange/routing key gốc
+./scripts/powershell/replay-dead-letters.ps1            # chỉ liệt kê
+./scripts/powershell/replay-dead-letters.ps1 -Replay    # publish lại vào exchange/routing key gốc
 ```
 
 ## Thay đổi database và rollback
 
-Các container web không chạy migration khi khởi động. Trước mỗi bản phát hành có thay đổi schema, cần backup MySQL, chạy migration tương thích ngược, deploy ứng dụng, và chỉ xóa cột cũ ở bản phát hành sau. Lệnh migration của Laravel được chạy bởi `scripts/deploy.ps1`.
+Các container web không chạy migration khi khởi động. Trước mỗi bản phát hành có thay đổi schema, cần backup MySQL, chạy migration tương thích ngược, deploy ứng dụng, và chỉ xóa cột cũ ở bản phát hành sau. Lệnh migration của Laravel được chạy bởi `scripts/powershell/deploy.ps1`.
 
 Thư mục init của MySQL chỉ chạy khi volume dữ liệu được tạo. Sửa script init không cập nhật volume đã tồn tại. Áp dụng quyền mới hoặc thay đổi schema qua migration có phiên bản hoặc thao tác DBA có kiểm soát; không xóa volume để buộc khởi tạo lại.
 

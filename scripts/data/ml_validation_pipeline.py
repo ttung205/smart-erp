@@ -11,7 +11,7 @@ Quy trình 5 Cell kiểm thử (như chạy Jupyter Notebook):
   [Cell 5] Kiểm định Đề xuất Hành động AI (Prescriptive Recommendations & Inventory Guardrails)
 
 Cách chạy:
-    python scripts/ml_validation_pipeline.py
+    python scripts/data/ml_validation_pipeline.py
 """
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ import numpy as np
 import pandas as pd
 
 # Thiết lập đường dẫn thư mục gốc và import module ai-service
-ROOT_DIR = Path(__file__).resolve().parent.parent
+ROOT_DIR = Path(__file__).resolve().parents[2]
 AI_SERVICE_DIR = ROOT_DIR / "services" / "ai-service"
 sys.path.insert(0, str(AI_SERVICE_DIR))
 
@@ -483,7 +483,7 @@ def export_markdown_report() -> None:
         "             │",
         "             ▼",
         "┌─────────────────────────┐",
-        "│ RUN AUDIT SCRIPT        │ ──> python scripts/ml_validation_pipeline.py",
+        "│ RUN AUDIT SCRIPT        │ ──> python scripts/data/ml_validation_pipeline.py",
         "└────────────┬────────────┘",
         "             │",
         "    ┌────────┴────────┐",

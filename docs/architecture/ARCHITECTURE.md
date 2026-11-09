@@ -436,7 +436,7 @@ Evidence: `SalesOrderController.store:56-230`; `SalesOrderController.submitAppro
 | Dashboards / alerts | Grafana: ERP Overview, RabbitMQ, Logs; alerts dead letter, 5xx ratio, target down | `infrastructure/monitoring/grafana`, `prometheus/alerts.yml` |
 | Edge protection | Kong rate limiting (IP), per-service timeouts/retries, DNS TTL 10 s | `infrastructure/kong/kong.yml`; Compose `KONG_DNS_VALID_TTL` |
 | Circuit breakers | Laravel cache-based Guzzle middleware (Sales, E-Office); Polly standard handler (Chat, Purchase) | `sales-service/app/Infrastructure/Clients/CircuitBreaker.php`; `Chat.Infrastructure.DependencyInjection`; `Purchase.Api/Program.cs` |
-| Dead letters | Alert + `scripts/replay-dead-letters.ps1` | `scripts/replay-dead-letters.ps1` |
+| Dead letters | Alert + `scripts/powershell/replay-dead-letters.ps1` | `scripts/powershell/replay-dead-letters.ps1` |
 
 Not implemented: distributed tracing (OpenTelemetry), log/metric alert delivery (no Alertmanager), circuit breaker on Notification → Identity (that consumer relies on the RabbitMQ retry queue instead).
 

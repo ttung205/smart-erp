@@ -4,7 +4,7 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci || npm install
 
-# Stage 2 (test): docker build --target test, chạy test bằng scripts/test.ps1 (cần MONGODB_URI)
+# Stage 2 (test): docker build --target test, chạy test bằng scripts/powershell/test.ps1 (cần MONGODB_URI)
 FROM deps AS test
 COPY . .
 CMD ["npm", "test"]

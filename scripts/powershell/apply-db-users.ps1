@@ -5,7 +5,7 @@ param()
 # Script trong docker-entrypoint-initdb.d chỉ tự chạy khi volume còn trống; chạy lại script này sau khi
 # đổi *_DB_PASSWORD trong .env hoặc khi nâng cấp từ bản cũ (mọi service dùng chung erp_user).
 $ErrorActionPreference = "Stop"
-$root = Split-Path -Parent $PSScriptRoot
+$root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Push-Location $root
 try {
     # Tạo lại container mysql (giữ volume) để nhận biến môi trường mới từ .env

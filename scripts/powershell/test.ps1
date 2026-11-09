@@ -6,7 +6,7 @@ param(
 
 # Chạy test của từng service trong container (stage `test` của Dockerfile), không cần cài PHP/.NET/Node trên máy.
 $ErrorActionPreference = "Stop"
-$root = Split-Path -Parent $PSScriptRoot
+$root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Push-Location $root
 
 $all = @("identity", "catalog", "sales", "eoffice", "finance", "purchase", "inventory", "chat", "notification", "ai", "frontend")

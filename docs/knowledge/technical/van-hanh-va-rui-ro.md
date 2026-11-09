@@ -26,7 +26,7 @@ verified_at: null
 | Dashboard / cảnh báo | Grafana: ERP Overview, RabbitMQ, Logs; cảnh báo dead letter, tỷ lệ 5xx, target bị down | `infrastructure/monitoring/grafana`, `prometheus/alerts.yml` |
 | Bảo vệ ở biên | Kong rate limiting theo IP, timeout/retry theo từng service, DNS TTL 10 giây | `infrastructure/kong/kong.yml`; Compose `KONG_DNS_VALID_TTL` |
 | Circuit breaker | Guzzle middleware dựa trên cache của Laravel (Sales, E-Office); Polly standard handler (Chat, Purchase) | `sales-service/app/Infrastructure/Clients/CircuitBreaker.php`; `Chat.Infrastructure.DependencyInjection`; `Purchase.Api/Program.cs` |
-| Dead letter | Cảnh báo + `scripts/replay-dead-letters.ps1` | `scripts/replay-dead-letters.ps1` |
+| Dead letter | Cảnh báo + `scripts/powershell/replay-dead-letters.ps1` | `scripts/powershell/replay-dead-letters.ps1` |
 
 Chưa triển khai: distributed tracing (OpenTelemetry), gửi cảnh báo log/metric (chưa có Alertmanager), circuit breaker cho Notification → Identity (consumer đó dựa vào hàng đợi retry của RabbitMQ).
 

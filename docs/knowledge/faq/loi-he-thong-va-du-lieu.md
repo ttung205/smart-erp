@@ -21,7 +21,7 @@ verified_at: null
 - **Thông báo:** `DEPENDENCY_UNAVAILABLE` (HTTP 503) — "Service phụ thuộc không phản hồi".
 - **Nguyên nhân:** khi tạo đơn, hệ thống cần lấy thông tin khách hàng và sản phẩm từ service Catalog (và đôi khi Identity). Nếu các service này không phản hồi, đơn không được tạo. Hệ thống không dùng dữ liệu rỗng thay thế.
 - **Cách xử lý:** thử lại sau vài phút. Nếu lỗi kéo dài, báo quản trị viên kiểm tra trạng thái các service.
-- **Ghi chú cho admin:** kiểm tra health check của `catalog-service` và `identity-service`; lệnh `./scripts/smoke-test.ps1` và `docker compose ps` là điểm bắt đầu (xem `deployment.md`).
+- **Ghi chú cho admin:** kiểm tra health check của `catalog-service` và `identity-service`; lệnh `./scripts/powershell/smoke-test.ps1` và `docker compose ps` là điểm bắt đầu (xem `deployment.md`).
 
 ## Vì sao lỗi "hết thời gian chờ" khi xử lý đơn?
 

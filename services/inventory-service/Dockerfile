@@ -14,7 +14,7 @@ RUN dotnet restore src/Inventory.Api/Inventory.Api.csproj
 COPY src/ src/
 RUN dotnet publish src/Inventory.Api/Inventory.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
 
-# Stage 2 (test): docker build --target test, chạy test bằng scripts/test.ps1. Có SDK + thư mục tests/.
+# Stage 2 (test): docker build --target test, chạy test bằng scripts/powershell/test.ps1. Có SDK + thư mục tests/.
 FROM build AS test
 COPY InventoryService.slnx ./
 COPY tests/ tests/

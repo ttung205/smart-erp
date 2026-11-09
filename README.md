@@ -130,10 +130,10 @@ Mọi thứ chạy bằng **Docker**: dev, test và triển khai dùng cùng m�
 git clone <repo-url> smart-erp
 cd smart-erp
 copy .env.example .env       # điền các giá trị "change-me" (xem bên dưới)
-.\scripts\deploy.ps1 -Seed   # build image, migrate, nạp dữ liệu mẫu, khởi động, smoke test
+.\scripts\powershell\deploy.ps1 -Seed   # build image, migrate, nạp dữ liệu mẫu, khởi động, smoke test
 ```
 
-> Mọi service phải dùng **cùng một `JWT_SECRET`** và **cùng một `INTERNAL_SERVICE_KEY`** (.NET: `Jwt:Secret`, `Services:InternalKey`); compose lo việc này từ file `.env`. Thiếu cấu hình thì service báo lỗi thay vì chạy với secret công khai. Lần sau chạy `.\scripts\deploy.ps1` (không `-Seed`).
+> Mọi service phải dùng **cùng một `JWT_SECRET`** và **cùng một `INTERNAL_SERVICE_KEY`** (.NET: `Jwt:Secret`, `Services:InternalKey`); compose lo việc này từ file `.env`. Thiếu cấu hình thì service báo lỗi thay vì chạy với secret công khai. Lần sau chạy `.\scripts\powershell\deploy.ps1` (không `-Seed`).
 
 Bật thêm giám sát (tùy chọn, nặng khoảng 1 GB RAM):
 
@@ -148,7 +148,7 @@ Dev chạy đúng image như production, nên sửa code xong thì build lại s
 ```powershell
 docker compose up -d --build sales-service sales-relay sales-scheduler   # 3 container dùng chung 1 image
 docker compose logs -f sales-service
-.\scripts	est.ps1 -Service sales                                        # test trong container
+.\scripts\powershell\test.ps1 -Service sales                                        # test trong container
 ```
 
 | Service | Container (cùng image) | Ngôn ngữ |
@@ -214,7 +214,7 @@ Hệ thống đã lỡ có tài khoản mẫu `@erp.local`: xem rồi xóa bằn
 | Event đã được ghi chưa | Bảng `outbox_events` của sales/eoffice/catalog: `PENDING` → `PUBLISHED` (lỗi: `FAILED` + `last_error`) |
 | Message đi qua broker | RabbitMQ UI → **Exchanges › erp.events**, **Queues › erp.notification.events** |
 | Message lỗi | Queue `erp.notification.retry` (chờ thử lại), `erp.dead_letters` (đã hết số lần thử) |
-| Xem và đẩy lại dead letter | `.\scripts\replay-dead-letters.ps1` (liệt kê), thêm `-Replay` để đẩy lại sau khi sửa lỗi |
+| Xem và đẩy lại dead letter | `.\scripts\powershell\replay-dead-letters.ps1` (liệt kê), thêm `-Replay` để đẩy lại sau khi sửa lỗi |
 | Kết quả xử lý thông báo | Log `notification-service`: `[AMQP] QuotationSubmitted (...) → { created: 1, resolved: 0 }` |
 | Trạng thái circuit breaker | `GET /api/v1/sales/health` (mục `circuit_breakers`) |
 | Đối soát hàng giữ treo | `docker compose exec sales-scheduler php artisan sales:reconcile-reservations --dry-run` |
@@ -227,9 +227,9 @@ Hệ thống đã lỡ có tài khoản mẫu `@erp.local`: xem rồi xóa bằn
 Test chạy trong container (stage `test` của từng Dockerfile), dùng MySQL/MongoDB thật của compose và các database `erp_*_test` tách khỏi dữ liệu dev:
 
 ```powershell
-.\scripts	est.ps1                       # tất cả: 5 Laravel, 3 .NET, notification, ai, frontend
-.\scripts	est.ps1 -Service sales        # một service
-.\scripts	est.ps1 -Service chat,inventory
+.\scripts\powershell\test.ps1                       # tất cả: 5 Laravel, 3 .NET, notification, ai, frontend
+.\scripts\powershell\test.ps1 -Service sales        # một service
+.\scripts\powershell\test.ps1 -Service chat,inventory
 ```
 
 > Test Laravel đặt cứng mật khẩu `erp_user` là `erp_secret` (xem `phpunit.xml`), nên `MYSQL_PASSWORD` trong `.env` phải là `erp_secret` khi chạy test PHP trên máy dev. CI vẫn chạy test trực tiếp trên runner (`.github/workflows/ci.yml`).
@@ -242,7 +242,7 @@ Test tranh chấp đồng thời của Inventory chạy 20 luồng song song tr�
 smart-erp/
 ├── docker-compose.yml          # Toàn bộ hệ thống; profile "monitoring" cho Grafana/Prometheus/Loki/Alloy
 ├── docker-compose.prod.yml     # Override production: bắt buộc secret, chỉ mở gateway và frontend
-├── docker-compose.test.yml     # Override cho scripts/test.ps1: chạy stage `test` của từng Dockerfile
+├── docker-compose.test.yml     # Override cho scripts/powershell/test.ps1: chạy stage `test` của từng Dockerfile
 ├── infrastructure/
 │   ├── kong/                   # Khai báo route, rate limit, timeout, plugin của gateway
 │   ├── mysql/init/             # Tạo các schema erp_*_db và user ứng dụng

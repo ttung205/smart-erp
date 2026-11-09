@@ -86,7 +86,7 @@ Ba lớp file compose, mỗi lớp **chồng** lên lớp trước (`-f a -f b`)
 
 ```
 sửa code ─► docker compose up -d --build sales-service ...    (dev: image = image production)
-        ─► scripts/test.ps1 -Service sales                      (build target `test`, chạy trong container)
+        ─► scripts/powershell/test.ps1 -Service sales                      (build target `test`, chạy trong container)
         ─► git push ─► CI build/test ─► (giai đoạn AWS) pull image, up -d   (deploy)
 ```
 

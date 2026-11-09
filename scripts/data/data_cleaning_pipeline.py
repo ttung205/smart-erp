@@ -7,7 +7,7 @@
 6. Report Generation: Tự động xuất báo cáo chất lượng dữ liệu ra file Markdown phục vụ viết đồ án.
 
 Cách chạy:
-    python scripts/data_cleaning_pipeline.py
+    python scripts/data/data_cleaning_pipeline.py
 """
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ import numpy as np
 import pandas as pd
 
 # Thiết lập đường dẫn thư mục
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parents[2]
 KAGGLE_DIR = BASE_DIR / "kaggle_dataset"
 REPORT_OUTPUT = BASE_DIR / "docs" / "bao_cao" / "data_cleaning_report.md"
 
