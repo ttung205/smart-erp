@@ -5,7 +5,7 @@
 
 ## 1. Bức tranh tổng thể (kiến trúc hiện tại)
 
-![Kiến trúc AWS của Smart ERP: ALB, hai EC2 ở hai AZ, RDS Multi-AZ, EFS](images/aws-ha-architecture.png)
+![Kiến trúc AWS của Smart ERP: ALB, EC2-A và Auto Scaling group ở hai AZ, RDS Multi-AZ và EFS trong subnet riêng](images/aws-ha-architecture.png)
 
 *Hình 1. Kiến trúc AWS hiện tại. Bản vector: [aws-ha-architecture.svg](images/aws-ha-architecture.svg). Bản chữ của cùng sơ đồ nằm ngay dưới.*
 
