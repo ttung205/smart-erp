@@ -20,7 +20,7 @@ Người dùng → erp.transportbooking.xyz (CNAME → ALB)
  Mỗi máy ứng dụng: nginx → Kong → các service (gọi nhau qua Docker DNS cục bộ trên cùng máy)
  Máy ASG tự dựng từ golden AMI: user data lấy .env và thẻ image từ SSM Parameter Store rồi deploy
  RDS MySQL 8.4 Multi-AZ (primary + standby đồng bộ) nằm trong subnet RIÊNG   ← dùng chung cho mọi máy
- EFS (mount target ở subnet riêng 1a và 1b): tệp đính kèm của sales
+ EFS (mount target ở subnet riêng 1a và 1b): tệp đính kèm của sales, purchase, eoffice và tệp chat
  EC2-A còn gánh: RabbitMQ, Mongo, relay outbox (catalog, sales, eoffice), scheduler, chat, notification, giám sát, sao lưu
 ```
 
@@ -29,7 +29,7 @@ Vì sao thiết kế như vậy (câu hỏi phản biện hay gặp):
 - **Dùng ALB (L7) của AWS, không tự dựng Nginx/HAProxy**: tự dựng lại thành SPOF mới; ALB nhiều AZ, có health check, kết thúc HTTPS bằng ACM, định tuyến theo đường dẫn, hỗ trợ WebSocket.
 - **Relay outbox và scheduler chỉ chạy ở một máy**: relay Laravel đọc 50 dòng rồi publish, không khóa dòng, chạy hai nơi sẽ phát trùng. Consumer idempotent chịu được trùng, nhưng cố ý tránh. Worker outbox .NET (purchase, inventory) nằm trong process dịch vụ nên tắt bằng `Outbox__RelayEnabled=false` ở máy ASG.
 - **Chat và notification ghim vào máy A**: trạng thái kết nối (SignalR, Socket.IO) nằm trong bộ nhớ từng process; người ở máy A không nhận tin của người ở máy B. Muốn chạy hai bản phải thêm backplane (Redis).
-- **Tệp đính kèm trên EFS**: disk `local` của Laravel nằm trong container, mỗi máy một bản sẽ không thấy file của nhau. Bind mount dùng `create_host_path: false` nên nếu EFS chưa mount, container **không khởi động** thay vì lặng lẽ ghi vào đĩa cục bộ.
+- **Tệp đính kèm trên EFS**: mọi service có upload file (sales, purchase, eoffice, và chat ở máy A) ghi vào EFS, vì file nằm trong container thì mỗi máy một bản, không thấy file của nhau và mất khi container bị tạo lại. Mỗi service một thư mục con (`/mnt/efs/<service>`). Bind mount dùng `create_host_path: false` nên nếu EFS chưa mount, container **không khởi động** thay vì lặng lẽ ghi vào đĩa cục bộ. Service nào thêm upload file sau này cũng phải thêm mount tương tự trong `docker-compose.ha.yml`.
 - **Auto Scaling Group chỉ cho tầng không giữ trạng thái**: máy A có RabbitMQ, Mongo, relay, chat (có trạng thái, chỉ được chạy một bản) nên **không** vào ASG. ASG thay vai trò máy B cũ: tự thay máy hỏng, tự thêm máy khi số request mỗi máy vượt ngưỡng.
 - **Máy ASG tự cấu hình khi sinh ra**: golden AMI (Docker, AWS CLI, image kéo sẵn, **không có `.env`**); user data (`scripts/aws/asg-boot.sh`) lấy `.env` từ SSM Parameter Store (SecureString) và thẻ image từ tham số `image-tag` bằng IAM role, mount EFS, rồi chạy `deploy-aws.sh`. Bí mật không nằm trong AMI hay Git.
 - **RDS và EFS trong subnet riêng**: subnet riêng là subnet có bảng định tuyến **không có đường tới Internet Gateway**; thêm một lớp "không có đường đi" trên lớp security group.
@@ -82,21 +82,30 @@ Lưu ý khi trình bày số liệu:
 
 ### Chưa chạy (thừa nhận)
 - Kill giữa chừng một transaction giữ hàng nhiều dòng; tắt Kong; tải cao song song (chưa có load test).
-- Mất cả một AZ thật (ta chỉ tắt từng máy, không mô phỏng mất mạng AZ).
+- Mất cả một AZ thật (ta chỉ tắt từng máy, không mô phỏng mất mạng AZ); kịch bản suy luận ở mục 5.
 - Mở circuit breaker (cần gọi nhiều request qua `InternalHttp` khi inventory chết).
 
 ## 5. Điều hệ thống KHÔNG chịu được (phải thừa nhận)
 1. **EC2-A là điểm lỗi đơn cho phần "một bản"**: RabbitMQ, Mongo, relay outbox, scheduler, chat, notification, Grafana, sao lưu. A chết ⇒ realtime ngừng, sự kiện nằm trong outbox chờ A lên lại (không mất, nhưng trễ); web/API vẫn chạy.
 2. **Máy ứng dụng tự phục hồi nhờ ASG (A6), nhưng máy A thì không**: A đứng riêng nên chết phải tự Start; ASG cũng chỉ thay máy khi health check EC2 hoặc ELB báo hỏng, và máy mới mất khoảng 2,5 phút mới nhận traffic.
 3. **Cửa sổ lỗi ~50s** khi mất máy vì health check (10s × ngưỡng); ALB **không** tự thử lại request đã gửi vào máy chết. Giảm bằng interval ngắn hơn (đổi lại dễ báo động giả) hoặc connection draining chủ động trước khi tắt máy.
-4. **Một vùng (region), một ALB logic**: mất cả region là mất hệ thống; backup S3 cùng vùng.
+4. **Một vùng (region), một ALB logic**: mất cả region là mất hệ thống; bucket sao lưu S3 `smart-erp-backup` cùng vùng `ap-southeast-1`, chưa bật sao chép chéo vùng (là hướng nâng cấp).
 5. **RabbitMQ và Mongo một node.** Mongo chạy replica set một thành viên chỉ để dùng transaction.
 6. **Bí mật nằm trong SSM Parameter Store và `.env` trên máy A** (chmod 600); máy ASG không giữ `.env` trong AMI nhưng giữ bản sao trên đĩa sau khi khởi động. Hướng tốt hơn: Secrets Manager có xoay mật khẩu.
 7. **Rate limit của Kong theo từng máy** (`policy: local`) nên hạn mức tính riêng từng máy; tổng hạn mức tăng theo số máy ASG.
 8. **Health check mức liveness** (xem lưu ý mục 4); và `/health` của ALB chỉ đo tới Kong, không đo từng service phía sau (cố ý: một service lẻ chết không nên khiến cả máy bị loại khỏi ALB).
-9. Container MySQL cũ vẫn còn trên máy A làm đường lui sau khi chuyển sang RDS (nên gỡ khi chắc chắn không cần).
+9. **Tệp trên EFS chỉ có một bản "sống" cộng bản sao lưu mỗi giờ.** `backup.sh` gói các thư mục EFS (sales, purchase, eoffice, và chat riêng) thành `files/*.tar.gz` đẩy lên S3 cùng bản dump DB. EFS chịu được mất một AZ nhưng không chịu được xoá nhầm; RPO của tệp là 1 giờ, không có phiên bản hoá từng tệp. Chưa thử phục hồi `--efs` trên AWS thật (đã thử trong container với dữ liệu giả).
+10. Container MySQL cũ vẫn còn trên máy A làm đường lui sau khi chuyển sang RDS (nên gỡ khi chắc chắn không cần).
+
+### Kịch bản mất cả AZ 1a (máy A nằm ở 1a): suy luận từ thiết kế, **chưa thử thật**
+- **Tiếp tục chạy:** ALB loại các target ở 1a; máy ASG ở 1b (10 container: 8 service + Kong + frontend) vẫn phục vụ web/API. RDS Multi-AZ chuyển sang bản chờ (~1 phút), EFS còn mount target ở 1b. ASG thêm máy ở 1b để bù.
+- **Ngừng:** chat, notification (chỉ chạy ở A), RabbitMQ, Mongo, Grafana/Loki, `sales-scheduler` (job đối soát giữ hàng chạy 5 phút một lần), sao lưu mỗi giờ.
+- **Không mất dữ liệu nghiệp vụ:** service ở 1b vẫn ghi dữ liệu và dòng `outbox_events` trong cùng transaction vào RDS. Relay chỉ chạy ở A nên các dòng `PENDING` nằm chờ trong RDS; khi A lên lại, relay phát, notification tạo thông báo (trễ, không mất; `processed_events` chặn xử lý trùng).
+- **Dữ liệu nằm trên A:** hộp thư và tin nhắn (Mongo), hàng đợi RabbitMQ. A hỏng vĩnh viễn thì phục hồi từ bản sao lưu S3 (RPO tối đa 1 giờ) hoặc EBS còn nguyên nếu chỉ mất AZ tạm thời. Queue RabbitMQ không cần phục hồi vì outbox còn bản gốc. Tệp chat nằm trên EFS nên không mất theo máy A.
+- **Cách khôi phục A:** Start lại khi AZ về, hoặc dựng máy mới ở 1b bằng `ec2-bootstrap.sh` rồi phục hồi từ S3 (làm tay, chưa tự động).
 
 ## 6. Hướng nâng cấp (trả lời "nếu có thêm thời gian")
+- Bật sao chép chéo vùng cho bucket S3; chuyển tệp nghiệp vụ từ EFS sang S3 (qua `IFileStorage`) để service không phải mount đĩa và có phiên bản hoá tệp.
 - Chuyển RabbitMQ sang Amazon MQ (cụm 3 node) và Mongo sang replica set 3 node hoặc DocumentDB; thêm Redis backplane để chạy chat/notification ở cả hai máy; khi đó máy A không còn đặc biệt.
 - Đưa cả máy A vào ASG sau khi tách phần có trạng thái (Amazon MQ, Redis, Mongo cụm); thêm CloudFront và WAF phía trước ALB; đặt EC2 vào subnet riêng kèm NAT hoặc VPC endpoint.
 - Health check readiness thật cho từng service (kiểm tra DB, broker); bulkhead và rate limit dùng chung (Redis).
@@ -122,7 +131,8 @@ Lưu ý khi trình bày số liệu:
 17. **Vì sao ASG tăng nhanh nhưng giảm chậm?** Tăng cần 3 điểm đo liên tiếp trên ngưỡng (khoảng 3 phút); giảm cần 15 điểm đo liên tiếp dưới ngưỡng (khoảng 15 phút). Đo được: tăng sau ~6 phút kể từ lúc tải bắt đầu, giảm sau ~18 phút kể từ lúc tải dừng. Thiết kế bất đối xứng để tránh dao động và tránh cắt máy đúng lúc tải quay lại.
 18. **Vì sao để RDS và EFS trong subnet riêng?** Subnet riêng không có đường tới Internet Gateway: tài nguyên bên trong nói chuyện được trong VPC nhưng không ai từ Internet vào được, kể cả khi lỡ cấu hình sai security group. Đây là lớp phòng thủ thứ hai (đường đi), bên cạnh lớp thứ nhất (security group cho phép hay không).
 19. **Làm sao chuyển RDS vào subnet riêng khi RDS không cho đổi subnet group?** Sửa chính subnet group đang dùng: thêm subnet riêng, giữ lại subnet công khai nơi primary đang đứng, bật Multi-AZ để bản chờ nằm ở subnet riêng, failover để primary dời sang đó, tắt Multi-AZ để xóa bản cũ ở subnet công khai, gỡ subnet công khai khỏi nhóm, rồi bật lại Multi-AZ. Ngừng chỉ ở lúc failover (~8s với PHP, ~20s với .NET).
-20. **Nếu ASG đang scale-in mà chạy CD thì sao?** CD hỏi ASG máy nào đang InService lúc chạy, deploy từng máy và chỉ ghi `image-tag` khi tất cả thành công; máy mới sinh ra trong lúc deploy đọc thẻ cũ (đã được xác nhận) nên không chạy bản chưa kiểm chứng.
+20. **Nếu mất cả AZ 1a (nơi máy A đứng) thì hệ thống còn gì?** Web/API còn nhờ máy ASG ở 1b và RDS tự chuyển; chat, notification, scheduler ngừng vì chỉ chạy ở A. Dữ liệu nghiệp vụ không mất: outbox ghi trong RDS, dòng `PENDING` chờ đến khi A lên lại thì relay phát, notification tạo thông báo trễ (idempotent qua `processed_events`). Hộp thư, tin nhắn, tệp chat nằm trên A, khôi phục từ bản sao lưu mỗi giờ. Đây là suy luận từ thiết kế, chưa thử thật (mục 4 phần "Chưa chạy").
+21. **Nếu ASG đang scale-in mà chạy CD thì sao?** CD hỏi ASG máy nào đang InService lúc chạy, deploy từng máy và chỉ ghi `image-tag` khi tất cả thành công; máy mới sinh ra trong lúc deploy đọc thẻ cũ (đã được xác nhận) nên không chạy bản chưa kiểm chứng.
 
 ## 8. Kịch bản demo chịu lỗi (6 phút, dùng khi bảo vệ)
 Chuẩn bị (trước ~30 phút): bật RDS, rồi máy A, rồi đặt ASG Min = 1, Desired = 2, Max = 3 (máy ASG tự dựng từ AMI, khoảng 3 đến 4 phút). Mở `https://erp.transportbooking.xyz/health`, trang Targets của `tg-erp-web` (3 máy healthy: A và hai máy ASG; 4 máy sau khi tạo tải), tab Activity của ASG và Grafana (`/grafana/`).
@@ -140,6 +150,7 @@ Dự phòng nếu demo AWS trục trặc: ảnh chụp và video các thí nghi�
 - Giải thích đường đi của một request từ trình duyệt đến Kong và tại sao mất một máy ứng dụng không sập hệ thống.
 - Ba trạng thái circuit breaker và ngưỡng của bạn?
 - Chỉ ra 3 SPOF còn lại và cách xử lý từng cái.
+- Mất AZ 1a thì cái gì còn chạy, cái gì ngừng, dữ liệu nào chờ ở đâu?
 - Vì sao chat và notification không chạy được ở cả hai máy?
 - Phân biệt timeout (không chắc) với 409 (chắc chắn) trong luồng giữ hàng.
 - Vì sao mất 50 giây mới loại máy hỏng khỏi ALB, và cách rút ngắn?

@@ -42,7 +42,7 @@ identity   catalog    purchase  inventory   sales     eoffice    finance   ai-se
 
 | Thành phần | Công nghệ | Cổng | Lưu trữ | Vai trò | Khai báo |
 |---|---|---|---|---|---|
-| mysql | MySQL 8.0 | 3306 | volume `mysql_data` | 9 schema, mỗi service 1 schema | [docker-compose.yml:7](../../../docker-compose.yml#L7) |
+| mysql | MySQL 8.0 | 3306 | volume `mysql_data` | 8 schema, mỗi service 1 schema | [docker-compose.yml:7](../../../docker-compose.yml#L7) |
 | rabbitmq | RabbitMQ 3.13 | 5672 / 15672 UI | volume | Message broker | [docker-compose.yml:29](../../../docker-compose.yml#L29) |
 | mongo | MongoDB 7, replica set `rs0` 1 node | 27017 | volume | Notification + chat | [docker-compose.yml:58](../../../docker-compose.yml#L58) |
 | mailpit | SMTP giả lập | 1025 / 8125 UI | — | Xem email gửi đi | [docker-compose.yml:77](../../../docker-compose.yml#L77) |

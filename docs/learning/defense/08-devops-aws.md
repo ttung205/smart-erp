@@ -7,7 +7,7 @@
 
 ![Kiến trúc AWS của Smart ERP: ALB, EC2-A và Auto Scaling group ở hai AZ, RDS Multi-AZ và EFS trong subnet riêng](images/aws-ha-architecture.png)
 
-*Hình 1. Kiến trúc AWS hiện tại. Bản vector: [aws-ha-architecture.svg](images/aws-ha-architecture.svg). Bản chữ của cùng sơ đồ nằm ngay dưới.*
+*Hình 1. Kiến trúc AWS hiện tại (nguồn chỉnh sửa: [aws-ha-architecture.drawio](images/aws-ha-architecture.drawio)). Bản chữ của cùng sơ đồ nằm ngay dưới.*
 
 ```text
  Người dùng ─https─► erp.transportbooking.xyz (DNS: CNAME → ALB, ở PA Việt Nam)
@@ -103,7 +103,7 @@ Từ khi có HA, thay một nhóm cũ (`smart-erp-web-sg`, mở 80/443 cho cả 
 - **Outbound mặc định cho phép tất cả:** máy cần đi ra để tải image GHCR, cài gói, ghi S3, nối SSM. (Giới hạn chặt hơn là hướng nâng cao.)
 
 ### 2.6. VPC mặc định
-Mọi máy nằm trong một **VPC**. Dùng VPC mặc định (`172.31.0.0/16`) có ba subnet công khai (1a, 1b, 1c) và cổng Internet. Ta thêm **ba subnet riêng** `erp-private-1a/1b/1c` (`172.31.100.0/24`, `.101.0/24`, `.102.0/24`) cùng bảng định tuyến `rtb-erp-private` **chỉ có route `local`** (không có `0.0.0.0/0` tới Internet Gateway). **Subnet chỉ "riêng" khi bảng định tuyến của nó không có đường tới Internet Gateway**; subnet mới tự dùng bảng định tuyến chính (đang có đường ra Internet) nên phải gắn bảng riêng vào. RDS và các mount target của EFS nằm trong subnet riêng; EC2 vẫn ở subnet công khai vì cần IP công khai để kéo image và nối SSM (ta không dùng NAT Gateway để khỏi tốn tiền). Một hệ thống sản xuất thật sẽ đặt cả EC2 vào subnet riêng kèm NAT hoặc VPC endpoint. Đây là điểm yếu nên tự nói trước (mục 5).
+Mọi máy nằm trong một **VPC**. Dùng VPC mặc định (`172.31.0.0/16`) có ba subnet công khai (1a, 1b, 1c) và **Internet Gateway (IGW) đã được gắn sẵn**. IGW do AWS quản lý, tự co giãn, không phải máy ta vận hành và không có chi phí riêng; nó là cửa giữa VPC và Internet. Một subnet chỉ ra được Internet khi có route `0.0.0.0/0` trỏ tới IGW (và máy có IP công khai). Nếu tự dựng VPC thì phải tự tạo IGW, gắn vào VPC rồi thêm route đó. Ta thêm **ba subnet riêng** `erp-private-1a/1b/1c` (`172.31.100.0/24`, `.101.0/24`, `.102.0/24`) cùng bảng định tuyến `rtb-erp-private` **chỉ có route `local`** (không có `0.0.0.0/0` tới Internet Gateway). **Subnet chỉ "riêng" khi bảng định tuyến của nó không có đường tới Internet Gateway**; subnet mới tự dùng bảng định tuyến chính (đang có đường ra Internet) nên phải gắn bảng riêng vào. RDS và các mount target của EFS nằm trong subnet riêng; EC2 vẫn ở subnet công khai vì cần IP công khai để kéo image và nối SSM (ta không dùng NAT Gateway để khỏi tốn tiền). Một hệ thống sản xuất thật sẽ đặt cả EC2 vào subnet riêng kèm NAT hoặc VPC endpoint. Đây là điểm yếu nên tự nói trước (mục 5).
 
 ### 2.7. Tài khoản đầu tiên: không có tài khoản mẫu với mật khẩu công khai
 - **Vấn đề:** seeder tạo sẵn 18 tài khoản (có SUPER_ADMIN) với mật khẩu cố định công khai. Ở máy dev thì tiện, nhưng trên địa chỉ HTTPS công khai thì ai cũng vào được với quyền cao nhất. Tên miền mới còn bị các chương trình theo dõi **nhật ký chứng chỉ công khai (Certificate Transparency)** dò thử trong vài phút sau khi cấp chứng chỉ.
@@ -167,8 +167,9 @@ push vào main ─► CI (chạy test)            ┐
 
 ### 2.11. EFS: tệp đính kèm dùng chung
 - Disk `local` của Laravel nằm trong container, nên upload ở máy A không thấy ở máy B. **EFS** là ổ NFS chia sẻ qua nhiều AZ, mount ở `/mnt/efs` trên cả hai máy (`fstab` với `_netdev` và `hard`; `hard` để khi mất kết nối tạm thời thì chờ và thử lại thay vì báo lỗi làm hỏng file đang ghi).
-- Thư mục `/mnt/efs/sales` thuộc uid 33 (`www-data`, người dùng PHP trong container).
-- Compose mount thư mục này với `create_host_path: false`: nếu EFS chưa mount, container sales **không khởi động** thay vì ghi âm thầm vào đĩa cục bộ (khi đó mỗi máy một bản file).
+- Một EFS, mỗi service một thư mục con: `/mnt/efs/sales`, `/mnt/efs/eoffice` (Laravel, thuộc uid 33 `www-data`), `/mnt/efs/purchase` và `/mnt/efs/chat` (.NET, chạy root). Đích trong container: sales và eoffice `storage/app/private`; purchase `/app/inquiry-attachments`; chat `/app/chat-files` (chỉ máy A).
+- Compose mount các thư mục này với `create_host_path: false`: nếu EFS chưa mount hoặc thiếu thư mục, container **không khởi động** thay vì ghi âm thầm vào đĩa cục bộ (khi đó mỗi máy một bản file). `bootstrap-ec2.sh` và `asg-boot.sh` tạo sẵn các thư mục.
+- **Bài học (10/11/2026):** ban đầu chỉ sales được mount EFS. Purchase (tệp yêu cầu hỏi hàng) và eoffice (chứng từ đề nghị) vẫn ghi vào đĩa container: file không thấy giữa các máy, mất khi container bị tạo lại, và email hỏi hàng ở máy A báo thiếu tệp nếu file nằm ở máy ASG (notification tải tệp qua purchase cục bộ). Đã sửa bằng cách mount EFS cho cả hai; chat chuyển từ volume `chat_files` sang EFS. Quy tắc: service nào ghi file thì phải mount EFS, hoặc dùng object storage (S3, hướng nâng cấp).
 - Đã kiểm tra: khởi động lại máy, EFS tự mount trước khi Docker chạy, container tự lên.
 - **Mount target trong subnet riêng** (1a và 1b, security group `erp-efs`). Mỗi AZ chỉ có **một** mount target nên phải xóa cái cũ rồi tạo cái mới; trong khoảng đó `sales` dừng (nhờ `create_host_path: false` nó không ghi nhầm vào đĩa cục bộ). Tên DNS **chung** của EFS cập nhật chậm sau khi tạo lại mount target (máy không phân giải được tên trong vài phút), còn tên **riêng của AZ** (`<az>.fs-xxxx.efs...`) dùng được ngay.
 

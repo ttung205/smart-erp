@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Sao lưu và phục hồi dữ liệu Smart ERP (MySQL, MongoDB, tệp đính kèm chat).
+# Sao lưu và phục hồi dữ liệu Smart ERP (MySQL, MongoDB, tệp đính kèm chat, tệp đính kèm trên EFS).
 #
 #   backup                      sao lưu mọi thứ vào /backups/database-backup-<yyyymmdd>-<NN>/ (và lên S3 nếu có BACKUP_S3_URI)
 #   list                        liệt kê các bản sao lưu
 #   verify  [bản|latest]        kiểm tra toàn vẹn + thử phục hồi vào schema tạm rồi xóa (không đụng dữ liệu thật)
-#   restore [bản|latest] --mysql[=schema,...] --mongo[=db,...] --files --yes
+#   restore [bản|latest] --mysql[=schema,...] --mongo[=db,...] --files --efs[=thư_mục,...] --yes
 #                               PHỤC HỒI vào dữ liệu thật (ghi đè). Thiếu --yes thì chỉ in kế hoạch.
 #
 # Một bản sao lưu là một thư mục: mysql/<schema>.sql.gz, mongo/<database>.archive.gz, files/chat_files.tar.gz,
-# SHA256SUMS và manifest.json. Thư mục chỉ xuất hiện sau khi mọi thứ xong và qua kiểm tra (tên *.partial là dang dở).
+# files/efs_<thư_mục>.tar.gz (mỗi thư mục con của EFS, trừ chat), SHA256SUMS và manifest.json. Thư mục chỉ xuất hiện sau khi mọi thứ xong và qua kiểm tra (tên *.partial là dang dở).
 set -euo pipefail
 
 BACKUP_ROOT="${BACKUP_ROOT:-/backups}"
@@ -16,6 +16,9 @@ RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-7}"
 MYSQL_HOST="${MYSQL_HOST:-mysql}"
 MONGO_URI="${MONGO_URI:-mongodb://mongo:27017/?replicaSet=rs0}"
 FILES_DIR="${BACKUP_FILES_DIR:-/data/chat_files}"
+# Thư mục gốc của EFS (mỗi service một thư mục con: sales, purchase, eoffice...). Không tồn tại (chế độ một máy) thì bỏ qua.
+# Thư mục chat đã được gói riêng bằng FILES_DIR nên không gói lại.
+EFS_DIR="${BACKUP_EFS_DIR:-/data/efs}"
 # Tên bản: database-backup-yyyymmdd-NN (NN là số thứ tự trong ngày, bắt đầu từ 01).
 # Ngày trong tên tính theo giờ địa phương = UTC + BACKUP_DAY_OFFSET_HOURS (mặc định 7: giờ Việt Nam).
 # Thời điểm chính xác luôn nằm trong manifest.json (created_at theo UTC, created_at_local theo giờ địa phương).
@@ -93,6 +96,23 @@ cmd_backup() {
     log "Tệp đính kèm chat: trống, bỏ qua"
   fi
 
+  if [ -d "$EFS_DIR" ]; then
+    local d n
+    for d in "$EFS_DIR"/*/; do
+      [ -d "$d" ] || continue
+      n=$(basename "$d")
+      [[ $n =~ ^[A-Za-z0-9_-]+$ ]] || continue
+      [ "$n" = chat ] && continue
+      if [ -z "$(ls -A "$d" 2> /dev/null)" ]; then
+        log "Tệp EFS $n: trống, bỏ qua"
+        continue
+      fi
+      log "Tệp EFS: $n"
+      # tar thoát 1 nghĩa là có tệp đổi trong lúc đọc (người dùng đang upload), kho lưu vẫn dùng được; mã khác là lỗi thật
+      tar -czf "$tmp/files/efs_$n.tar.gz" -C "$d" . || [ $? -eq 1 ] || die "không gói được thư mục EFS $n"
+    done
+  fi
+
   log "Kiểm tra toàn vẹn"
   local f
   while IFS= read -r -d '' f; do
@@ -101,12 +121,16 @@ cmd_backup() {
   done < <(find "$tmp" -type f -name '*.gz' -print0)
   (cd "$tmp" && find . -type f -name '*.gz' -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
 
-  local finished version mongo_json schemas_json
+  local finished version mongo_json schemas_json efs_json
   finished=$(date -u +%s)
   version=$(as_backup -N -B -e "SELECT VERSION()")
   mongo_json=$(for f in "$tmp"/mongo/*.archive.gz; do
       [ -e "$f" ] || continue
       printf '%s\t%s\n' "$(basename "$f" .archive.gz)" "$(stat -c %s "$f")"
+    done | jq -Rn '[inputs | split("\t") | {key: .[0], value: (.[1]|tonumber)}] | from_entries')
+  efs_json=$(for f in "$tmp"/files/efs_*.tar.gz; do
+      [ -e "$f" ] || continue
+      printf '%s\t%s\n' "$(basename "$f" .tar.gz | sed 's/^efs_//')" "$(stat -c %s "$f")"
     done | jq -Rn '[inputs | split("\t") | {key: .[0], value: (.[1]|tonumber)}] | from_entries')
   schemas_json=$(while read -r sname tables; do
       printf '%s\t%s\t%s\n' "$sname" "$tables" "$(stat -c %s "$tmp/mysql/$sname.sql.gz")"
@@ -116,10 +140,10 @@ cmd_backup() {
     --arg created "$(date -u -d "@$started" +%Y-%m-%dT%H:%M:%SZ)" \
     --arg local "$(date -u -d "@$((started + DAY_OFFSET_HOURS * 3600))" +%Y-%m-%dT%H:%M:%S)$(printf '%+03d:00' "$DAY_OFFSET_HOURS")" \
     --argjson duration "$((finished - started))" --arg version "$version" \
-    --argjson mongo "$mongo_json" --argjson schemas "$schemas_json" \
+    --argjson mongo "$mongo_json" --argjson schemas "$schemas_json" --argjson efs "$efs_json" \
     --argjson files "$(stat -c %s "$tmp/files/chat_files.tar.gz" 2> /dev/null || echo 0)" \
     '{set: $set, created_at: $created, created_at_local: $local, duration_seconds: $duration, mysql_version: $version,
-      mysql_schemas: $schemas, mongo_databases: $mongo, chat_files_bytes: $files}' > "$tmp/manifest.json"
+      mysql_schemas: $schemas, mongo_databases: $mongo, chat_files_bytes: $files, efs_files_bytes: $efs}' > "$tmp/manifest.json"
   rm -f "$counts"
 
   mv "$tmp" "$dir"
@@ -235,6 +259,15 @@ cmd_verify() {
   if [ -f "$set/files/chat_files.tar.gz" ]; then
     tar -tzf "$set/files/chat_files.tar.gz" > /dev/null && log "Tệp chat: giải nén thử OK"
   fi
+  for f in "$set"/files/efs_*.tar.gz; do
+    [ -e "$f" ] || break
+    if tar -tzf "$f" > /dev/null; then
+      log "Tệp EFS $(basename "$f" .tar.gz | sed 's/^efs_//'): giải nén thử OK"
+    else
+      log "Tệp EFS $(basename "$f"): HỎNG"
+      failed=1
+    fi
+  done
 
   [ "$failed" = 0 ] || die "kiểm tra THẤT BẠI"
   log "KIỂM TRA THÀNH CÔNG sau $(($(date +%s) - started)) giây"
@@ -243,7 +276,7 @@ cmd_verify() {
 # ---------------------------------------------------------------------------------------------
 cmd_restore() {
   need MYSQL_ROOT_PASSWORD
-  local want=latest do_mysql="" do_mongo="" do_files=0 yes=0 arg
+  local want=latest do_mysql="" do_mongo="" do_files=0 do_efs="" yes=0 arg
   for arg in "$@"; do
     case "$arg" in
       --mysql) do_mysql=all ;;
@@ -251,12 +284,14 @@ cmd_restore() {
       --mongo) do_mongo=all ;;
       --mongo=*) do_mongo="${arg#--mongo=}" ;;
       --files) do_files=1 ;;
+      --efs) do_efs=all ;;
+      --efs=*) do_efs="${arg#--efs=}" ;;
       --yes) yes=1 ;;
       -*) die "tham số lạ: $arg" ;;
       *) want=$arg ;;
     esac
   done
-  [ -n "$do_mysql" ] || [ -n "$do_mongo" ] || [ "$do_files" = 1 ] || die "chọn thứ cần phục hồi: --mysql[=schema,...] --mongo[=db,...] --files"
+  [ -n "$do_mysql" ] || [ -n "$do_mongo" ] || [ "$do_files" = 1 ] || [ -n "$do_efs" ] || die "chọn thứ cần phục hồi: --mysql[=schema,...] --mongo[=db,...] --files --efs[=thư_mục,...]"
 
   local set s f
   set=$(resolve_set "$want")
@@ -283,10 +318,28 @@ cmd_restore() {
     [ "${#mtargets[@]}" -gt 0 ] || die "bản này không có database Mongo nào"
   fi
 
+  local -a etargets=()
+  if [ -n "$do_efs" ]; then
+    [ -d "$EFS_DIR" ] || die "không thấy thư mục EFS $EFS_DIR (container recovery chưa mount EFS)"
+    if [ "$do_efs" = all ]; then
+      for f in "$set"/files/efs_*.tar.gz; do
+        [ -e "$f" ] && etargets+=("$(basename "$f" .tar.gz | sed 's/^efs_//')")
+      done
+    else
+      IFS=, read -r -a etargets <<< "$do_efs"
+      for s in "${etargets[@]}"; do
+        [[ $s =~ ^[A-Za-z0-9_-]+$ ]] || die "tên thư mục EFS không hợp lệ: $s"
+        [ -f "$set/files/efs_$s.tar.gz" ] || die "bản này không có tệp EFS $s"
+      done
+    fi
+    [ "${#etargets[@]}" -gt 0 ] || die "bản này không có tệp EFS nào"
+  fi
+
   echo "KẾ HOẠCH PHỤC HỒI từ bản $(basename "$set") (tạo lúc $(jq -r .created_at_local "$set/manifest.json") giờ địa phương):"
   if [ -n "$do_mysql" ]; then echo "  - MySQL: XÓA rồi dựng lại ${targets[*]}"; fi
   if [ -n "$do_mongo" ]; then echo "  - MongoDB: XÓA rồi nạp lại ${mtargets[*]}"; fi
   if [ "$do_files" = 1 ]; then echo "  - Tệp chat: giải nén đè vào $FILES_DIR"; fi
+  if [ -n "$do_efs" ]; then echo "  - Tệp EFS: giải nén đè vào $EFS_DIR/{${etargets[*]}}"; fi
   echo "  Dữ liệu sau thời điểm sao lưu sẽ MẤT. Hãy dừng các service ghi vào dữ liệu này trước."
   if [ "$yes" != 1 ]; then
     echo "Chưa làm gì cả. Thêm --yes để thực hiện."
@@ -313,6 +366,10 @@ cmd_restore() {
     mkdir -p "$FILES_DIR" && tar -xzf "$set/files/chat_files.tar.gz" -C "$FILES_DIR"
     log "Tệp chat đã giải nén"
   fi
+  for s in "${etargets[@]}"; do
+    mkdir -p "$EFS_DIR/$s" && tar -xzf "$set/files/efs_$s.tar.gz" -C "$EFS_DIR/$s"
+    log "Tệp EFS $s đã giải nén"
+  done
   log "PHỤC HỒI XONG sau $(($(date +%s) - started)) giây (đây là RTO đo được cho phần vừa làm)"
 }
 

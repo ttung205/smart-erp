@@ -15,13 +15,50 @@ services:
     ports: !override
       - "3000:3000"
 
+  # Tệp chat nằm trên EFS (không còn là docker volume chat_files). create_host_path: false để thiếu EFS thì không khởi động.
+  chat-service:
+    volumes: !override
+      - type: bind
+        source: ${CHAT_FILES_DIR:-/mnt/efs/chat}
+        target: /app/chat-files
+        bind:
+          create_host_path: false
+
   # MySQL ở RDS nên sao lưu/phục hồi không chờ container mysql. Phục hồi dùng tài khoản quản trị RDS:
   # đặt MYSQL_ROOT_USER=admin và MYSQL_ROOT_PASSWORD=<mật khẩu quản trị RDS> trong .env của máy A.
+  # Sao lưu đọc tệp chat và các thư mục EFS khác (backup.sh đọc /data/chat_files và /data/efs, chỉ đọc); phục hồi ghi ngược vào đúng thư mục đó.
   backup:
+    volumes: !override
+      - ${BACKUP_DIR:-./backups}:/backups
+      - type: bind
+        source: ${CHAT_FILES_DIR:-/mnt/efs/chat}
+        target: /data/chat_files
+        read_only: true
+        bind:
+          create_host_path: false
+      # Cả EFS (chỉ đọc): backup.sh gói mỗi thư mục con (sales, purchase, eoffice) thành files/efs_<tên>.tar.gz; bỏ qua chat vì đã gói riêng
+      - type: bind
+        source: ${EFS_ROOT_DIR:-/mnt/efs}
+        target: /data/efs
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on: !override
       mongo:
         condition: service_healthy
   recovery:
+    volumes: !override
+      - ${BACKUP_DIR:-./backups}:/backups
+      - type: bind
+        source: ${CHAT_FILES_DIR:-/mnt/efs/chat}
+        target: /data/chat_files
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${EFS_ROOT_DIR:-/mnt/efs}
+        target: /data/efs
+        bind:
+          create_host_path: false
     depends_on: !override
       mongo:
         condition: service_healthy
