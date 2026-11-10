@@ -74,9 +74,28 @@ python -m simulator.import_mysql --check
 python -m simulator.import_mysql
 ```
 
-`import_mysql` tự tạo `mysqldump` trong `simulator/.backup/mysql/` trước khi thay dữ liệu nghiệp vụ. Thông tin kết nối
-mặc định khớp `docker-compose.yml`; có thể ghi đè bằng `SIMULATOR_MYSQL_HOST`, `SIMULATOR_MYSQL_PORT`,
-`SIMULATOR_MYSQL_USER` và `SIMULATOR_MYSQL_PASSWORD`.
+`import_mysql` hỏi xác nhận (gõ `nap`) rồi tự tạo `mysqldump` trong `simulator/.backup/mysql/` trước khi thay dữ liệu
+nghiệp vụ. Thông tin kết nối mặc định khớp `docker-compose.yml`; có thể ghi đè bằng `SIMULATOR_MYSQL_HOST`,
+`SIMULATOR_MYSQL_PORT`, `SIMULATOR_MYSQL_USER` và `SIMULATOR_MYSQL_PASSWORD`.
+
+**Đổi id theo khóa tự nhiên.** Id role, phòng ban, tài khoản kế toán, kho và user mẫu ở nguồn thường khác id đã seed
+trên MySQL đích. `import_mysql` ghép chúng bằng tên role, tên phòng ban, mã tài khoản, mã kho, email, rồi đổi mọi
+cột tham chiếu (bảng quy tắc ở `simulator/idmap.py`). `--check` in bảng ghép và dừng nếu có giá trị không ghép được hoặc
+id user mô phỏng trùng user thật. Thêm cột mới tham chiếu danh mục hay người dùng thì phải thêm vào `REMAP_RULES`
+(`--check` cảnh báo các cột nghi vấn chưa có quy tắc). Kiểm thử: `python -m unittest tests.test_idmap`.
+
+**Nạp từ snapshot hoặc vào MySQL không phải container (ví dụ RDS):**
+
+```bash
+# nguồn là bản snapshot trong simulator/.backup/<thời điểm>/ (identity.sqlite, catalog.sqlite, sales.sqlite,
+# finance.sqlite, inventory.db, purchase.db) thay cho DB dev trong services/
+python -m simulator.import_mysql --source simulator/.backup/20261026-092129 --check
+# RDS không có container erp-mysql nên bỏ bước mysqldump qua docker exec; phải sao lưu trước bằng backup.sh
+python -m simulator.import_mysql --source simulator/.backup/20261026-092129 --skip-backup
+```
+
+Điều kiện: MySQL đích đã có schema, dữ liệu nền (role, phòng ban, tài khoản kế toán, quỹ/ngân hàng, kho) và tài khoản
+người dùng kết nối phải có quyền ghi (prod đã thu quyền của `erp_user`, cần tài khoản quản trị).
 
 Dữ liệu deterministic theo `SEED` trong `config.py`: chạy lại cho ra đúng bộ dữ liệu đó.
 

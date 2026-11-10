@@ -6,7 +6,16 @@ Quy trình an toàn:
     python -m simulator.import_mysql --check
     python -m simulator.import_mysql
 
-Lệnh nạp thật tự tạo một bản mysqldump trước khi thay dữ liệu nghiệp vụ.
+Nguồn mặc định là các DB SQLite dev trong services/. Dùng --source <thư mục> để nạp từ một bản snapshot
+(simulator/.backup/<thời điểm>/ gồm identity.sqlite, catalog.sqlite, sales.sqlite, finance.sqlite, inventory.db,
+purchase.db).
+
+Id role, phòng ban, tài khoản kế toán, kho và user mẫu ở nguồn thường KHÁC id đã seed trên MySQL đích, nên script
+ghép chúng theo khóa tự nhiên (tên role, mã tài khoản, email...) và đổi mọi cột tham chiếu (xem idmap.py). --check
+in bảng ghép và dừng nếu có giá trị không ghép được.
+
+Lệnh nạp thật hỏi xác nhận, rồi tạo một bản mysqldump (docker exec erp-mysql) trước khi thay dữ liệu nghiệp vụ.
+Với MySQL không chạy trong container (RDS) dùng --skip-backup sau khi đã sao lưu bằng backup.sh.
 """
 from __future__ import annotations
 
@@ -20,8 +29,18 @@ from pathlib import Path
 
 import pymysql
 
+from .idmap import DOMAINS, build_id_maps, remap_rows, suspect_columns, user_id_conflicts
 from .run import CLEAR, DB, SIMULATED_USER
 
+
+SOURCE_FILES = {
+    "identity": "identity.sqlite",
+    "catalog": "catalog.sqlite",
+    "sales": "sales.sqlite",
+    "inventory": "inventory.db",
+    "purchase": "purchase.db",
+    "finance": "finance.sqlite",
+}
 
 MYSQL_DATABASES = {
     "identity": "erp_identity_db",
@@ -43,6 +62,43 @@ def mysql_connection(database: str | None = None):
         charset="utf8mb4",
         autocommit=False,
     )
+
+
+def source_paths(source_dir: Path | None) -> dict[str, Path]:
+    paths = dict(DB) if source_dir is None else {s: source_dir / name for s, name in SOURCE_FILES.items()}
+    missing = [str(path) for path in paths.values() if not path.exists()]
+    if missing:
+        raise RuntimeError("Không thấy file nguồn:\n- " + "\n- ".join(missing) + "\nDùng --source <thư mục snapshot>.")
+    return paths
+
+
+def read_source_lookups(paths: dict[str, Path]) -> dict[str, dict[int, str]]:
+    """domain -> {id nguồn: khóa tự nhiên} đọc từ các bảng danh mục trong DB nguồn."""
+    lookups: dict[str, dict[int, str]] = {}
+    for domain, (service, table, key) in DOMAINS.items():
+        con = sqlite3.connect(f"file:{paths[service]}?mode=ro", uri=True)
+        try:
+            lookups[domain] = {row[0]: row[1] for row in con.execute(f'select id, "{key}" from "{table}"')}
+        finally:
+            con.close()
+    return lookups
+
+
+def read_target_lookups() -> tuple[dict[str, dict[str, int]], dict[int, str]]:
+    """domain -> {khóa tự nhiên: id đích} đọc từ MySQL đích, kèm {id: email} của mọi user đích."""
+    lookups: dict[str, dict[str, int]] = {}
+    users: dict[int, str] = {}
+    for domain, (service, table, key) in DOMAINS.items():
+        con = mysql_connection(MYSQL_DATABASES[service])
+        try:
+            with con.cursor() as cur:
+                cur.execute(f"select `{key}`, id from `{table}`")
+                lookups[domain] = {row[0]: row[1] for row in cur.fetchall()}
+                if domain == "user":
+                    users = {user_id: email for email, user_id in lookups[domain].items()}
+        finally:
+            con.close()
+    return lookups, users
 
 
 def sqlite_columns(con: sqlite3.Connection, table: str) -> list[str]:
@@ -94,16 +150,30 @@ def source_plan(service: str, source: sqlite3.Connection) -> dict[str, tuple[lis
     return plan
 
 
-def preflight() -> dict[str, dict[str, tuple[list[str], list[tuple]]]]:
-    plans = {}
-    errors = []
+def preflight(paths: dict[str, Path]) -> tuple[dict, dict]:
+    """Đọc nguồn, ghép id nguồn sang id đích, đổi id trong dữ liệu sẽ nạp và kiểm tra schema đích.
+
+    Trả về (plans, report); dừng bằng RuntimeError nếu có bất kỳ vấn đề nào (schema lệch, id không ghép được...)."""
+    plans: dict = {}
+    errors: list[str] = []
+    problems: set[str] = set()
+
+    source_lookup = read_source_lookups(paths)
+    target_lookup, target_users = read_target_lookups()
+    simulated = {uid: email for uid, email in source_lookup["user"].items() if SIMULATED_USER.match(email)}
+    maps, unmatched = build_id_maps(source_lookup, target_lookup, keep={"user": set(simulated)})
+    errors += user_id_conflicts(simulated, target_users, lambda email: bool(SIMULATED_USER.match(email)))
+
+    table_columns: dict[tuple[str, str], list[str]] = {}
     for service, database in MYSQL_DATABASES.items():
-        source = sqlite3.connect(f"file:{DB[service]}?mode=ro", uri=True)
+        source = sqlite3.connect(f"file:{paths[service]}?mode=ro", uri=True)
         target = mysql_connection(database)
         try:
             plan = source_plan(service, source)
             plans[service] = plan
-            for table, (columns, _) in plan.items():
+            for table, (columns, rows) in list(plan.items()):
+                table_columns[(service, table)] = columns
+                plan[table] = (columns, remap_rows(service, table, columns, rows, maps, unmatched, problems))
                 if not table_exists(target, database, table):
                     errors.append(f"{database}.{table}: bảng không tồn tại")
                     continue
@@ -123,9 +193,33 @@ def preflight() -> dict[str, dict[str, tuple[list[str], list[tuple]]]]:
         finally:
             source.close()
             target.close()
+    errors += sorted(problems)
     if errors:
-        raise RuntimeError("Schema SQLite/MySQL chưa đồng bộ:\n- " + "\n- ".join(errors))
-    return plans
+        raise RuntimeError("Không nạp được:\n- " + "\n- ".join(errors))
+    report = {
+        "maps": maps, "unmatched": unmatched, "source": source_lookup, "simulated_users": len(simulated),
+        "suspects": suspect_columns(table_columns),
+    }
+    return plans, report
+
+
+def print_mapping_report(report: dict) -> None:
+    print("Bảng ghép id nguồn -> đích (theo khóa tự nhiên):")
+    for domain in DOMAINS:
+        source, mapped, missing = report["source"][domain], report["maps"][domain], report["unmatched"][domain]
+        changed = {s: t for s, t in mapped.items() if s != t}
+        line = f"  [{domain}] ghép {len(mapped)}/{len(source)}, đổi id {len(changed)}"
+        if domain != "user" and changed:
+            line += ": " + ", ".join(f"{s}->{t}" for s, t in sorted(changed.items()))
+        print(line)
+        if missing:
+            print("    không có trên đích (chỉ lỗi nếu dữ liệu nạp có tham chiếu tới): "
+                  + "; ".join(f"{s}={k}" for s, k in sorted(missing.items())))
+    print(f"  user mô phỏng sẽ được nạp mới (giữ nguyên id): {report['simulated_users']}")
+    if report["suspects"]:
+        print("CẢNH BÁO: cột trông như tham chiếu danh mục/người dùng nhưng CHƯA có quy tắc đổi id (idmap.REMAP_RULES):")
+        for column in report["suspects"]:
+            print("  -", column)
 
 
 def backup_mysql() -> Path:
@@ -184,20 +278,46 @@ def load_service(service: str, plan: dict[str, tuple[list[str], list[tuple]]]) -
         target.close()
 
 
+def confirm_destructive(args) -> None:
+    host = os.getenv("SIMULATOR_MYSQL_HOST", "127.0.0.1")
+    port = os.getenv("SIMULATOR_MYSQL_PORT", "3306")
+    print(f"ĐÍCH: MySQL {host}:{port}")
+    print("Sẽ XÓA dữ liệu nghiệp vụ trong " + ", ".join(MYSQL_DATABASES.values()) + " rồi nạp dữ liệu mô phỏng.")
+    if args.yes:
+        return
+    if input("Gõ 'nap' để tiếp tục: ").strip() != "nap":
+        raise SystemExit("Đã hủy, chưa thay đổi gì.")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--check", action="store_true", help="chỉ kiểm tra schema và số dòng, không ghi MySQL")
+    parser.add_argument("--check", action="store_true", help="chỉ kiểm tra schema, ghép id và số dòng, không ghi MySQL")
+    parser.add_argument("--source", type=Path, help="thư mục snapshot chứa các file SQLite nguồn (mặc định: DB dev)")
+    parser.add_argument("--skip-backup", action="store_true",
+                        help="bỏ bước mysqldump qua docker exec (dùng khi MySQL là RDS và đã sao lưu bằng backup.sh)")
+    parser.add_argument("--yes", action="store_true", help="không hỏi xác nhận trước khi xóa dữ liệu đích")
     args = parser.parse_args()
 
-    plans = preflight()
+    plans, report = preflight(source_paths(args.source))
     for service, plan in plans.items():
         print(f"[{service}] " + ", ".join(f"{table}={len(rows)}" for table, (_, rows) in plan.items()))
+    print_mapping_report(report)
     if args.check:
-        print("Schema tương thích; chưa thay đổi dữ liệu MySQL.")
+        print("Schema tương thích và id ghép được; chưa thay đổi dữ liệu MySQL.")
         return
 
-    backup = backup_mysql()
-    print("Backup MySQL ->", backup)
+    confirm_destructive(args)
+    if args.skip_backup:
+        print("Bỏ qua backup (--skip-backup): bạn chịu trách nhiệm đã có bản sao lưu.")
+    else:
+        try:
+            backup = backup_mysql()
+        except (OSError, subprocess.CalledProcessError) as error:
+            raise SystemExit(
+                f"Backup bằng docker exec erp-mysql thất bại ({error}). MySQL đích không phải container erp-mysql? "
+                "Sao lưu bằng backup.sh rồi chạy lại với --skip-backup."
+            )
+        print("Backup MySQL ->", backup)
     for service, plan in plans.items():
         load_service(service, plan)
         print(f"[{service}] đã nạp xong")
