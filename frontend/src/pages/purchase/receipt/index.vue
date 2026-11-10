@@ -429,7 +429,8 @@ import Column from 'primevue/column';
 import PageHeader from '../../../components/common/PageHeader.vue';
 import CommonDataTable from '../../../components/common/CommonDataTable.vue';
 import { purchaseApi } from '../../../api/purchase.api';
-import { GOODS_RECEIPT_STATUS, DEFAULT_SUPPLIERS } from '../../../constants/purchase.constant';
+import { GOODS_RECEIPT_STATUS } from '../../../constants/purchase.constant';
+import { useSuppliers } from '../../../composables/useSuppliers';
 import { useWarehouses } from '../../../composables/useWarehouses';
 import { formatCurrency } from '../../../utils/format';
 
@@ -437,6 +438,7 @@ const router = useRouter();
 const toast = useToast();
 
 const { getWarehouseName, fetchWarehouses } = useWarehouses();
+const { getSupplierName, fetchSuppliers } = useSuppliers();
 
 const activeTab = ref('pending_orders');
 const orders = ref([]);
@@ -478,7 +480,8 @@ const loadAllData = async () => {
   try {
     const [resReceipts, resOrders] = await Promise.all([
       purchaseApi.getReceipts(),
-      purchaseApi.getOrders()
+      purchaseApi.getOrders(),
+      fetchSuppliers()
     ]);
 
     const rData = resReceipts?.data || resReceipts?.items || resReceipts;
@@ -556,10 +559,6 @@ const filteredReceipts = computed(() => {
   return list;
 });
 
-const getSupplierName = (supplierId) => {
-  const found = DEFAULT_SUPPLIERS.find(s => s.id === Number(supplierId));
-  return found ? found.name : `Nhà cung cấp #${supplierId}`;
-};
 
 const getOrderTotalQuantity = (order) => {
   if (!order.items) return 0;
