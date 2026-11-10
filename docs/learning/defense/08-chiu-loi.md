@@ -94,7 +94,7 @@ Lưu ý khi trình bày số liệu:
 6. **Bí mật nằm trong SSM Parameter Store và `.env` trên máy A** (chmod 600); máy ASG không giữ `.env` trong AMI nhưng giữ bản sao trên đĩa sau khi khởi động. Hướng tốt hơn: Secrets Manager có xoay mật khẩu.
 7. **Rate limit của Kong theo từng máy** (`policy: local`) nên hạn mức tính riêng từng máy; tổng hạn mức tăng theo số máy ASG.
 8. **Health check mức liveness** (xem lưu ý mục 4); và `/health` của ALB chỉ đo tới Kong, không đo từng service phía sau (cố ý: một service lẻ chết không nên khiến cả máy bị loại khỏi ALB).
-9. **Tệp đính kèm của sales, purchase, eoffice (EFS `/mnt/efs/{sales,purchase,eoffice}`) không nằm trong bản sao lưu.** `backup.sh` chỉ gom MySQL, Mongo và tệp chat (`/mnt/efs/chat`, có trong bản sao lưu mỗi giờ). EFS chịu được mất một AZ nhưng không chịu được xoá nhầm.
+9. **Tệp trên EFS chỉ có một bản "sống" cộng bản sao lưu mỗi giờ.** `backup.sh` gói các thư mục EFS (sales, purchase, eoffice, và chat riêng) thành `files/*.tar.gz` đẩy lên S3 cùng bản dump DB. EFS chịu được mất một AZ nhưng không chịu được xoá nhầm; RPO của tệp là 1 giờ, không có phiên bản hoá từng tệp. Chưa thử phục hồi `--efs` trên AWS thật (đã thử trong container với dữ liệu giả).
 10. Container MySQL cũ vẫn còn trên máy A làm đường lui sau khi chuyển sang RDS (nên gỡ khi chắc chắn không cần).
 
 ### Kịch bản mất cả AZ 1a (máy A nằm ở 1a): suy luận từ thiết kế, **chưa thử thật**
@@ -105,7 +105,7 @@ Lưu ý khi trình bày số liệu:
 - **Cách khôi phục A:** Start lại khi AZ về, hoặc dựng máy mới ở 1b bằng `ec2-bootstrap.sh` rồi phục hồi từ S3 (làm tay, chưa tự động).
 
 ## 6. Hướng nâng cấp (trả lời "nếu có thêm thời gian")
-- Sao lưu tệp EFS (AWS Backup) và bật sao chép chéo vùng cho bucket S3.
+- Bật sao chép chéo vùng cho bucket S3; chuyển tệp nghiệp vụ từ EFS sang S3 (qua `IFileStorage`) để service không phải mount đĩa và có phiên bản hoá tệp.
 - Chuyển RabbitMQ sang Amazon MQ (cụm 3 node) và Mongo sang replica set 3 node hoặc DocumentDB; thêm Redis backplane để chạy chat/notification ở cả hai máy; khi đó máy A không còn đặc biệt.
 - Đưa cả máy A vào ASG sau khi tách phần có trạng thái (Amazon MQ, Redis, Mongo cụm); thêm CloudFront và WAF phía trước ALB; đặt EC2 vào subnet riêng kèm NAT hoặc VPC endpoint.
 - Health check readiness thật cho từng service (kiểm tra DB, broker); bulkhead và rate limit dùng chung (Redis).

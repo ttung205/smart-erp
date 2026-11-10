@@ -13,7 +13,7 @@ Hệ phân tán lưu dữ liệu ở nhiều nơi. Câu hỏi đầu tiên là: 
 | Dữ liệu nghiệp vụ (8 schema `erp_*_db`) | MySQL, volume `mysql_data` | **Có** | Nguồn sự thật, không dựng lại được |
 | Thông báo, tin nhắn | MongoDB (`erp_notification_db`, `erp_chat_db`) | **Có** | Lịch sử hội thoại và hộp thư |
 | Tệp đính kèm chat | EFS `/mnt/efs/chat` (mount vào container `chat-service` ở `/app/chat-files`) | **Có** | Tệp người dùng tải lên; `backup` đọc cùng thư mục này qua `/data/chat_files` |
-| Tệp đính kèm của sales, purchase, eoffice | EFS `/mnt/efs/sales`, `/mnt/efs/purchase`, `/mnt/efs/eoffice` | **Không (hạn chế đã biết)** | `backup.sh` chỉ gom tệp chat. EFS sống sót khi mất một AZ nhưng không chống được xoá nhầm; xem mục 8 |
+| Tệp đính kèm của sales, purchase, eoffice | EFS `/mnt/efs/sales`, `/mnt/efs/purchase`, `/mnt/efs/eoffice` | **Có** | `backup` mount cả EFS (chỉ đọc) ở `/data/efs` và gói mỗi thư mục con thành `files/efs_<tên>.tar.gz`. EFS chỉ chịu được mất một AZ, không chống được xoá nhầm, nên cần bản sao riêng trên S3 |
 | Queue RabbitMQ | Volume `rabbitmq_data` | **Không** | Message chỉ là trung gian; khi mất, `outbox_events` trong MySQL vẫn còn các event chưa gửi (PENDING/FAILED) và relay gửi lại. Cấu trúc queue nằm sẵn trong `definitions.json` |
 | Log, metric | Loki, Prometheus | Không | Dữ liệu quan sát, giữ 7 ngày, dựng lại được theo thời gian |
 | Mã nguồn, cấu hình | Git | Đã có | Git là bản sao lưu của code |
@@ -30,7 +30,7 @@ Câu trả lời chốt: *"Dữ liệu sinh ra từ nghiệp vụ thì sao lưu;
   mysqldump × 8 schema ─┐                       verify  : thử phục hồi vào schema tạm, rồi xóa
   mongodump × 2 database ├─► ./backups/database-backup-<yyyymmdd>-<NN>/   restore : phục hồi vào dữ liệu THẬT (cần --yes)
   tar tệp chat ─────────┘      │
-                                ├─ mysql/*.sql.gz   mongo/*.archive.gz   files/chat_files.tar.gz
+                                ├─ mysql/*.sql.gz   mongo/*.archive.gz   files/chat_files.tar.gz  files/efs_*.tar.gz
                                 ├─ SHA256SUMS       manifest.json
                                 └─► (tùy chọn) aws s3 sync → s3://bucket/smart-erp/database-backup-<yyyymmdd>-<NN>/
 ```
@@ -63,7 +63,7 @@ docker compose stop sales-service sales-relay sales-scheduler          # dừng 
 docker compose run --rm recovery restore latest --mysql=erp_sales_db --yes
 docker compose up -d sales-service sales-relay sales-scheduler
 ```
-Các lựa chọn của `restore`: `--mysql` (tất cả) hoặc `--mysql=a,b`, `--mongo` hoặc `--mongo=db`, `--files`; bản cụ thể bằng tên (vd `database-backup-20261105-02`) hoặc `latest`.
+Các lựa chọn của `restore`: `--mysql` (tất cả) hoặc `--mysql=a,b`, `--mongo` hoặc `--mongo=db`, `--files` (tệp chat), `--efs` (mọi thư mục EFS trong bản) hoặc `--efs=sales,eoffice`; bản cụ thể bằng tên (vd `database-backup-20261105-02`) hoặc `latest`.
 
 ## 4. Số liệu đo thật (máy dev, dữ liệu mẫu)
 
@@ -173,7 +173,7 @@ Trạng thái đường S3: đường lỗi đã thử (không có thông tin đ
 
 - **Chỉ sao lưu đầy đủ, không tăng dần, không PITR.** RPO bằng chu kỳ cron.
 - **Bản cục bộ nằm cùng máy với dữ liệu** (`./backups`). Mất máy là mất cả hai nếu chưa đẩy lên S3. Vì vậy S3 là phần bắt buộc ở production. Bản trên S3 cùng vùng AWS, chưa sao chép chéo vùng.
-- **Tệp đính kèm của sales, purchase và eoffice (EFS `/mnt/efs/{sales,purchase,eoffice}`) không nằm trong bản sao lưu.** EFS lưu qua nhiều AZ nên sống sót khi mất một AZ, nhưng xoá nhầm hoặc ghi đè thì mất vĩnh viễn. Hướng phát triển: bật AWS Backup cho EFS, hoặc thêm `tar` các thư mục này vào `backup.sh` rồi đẩy lên S3.
+- **Tệp trên EFS được gói đầy đủ mỗi giờ** (sales, purchase, eoffice: `files/efs_<tên>.tar.gz`; chat đã gói riêng), không tăng dần: dung lượng bản sao lưu và chi phí S3 tăng theo lượng tệp đính kèm (bucket tự xoá sau 14 ngày). Nếu tệp đổi trong lúc `tar` đọc (có người đang upload) thì `tar` thoát mã 1; script chấp nhận mã này vì kho lưu vẫn dùng được, mã khác thì dừng và báo lỗi. EFS là nơi lưu thật, bản trên S3 chỉ để chống xoá nhầm và mất hẳn.
 - **Tệp chat nằm trên EFS `/mnt/efs/chat`** (không còn là volume `chat_files` trên đĩa máy A), nên sống sót khi mất máy A; có trong bản sao lưu mỗi giờ. Service chat vẫn chỉ chạy một bản ở máy A vì trạng thái kết nối realtime nằm trong bộ nhớ, EFS không thay đổi điều đó.
 - **Sao lưu không nhất quán xuyên schema** (xem câu hỏi trên).
 - **Mongo không có PITR:** `mongodump` chụp từng collection ở thời điểm khác nhau (không dùng `--oplog`).
