@@ -302,7 +302,7 @@ const isReadOnly = computed(() => {
 });
 
 const onSupplierChange = () => {
-  const s = DEFAULT_SUPPLIERS.find(x => x.id === form.supplier_id);
+  const s = supplierOptions.value.find(x => x.id === form.supplier_id);
   if (s) {
     form.supplier_name = s.name;
   }
@@ -404,12 +404,12 @@ const loadOrder = async (id) => {
 };
 
 const getSupplierName = (id) => {
-  const found = DEFAULT_SUPPLIERS.find(s => s.id === Number(id));
+  const found = supplierOptions.value.find(s => s.id === Number(id));
   return found ? found.name : `Nhà cung cấp #${id}`;
 };
 
 const getSupplierContact = (id) => {
-  const found = DEFAULT_SUPPLIERS.find(s => s.id === Number(id));
+  const found = supplierOptions.value.find(s => s.id === Number(id));
   return found ? found.contact : '';
 };
 
