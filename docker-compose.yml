@@ -511,10 +511,14 @@ services:
       NODE_ENV: production
       # Swagger UI (/swagger) chỉ bật khi APP_ENV là local hoặc development; docker-compose.prod.yml đặt production
       APP_ENV: local
-      SMTP_HOST: mailpit
-      SMTP_PORT: 1025
-      MAIL_FROM_ADDRESS: sales@thanhtung.vn
-      MAIL_FROM_NAME: "Smart ERP"
+      # Mặc định gửi vào Mailpit (chỉ xem thử, không ra ngoài). Production đặt SMTP_* thật trong .env (xem .env.example);
+      # trước đây hai biến này bị gán cứng nên email báo giá trên prod không bao giờ tới người nhận.
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-sales@thanhtung.vn}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Smart ERP}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET chưa đặt trong .env (copy .env.example thành .env)}
       IDENTITY_SERVICE_URL: http://identity-service:8001
       # Tải tệp đính kèm email từ service sở hữu (khóa nội bộ) lúc gửi
