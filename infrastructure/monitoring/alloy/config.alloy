@@ -49,6 +49,12 @@ loki.process "erp" {
     expression = "(?i)(?:correlation[_-]?id\"?\\s*[:=]\\s*\"?|\\[)(?P<correlation_id>req_corr_[0-9a-f]+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"
   }
 
+  // Nhãn máy nguồn: mọi máy (A và các máy ASG) cùng đẩy log về một Loki, nên cần biết dòng log đến từ máy nào.
+  // Ở chế độ HA, container Alloy dùng `uts: host` nên đây là hostname của máy EC2 (vd ip-172-31-1-10); ở máy dev là id container.
+  stage.static_labels {
+    values = { instance = constants.hostname }
+  }
+
   stage.structured_metadata {
     values = { correlation_id = "" }
   }
@@ -58,6 +64,7 @@ loki.process "erp" {
 
 loki.write "default" {
   endpoint {
-    url = "http://loki:3100/loki/api/v1/push"
+    // Mặc định là Loki cùng máy. Máy ASG đặt LOKI_PUSH_URL trỏ tới Loki ở máy A (xem docker-compose.ha-b.yml).
+    url = coalesce(sys.env("LOKI_PUSH_URL"), "http://loki:3100/loki/api/v1/push")
   }
 }

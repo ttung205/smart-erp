@@ -13,6 +13,11 @@
 # Không đổi nghiệp vụ, API hay schema database.
 
 services:
+  # Alloy chạy ở MỌI máy: đọc log container của chính máy đó rồi đẩy về Loki duy nhất ở máy A.
+  # uts: host để nhãn `instance` là hostname của máy EC2 (không phải id container).
+  alloy:
+    uts: host
+
   # DB là RDS: không chạy container mysql trên máy chủ HA
   mysql:
     profiles: ["local-db"]

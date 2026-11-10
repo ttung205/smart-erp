@@ -24,6 +24,14 @@ services:
   notification-service:
     profiles: ["ha-a-only"]
 
+  # Giám sát phía máy B chỉ gồm Alloy (không Loki, Prometheus, Grafana): đẩy log về Loki ở máy A.
+  # profiles rỗng để Alloy chạy mà không cần COMPOSE_PROFILES=monitoring. LOKI_HOST mặc định là địa chỉ máy A (cùng RABBITMQ_HOST).
+  alloy:
+    profiles: !override []
+    depends_on: !override {}
+    environment:
+      LOKI_PUSH_URL: http://${LOKI_HOST:-${RABBITMQ_HOST}}:3100/loki/api/v1/push
+
   purchase-service:
     environment:
       Outbox__RelayEnabled: "false"
