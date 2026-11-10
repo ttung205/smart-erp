@@ -108,6 +108,57 @@ public static class DbInitializer
         { 99, "Hà Lan" },
         { 100, "Nhật Bản" },
     };
+    /// <summary>
+    /// Bốn kho chuẩn của hệ thống, id cố định vì bộ mô phỏng dữ liệu (ai-service/simulator) và các chứng từ bán
+    /// tham chiếu kho chính theo id 1. Chỉ tạo khi bảng warehouses còn trống.
+    /// </summary>
+    private static readonly (long Id, string Code, string Name, string Location, bool CanSell)[] BaseWarehouses =
+    [
+        (1, "WH-MAIN", "Kho Chính", "Kho Tổng Miền Bắc", true),
+        (2, "WH-TECH", "Kho Kĩ Thuật", "Xưởng Kỹ Thuật & Bảo Hành", false),
+        (3, "WH-PENDING", "Kho Chờ Xử Lý", "Khu Vực Kiểm Hàng & Chờ Phê Duyệt", false),
+        (4, "WH-TECH-01", "Kho Kỹ thuật - Hàng chờ kiểm tra", "Khu vực kiểm tra chất lượng hàng bán trả lại", false),
+    ];
+
+    /// <summary>
+    /// Tạo bốn kho chuẩn khi database chưa có kho nào. Nếu đã có kho (môi trường đang chạy) thì không đụng tới.
+    /// Idempotent và an toàn khi hai máy khởi động cùng lúc.
+    /// </summary>
+    public static async Task EnsureBaseWarehousesAsync(InventoryDbContext context)
+    {
+        if (await context.Warehouses.AnyAsync())
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        context.Warehouses.AddRange(BaseWarehouses.Select(w => new Warehouse
+        {
+            Id = w.Id,
+            Code = w.Code,
+            Name = w.Name,
+            Location = w.Location,
+            IsActive = true,
+            CanSell = w.CanSell,
+            CreatedAt = now,
+            UpdatedAt = now
+        }));
+
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            // Bản service ở máy kia vừa tạo xong (khởi động cùng lúc): chỉ chấp nhận khi kho đã có, ngược lại ném lại lỗi.
+            context.ChangeTracker.Clear();
+            if (!await context.Warehouses.AnyAsync())
+            {
+                throw;
+            }
+        }
+    }
+
     public static async Task SeedAsync(InventoryDbContext context, bool seedData = true)
     {
         // 1. Ensure Database & Tables Created
@@ -131,50 +182,12 @@ public static class DbInitializer
             // The deployment already has the idempotency index.
         }
 
+        // 2. Danh mục kho chuẩn: tạo cả khi AUTO_SEED=false (kho là dữ liệu danh mục, không phải dữ liệu mẫu).
+        await EnsureBaseWarehousesAsync(context);
+
         if (!seedData)
         {
             return;
-        }
-
-        // 2. Seed Warehouses
-        if (!await context.Warehouses.AnyAsync())
-        {
-            var warehouses = new List<Warehouse>
-            {
-                new()
-                {
-                    Code = "WH-HN-01",
-                    Name = "Kho Tổng Miền Bắc (Hà Nội)",
-                    Location = "Cụm Công Nghiệp Nam Từ Liêm, Hà Nội",
-                    IsActive = true,
-                    CanSell = true,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                },
-                new()
-                {
-                    Code = "WH-HCM-01",
-                    Name = "Kho Trung Tâm Miền Nam (TP.HCM)",
-                    Location = "Khu Công Nghiệp Tân Bình, Tân Phú, TP. Hồ Chí Minh",
-                    IsActive = true,
-                    CanSell = true,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                },
-                new()
-                {
-                    Code = "WH-DN-01",
-                    Name = "Kho Trung Chuyển Miền Trung (Đà Nẵng)",
-                    Location = "Khu Công Nghiệp Hòa Khánh, Liên Chiểu, Đà Nẵng",
-                    IsActive = true,
-                    CanSell = true,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                }
-            };
-
-            await context.Warehouses.AddRangeAsync(warehouses);
-            await context.SaveChangesAsync();
         }
 
         if (!await context.Warehouses.AnyAsync(w => w.Code == "WH-TECH-01"))
@@ -213,13 +226,9 @@ public static class DbInitializer
                     {
                         // Phân bổ tồn kho theo quy mô và vai trò của từng kho:
                         int baseMin, baseMax;
-                        if (w.Code == "WH-HCM-01")
+                        if (w.Code == "WH-MAIN")
                         {
                             baseMin = 75; baseMax = 320;
-                        }
-                        else if (w.Code == "WH-HN-01")
-                        {
-                            baseMin = 45; baseMax = 250;
                         }
                         else
                         {
