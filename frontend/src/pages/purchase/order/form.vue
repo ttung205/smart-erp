@@ -723,13 +723,17 @@ onMounted(async () => {
     try {
       const localPrs = JSON.parse(localStorage.getItem('smart_erp_mock_pr_list') || '[]');
       matchedPr = localPrs.find(p => String(p.id) === prIdTarget);
-    } catch {}
+    } catch (err) {
+      console.warn('Không đọc được danh sách PR lưu cục bộ, chuyển sang lấy từ máy chủ:', err);
+    }
 
     if (!matchedPr) {
       try {
         const res = await purchaseApi.getRequisitionById(prIdTarget);
         matchedPr = res?.data || res;
-      } catch {}
+      } catch (err) {
+        console.warn(`Không tải được đề nghị mua ${prIdTarget} từ máy chủ, tạo PO không kèm dữ liệu PR:`, err);
+      }
     }
 
     if (matchedPr) {
