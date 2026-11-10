@@ -132,7 +132,7 @@ Có lệnh `verify` phục hồi từng schema vào chỗ tạm, so số bảng 
 Đo được: phục hồi schema lớn nhất khoảng 84 giây cho cả quy trình. RPO của sao lưu bằng chu kỳ cron (mỗi giờ thì tối đa 1 giờ); RPO của RDS bằng 0 khi mất một AZ (đồng bộ). Muốn RPO nhỏ hơn thì bật binary log.
 
 **33. Bản sao lưu lưu ở đâu, có nhất quán không?**
-Bản chống thảm họa ở S3 (SSE-S3, chặn truy cập công khai, xóa sau 14 ngày; máy A chỉ có quyền ghi, không có quyền xóa). Mỗi schema nhất quán nhờ `--single-transaction`, nhưng các schema được chụp cách nhau vài giây nên không nhất quán xuyên service. Chấp nhận được vì outbox, `processed_events` và job đối soát sửa phần lệch sau phục hồi.
+Bản chống thảm họa ở bucket S3 `smart-erp-backup` (thiết kế: SSE-S3, chặn truy cập công khai, xóa sau 14 ngày, máy A không có quyền xóa; các thiết lập này chưa kiểm chứng lại bằng lệnh `get-*`, xem bài 07 mục 5). Cùng vùng với hệ thống, chưa sao chép chéo vùng. Sao lưu chạy mỗi giờ bằng cron trên máy A. Mỗi schema nhất quán nhờ `--single-transaction`, nhưng các schema được chụp cách nhau vài giây nên không nhất quán xuyên service. Chấp nhận được vì outbox, `processed_events` và job đối soát sửa phần lệch sau phục hồi.
 
 ---
 
@@ -153,8 +153,14 @@ Giữ số máy mong muốn (Min 1, Desired 2, Max 3) và thay máy hỏng, thê
 **38. Máy mới của ASG tự cấu hình thế nào?**
 Dựng từ golden AMI (Docker, image đã kéo sẵn, không có `.env`), user data lấy `.env` và thẻ image từ SSM Parameter Store bằng IAM role, mount EFS rồi chạy `deploy-aws.sh`. Đo: user data khoảng 89 giây, cộng khởi động và ALB kiểm tra thành khoảng 2,5 phút kể từ lúc máy bị hủy đến khi máy thay vào lại.
 
+**33a. Có gì không nằm trong bản sao lưu?**
+Tệp đính kèm của sales, purchase, eoffice trên EFS (`/mnt/efs/{sales,purchase,eoffice}`): `backup.sh` chỉ gom MySQL, Mongo và tệp chat. EFS sống sót khi mất một AZ nhưng không chống được xóa nhầm. Hướng khắc phục: AWS Backup cho EFS hoặc `tar` các thư mục này đẩy lên S3. Tệp chat nằm ở EFS `/mnt/efs/chat` và có trong bản sao lưu. Queue RabbitMQ cố ý không sao lưu vì outbox còn bản gốc.
+
 **39. Một AZ sập thì sao?**
-Máy web ở AZ còn lại tiếp tục phục vụ, ASG tự dựng máy bù ở AZ còn sống, RDS failover sang bản chờ, EFS còn mount target ở AZ kia. Mất AZ 1a thì máy A mất theo nên chat, RabbitMQ, Grafana ngừng: đây là điểm lỗi đơn đã biết. Web có thể chỉ còn một máy trong khoảng 5 đến 6 phút trước khi máy bù lên.
+Máy web ở AZ còn lại tiếp tục phục vụ, ASG tự dựng máy bù ở AZ còn sống, RDS failover sang bản chờ, EFS còn mount target ở AZ kia. Mất AZ 1a thì máy A mất theo nên chat, notification, RabbitMQ, Mongo, Grafana và `sales-scheduler` ngừng: đây là điểm lỗi đơn đã biết. Không mất dữ liệu nghiệp vụ: máy ở 1b vẫn ghi dữ liệu và `outbox_events` trong cùng transaction vào RDS; relay chỉ chạy ở A nên các dòng `PENDING` chờ trong RDS, khi A lên lại thì phát, notification tạo thông báo trễ (không mất, `processed_events` chặn trùng). Hộp thư và tin nhắn (Mongo) nằm trên A, khôi phục từ bản sao lưu mỗi giờ; tệp chat nằm trên EFS nên không mất theo A. Kịch bản này suy luận từ thiết kế, chưa thử thật. Chi tiết: bài 08 mục 5. Web có thể chỉ còn một máy trong khoảng 5 đến 6 phút trước khi máy bù lên.
+
+**39a. (Vặn) Mất AZ 1a, người dùng còn làm được gì và thông báo của họ đi đâu?**
+Còn đăng nhập, tạo báo giá, đơn, chứng từ nhờ máy ASG ở 1b và RDS đã chuyển sang bản chờ. Chat và thông báo tức thời ngừng. Sự kiện (ví dụ "báo giá gửi duyệt") đã nằm trong RDS cùng transaction nên không mất; thông báo xuất hiện muộn sau khi A lên lại. Job đối soát giữ hàng (5 phút một lần) cũng dừng nên khoản giữ mồ côi, nếu có, được dọn muộn.
 
 **40. Hệ thống có điểm lỗi đơn nào?**
 Máy A (RabbitMQ, Mongo, relay outbox, scheduler, chat, notification, Grafana, sao lưu). Biện pháp hiện tại: event nằm trong outbox nên không mất khi A chết; web vẫn chạy nhờ các máy khác. Hướng khắc phục: Amazon MQ, Mongo dịch vụ ngoài, relay nhiều bản với khóa lãnh đạo.

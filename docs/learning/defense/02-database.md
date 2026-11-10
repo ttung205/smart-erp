@@ -22,7 +22,6 @@ Vì sao? Nếu sales JOIN thẳng vào bảng `products` của catalog thì cata
 | eoffice | MySQL `erp_eoffice_db` | [:20](../../../infrastructure/mysql/init/01-create-databases.sql#L20) |
 | ai-service | MySQL `erp_analytics_db` | [:23](../../../infrastructure/mysql/init/01-create-databases.sql#L23) |
 | finance | MySQL `erp_finance_db` | [:26](../../../infrastructure/mysql/init/01-create-databases.sql#L26) |
-| (không dùng) | `erp_chat_db` | [:29](../../../infrastructure/mysql/init/01-create-databases.sql#L29) — còn sót từ thời chat định chuyển sang MySQL; chat thực tế dùng Mongo |
 | notification | MongoDB `erp_notification_db` | [docker-compose.yml:413](../../../docker-compose.yml#L413) |
 | chat | MongoDB `erp_chat_db` + volume file | [docker-compose.yml:562-563](../../../docker-compose.yml#L562-L563) |
 
