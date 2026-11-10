@@ -27,7 +27,7 @@ retry() { # retry <lần> <giây> lệnh...
 log "Mount EFS"
 mkdir -p /mnt/efs
 mountpoint -q /mnt/efs || retry 12 10 mount /mnt/efs
-mkdir -p /mnt/efs/sales
+mkdir -p /mnt/efs/sales /mnt/efs/eoffice /mnt/efs/purchase
 mountpoint -q /mnt/efs || { log "EFS chưa mount được"; exit 1; }
 
 log "Lấy .env và thẻ image từ SSM ($PREFIX)"

@@ -52,7 +52,15 @@ services:
     depends_on: !override
       rabbitmq:
         condition: service_healthy
+  # Tệp đính kèm đề nghị (disk 'local' của Laravel, storage/app/private) cũng phải dùng chung giữa các máy.
+  # Container chạy bằng www-data (uid 33) nên thư mục /mnt/efs/eoffice phải thuộc uid 33.
   eoffice-service:
+    volumes:
+      - type: bind
+        source: ${EOFFICE_FILES_DIR:-/mnt/efs/eoffice}
+        target: /var/www/html/storage/app/private
+        bind:
+          create_host_path: false
     depends_on: !override
       rabbitmq:
         condition: service_healthy
@@ -60,7 +68,15 @@ services:
     depends_on: !override
       rabbitmq:
         condition: service_healthy
+  # Tệp đính kèm yêu cầu hỏi hàng NCC (Path.Combine(ContentRootPath, "inquiry-attachments")), ContentRootPath = /app.
+  # notification-service (máy A) tải tệp qua purchase-service cục bộ nên tệp phải thấy được từ mọi máy.
   purchase-service:
+    volumes:
+      - type: bind
+        source: ${PURCHASE_FILES_DIR:-/mnt/efs/purchase}
+        target: /app/inquiry-attachments
+        bind:
+          create_host_path: false
     depends_on: !override
       rabbitmq:
         condition: service_healthy

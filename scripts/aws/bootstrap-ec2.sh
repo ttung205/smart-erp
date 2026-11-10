@@ -41,8 +41,8 @@ grep -q ' /mnt/efs ' /etc/fstab \
 systemctl daemon-reload
 mountpoint -q /mnt/efs || mount /mnt/efs
 # Trong container sales, PHP chạy bằng www-data (uid 33): thư mục phải thuộc uid này
-mkdir -p /mnt/efs/sales
-chown 33:33 /mnt/efs/sales
+mkdir -p /mnt/efs/sales /mnt/efs/eoffice /mnt/efs/purchase /mnt/efs/chat
+chown 33:33 /mnt/efs/sales /mnt/efs/eoffice   # eoffice cũng là Laravel (www-data); purchase và chat chạy root nên không cần chown
 
 if [ ! -d "$APP_DIR/.git" ]; then
   log "Lấy mã nguồn, nhánh $GIT_BRANCH"
