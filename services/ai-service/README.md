@@ -74,9 +74,42 @@ python -m simulator.import_mysql --check
 python -m simulator.import_mysql
 ```
 
-`import_mysql` tự tạo `mysqldump` trong `simulator/.backup/mysql/` trước khi thay dữ liệu nghiệp vụ. Thông tin kết nối
-mặc định khớp `docker-compose.yml`; có thể ghi đè bằng `SIMULATOR_MYSQL_HOST`, `SIMULATOR_MYSQL_PORT`,
-`SIMULATOR_MYSQL_USER` và `SIMULATOR_MYSQL_PASSWORD`.
+`import_mysql` hỏi xác nhận (gõ `nap`) rồi tự tạo `mysqldump` trong `simulator/.backup/mysql/` trước khi thay dữ liệu
+nghiệp vụ. Thông tin kết nối mặc định khớp `docker-compose.yml`; có thể ghi đè bằng `SIMULATOR_MYSQL_HOST`,
+`SIMULATOR_MYSQL_PORT`, `SIMULATOR_MYSQL_USER` và `SIMULATOR_MYSQL_PASSWORD`.
+
+**Đổi id theo khóa tự nhiên.** Id role, phòng ban, tài khoản kế toán, kho và user mẫu ở nguồn thường khác id đã seed
+trên MySQL đích. `import_mysql` ghép chúng bằng tên role, tên phòng ban, mã tài khoản, mã kho, email, rồi đổi mọi
+cột tham chiếu (bảng quy tắc ở `simulator/idmap.py`). `--check` in bảng ghép và dừng nếu có giá trị không ghép được hoặc
+id user mô phỏng trùng user thật. Thêm cột mới tham chiếu danh mục hay người dùng thì phải thêm vào `REMAP_RULES`
+(`--check` cảnh báo các cột nghi vấn chưa có quy tắc). Kiểm thử: `python -m unittest tests.test_idmap`.
+
+Các dòng trùng theo collation MySQL (không phân biệt hoa thường và dấu, ví dụ thương hiệu `Hoà Phát` và `Hòa Phát`)
+được gộp thành một và các cột tham chiếu được trỏ lại (`COLLATION_DEDUPE` trong `idmap.py`). User thật đã đổi email thì
+ghép bằng `--map-user EMAIL_NGUỒN=EMAIL_ĐÍCH`. Lỗi giữa chừng thì chạy lại với `--only catalog,sales,...` để chỉ nạp
+các service chưa xong (mỗi service nạp trong một transaction riêng).
+
+**Nạp từ snapshot hoặc vào MySQL không phải container (ví dụ RDS):**
+
+```bash
+# nguồn là bản snapshot trong simulator/.backup/<thời điểm>/ (identity.sqlite, catalog.sqlite, sales.sqlite,
+# finance.sqlite, inventory.db, purchase.db) thay cho DB dev trong services/
+python -m simulator.import_mysql --source simulator/.backup/20261026-092129 --check
+# RDS không có container erp-mysql nên bỏ bước mysqldump qua docker exec; phải sao lưu trước bằng backup.sh
+python -m simulator.import_mysql --source simulator/.backup/20261026-092129 --skip-backup
+```
+
+Điều kiện: MySQL đích đã có schema, dữ liệu nền (role, phòng ban, tài khoản kế toán, quỹ/ngân hàng, kho) và tài khoản
+người dùng kết nối phải có quyền ghi (prod đã thu quyền của `erp_user`, cần tài khoản quản trị).
+
+Simulator điền sẵn các cột snapshot của chứng từ bán (`customer_*`, `contact_*`, `created_by_name`, `approved_by_name` ở
+`sales_orders`/`quotations`; `designation`, `brand`, `com`, `unit`, `description` ở dòng hàng) giống
+`ReferenceSnapshot` của sales-service, nên không cần chạy `sales:backfill-reference-snapshots` sau khi nạp.
+
+`simulator.run` cần các DB SQLite nền (`identity-service/database/database.sqlite`, `catalog-service/...`,
+`sales-service/...`, `finance-service/...`, `inventory-service/src/Inventory.Api/inventory.db`,
+`purchase-service/src/Purchase.Api/purchase.db`). Chúng bị gitignore; nếu thiếu thì chép từ một bản
+`simulator/.backup/<thời điểm>/` (tự tạo mỗi lần chạy `simulator.run`).
 
 Dữ liệu deterministic theo `SEED` trong `config.py`: chạy lại cho ra đúng bộ dữ liệu đó.
 
