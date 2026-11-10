@@ -93,7 +93,7 @@ Từ khi có HA, thay một nhóm cũ (`smart-erp-web-sg`, mở 80/443 cho cả 
 | Nhóm | Gắn vào | Cho phép vào (inbound) |
 |---|---|---|
 | `erp-alb` | ALB | 80 và 443 từ mọi nơi (đây là cửa duy nhất ra Internet) |
-| `erp-app` | EC2-A và máy ASG | 80 và 3000 **từ `erp-alb`**; 5672 (RabbitMQ) **từ chính `erp-app`** (máy ASG gọi RabbitMQ của máy A) |
+| `erp-app` | EC2-A và máy ASG | 80 và 3000 **từ `erp-alb`**; 5672 (RabbitMQ) và 3100 (Loki) **từ chính `erp-app`** (máy ASG gọi RabbitMQ và đẩy log về Loki của máy A) |
 | `erp-rds` | RDS | 3306 **từ `erp-app`** |
 | `erp-efs` | mount target EFS | 2049 (NFS) **từ `erp-app`** |
 
