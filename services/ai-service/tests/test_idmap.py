@@ -113,6 +113,24 @@ class UserConflictTest(unittest.TestCase):
         self.assertEqual([], idmap.user_id_conflicts({17: "a.b17@erp.local"}, {1: "admin@erp.local"}, lambda e: False))
 
 
+class UserAliasTest(unittest.TestCase):
+    def test_email_nguon_duoc_ghep_voi_user_da_doi_email(self):
+        target = {"ttung.php@gmail.com": 1, "sale@erp.local": 2}
+
+        errors = idmap.apply_user_aliases(target, {"admin@erp.local": "ttung.php@gmail.com"})
+
+        self.assertEqual([], errors)
+        self.assertEqual(1, target["admin@erp.local"])
+
+    def test_email_dich_khong_ton_tai_bi_bao_loi(self):
+        target = {"sale@erp.local": 2}
+
+        errors = idmap.apply_user_aliases(target, {"admin@erp.local": "khong.co@gmail.com"})
+
+        self.assertEqual(["--map-user: không có user khong.co@gmail.com trên MySQL đích"], errors)
+        self.assertNotIn("admin@erp.local", target)
+
+
 class RuleConsistencyTest(unittest.TestCase):
     def test_moi_quy_tac_tro_toi_domain_co_that(self):
         for rule, domain in idmap.REMAP_RULES.items():

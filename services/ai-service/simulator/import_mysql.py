@@ -29,7 +29,7 @@ from pathlib import Path
 
 import pymysql
 
-from .idmap import DOMAINS, build_id_maps, remap_rows, suspect_columns, user_id_conflicts
+from .idmap import DOMAINS, apply_user_aliases, build_id_maps, remap_rows, suspect_columns, user_id_conflicts
 from .run import CLEAR, DB, SIMULATED_USER
 
 
@@ -150,7 +150,7 @@ def source_plan(service: str, source: sqlite3.Connection) -> dict[str, tuple[lis
     return plan
 
 
-def preflight(paths: dict[str, Path]) -> tuple[dict, dict]:
+def preflight(paths: dict[str, Path], user_aliases: dict[str, str] | None = None) -> tuple[dict, dict]:
     """Đọc nguồn, ghép id nguồn sang id đích, đổi id trong dữ liệu sẽ nạp và kiểm tra schema đích.
 
     Trả về (plans, report); dừng bằng RuntimeError nếu có bất kỳ vấn đề nào (schema lệch, id không ghép được...)."""
@@ -160,6 +160,7 @@ def preflight(paths: dict[str, Path]) -> tuple[dict, dict]:
 
     source_lookup = read_source_lookups(paths)
     target_lookup, target_users = read_target_lookups()
+    errors += apply_user_aliases(target_lookup["user"], user_aliases or {})
     simulated = {uid: email for uid, email in source_lookup["user"].items() if SIMULATED_USER.match(email)}
     maps, unmatched = build_id_maps(source_lookup, target_lookup, keep={"user": set(simulated)})
     errors += user_id_conflicts(simulated, target_users, lambda email: bool(SIMULATED_USER.match(email)))
@@ -296,9 +297,18 @@ def main() -> None:
     parser.add_argument("--skip-backup", action="store_true",
                         help="bỏ bước mysqldump qua docker exec (dùng khi MySQL là RDS và đã sao lưu bằng backup.sh)")
     parser.add_argument("--yes", action="store_true", help="không hỏi xác nhận trước khi xóa dữ liệu đích")
+    parser.add_argument("--map-user", action="append", default=[], metavar="EMAIL_NGUỒN=EMAIL_ĐÍCH",
+                        help="ghép user nguồn với user đích đã đổi email, ví dụ admin@erp.local=ten@gmail.com (lặp lại được)")
     args = parser.parse_args()
 
-    plans, report = preflight(source_paths(args.source))
+    user_aliases = {}
+    for item in args.map_user:
+        source_email, separator, target_email = item.partition("=")
+        if not separator or not source_email or not target_email:
+            parser.error(f"--map-user cần dạng EMAIL_NGUỒN=EMAIL_ĐÍCH, nhận được: {item}")
+        user_aliases[source_email.strip()] = target_email.strip()
+
+    plans, report = preflight(source_paths(args.source), user_aliases)
     for service, plan in plans.items():
         print(f"[{service}] " + ", ".join(f"{table}={len(rows)}" for table, (_, rows) in plan.items()))
     print_mapping_report(report)

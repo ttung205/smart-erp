@@ -185,6 +185,18 @@ def remap_rows(
     return result
 
 
+def apply_user_aliases(target_users: dict[str, int], aliases: dict[str, str]) -> list[str]:
+    """Ghép email user ở nguồn với email khác ở đích (user thật đã đổi email, ví dụ admin@erp.local đổi thành email
+    cá nhân). aliases = {email nguồn: email đích}. Sửa target_users tại chỗ, trả về danh sách lỗi."""
+    errors = []
+    for source_email, target_email in aliases.items():
+        if target_email not in target_users:
+            errors.append(f"--map-user: không có user {target_email} trên MySQL đích")
+        else:
+            target_users[source_email] = target_users[target_email]
+    return errors
+
+
 def user_id_conflicts(
     new_users: dict[int, str],
     target_users: dict[int, str],
