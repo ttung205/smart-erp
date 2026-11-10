@@ -79,6 +79,22 @@ class RemapRowsTest(unittest.TestCase):
         self.assertEqual(
             {"identity.users.department_id: department id 3 (Kho Vận & Quản Lý Tồn) không có trên MySQL đích"}, problems)
 
+    def test_id_dang_chuoi_so_cung_duoc_doi_va_giu_kieu_chuoi(self):
+        problems: set[str] = set()
+
+        rows = idmap.remap_rows("sales", "sales_orders", ["id", "created_by", "assigned_to"], [(1, "8", "17")],
+                                self.maps, self.unmatched, problems)
+
+        self.assertEqual([(1, "3", "17")], rows)
+        self.assertEqual(set(), problems)
+
+    def test_id_dang_chuoi_so_khong_ghep_duoc_van_bi_bao(self):
+        problems: set[str] = set()
+
+        idmap.remap_rows("sales", "sales_orders", ["created_by"], [("99",)], self.maps, self.unmatched, problems)
+
+        self.assertEqual(1, len(problems))
+
     def test_gia_tri_chuoi_trong_cot_nguoi_dung_duoc_giu_nguyen(self):
         problems: set[str] = set()
 

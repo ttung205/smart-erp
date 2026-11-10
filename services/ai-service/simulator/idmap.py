@@ -237,14 +237,16 @@ def remap_rows(
         values = list(row)
         for index, domain in positions:
             value = values[index]
-            if value is None or not isinstance(value, int):
+            is_text_id = isinstance(value, str) and value.isdigit()  # vài cột lưu id dưới dạng chuỗi số ('7')
+            if value is None or not (isinstance(value, int) or is_text_id):
                 continue  # NULL hoặc giá trị không phải id (ví dụ tên người) thì giữ nguyên
-            target_id = maps.get(domain, {}).get(value)
+            source_id = int(value)
+            target_id = maps.get(domain, {}).get(source_id)
             if target_id is None:
-                key = unmatched.get(domain, {}).get(value, "không có trong nguồn")
-                problems.add(f"{service}.{table}.{columns[index]}: {domain} id {value} ({key}) không có trên MySQL đích")
+                key = unmatched.get(domain, {}).get(source_id, "không có trong nguồn")
+                problems.add(f"{service}.{table}.{columns[index]}: {domain} id {source_id} ({key}) không có trên MySQL đích")
             else:
-                values[index] = target_id
+                values[index] = str(target_id) if is_text_id else target_id
         result.append(tuple(values))
     return result
 

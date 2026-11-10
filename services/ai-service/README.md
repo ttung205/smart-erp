@@ -102,6 +102,15 @@ python -m simulator.import_mysql --source simulator/.backup/20261026-092129 --sk
 Điều kiện: MySQL đích đã có schema, dữ liệu nền (role, phòng ban, tài khoản kế toán, quỹ/ngân hàng, kho) và tài khoản
 người dùng kết nối phải có quyền ghi (prod đã thu quyền của `erp_user`, cần tài khoản quản trị).
 
+Simulator điền sẵn các cột snapshot của chứng từ bán (`customer_*`, `contact_*`, `created_by_name`, `approved_by_name` ở
+`sales_orders`/`quotations`; `designation`, `brand`, `com`, `unit`, `description` ở dòng hàng) giống
+`ReferenceSnapshot` của sales-service, nên không cần chạy `sales:backfill-reference-snapshots` sau khi nạp.
+
+`simulator.run` cần các DB SQLite nền (`identity-service/database/database.sqlite`, `catalog-service/...`,
+`sales-service/...`, `finance-service/...`, `inventory-service/src/Inventory.Api/inventory.db`,
+`purchase-service/src/Purchase.Api/purchase.db`). Chúng bị gitignore; nếu thiếu thì chép từ một bản
+`simulator/.backup/<thời điểm>/` (tự tạo mỗi lần chạy `simulator.run`).
+
 Dữ liệu deterministic theo `SEED` trong `config.py`: chạy lại cho ra đúng bộ dữ liệu đó.
 
 ## Cấu trúc
