@@ -58,7 +58,7 @@ services:
       rabbitmq:
         condition: service_healthy
   # Tệp đính kèm đề nghị (disk 'local' của Laravel, storage/app/private) cũng phải dùng chung giữa các máy.
-  # Container chạy bằng www-data (uid 33) nên thư mục /mnt/efs/eoffice phải thuộc uid 33.
+  # Container chạy bằng www-data của image Alpine (uid 82, không phải 33 của Ubuntu) nên /mnt/efs/eoffice phải thuộc uid 82.
   eoffice-service:
     volumes:
       - type: bind
