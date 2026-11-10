@@ -29,7 +29,12 @@ from pathlib import Path
 
 import pymysql
 
-from .idmap import DOMAINS, apply_user_aliases, build_id_maps, remap_rows, suspect_columns, user_id_conflicts
+from collections import Counter
+
+from .idmap import (
+    COLLATION_DEDUPE, DOMAINS, apply_user_aliases, build_id_maps, merge_collation_duplicates, remap_rows,
+    rewrite_references, suspect_columns, user_id_conflicts,
+)
 from .run import CLEAR, DB, SIMULATED_USER
 
 
@@ -197,11 +202,34 @@ def preflight(paths: dict[str, Path], user_aliases: dict[str, str] | None = None
     errors += sorted(problems)
     if errors:
         raise RuntimeError("Không nạp được:\n- " + "\n- ".join(errors))
+    merged_notes = merge_duplicates(plans)
     report = {
         "maps": maps, "unmatched": unmatched, "source": source_lookup, "simulated_users": len(simulated),
-        "suspects": suspect_columns(table_columns),
+        "suspects": suspect_columns(table_columns), "merged": merged_notes,
     }
     return plans, report
+
+
+def merge_duplicates(plans: dict) -> list[str]:
+    """Gộp các dòng trùng theo collation MySQL (ví dụ 'Hoà Phát' và 'Hòa Phát') và trỏ lại các cột tham chiếu."""
+    notes: list[str] = []
+    for (service, table, key_column), references in COLLATION_DEDUPE.items():
+        columns, rows = plans[service][table]
+        usage: Counter = Counter()
+        for ref_service, ref_table, ref_column in references:
+            ref_columns, ref_rows = plans[ref_service][ref_table]
+            if ref_column in ref_columns:
+                index = ref_columns.index(ref_column)
+                usage.update(row[index] for row in ref_rows if row[index] is not None)
+        kept, merged, table_notes = merge_collation_duplicates(columns, rows, key_column, usage)
+        if not merged:
+            continue
+        plans[service][table] = (columns, kept)
+        for ref_service, ref_table, ref_column in references:
+            ref_columns, ref_rows = plans[ref_service][ref_table]
+            plans[ref_service][ref_table] = (ref_columns, rewrite_references(ref_columns, ref_rows, ref_column, merged))
+        notes += [f"{service}.{table}.{note}" for note in table_notes]
+    return notes
 
 
 def print_mapping_report(report: dict) -> None:
@@ -217,6 +245,10 @@ def print_mapping_report(report: dict) -> None:
             print("    không có trên đích (chỉ lỗi nếu dữ liệu nạp có tham chiếu tới): "
                   + "; ".join(f"{s}={k}" for s, k in sorted(missing.items())))
     print(f"  user mô phỏng sẽ được nạp mới (giữ nguyên id): {report['simulated_users']}")
+    if report["merged"]:
+        print("Dòng trùng theo collation MySQL (không phân biệt hoa thường và dấu) đã được gộp:")
+        for note in report["merged"]:
+            print("  -", note)
     if report["suspects"]:
         print("CẢNH BÁO: cột trông như tham chiếu danh mục/người dùng nhưng CHƯA có quy tắc đổi id (idmap.REMAP_RULES):")
         for column in report["suspects"]:
@@ -279,11 +311,11 @@ def load_service(service: str, plan: dict[str, tuple[list[str], list[tuple]]]) -
         target.close()
 
 
-def confirm_destructive(args) -> None:
+def confirm_destructive(args, only: list[str]) -> None:
     host = os.getenv("SIMULATOR_MYSQL_HOST", "127.0.0.1")
     port = os.getenv("SIMULATOR_MYSQL_PORT", "3306")
     print(f"ĐÍCH: MySQL {host}:{port}")
-    print("Sẽ XÓA dữ liệu nghiệp vụ trong " + ", ".join(MYSQL_DATABASES.values()) + " rồi nạp dữ liệu mô phỏng.")
+    print("Sẽ XÓA dữ liệu nghiệp vụ trong " + ", ".join(MYSQL_DATABASES[s] for s in only) + " rồi nạp dữ liệu mô phỏng.")
     if args.yes:
         return
     if input("Gõ 'nap' để tiếp tục: ").strip() != "nap":
@@ -297,6 +329,9 @@ def main() -> None:
     parser.add_argument("--skip-backup", action="store_true",
                         help="bỏ bước mysqldump qua docker exec (dùng khi MySQL là RDS và đã sao lưu bằng backup.sh)")
     parser.add_argument("--yes", action="store_true", help="không hỏi xác nhận trước khi xóa dữ liệu đích")
+    parser.add_argument("--only", metavar="SERVICE[,SERVICE]",
+                        help="chỉ nạp các service này (identity,catalog,sales,inventory,purchase,finance); dùng khi chạy "
+                             "lại sau lỗi để khỏi nạp lại phần đã xong")
     parser.add_argument("--map-user", action="append", default=[], metavar="EMAIL_NGUỒN=EMAIL_ĐÍCH",
                         help="ghép user nguồn với user đích đã đổi email, ví dụ admin@erp.local=ten@gmail.com (lặp lại được)")
     args = parser.parse_args()
@@ -308,6 +343,11 @@ def main() -> None:
             parser.error(f"--map-user cần dạng EMAIL_NGUỒN=EMAIL_ĐÍCH, nhận được: {item}")
         user_aliases[source_email.strip()] = target_email.strip()
 
+    only = [name.strip() for name in args.only.split(",")] if args.only else list(MYSQL_DATABASES)
+    unknown = [name for name in only if name not in MYSQL_DATABASES]
+    if unknown:
+        parser.error(f"--only: service không hợp lệ: {', '.join(unknown)} (chọn trong {', '.join(MYSQL_DATABASES)})")
+
     plans, report = preflight(source_paths(args.source), user_aliases)
     for service, plan in plans.items():
         print(f"[{service}] " + ", ".join(f"{table}={len(rows)}" for table, (_, rows) in plan.items()))
@@ -316,7 +356,7 @@ def main() -> None:
         print("Schema tương thích và id ghép được; chưa thay đổi dữ liệu MySQL.")
         return
 
-    confirm_destructive(args)
+    confirm_destructive(args, only)
     if args.skip_backup:
         print("Bỏ qua backup (--skip-backup): bạn chịu trách nhiệm đã có bản sao lưu.")
     else:
@@ -329,6 +369,8 @@ def main() -> None:
             )
         print("Backup MySQL ->", backup)
     for service, plan in plans.items():
+        if service not in only:
+            continue
         load_service(service, plan)
         print(f"[{service}] đã nạp xong")
     print("Hoàn tất nạp dữ liệu mô phỏng vào MySQL.")

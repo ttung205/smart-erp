@@ -84,6 +84,11 @@ cột tham chiếu (bảng quy tắc ở `simulator/idmap.py`). `--check` in b�
 id user mô phỏng trùng user thật. Thêm cột mới tham chiếu danh mục hay người dùng thì phải thêm vào `REMAP_RULES`
 (`--check` cảnh báo các cột nghi vấn chưa có quy tắc). Kiểm thử: `python -m unittest tests.test_idmap`.
 
+Các dòng trùng theo collation MySQL (không phân biệt hoa thường và dấu, ví dụ thương hiệu `Hoà Phát` và `Hòa Phát`)
+được gộp thành một và các cột tham chiếu được trỏ lại (`COLLATION_DEDUPE` trong `idmap.py`). User thật đã đổi email thì
+ghép bằng `--map-user EMAIL_NGUỒN=EMAIL_ĐÍCH`. Lỗi giữa chừng thì chạy lại với `--only catalog,sales,...` để chỉ nạp
+các service chưa xong (mỗi service nạp trong một transaction riêng).
+
 **Nạp từ snapshot hoặc vào MySQL không phải container (ví dụ RDS):**
 
 ```bash

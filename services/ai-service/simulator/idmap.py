@@ -8,6 +8,8 @@ rồi đổi mọi cột tham chiếu theo bảng REMAP_RULES. Không phụ thu�
 from __future__ import annotations
 
 import re
+import unicodedata
+from collections import Counter
 from collections.abc import Iterable, Sequence
 
 # domain -> (service, bảng danh mục, cột khóa tự nhiên)
@@ -105,6 +107,16 @@ REMAP_RULES: dict[tuple[str, str, str], str] = {
     ("finance", "customer_receivables", "account_id"): "account",
 }
 
+# Bảng có UNIQUE trên cột khóa tự nhiên mà MySQL (collation utf8mb4_unicode_ci) so sánh KHÔNG phân biệt hoa thường, dấu
+# thanh và khoảng trắng cuối, còn SQLite thì có. Các dòng trùng theo collation phải gộp thành một, nếu không MySQL báo
+# "Duplicate entry". (service, bảng, cột khóa) -> các cột tham chiếu id của bảng đó cần trỏ lại: (service, bảng, cột).
+COLLATION_DEDUPE: dict[tuple[str, str, str], list[tuple[str, str, str]]] = {
+    ("catalog", "brands", "name"): [
+        ("catalog", "products", "brand_id"),
+        ("purchase", "supplier_inquiry_items", "brand_id"),
+    ],
+}
+
 # Tên cột có dạng "người thực hiện / danh mục" mà chưa có trong REMAP_RULES sẽ bị cảnh báo khi --check.
 SUSPECT_COLUMN = re.compile(
     r"(_by$|_by_id$|^created_by|salesperson|picker|approver|requester|user_id$|manager_id$|assignee|owner_id$"
@@ -117,6 +129,58 @@ SUSPECT_COLUMN = re.compile(
 NOT_ID_COLUMNS: set[tuple[str, str, str]] = {
     ("catalog", "customers", "created_by"),  # tên đăng nhập của nhân viên tạo khách, ví dụ 'thang.dh17'
 }
+
+
+def collation_key(value: str) -> str:
+    """Khóa so sánh xấp xỉ collation utf8mb4_unicode_ci: bỏ dấu, không phân biệt hoa thường, bỏ khoảng trắng cuối."""
+    text = unicodedata.normalize("NFD", value.replace("Đ", "D").replace("đ", "d"))
+    return "".join(ch for ch in text if unicodedata.category(ch) != "Mn").casefold().rstrip(" ")
+
+
+def merge_collation_duplicates(
+    columns: Sequence[str],
+    rows: Sequence[Sequence],
+    key_column: str,
+    usage: Counter,
+) -> tuple[list[tuple], dict[int, int], list[str]]:
+    """Gộp các dòng có khóa trùng theo collation MySQL. Giữ dòng được tham chiếu nhiều nhất (hòa thì id nhỏ nhất).
+
+    usage[id] = số dòng ở các bảng khác đang tham chiếu id đó. Trả về (các dòng giữ lại, {id bị gộp: id giữ lại},
+    ghi chú để in ra)."""
+    id_index, key_index = columns.index("id"), columns.index(key_column)
+    groups: dict[str, list[Sequence]] = {}
+    for row in rows:
+        value = row[key_index]
+        groups.setdefault(collation_key(value) if isinstance(value, str) else value, []).append(row)
+
+    merged: dict[int, int] = {}
+    notes: list[str] = []
+    for group in groups.values():
+        if len(group) < 2:
+            continue
+        keep = max(group, key=lambda row: (usage.get(row[id_index], 0), -row[id_index]))
+        for row in group:
+            if row is not keep:
+                merged[row[id_index]] = keep[id_index]
+                notes.append(
+                    f"{key_column}: gộp id {row[id_index]} ({row[key_index]!r}, {usage.get(row[id_index], 0)} tham chiếu) "
+                    f"vào id {keep[id_index]} ({keep[key_index]!r}, {usage.get(keep[id_index], 0)} tham chiếu)")
+    kept = [tuple(row) for row in rows if row[id_index] not in merged]
+    return kept, merged, notes
+
+
+def rewrite_references(columns: Sequence[str], rows: Iterable[Sequence], column: str, id_map: dict[int, int]) -> list[tuple]:
+    """Đổi giá trị của một cột tham chiếu theo id_map (id bị gộp -> id giữ lại)."""
+    if column not in columns:
+        return [tuple(row) for row in rows]
+    index = columns.index(column)
+    result = []
+    for row in rows:
+        values = list(row)
+        if isinstance(values[index], int) and values[index] in id_map:
+            values[index] = id_map[values[index]]
+        result.append(tuple(values))
+    return result
 
 
 def build_id_maps(

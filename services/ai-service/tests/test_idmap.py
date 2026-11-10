@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import unittest
+from collections import Counter
 
 from simulator import idmap
 
@@ -129,6 +130,48 @@ class UserAliasTest(unittest.TestCase):
 
         self.assertEqual(["--map-user: không có user khong.co@gmail.com trên MySQL đích"], errors)
         self.assertNotIn("admin@erp.local", target)
+
+
+class CollationDedupeTest(unittest.TestCase):
+    COLUMNS = ["id", "name"]
+
+    def test_khoa_xap_xi_collation_bo_dau_va_hoa_thuong(self):
+        self.assertEqual(idmap.collation_key("Hoà Phát"), idmap.collation_key("Hòa Phát"))
+        self.assertEqual(idmap.collation_key("LG "), idmap.collation_key("lg"))
+        self.assertNotEqual(idmap.collation_key("Daikin"), idmap.collation_key("Panasonic"))
+
+    def test_gop_giu_ban_duoc_tham_chieu_nhieu_hon(self):
+        rows = [(34, "Hoà Phát"), (35, "LG"), (36, "Hòa Phát")]
+
+        kept, merged, notes = idmap.merge_collation_duplicates(self.COLUMNS, rows, "name", Counter({34: 9, 36: 10}))
+
+        self.assertEqual([(35, "LG"), (36, "Hòa Phát")], kept)
+        self.assertEqual({34: 36}, merged)
+        self.assertEqual(1, len(notes))
+        self.assertIn("id 34", notes[0])
+
+    def test_hoa_nhau_thi_giu_id_nho_nhat(self):
+        kept, merged, _ = idmap.merge_collation_duplicates(self.COLUMNS, [(5, "Abc"), (3, "ABC")], "name", Counter())
+
+        self.assertEqual([(3, "ABC")], kept)
+        self.assertEqual({5: 3}, merged)
+
+    def test_khong_trung_thi_giu_nguyen(self):
+        rows = [(1, "LG"), (2, "Daikin")]
+
+        kept, merged, notes = idmap.merge_collation_duplicates(self.COLUMNS, rows, "name", Counter())
+
+        self.assertEqual(rows, kept)
+        self.assertEqual({}, merged)
+        self.assertEqual([], notes)
+
+    def test_tro_lai_cot_tham_chieu_theo_id_da_gop(self):
+        rows = idmap.rewrite_references(["id", "brand_id"], [(1, 34), (2, 36), (3, None), (4, 35)], "brand_id", {34: 36})
+
+        self.assertEqual([(1, 36), (2, 36), (3, None), (4, 35)], rows)
+
+    def test_cot_khong_ton_tai_thi_tra_nguyen_ven(self):
+        self.assertEqual([(1, 2)], idmap.rewrite_references(["id", "x"], [(1, 2)], "brand_id", {2: 9}))
 
 
 class RuleConsistencyTest(unittest.TestCase):
