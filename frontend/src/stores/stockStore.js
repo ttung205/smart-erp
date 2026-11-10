@@ -70,16 +70,9 @@ export const useStockStore = defineStore('stock', () => {
     const name = product.name || product.designation
     const origin = product.origin || product.com || 'Việt Nam'
 
-    // Tự động khởi tạo ngay lập tức các dòng tồn kho trên giao diện cho từng kho
-    const targetWarehouses = warehouses.value.length > 0
-      ? warehouses.value
-      : [
-          { id: 1, code: 'WH-HN-01', name: 'Kho Tổng Miền Bắc (Hà Nội)', can_sell: true },
-          { id: 2, code: 'WH-HCM-01', name: 'Kho Trung Tâm Miền Nam (TP.HCM)', can_sell: true },
-          { id: 3, code: 'WH-DN-01', name: 'Kho Trung Chuyển Miền Trung (Đà Nẵng)', can_sell: true }
-        ]
-
-    for (const w of targetWarehouses) {
+    // Khởi tạo ngay các dòng tồn kho trên giao diện cho từng kho đã tải từ backend.
+    // Chưa tải được danh sách kho thì bỏ qua, lần đồng bộ bên dưới sẽ lấy dữ liệu thật.
+    for (const w of warehouses.value) {
       const exists = stocks.value.some(
         s => Number(s.product_id) === productId && Number(s.warehouse_id) === Number(w.id)
       )

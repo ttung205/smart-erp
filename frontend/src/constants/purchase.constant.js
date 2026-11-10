@@ -55,8 +55,11 @@ export const DEFAULT_SUPPLIERS = [
   { id: 4, code: 'MS-4158', name: 'Công ty CP Daikin Air Conditioning Vietnam', taxCode: '0305882341', contact: 'Lê Minh Quân (0938.777.888)' }
 ];
 
+// Bốn kho chuẩn, khớp với inventory-service (DbInitializer.BaseWarehouses). Chỉ dùng làm giá trị ban đầu
+// trước khi tải được danh sách kho từ backend; dữ liệu thật luôn lấy từ GET /inventory/warehouses.
 export const DEFAULT_WAREHOUSES = [
-  { id: 1, code: 'WH-HN-01', name: 'Kho Tổng Miền Bắc (Hà Nội)', location: 'Cụm Công Nghiệp Nam Từ Liêm, Hà Nội' },
-  { id: 2, code: 'WH-HCM-01', name: 'Kho Trung Tâm Miền Nam (TP.HCM)', location: 'Khu Công Nghiệp Tân Bình, Tân Phú, TP. Hồ Chí Minh' },
-  { id: 3, code: 'WH-DN-01', name: 'Kho Trung Chuyển Miền Trung (Đà Nẵng)', location: 'Khu Công Nghiệp Hòa Khánh, Liên Chiểu, Đà Nẵng' }
+  { id: 1, code: 'WH-MAIN', name: 'Kho Chính', location: 'Kho Tổng Miền Bắc', is_active: true, can_sell: true },
+  { id: 2, code: 'WH-TECH', name: 'Kho Kĩ Thuật', location: 'Xưởng Kỹ Thuật & Bảo Hành', is_active: true, can_sell: false },
+  { id: 3, code: 'WH-PENDING', name: 'Kho Chờ Xử Lý', location: 'Khu Vực Kiểm Hàng & Chờ Phê Duyệt', is_active: true, can_sell: false },
+  { id: 4, code: 'WH-TECH-01', name: 'Kho Kỹ thuật - Hàng chờ kiểm tra', location: 'Khu vực kiểm tra chất lượng hàng bán trả lại', is_active: true, can_sell: false }
 ];

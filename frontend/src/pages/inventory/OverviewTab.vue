@@ -142,7 +142,7 @@
           <label class="text-xs font-bold text-slate-700">Mã kho <span class="text-rose-500">*</span></label>
           <InputText
             v-model="form.code"
-            placeholder="VD: WH-MAIN, WH-HCM..."
+            placeholder="VD: WH-MAIN, WH-TECH..."
             class="!text-xs font-mono !rounded-[6px]"
           />
         </div>
