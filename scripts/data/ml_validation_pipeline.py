@@ -94,7 +94,7 @@ def run_cell_1() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     t0 = log_cell_header(
         1,
         "DATA INGESTION & FRESHNESS AUDIT",
-        "Kiểm tra tính tươi mới, khóa ngoại và rỗng của kho dữ liệu phân tích SQLite",
+        "Kiểm tra tính tươi mới, khóa ngoại và rỗng của kho dữ liệu phân tích MySQL (erp_analytics_db)",
     )
 
     fact_sales, dim_customer, receivables = ml.load_datasets()

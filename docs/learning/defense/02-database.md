@@ -51,9 +51,9 @@ Lợi ích kép: (1) không cần gọi catalog mỗi lần xem hoá đơn, cata
 ### Cách 3: Nghe event, giữ bản sao cục bộ (bất đồng bộ)
 Catalog tạo sản phẩm → phát `catalog.product.created` → inventory tạo dòng tồn kho 0 ở mọi kho. Inventory có "bản sao" danh sách sản phẩm của riêng mình, nhất quán sau (eventual consistency) vài giây.
 
-### Cách 4 (lệch chuẩn, đã biết): ETL đọc thẳng schema khác
-ai-service đọc trực tiếp 6 schema nghiệp vụ để dựng kho phân tích ([ai-service/app/config.py:54-61](../../../services/ai-service/app/config.py#L54-L61), hàm `sync()` ở [warehouse.py:177](../../../services/ai-service/app/warehouse.py#L177)). **Mặc định tắt** (`WAREHOUSE_SYNC_ENABLED: ${AI_WAREHOUSE_SYNC_ENABLED:-false}`, [docker-compose.yml:601](../../../docker-compose.yml#L601)). Code tự ghi nhận đây là điểm lệch chuẩn; đích đúng là consume event qua queue `erp.analytics.events` (đã khai báo trong RabbitMQ) hoặc API export của từng service.
-→ Khi bị hỏi, **chủ động nói**: "Đây là ngoại lệ có chủ đích cho phân tích báo cáo, chỉ đọc, tắt mặc định, và em biết cách sửa đúng là…". Thầy đánh giá cao việc biết mình lệch chuẩn ở đâu.
+### Cách 4: Kho phân tích riêng, nạp qua API export
+ai-service dựng kho phân tích `erp_analytics_db` bằng cách gọi endpoint export nội bộ của từng service ([export_client.py](../../../services/ai-service/app/export_client.py), hàm `build()` và `sync()` ở [warehouse.py](../../../services/ai-service/app/warehouse.py)). Mỗi service tự quyết dữ liệu nào được xuất (`/internal/exports/*` ở Laravel, `/internal/analytics/*` ở .NET), xác thực bằng `X-Internal-Service-Key`, phân trang theo khóa chính. ai-service không có connection hay quyền MySQL nào trên DB của service khác (quyền SELECT cũ đã thu hồi trong `03-create-service-users.sh`).
+→ Khi bị hỏi, nói rõ: trước đây ETL đọc thẳng schema của service khác (lệch chuẩn), nay đã chuyển sang API export. Bước tiếp theo nếu cần cập nhật gần thời gian thực là consume event qua queue `erp.analytics.events`.
 
 ## 4. Không có transaction chéo database thì giữ nhất quán thế nào?
 
@@ -124,7 +124,7 @@ Câu trả lời mẫu khi thầy hỏi: *"Bọn em tách theo schema trên mộ
 ## 9. Thầy có thể hỏi
 
 **H: Báo cáo cần dữ liệu từ nhiều service thì làm sao?**
-Đ: Không JOIN chéo. Hoặc gọi API từng service rồi gộp ở tầng ứng dụng (API composition), hoặc dựng kho phân tích riêng được nạp từ event (CQRS / data warehouse). ai-service đang là kho phân tích nhưng nạp bằng ETL đọc trực tiếp — điểm lệch chuẩn đã biết.
+Đ: Không JOIN chéo. Hoặc gọi API từng service rồi gộp ở tầng ứng dụng (API composition), hoặc dựng kho phân tích riêng được nạp từ event (CQRS / data warehouse). ai-service là kho phân tích, nạp định kỳ qua API export của từng service.
 
 **H: Dữ liệu bị trùng lặp (tên khách hàng ở cả catalog và sales) có sai không?**
 Đ: Là có chủ đích. Trong microservice, nhân bản dữ liệu là chuyện bình thường; quan trọng là xác định rõ **nguồn sự thật** (catalog) và bản sao chỉ để đọc. Với chứng từ thì bản chụp còn là yêu cầu nghiệp vụ.

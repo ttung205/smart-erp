@@ -123,4 +123,4 @@ docker compose --profile legacy-gateway up -d gateway-legacy
 
 ## Giới hạn đã biết
 
-Service AI giữ lịch sử hội thoại và read model phân tích trong schema MySQL `erp_analytics_db`. Đồng bộ kho dữ liệu bị tắt mặc định trong Docker (`AI_WAREHOUSE_SYNC_ENABLED=false`) vì ETL đọc trực tiếp schema MySQL của các service khác, làm vượt ranh giới service. Chỉ đặt `AI_WAREHOUSE_SYNC_ENABLED=true` cho demo. `/health` báo cả `analytics_ready` và `warehouse_sync_enabled`. Cần thay ETL bằng đường nạp dữ liệu dựa trên event/API trước khi bật phân tích AI trên production.
+Service AI giữ lịch sử hội thoại và read model phân tích trong schema MySQL `erp_analytics_db`. Kho được dựng lại mỗi `SYNC_INTERVAL_SECONDS` từ endpoint export nội bộ của từng service (khóa `X-Internal-Service-Key`; Kong xóa header này nên các endpoint không gọi được qua gateway). Đồng bộ bật mặc định (`AI_WAREHOUSE_SYNC_ENABLED=true`); đặt `false` để giữ nguyên kho. `/health` báo cả `analytics_ready` và `warehouse_sync_enabled`. Dữ liệu hiện là dữ liệu mô phỏng (`ANALYTICS_DATA_SIMULATED=true`), nạp bằng `services/ai-service/simulator` (`run`, `validate`, `import_mysql`).
