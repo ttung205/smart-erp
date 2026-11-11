@@ -33,6 +33,14 @@ CASES = [
     ("purchase_report", {"mode": "supplier_performance"}),
     ("purchase_report", {"mode": "supplier_performance", "sort": "late_rate"}),
     ("supplier_info", {"query": "toshiba"}),
+    ("stock_card_trace", {"sku": "CFS-13VDM-COM", "limit": 5}),
+    ("purchase_price_variance_alert", {}),
+    ("purchase_price_variance_alert", {"direction": "both", "threshold_percent": 3, "start_date": "2026-01-01"}),
+    ("suggest_restock_plan", {"urgency": "urgent", "limit": 5}),
+    ("slow_moving_deadstock_radar", {"limit": 5}),
+    ("slow_moving_deadstock_radar", {"min_idle_days": 365, "category": "tu lanh"}),
+    ("search_company_policy", {"query": "Vì sao không giữ được hàng khi lập chứng từ bán?"}),
+    ("search_company_policy", {"query": "Quy trình hủy chứng từ bán", "category": "business"}),
     ("order_list", {"start_date": "2026-09-01", "end_date": "2026-09-30", "limit": 3}),
 ]
 

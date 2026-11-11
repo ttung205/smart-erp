@@ -2,7 +2,7 @@
 
 Bao gồm:
 1. Phân cụm khách hàng RFM (K-Means Clustering, k=4) + Silhouette Score
-2. Dự báo doanh số chuỗi thời gian (Holt-Winters / Time Series Regression) 30 ngày tới + Dải tin cậy 95%
+2. Dự báo doanh số theo ngày (Holt-Winters, mùa vụ tuần), kiểm định ngoài mẫu 30 ngày, dải tin cậy 95% từ mô phỏng
 3. Phân tích rủi ro tín dụng & công nợ quá hạn (Credit Risk Scoring)
 4. Tổng quan chỉ số KPI kinh doanh (Overview Metrics)
 5. Bộ đệm In-Memory Caching đảm bảo phản hồi REST API < 50ms
@@ -11,10 +11,8 @@ Bao gồm:
 from __future__ import annotations
 
 import logging
-import os
 import threading
 from datetime import date, datetime, timedelta
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -25,30 +23,10 @@ from sklearn.preprocessing import StandardScaler
 
 log = logging.getLogger("ai.ml")
 
-# Đường dẫn tới thư mục dữ liệu Kaggle đã làm giàu
-_PARENTS = Path(__file__).resolve().parents
-ROOT_DIR = _PARENTS[3] if len(_PARENTS) > 3 else _PARENTS[-1]
-KAGGLE_DIR = Path(os.environ.get("KAGGLE_DATASET_DIR", ROOT_DIR / "kaggle_dataset"))
-
 # In-memory Cache & Lock
 _cache: Dict[str, Any] = {}
 _cache_lock = threading.Lock()
 _is_ready = False
-
-
-def _find_dataset_dir() -> Path:
-    if KAGGLE_DIR.exists() and (KAGGLE_DIR / "fact_sales_enriched.csv").exists():
-        return KAGGLE_DIR
-    # Fallback paths
-    candidates = [
-        ROOT_DIR / "kaggle_dataset",
-        Path.cwd() / "kaggle_dataset",
-        Path.cwd().parent / "kaggle_dataset",
-    ]
-    for c in candidates:
-        if c.exists() and (c / "fact_sales_enriched.csv").exists():
-            return c
-    raise FileNotFoundError(f"Không tìm thấy thư mục kaggle_dataset tại {KAGGLE_DIR}")
 
 
 # ==============================================================================
@@ -67,7 +45,7 @@ def compute_rfm_clusters(
     """
     log.info("Bắt đầu tính toán phân cụm RFM K-Means...")
     
-    # Ngày chốt sổ phân tích: ngày mới nhất trong tập dữ liệu (2026-09-30)
+    # Ngày chốt sổ phân tích: ngày mới nhất trong tập dữ liệu
     sales = fact_sales.copy()
     sales["date"] = pd.to_datetime(sales["date"])
     cutoff_date = sales["date"].max()
@@ -118,7 +96,8 @@ def compute_rfm_clusters(
     try:
         sil_score = float(silhouette_score(rfm_scaled, labels))
     except Exception:
-        sil_score = 0.42
+        log.exception("Không tính được Silhouette Score")
+        sil_score = None
 
     # Thống kê phân cụm
     cluster_stats = rfm_active.groupby("cluster_raw").agg(
@@ -235,7 +214,7 @@ def compute_rfm_clusters(
 
     return {
         "total_customers": total_customers,
-        "silhouette_score": round(sil_score, 3),
+        "silhouette_score": round(sil_score, 3) if sil_score is not None else None,
         "cutoff_date": cutoff_date.strftime("%Y-%m-%d"),
         "clusters": clusters_summary,
     }
@@ -244,153 +223,141 @@ def compute_rfm_clusters(
 # ==============================================================================
 # 2. DỰ BÁO DOANH SỐ CHUỖI THỜI GIAN (TIME-SERIES DEMAND FORECASTING)
 # ==============================================================================
+# Ngưỡng dữ liệu tối thiểu: 30 ngày kiểm định + ít nhất 12 tuần huấn luyện để ước lượng mùa vụ tuần
+FORECAST_DAYS = 30
+FORECAST_MONTHS = 3
+HOLDOUT_DAYS = 30
+MIN_HISTORY_DAYS = HOLDOUT_DAYS + 12 * 7
+SIMULATION_PATHS = 500
+WEEKDAY_NAMES = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"]
+MODEL_NAME = "Holt-Winters cộng tính (xu hướng tắt dần, mùa vụ tuần)"
+
+
+def _fit_holt_winters(series: pd.Series):
+    from statsmodels.tsa.holtwinters import ExponentialSmoothing
+
+    return ExponentialSmoothing(
+        series, trend="add", damped_trend=True, seasonal="add", seasonal_periods=7,
+        initialization_method="estimated",
+    ).fit()
+
+
+def _backtest(daily: pd.Series) -> Dict[str, Any]:
+    """Kiểm định ngoài mẫu: huấn luyện trên dữ liệu trừ 30 ngày cuối, so dự báo với 30 ngày cuối thực tế."""
+    train, test = daily.iloc[:-HOLDOUT_DAYS], daily.iloc[-HOLDOUT_DAYS:]
+    predicted = _fit_holt_winters(train).forecast(HOLDOUT_DAYS).clip(lower=0).to_numpy()
+    actual = test.to_numpy()
+    selling_days = actual > 0
+    mape = float(np.mean(np.abs(actual[selling_days] - predicted[selling_days]) / actual[selling_days]) * 100)
+    wape = float(np.abs(actual - predicted).sum() / actual.sum() * 100) if actual.sum() > 0 else None
+    total_error = float(abs(predicted.sum() - actual.sum()) / actual.sum() * 100) if actual.sum() > 0 else None
+    return {
+        "holdout_start": test.index[0].strftime("%Y-%m-%d"),
+        "holdout_end": test.index[-1].strftime("%Y-%m-%d"),
+        "mape": round(mape, 1),
+        "wape": round(wape, 1) if wape is not None else None,
+        "total_error_pct": round(total_error, 1) if total_error is not None else None,
+        "mae": round(float(np.mean(np.abs(actual - predicted))), 0),
+        "rmse": round(float(np.sqrt(np.mean((actual - predicted) ** 2))), 0),
+    }
+
+
+def _weekly_pattern_note(fit, daily: pd.Series) -> str:
+    """Mô tả mùa vụ tuần lấy từ thành phần mùa vụ mô hình đã ước lượng (7 giá trị cuối)."""
+    season = np.asarray(fit.season)[-7:]
+    weekdays = [d.day_of_week for d in daily.index[-7:]]
+    by_weekday = dict(zip(weekdays, season))
+    high = max(by_weekday, key=by_weekday.get)
+    low = min(by_weekday, key=by_weekday.get)
+    return (f"Mùa vụ tuần: cao nhất {WEEKDAY_NAMES[high]}, thấp nhất {WEEKDAY_NAMES[low]}. "
+            f"Mô hình chưa tính mùa vụ theo năm (ví dụ cao điểm cuối năm).")
+
+
 def compute_sales_forecast(fact_sales: pd.DataFrame) -> Dict[str, Any]:
-    """Dự báo doanh số 30 ngày tiếp theo (01/10/2026 -> 30/10/2026) kèm dải tin cậy 95%."""
+    """Dự báo doanh thu theo ngày bằng Holt-Winters, kèm kiểm định ngoài mẫu và dải tin cậy 95% từ mô phỏng.
+
+    Mọi mốc thời gian tính từ ngày dữ liệu cuối cùng (as_of), không cố định theo lịch.
+    """
     log.info("Bắt đầu huấn luyện mô hình dự báo doanh số chuỗi thời gian...")
-    
+
     sales = fact_sales.copy()
     sales["date"] = pd.to_datetime(sales["date"])
-    
-    # Bổ sung nhiệt độ nếu chưa có trong bảng
-    if "avg_temperature_c" not in sales.columns:
-        temp_by_month = {1: 17.5, 2: 18.2, 3: 21.0, 4: 25.5, 5: 30.1, 6: 32.4, 7: 33.2, 8: 31.8, 9: 29.5, 10: 26.2, 11: 22.1, 12: 18.0}
-        sales["avg_temperature_c"] = sales["date"].dt.month.map(temp_by_month)
+    daily = sales.groupby("date")["subtotal"].sum().sort_index()
+    daily = daily.reindex(pd.date_range(daily.index.min(), daily.index.max(), freq="D"), fill_value=0.0)
+    as_of = daily.index.max()
 
-    # Nhóm doanh thu theo ngày
-    daily_sales = (
-        sales.groupby("date")
-        .agg(
-            actual=("subtotal", "sum"),
-            orders=("order_id", "nunique"),
-            avg_temp=("avg_temperature_c", "mean"),
-        )
-        .sort_index()
-    )
-
-    # Đảm bảo index liên tục đủ ngày (từ min_date đến max_date)
-    full_idx = pd.date_range(daily_sales.index.min(), daily_sales.index.max(), freq="D")
-    daily_sales = daily_sales.reindex(full_idx, fill_value=0.0)
-    daily_sales["avg_temp"] = daily_sales["avg_temp"].ffill().bfill()
-
-    forecast_days = 30
-    last_date = daily_sales.index.max()
-    future_dates = [last_date + timedelta(days=i) for i in range(1, forecast_days + 1)]
-
-    # 1. Phân rã chu kỳ ngày trong tuần (Day of Week Decomposition) trên 90 ngày gần nhất (Q3/2026)
-    # T2 & T3 là đỉnh nhập hàng đại lý, T4-T7 bán lẻ đều, CN đóng cửa nghỉ/bảo trì kho (~0)
-    recent_90 = daily_sales.tail(90)
-    dow_means = recent_90.groupby(recent_90.index.day_of_week)["actual"].mean()
-    overall_mean = float(recent_90["actual"].mean())
-    dow_multipliers = (dow_means / overall_mean).to_dict()
-
-    # Mức doanh thu cơ sở trong 28 ngày làm việc gần nhất
-    recent_baseline = float(daily_sales["actual"].tail(28).mean())
-
-    # Tính phần dư lịch sử để xác định phương sai sai số (Residual Variance)
-    dow_fitted = recent_90.index.map(lambda d: dow_multipliers.get(d.day_of_week, 1.0) * recent_baseline)
-    residuals = recent_90["actual"].values - dow_fitted.values
-    sigma = float(np.std(residuals))
-
-    # 2. Đánh giá kiểm định mô hình (Hold-out Validation) trên 30 ngày gần nhất
-    validation_actual = daily_sales["actual"].tail(30).values
-    val_fitted = daily_sales.tail(30).index.map(lambda d: dow_multipliers.get(d.day_of_week, 1.0) * recent_baseline).values
-    valid_mask = validation_actual > 50_000_000  # Loại trừ ngày CN đóng cửa khi tính MAPE
-    abs_pct_errors = np.abs((validation_actual[valid_mask] - val_fitted[valid_mask]) / validation_actual[valid_mask]) * 100
-    mape = float(np.clip(np.mean(abs_pct_errors), 4.8, 6.5))
-    mae = float(np.mean(np.abs(validation_actual - val_fitted)))
-    rmse = float(np.sqrt(np.mean((validation_actual - val_fitted) ** 2)))
-
-    # 3. Dự báo 30 ngày tương lai kèm dải biên độ tin cậy 95% mở rộng dần theo thời gian
-    predicted_values = []
-    lower_bounds = []
-    upper_bounds = []
-
-    for idx, d in enumerate(future_dates):
-        dow_factor = dow_multipliers.get(d.day_of_week, 1.0)
-        # Hệ số tăng trưởng theo mùa vụ mua sắm thiết bị gia dụng Quý IV (+3.0% đến +6.5%)
-        seasonal_growth = 1.030 + (idx / 30.0) * 0.035
-        val = recent_baseline * dow_factor * seasonal_growth
-        
-        # Dải tin cậy 95% chuẩn thống kê (Z = 1.96), mở rộng theo căn bậc hai bước dự báo
-        uncertainty_expansion = np.sqrt(1.0 + idx / 45.0)
-        margin = 1.96 * sigma * uncertainty_expansion
-
-        pred_val = max(0.0, val)
-        low_val = max(0.0, pred_val - margin)
-        up_val = pred_val + margin
-
-        predicted_values.append(pred_val)
-        lower_bounds.append(low_val)
-        upper_bounds.append(up_val)
-
-    # Tổng hợp chuỗi dữ liệu thực tế: 24 tháng lịch sử
-    monthly = sales.set_index("date").resample("MS")["subtotal"].sum().reset_index()
-    monthly_historical = [
-        {"date": r["date"].strftime("%Y-%m"), "actual": float(r["subtotal"])}
-        for _, r in monthly.iterrows()
-    ]
-
-    # 30 ngày lịch sử gần nhất để hiển thị biểu đồ nối liền trực quan
-    recent_daily = daily_sales.tail(30).reset_index()
-    daily_historical = [
-        {"date": r["index"].strftime("%Y-%m-%d"), "actual": float(r["actual"])}
-        for _, r in recent_daily.iterrows()
-    ]
-
-    forecast_items = [
-        {
-            "date": d.strftime("%Y-%m-%d"),
-            "predicted": round(float(pred), 0),
-            "lower": round(float(low), 0),
-            "upper": round(float(up), 0),
-        }
-        for d, pred, low, up in zip(future_dates, predicted_values, lower_bounds, upper_bounds)
-    ]
-
-    total_predicted_revenue = sum(predicted_values)
-    avg_daily_forecast = total_predicted_revenue / len(predicted_values)
-
-    # Dự báo cấp độ tháng cho chu kỳ 24 tháng (Quý IV/2026: Tháng 10, 11, 12) cùng thang đo tỷ đồng/tháng
-    oct_pred = total_predicted_revenue
-    nov_pred = total_predicted_revenue * 1.052  # Đợt cao điểm khuyến mãi tháng 11 (+5.2%)
-    dec_pred = total_predicted_revenue * 1.145  # Đỉnh cao mua sắm thiết bị đón Tết tháng 12 (+14.5%)
-    monthly_sigma = total_predicted_revenue * 0.075
-
-    monthly_forecast = [
-        {
-            "date": "2026-10",
-            "predicted": round(oct_pred, 0),
-            "lower": round(max(0.0, oct_pred - 1.96 * monthly_sigma), 0),
-            "upper": round(oct_pred + 1.96 * monthly_sigma, 0),
-        },
-        {
-            "date": "2026-11",
-            "predicted": round(nov_pred, 0),
-            "lower": round(max(0.0, nov_pred - 1.96 * monthly_sigma * 1.2), 0),
-            "upper": round(nov_pred + 1.96 * monthly_sigma * 1.2, 0),
-        },
-        {
-            "date": "2026-12",
-            "predicted": round(dec_pred, 0),
-            "lower": round(max(0.0, dec_pred - 1.96 * monthly_sigma * 1.4), 0),
-            "upper": round(dec_pred + 1.96 * monthly_sigma * 1.4, 0),
-        },
-    ]
-
-    return {
-        "forecast_period": "30 ngày (01/10/2026 - 30/10/2026)",
-        "metrics": {
-            "mape": f"{mape:.1f}%",
-            "mae": round(float(mae), 0),
-            "rmse": round(float(rmse), 0),
-            "accuracy": f"{100 - mape:.1f}%",
-            "trend": "Tăng trưởng tích cực (+5.2%)",
-            "seasonality_note": "Bắt đầu chu kỳ cao điểm mua sắm thiết bị gia dụng và đồ ấm quý IV.",
-            "total_predicted_revenue": round(total_predicted_revenue, 0),
-            "avg_daily_forecast": round(avg_daily_forecast, 0),
-        },
+    monthly = daily.resample("MS").sum()
+    monthly_historical = [{"date": d.strftime("%Y-%m"), "actual": float(v)} for d, v in monthly.items()]
+    daily_historical = [{"date": d.strftime("%Y-%m-%d"), "actual": float(v)} for d, v in daily.tail(30).items()]
+    base = {
+        "as_of": as_of.strftime("%Y-%m-%d"),
+        "history_start": daily.index.min().strftime("%Y-%m-%d"),
+        "history_days": int(len(daily)),
+        "min_history_days": MIN_HISTORY_DAYS,
+        "model": MODEL_NAME,
+        "simulation_paths": SIMULATION_PATHS,
         "monthly_historical": monthly_historical,
         "daily_historical": daily_historical,
+    }
+
+    if len(daily) < MIN_HISTORY_DAYS:
+        return {**base, "status": "INSUFFICIENT_DATA", "forecast_period": None, "metrics": {},
+                "forecast": [], "monthly_forecast": []}
+
+    backtest = _backtest(daily)
+    fit = _fit_holt_winters(daily)
+
+    # Dự báo đến hết tháng thứ FORECAST_MONTHS sau tháng của as_of
+    horizon_end = (as_of + pd.offsets.MonthBegin(1) + pd.offsets.MonthEnd(FORECAST_MONTHS)).normalize()
+    horizon = int((horizon_end - as_of).days)
+    future_index = pd.date_range(as_of + timedelta(days=1), periods=horizon, freq="D")
+    point = pd.Series(fit.forecast(horizon).clip(lower=0).to_numpy(), index=future_index)
+    paths = pd.DataFrame(
+        fit.simulate(horizon, anchor="end", repetitions=SIMULATION_PATHS, random_errors="bootstrap",
+                     random_state=42).clip(lower=0).to_numpy(),
+        index=future_index,
+    )
+
+    daily_points = point.iloc[:FORECAST_DAYS]
+    daily_paths = paths.iloc[:FORECAST_DAYS]
+    forecast_items = [
+        {"date": d.strftime("%Y-%m-%d"), "predicted": round(float(daily_points[d]), 0),
+         "lower": round(float(np.percentile(daily_paths.loc[d], 2.5)), 0),
+         "upper": round(float(np.percentile(daily_paths.loc[d], 97.5)), 0)}
+        for d in daily_points.index
+    ]
+
+    # Tháng của as_of chưa hết thì cộng phần thực tế đã có (month-to-date) với phần dự báo còn lại
+    month_to_date = float(daily[daily.index >= as_of.replace(day=1)].sum()) if as_of != as_of + pd.offsets.MonthEnd(0) else 0.0
+    monthly_forecast = []
+    for month_start, month_points in point.groupby(point.index.to_period("M")):
+        month_paths = paths.loc[month_points.index].sum(axis=0)
+        carried = month_to_date if month_start == as_of.to_period("M") else 0.0
+        monthly_forecast.append({
+            "date": str(month_start),
+            "predicted": round(float(month_points.sum()) + carried, 0),
+            "lower": round(float(np.percentile(month_paths, 2.5)) + carried, 0),
+            "upper": round(float(np.percentile(month_paths, 97.5)) + carried, 0),
+            "actual_to_date": round(carried, 0) if carried else None,
+        })
+
+    next_30 = float(daily_points.sum())
+    last_30 = float(daily.tail(FORECAST_DAYS).sum())
+    change_pct = (next_30 - last_30) / last_30 * 100 if last_30 > 0 else 0.0
+    direction = "Tăng" if change_pct > 2 else "Giảm" if change_pct < -2 else "Đi ngang"
+
+    return {
+        **base,
+        "status": "OK",
+        "forecast_period": f"{FORECAST_DAYS} ngày ({future_index[0]:%d/%m/%Y} - {future_index[FORECAST_DAYS - 1]:%d/%m/%Y})",
+        "metrics": {
+            **backtest,
+            "trend": f"{direction} ({change_pct:+.1f}% so với 30 ngày gần nhất)",
+            "trend_pct": round(change_pct, 1),
+            "seasonality_note": _weekly_pattern_note(fit, daily),
+            "total_predicted_revenue": round(next_30, 0),
+            "avg_daily_forecast": round(next_30 / FORECAST_DAYS, 0),
+        },
         "forecast": forecast_items,
         "monthly_forecast": monthly_forecast,
     }
@@ -400,14 +367,18 @@ def compute_sales_forecast(fact_sales: pd.DataFrame) -> Dict[str, Any]:
 # 3. PHÂN TÍCH RỦI RO CÔNG NỢ & NỢ QUÁ HẠN (CREDIT RISK)
 # ==============================================================================
 def compute_credit_risk(
-    receivables: pd.DataFrame, dim_customer: pd.DataFrame
+    receivables: pd.DataFrame, dim_customer: pd.DataFrame, as_of: pd.Timestamp
 ) -> Dict[str, Any]:
-    """Phân tích các khoản nợ quá hạn và xếp hạng rủi ro thanh toán."""
+    """Phân tích các khoản nợ quá hạn và xếp hạng rủi ro thanh toán.
+
+    Số ngày quá hạn tính tại ngày kế tiếp ngày dữ liệu cuối cùng (as_of), không theo ngày hệ thống.
+    """
     log.info("Bắt đầu phân tích rủi ro công nợ...")
-    
+
     rec = receivables.copy()
     if "overdue_days" not in rec.columns and "due_date" in rec.columns:
-        rec["overdue_days"] = (pd.to_datetime("2026-10-01") - pd.to_datetime(rec["due_date"])).dt.days.clip(lower=0)
+        reference = as_of + timedelta(days=1)
+        rec["overdue_days"] = (reference - pd.to_datetime(rec["due_date"])).dt.days.clip(lower=0)
     rec["overdue_days"] = pd.to_numeric(rec["overdue_days"], errors="coerce").fillna(0).astype(int)
     rec["outstanding"] = pd.to_numeric(rec["outstanding"], errors="coerce").fillna(0.0)
     rec["amount"] = pd.to_numeric(rec["amount"], errors="coerce").fillna(0.0)
@@ -493,11 +464,14 @@ def compute_credit_risk(
 # 4. TỔNG QUAN CHỈ SỐ DOANH NGHIỆP (OVERVIEW METRICS)
 # ==============================================================================
 def compute_overview_kpis(
-    fact_sales: pd.DataFrame, dim_customer: pd.DataFrame, receivables: pd.DataFrame
+    fact_sales: pd.DataFrame, dim_customer: pd.DataFrame, receivables: pd.DataFrame, data_source: Dict[str, Any]
 ) -> Dict[str, Any]:
     """Tính các thẻ chỉ số KPI kinh doanh cho toàn hệ thống."""
     log.info("Bắt đầu tính toán thẻ KPI tổng quan...")
-    
+
+    dates = pd.to_datetime(fact_sales["date"])
+    start, end = dates.min(), dates.max()
+    months = (end.year - start.year) * 12 + end.month - start.month + 1
     total_revenue = float(fact_sales["subtotal"].sum())
     total_cost = float(fact_sales["cost"].sum())
     total_profit = float(fact_sales["profit"].sum())
@@ -518,71 +492,85 @@ def compute_overview_kpis(
         "total_transactions": total_transactions,
         "total_items_sold": total_items_sold,
         "total_customers": total_customers,
+        "total_lines": int(len(fact_sales)),
+        "total_provinces": int(dim_customer["province"].dropna().nunique()) if "province" in dim_customer.columns else None,
         "total_outstanding": total_outstanding,
         "total_overdue": total_overdue,
-        "dataset_period": "24 tháng (01/10/2024 - 30/09/2026)",
+        "dataset_period": f"{months} tháng ({start:%d/%m/%Y} - {end:%d/%m/%Y})",
+        "as_of": end.strftime("%Y-%m-%d"),
+        "data_source": data_source,
     }
 
 
 # ==============================================================================
 # 5. IN-MEMORY CACHE & WARMUP ENGINE
 # ==============================================================================
-def load_datasets() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Tải dữ liệu từ Kho phân tích SQLite analytics.db (kết hợp cả dữ liệu nền tảng và giao dịch thực tế),
-    hoặc fallback về các tệp CSV nếu kho SQLite chưa sẵn sàng."""
+def _data_source(kind: str, location: str) -> Dict[str, Any]:
+    """Mô tả nguồn dữ liệu để giao diện ghi rõ người xem đang thấy dữ liệu mô phỏng hay dữ liệu thật."""
     from . import config
-    import sqlite3
 
-    analytics_db = getattr(config, "ANALYTICS_DB", None)
-    if analytics_db and analytics_db.exists():
-        try:
-            with sqlite3.connect(f"file:{config.ANALYTICS_DB}?mode=ro", uri=True) as conn:
-                fact_sales = pd.read_sql_query("SELECT * FROM fact_sales", conn)
-                dim_customer = pd.read_sql_query("SELECT * FROM dim_customer", conn)
-                receivables = pd.read_sql_query("SELECT * FROM receivable", conn)
+    label = ("Dữ liệu mô phỏng do bộ simulator của dự án sinh ra, không phải số liệu của doanh nghiệp thật"
+             if config.ANALYTICS_DATA_SIMULATED else "Dữ liệu giao dịch của hệ thống ERP")
+    return {"kind": kind, "location": location, "simulated": config.ANALYTICS_DATA_SIMULATED, "label": label}
 
-                if len(fact_sales) > 0 and len(dim_customer) > 0:
-                    fact_sales["date"] = pd.to_datetime(fact_sales["date"])
-                    if "subtotal" not in fact_sales.columns and "revenue" in fact_sales.columns:
-                        fact_sales["subtotal"] = fact_sales["revenue"]
-                    if "profit" not in fact_sales.columns and "revenue" in fact_sales.columns and "cost" in fact_sales.columns:
-                        fact_sales["profit"] = fact_sales["revenue"] - fact_sales["cost"]
-                    if "avg_temperature_c" not in fact_sales.columns:
-                        temp_by_month = {1: 17.5, 2: 18.2, 3: 21.0, 4: 25.5, 5: 30.1, 6: 32.4, 7: 33.2, 8: 31.8, 9: 29.5, 10: 26.2, 11: 22.1, 12: 18.0}
-                        fact_sales["avg_temperature_c"] = fact_sales["date"].dt.month.map(temp_by_month)
 
-                    if "due_date" in receivables.columns and "overdue_days" not in receivables.columns:
-                        ref_date = fact_sales["date"].max() + timedelta(days=1)
-                        receivables["overdue_days"] = (ref_date - pd.to_datetime(receivables["due_date"])).dt.days.clip(lower=0)
+def _frame(con, sql: str) -> pd.DataFrame:
+    """Chạy truy vấn trên kho phân tích MySQL và trả DataFrame giữ tên cột (kể cả khi không có dòng nào)."""
+    with con.raw.cursor() as cursor:
+        cursor.execute(sql)
+        columns = [d[0] for d in cursor.description]
+        return pd.DataFrame(list(cursor.fetchall()), columns=columns)
 
-                    log.info(f"Đã nạp thành công từ Kho phân tích SQLite ({config.ANALYTICS_DB}): "
-                             f"{len(fact_sales):,} sales, {len(dim_customer):,} khách hàng, {len(receivables):,} công nợ.")
-                    return fact_sales, dim_customer, receivables
-        except Exception as e:
-            log.warning(f"Không thể đọc analytics.db ({e}), chuyển sang đọc tệp CSV...")
 
-    # Fallback về CSV nền tảng
-    dataset_dir = _find_dataset_dir()
-    log.info(f"Đang tải dataset nền tảng từ CSV ({dataset_dir})...")
-    fact_sales = pd.read_csv(dataset_dir / "fact_sales_enriched.csv", low_memory=False)
-    dim_customer = pd.read_csv(dataset_dir / "dim_customer.csv")
-    receivables = pd.read_csv(dataset_dir / "receivable.csv")
-    return fact_sales, dim_customer, receivables
+def load_datasets() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, Dict[str, Any]]:
+    """Tải dữ liệu huấn luyện từ kho phân tích MySQL (schema ANALYTICS_DB_NAME). Không có nguồn dự phòng:
+    kho chưa dựng hoặc rỗng thì báo lỗi rõ ràng để màn hình phân tích không hiển thị số liệu từ nguồn khác.
+
+    Trả thêm mô tả nguồn dữ liệu (xem _data_source)."""
+    from . import config, warehouse
+
+    with warehouse.connect() as con:
+        fact_sales = _frame(con, "SELECT date, invoice_number, order_id, order_number, customer_id, product_id, "
+                                 "quantity, unit_price, revenue, vat, cost, salesperson_id, vat_invoiced FROM fact_sales")
+        dim_customer = _frame(con, "SELECT id, code, name, type, province, region, phone, email, credit_limit, "
+                                   "status, created_at FROM dim_customer")
+        receivables = _frame(con, "SELECT customer_id, invoice_number, invoice_date, due_date, amount, paid, "
+                                  "outstanding, status FROM receivable")
+
+    if fact_sales.empty or dim_customer.empty:
+        raise RuntimeError(f"Kho phân tích {config.ANALYTICS_DB_NAME} chưa có dữ liệu bán hàng hoặc khách hàng: "
+                           "chạy đồng bộ kho (POST /api/v1/ai/sync) sau khi các service đã có dữ liệu")
+
+    fact_sales["date"] = pd.to_datetime(fact_sales["date"])
+    fact_sales["subtotal"] = fact_sales["revenue"]
+    fact_sales["profit"] = fact_sales["revenue"] - fact_sales["cost"]
+    # Nhiệt độ trung bình tháng (miền Bắc) làm biến ngoại sinh cho dự báo mùa vụ
+    temp_by_month = {1: 17.5, 2: 18.2, 3: 21.0, 4: 25.5, 5: 30.1, 6: 32.4, 7: 33.2, 8: 31.8, 9: 29.5, 10: 26.2, 11: 22.1, 12: 18.0}
+    fact_sales["avg_temperature_c"] = fact_sales["date"].dt.month.map(temp_by_month)
+
+    ref_date = fact_sales["date"].max() + timedelta(days=1)
+    receivables["overdue_days"] = (ref_date - pd.to_datetime(receivables["due_date"])).dt.days.clip(lower=0)
+
+    log.info("Đã nạp kho phân tích MySQL (%s): %s dòng bán, %s khách hàng, %s công nợ.", config.ANALYTICS_DB_NAME,
+             f"{len(fact_sales):,}", f"{len(dim_customer):,}", f"{len(receivables):,}")
+    return fact_sales, dim_customer, receivables, _data_source("analytics_db", config.ANALYTICS_DB_NAME)
 
 
 def warmup_cache() -> None:
-    """Nạp dữ liệu từ kho phân tích / CSV và huấn luyện trước các mô hình vào bộ nhớ đệm In-Memory."""
+    """Nạp dữ liệu từ kho phân tích MySQL và huấn luyện trước các mô hình vào bộ nhớ đệm In-Memory."""
     global _cache, _is_ready
-    
+
     with _cache_lock:
         try:
-            fact_sales, dim_customer, receivables = load_datasets()
+            fact_sales, dim_customer, receivables, data_source = load_datasets()
+            as_of = pd.to_datetime(fact_sales["date"]).max()
 
             log.info("Dữ liệu nạp thành công, bắt đầu tính toán mô hình ML...")
-            _cache["overview"] = compute_overview_kpis(fact_sales, dim_customer, receivables)
+            _cache["overview"] = compute_overview_kpis(fact_sales, dim_customer, receivables, data_source)
             _cache["rfm"] = compute_rfm_clusters(fact_sales, dim_customer)
-            _cache["forecast"] = compute_sales_forecast(fact_sales)
-            _cache["credit_risk"] = compute_credit_risk(receivables, dim_customer)
+            _cache["forecast"] = {**compute_sales_forecast(fact_sales), "data_source": data_source}
+            _cache["credit_risk"] = {**compute_credit_risk(receivables, dim_customer, as_of),
+                                     "as_of": as_of.strftime("%Y-%m-%d")}
             
             _is_ready = True
             log.info("Warmup Cache hoàn tất! Tất cả endpoints analytics sẵn sàng phản hồi < 50ms.")
@@ -619,8 +607,8 @@ def get_credit_risk() -> Dict[str, Any]:
 # 6. MÔ HÌNH HỌC MÁY GỢI Ý ĐẶT HÀNG NHẬP KHO (PROCUREMENT ML INSIGHT)
 # ==============================================================================
 def _fetch_sku_sales_stats(sku: str) -> Optional[Dict[str, Any]]:
-    """Truy vấn dữ liệu doanh số 90 ngày của SKU từ kho phân tích (MySQL hoặc SQLite fallback)."""
-    from . import config, warehouse
+    """Truy vấn dữ liệu doanh số 90 ngày của SKU từ kho phân tích MySQL."""
+    from . import warehouse
 
     clean_sku = (sku or "").strip()
     if not clean_sku:
@@ -639,36 +627,13 @@ def _fetch_sku_sales_stats(sku: str) -> Optional[Dict[str, Any]]:
         LIMIT 1
     """
 
-    # 1. Thử kết nối MySQL Warehouse nếu sẵn sàng
-    try:
-        with warehouse.connect() as con:
-            max_d_row = con.execute("SELECT max(date) FROM fact_sales").fetchone()
-            max_d = max_d_row[0] if max_d_row and max_d_row[0] else date.today().isoformat()
-            d90 = (datetime.fromisoformat(str(max_d)).date() - timedelta(days=89)).isoformat()
-            row = con.execute(query, [d90, clean_sku]).fetchone()
-            if row:
-                return dict(row)
-    except Exception:
-        pass
-
-    # 2. Fallback sang SQLite Analytics DB
-    analytics_db = getattr(config, "ANALYTICS_DB", config.ROOT / "data" / "analytics.db")
-    if analytics_db and analytics_db.exists():
-        import sqlite3
-        try:
-            with sqlite3.connect(f"file:{analytics_db}?mode=ro", uri=True) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                max_d_row = cur.execute("SELECT max(date) FROM fact_sales").fetchone()
-                max_d = max_d_row[0] if max_d_row and max_d_row[0] else "2026-09-30"
-                d90 = (datetime.fromisoformat(str(max_d)).date() - timedelta(days=89)).isoformat()
-                row = cur.execute(query, [d90, clean_sku]).fetchone()
-                if row:
-                    return dict(row)
-        except Exception as e:
-            log.warning(f"Lỗi truy vấn SQLite analytics.db cho SKU '{sku}': {e}")
-
-    return None
+    with warehouse.connect() as con:
+        max_d_row = con.execute("SELECT max(date) FROM fact_sales").fetchone()
+        if not (max_d_row and max_d_row[0]):
+            return None
+        d90 = (datetime.fromisoformat(str(max_d_row[0])).date() - timedelta(days=89)).isoformat()
+        row = con.execute(query, [d90, clean_sku]).fetchone()
+    return dict(zip(row.keys(), row)) if row else None
 
 
 def get_sku_procurement_ml_insight(

@@ -1,4 +1,4 @@
-"""Kết nối MySQL dùng chung cho ai-service (lịch sử hội thoại, kho phân tích, nguồn ETL)."""
+"""Kết nối MySQL dùng chung cho ai-service (lịch sử hội thoại và kho phân tích trong erp_analytics_db)."""
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -95,80 +95,23 @@ class Connection:
         self.close()
 
 
-class SqliteCursor:
-    def __init__(self, cursor):
-        self._cursor = cursor
-        names = tuple(d[0] for d in cursor.description or ())
-        self._row = _make_row(names)
-
-    def fetchone(self):
-        row = self._cursor.fetchone()
-        return self._row(row) if row is not None else None
-
-    def fetchall(self):
-        return [self._row(r) for r in self._cursor.fetchall()]
-
-    def __iter__(self):
-        return iter(self.fetchall())
-
-    @property
-    def rowcount(self) -> int:
-        return self._cursor.rowcount
-
-    @property
-    def lastrowid(self) -> int:
-        return self._cursor.lastrowid
-
-
-class SqliteConnection:
-    def __init__(self, raw):
-        self.raw = raw
-
-    def execute(self, sql: str, params: list | tuple | None = None) -> SqliteCursor:
-        cur = self.raw.cursor()
-        cur.execute(sql, list(params or ()))
-        return SqliteCursor(cur)
-
-    def executemany(self, sql: str, rows: list[tuple]) -> None:
-        self.raw.executemany(sql, rows)
-
-    def commit(self) -> None:
-        self.raw.commit()
-
-    def close(self) -> None:
-        self.raw.close()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        self.close()
-
-
-def connect(database: str | None = None, *, read_only: bool = False):
-    try:
-        raw = pymysql.connect(
-            host=config.MYSQL_HOST,
-            port=config.MYSQL_PORT,
-            user=config.MYSQL_USER,
-            password=config.MYSQL_PASSWORD,
-            database=database or config.ANALYTICS_DB_NAME,
-            charset="utf8mb4",
-            autocommit=True,
-            conv=_CONVERSIONS,
-            init_command=f"SET SESSION sql_mode='{SQL_MODE}'",
-        )
-        if read_only:
-            with raw.cursor() as cursor:
-                cursor.execute("SET SESSION TRANSACTION READ ONLY")
-        return Connection(raw)
-    except Exception:
-        analytics_db = getattr(config, "ANALYTICS_DB", config.ROOT / "data" / "analytics.db")
-        if analytics_db and analytics_db.exists():
-            import sqlite3
-            raw = sqlite3.connect(f"file:{analytics_db}?mode=ro", uri=True)
-            return SqliteConnection(raw)
-        raise
+def connect(database: str | None = None, *, read_only: bool = False) -> Connection:
+    """Kết nối MySQL. Không có nguồn dự phòng: MySQL không kết nối được thì báo lỗi, không đọc dữ liệu khác."""
+    raw = pymysql.connect(
+        host=config.MYSQL_HOST,
+        port=config.MYSQL_PORT,
+        user=config.MYSQL_USER,
+        password=config.MYSQL_PASSWORD,
+        database=database or config.ANALYTICS_DB_NAME,
+        charset="utf8mb4",
+        autocommit=True,
+        conv=_CONVERSIONS,
+        init_command=f"SET SESSION sql_mode='{SQL_MODE}'",
+    )
+    if read_only:
+        with raw.cursor() as cursor:
+            cursor.execute("SET SESSION TRANSACTION READ ONLY")
+    return Connection(raw)
 
 
 def to_text(value):
