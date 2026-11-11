@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Purchase.Api.Controllers;
@@ -18,6 +19,7 @@ public class ApiControllerTests
     {
         var context = new DefaultHttpContext();
         context.Request.Headers["X-Correlation-ID"] = "test-corr-id-12345";
+        context.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, "10")], "test"));
         return context;
     }
 
@@ -106,7 +108,7 @@ public class ApiControllerTests
         {
             SupplierId = 1,
             WarehouseId = 1,
-            CreatedBy = 10,
+            CreatedBy = 999, // Giá trị client tự khai phải bị bỏ qua
             Items = new List<CreatePurchaseOrderItemDto>
             {
                 new() { ProductId = 1, Sku = "XQ530-LG", ProductName = "Tủ lạnh LG", QuantityOrdered = 20, UnitCost = 14000000m }
@@ -117,6 +119,7 @@ public class ApiControllerTests
         Assert.NotNull(createResult);
         var createEnv = createResult.Value as ApiEnvelope<PurchaseOrderDto>;
         Assert.True(createEnv!.Success);
+        Assert.Equal(10, createEnv.Data!.CreatedBy);
         var poId = createEnv.Data!.Id;
 
         // 2. Submit PO

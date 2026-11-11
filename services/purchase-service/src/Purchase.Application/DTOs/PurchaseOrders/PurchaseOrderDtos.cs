@@ -25,7 +25,8 @@ public class CreatePurchaseOrderDto
     [JsonPropertyName("notes")]
     public string? Notes { get; set; }
 
-    [JsonPropertyName("created_by")]
+    // Người tạo lấy từ JWT tại controller; client không được tự khai
+    [JsonIgnore]
     public long CreatedBy { get; set; }
 
     [JsonPropertyName("items")]

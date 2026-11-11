@@ -1,3 +1,4 @@
+using Purchase.Api.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Purchase.Application.Common.Models;
 using Purchase.Application.DTOs.GoodsReceipts;
@@ -28,6 +29,7 @@ public class GoodsReceiptsController : ControllerBase
     /// <summary>
     /// Lấy danh sách phiếu kiểm nhận nhập kho (GRN) có lọc theo PO, Kho, Trạng thái
     /// </summary>
+    [RequirePermission("purchase.view")]
     [HttpGet]
     public async Task<IActionResult> GetList(
         [FromQuery] long? purchaseOrderId,
@@ -42,6 +44,7 @@ public class GoodsReceiptsController : ControllerBase
     /// <summary>
     /// Xem chi tiết một phiếu nhập kho
     /// </summary>
+    [RequirePermission("purchase.view")]
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(long id, CancellationToken ct = default)
     {
@@ -57,6 +60,7 @@ public class GoodsReceiptsController : ControllerBase
     /// <summary>
     /// Thủ kho lập mới phiếu kiểm nhận nhập kho theo đơn PO đã duyệt
     /// </summary>
+    [RequirePermission("purchase.create")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateGoodsReceiptDto dto, CancellationToken ct = default)
     {
@@ -68,6 +72,7 @@ public class GoodsReceiptsController : ControllerBase
     /// <summary>
     /// Xác nhận phiếu nhập kho (Confirmed) -> Tự động cập nhật PO và ghi sự kiện Outbox GoodsReceived sang Inventory Service
     /// </summary>
+    [RequirePermission("purchase.create")]
     [HttpPost("{id}/confirm")]
     public async Task<IActionResult> Confirm(long id, CancellationToken ct = default)
     {

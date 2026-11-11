@@ -1,3 +1,5 @@
+using Purchase.Api.Authorization;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Purchase.Application.Common.Models;
 using Purchase.Application.DTOs.PurchaseOrders;
@@ -35,6 +37,7 @@ public class PurchaseOrdersController : ControllerBase
     /// <summary>
     /// Lấy danh sách đơn mua hàng (PO) có lọc theo Nhà cung cấp, Kho, Trạng thái
     /// </summary>
+    [RequirePermission("purchase.view")]
     [HttpGet]
     public async Task<IActionResult> GetList(
         [FromQuery] long? supplierId,
@@ -49,6 +52,7 @@ public class PurchaseOrdersController : ControllerBase
     /// <summary>
     /// Xem chi tiết một đơn mua hàng kèm danh sách phân bổ nhu cầu từ PR
     /// </summary>
+    [RequirePermission("purchase.view")]
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(long id, CancellationToken ct = default)
     {
@@ -64,9 +68,15 @@ public class PurchaseOrdersController : ControllerBase
     /// <summary>
     /// Nhân viên thu mua tạo mới đơn PO (có hỗ trợ phân bổ gom nhu cầu từ các PR đã duyệt)
     /// </summary>
+    [RequirePermission("purchase.create")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreatePurchaseOrderDto dto, CancellationToken ct = default)
     {
+        if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+        {
+            return Unauthorized(ApiEnvelope<object>.Fail("UNAUTHENTICATED", "Token không có mã người dùng."));
+        }
+        dto.CreatedBy = userId;
         var created = await _orderService.CreateAsync(dto, ct);
         return CreatedAtAction(nameof(GetById), new { id = created.Id },
             ApiEnvelope<PurchaseOrderDto>.Ok(created, new ApiMeta { CorrelationId = GetCorrelationId() }));
@@ -75,6 +85,7 @@ public class PurchaseOrdersController : ControllerBase
     /// <summary>
     /// Gửi duyệt đơn đặt mua (Draft -> PendingApproval)
     /// </summary>
+    [RequirePermission("purchase.create")]
     [HttpPost("{id}/submit")]
     public async Task<IActionResult> Submit(long id, CancellationToken ct = default)
     {
@@ -85,6 +96,7 @@ public class PurchaseOrdersController : ControllerBase
     /// <summary>
     /// Phê duyệt đơn mua hàng (Approved) và kích hoạt ghi nhận Outbox PurchaseOrderApproved
     /// </summary>
+    [RequirePermission("purchase.approve")]
     [HttpPost("{id}/approve")]
     public async Task<IActionResult> Approve(long id, [FromBody] ApprovePurchaseOrderRequest? req, CancellationToken ct = default)
     {
@@ -96,6 +108,7 @@ public class PurchaseOrdersController : ControllerBase
     /// <summary>
     /// Hủy đơn mua hàng (Cancelled), giải phóng phân bổ nhu cầu PR và kích hoạt Outbox PurchaseOrderCancelled
     /// </summary>
+    [RequirePermission("purchase.approve")]
     [HttpPost("{id}/cancel")]
     public async Task<IActionResult> Cancel(long id, [FromBody] CancelPurchaseOrderDto dto, CancellationToken ct = default)
     {
@@ -106,6 +119,7 @@ public class PurchaseOrdersController : ControllerBase
     /// <summary>
     /// Đóng đơn mua hàng sớm (Completed) khi không cần nhà cung cấp giao bù số lượng còn lại
     /// </summary>
+    [RequirePermission("purchase.approve")]
     [HttpPost("{id}/close")]
     public async Task<IActionResult> Close(long id, [FromBody] ClosePurchaseOrderDto? dto, CancellationToken ct = default)
     {
