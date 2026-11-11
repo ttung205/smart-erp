@@ -147,7 +147,7 @@ const categories = computed(() => props.kind === 'purchase'
 const isOwner = computed(() => !request.value || Number(request.value.user_id) === currentUserId);
 const editable = computed(() => isOwner.value && (!request.value || ['DRAFT', 'RETURNED'].includes(request.value.status)));
 const pendingStep = computed(() => request.value?.approval_steps?.find(step => step.status === 'PENDING'));
-const myPendingStep = computed(() => pendingStep.value && Number(pendingStep.value.approver_id) === currentUserId);
+const myPendingStep = computed(() => (pendingStep.value && Number(pendingStep.value.approver_id) === currentUserId ? pendingStep.value : null));
 const totalAmount = computed(() => form.items.reduce((sum, row) => sum + Number(row.quantity || 0) * Number(row.unit_price || 0), 0));
 const itemColumns = [
   { field: 'item_name', header: 'Tên hàng hóa / khoản chi *', width: '300px' },
