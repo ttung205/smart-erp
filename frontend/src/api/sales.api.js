@@ -10,7 +10,8 @@ export const salesApi = {
 
   // 1. Quotations
   getQuotations(params = {}) {
-    const qs = new URLSearchParams(params).toString();
+    const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== null && v !== undefined && v !== ''));
+    const qs = new URLSearchParams(clean).toString();
     return apiClient(`/api/v1/sales/quotations${qs ? '?' + qs : ''}`);
   },
 
@@ -75,8 +76,11 @@ export const salesApi = {
   },
 
   // 2. Orders
-  getOrders() {
-    return apiClient('/api/v1/sales/orders');
+  // params: { page, per_page, search, status }; không truyền thì server trả trang đầu 50 đơn
+  getOrders(params = {}) {
+    const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== null && v !== undefined && v !== ''));
+    const qs = new URLSearchParams(clean).toString();
+    return apiClient(`/api/v1/sales/orders${qs ? '?' + qs : ''}`);
   },
 
   getOrderById(id) {
@@ -124,8 +128,11 @@ export const salesApi = {
   },
 
   // 3. Deliveries
-  getDeliveries() {
-    return apiClient('/api/v1/sales/deliveries');
+  // params: { page, per_page, order_id }
+  getDeliveries(params = {}) {
+    const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== null && v !== undefined && v !== ''));
+    const qs = new URLSearchParams(clean).toString();
+    return apiClient(`/api/v1/sales/deliveries${qs ? '?' + qs : ''}`);
   },
 
   createDelivery(data) {

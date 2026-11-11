@@ -25,18 +25,22 @@
 
       <template #end>
         <div class="flex items-center gap-2 text-xs text-slate-500">
-          <span>Tổng số: <strong class="text-slate-800">{{ filteredRequests.length }}</strong> yêu cầu giao hàng</span>
+          <span>Tổng số: <strong class="text-slate-800">{{ totalRequests.toLocaleString('vi-VN') }}</strong> yêu cầu giao hàng</span>
         </div>
       </template>
     </Toolbar>
 
     <!-- CommonDataTable cho Yêu Cầu Giao Hàng -->
     <CommonDataTable
-      :value="filteredRequests"
+      :value="requestRows"
       :columns="requestColumns"
-      :rows="10"
+      :rows="pageSize"
+      :first="first"
+      lazy
+      :totalRecords="totalRequests"
       :loading="loadingDeliveries"
-      :paginator="filteredRequests.length > 10"
+      :paginator="totalRequests > pageSize"
+      @page="onPage"
       emptyIcon="pi pi-truck"
       emptyTitle="Chưa có yêu cầu giao hàng nào"
       emptySubtitle="Vào trang 'Giao hàng' và bấm 'Gửi yêu cầu giao' trên đơn bán hàng để tạo lệnh mới."
@@ -153,7 +157,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
@@ -186,6 +190,9 @@ const confirm = useConfirm();
 
 // State Data
 const deliveryRequests = ref([]);
+const totalRequests = ref(0);
+const pageSize = 10;
+const first = ref(0);
 const usersList = ref([]);
 const loadingDeliveries = ref(false);
 const requestSearchQuery = ref('');
@@ -251,11 +258,17 @@ const canCreateSaleInvoice = computed(() => hasPermission('sale-invoice.create',
 const loadDeliveries = async () => {
   loadingDeliveries.value = true;
   try {
+    // Phân trang và tìm kiếm chạy ở server trên toàn bộ yêu cầu giao; danh sách người dùng chỉ tải một lần
     const [delivRes, usersRes] = await Promise.all([
-      salesApi.getDeliveries(),
-      identityApi.getUsers().catch(() => ({ data: [] }))
+      salesApi.getDeliveries({
+        page: Math.floor(first.value / pageSize) + 1,
+        per_page: pageSize,
+        search: requestSearchQuery.value.trim()
+      }),
+      usersList.value.length ? Promise.resolve({ data: usersList.value }) : identityApi.getUsers().catch(() => ({ data: [] }))
     ]);
     deliveryRequests.value = delivRes.data || [];
+    totalRequests.value = delivRes.meta?.total ?? 0;
     usersList.value = usersRes.data || [];
   } catch (err) {
     console.error('Lỗi tải danh sách giao hàng:', err);
@@ -268,9 +281,22 @@ onMounted(() => {
   loadDeliveries();
 });
 
-// Lọc yêu cầu giao hàng theo từ khóa tìm kiếm
-const filteredRequests = computed(() => {
-  const query = requestSearchQuery.value.trim().toLowerCase();
+function onPage(event) {
+  first.value = event.first;
+  loadDeliveries();
+}
+
+let searchTimer = null;
+watch(requestSearchQuery, () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    first.value = 0;
+    loadDeliveries();
+  }, 400);
+});
+
+// Bổ sung số liệu tổng hợp cho từng yêu cầu giao của trang đang xem
+const requestRows = computed(() => {
   return deliveryRequests.value
     .map((d) => {
       const items = d.items || [];
@@ -295,17 +321,6 @@ const filteredRequests = computed(() => {
         total_delivered_qty: totalDelivered,
         total_remaining_qty: totalRemaining
       };
-    })
-    .filter((d) => {
-      if (!query) return true;
-      return (
-        String(d.id).includes(query) ||
-        String(d.order_number || '').toLowerCase().includes(query) ||
-        String(d.customer_order_number || '').toLowerCase().includes(query) ||
-        String(d.customer_name || '').toLowerCase().includes(query) ||
-        String(d.requester_name || '').toLowerCase().includes(query) ||
-        String(d.shipping_address || '').toLowerCase().includes(query)
-      );
     });
 });
 

@@ -44,16 +44,22 @@
 
       <template #end>
         <div class="flex items-center gap-2 text-xs text-slate-500">
-          <span>Tổng số: <strong class="text-slate-800">{{ quotations.length }}</strong> bản báo giá</span>
+          <span>Tổng số: <strong class="text-slate-800">{{ totalQuotations.toLocaleString('vi-VN') }}</strong> bản báo giá</span>
         </div>
       </template>
     </Toolbar>
 
     <!-- Data Table using CommonDataTable -->
     <CommonDataTable
-      :value="filteredQuotations"
+      :value="quotations"
       :columns="tableColumns"
-      :rows="8"
+      :rows="pageSize"
+      :first="first"
+      lazy
+      :totalRecords="totalQuotations"
+      :loading="loading"
+      :paginator="totalQuotations > pageSize"
+      @page="onPage"
       emptyIcon="pi pi-file-edit"
       emptyTitle="Chưa có bản báo giá nào"
       emptySubtitle="Nhấn nút 'Lập Báo Giá Mới' ở trên để chuyển sang màn hình lập báo giá."
@@ -167,7 +173,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import Column from 'primevue/column';
@@ -189,6 +195,9 @@ const router = useRouter();
 const toast = useToast();
 
 const quotations = ref([]);
+const totalQuotations = ref(0);
+const pageSize = 10;
+const first = ref(0);
 const loading = ref(false);
 const searchQuery = ref('');
 const statusFilter = ref(null);
@@ -228,8 +237,15 @@ const getStatusMeta = (st) => {
 const loadQuotations = async () => {
   loading.value = true;
   try {
-    const res = await salesApi.getQuotations();
+    // Phân trang, tìm kiếm và lọc trạng thái chạy ở server trên toàn bộ báo giá
+    const res = await salesApi.getQuotations({
+      page: Math.floor(first.value / pageSize) + 1,
+      per_page: pageSize,
+      search: searchQuery.value.trim(),
+      status: statusFilter.value
+    });
     quotations.value = res.data || [];
+    totalQuotations.value = res.meta?.total ?? 0;
   } catch (err) {
     console.error('Lỗi tải danh sách báo giá:', err);
   } finally {
@@ -241,17 +257,21 @@ onMounted(() => {
   loadQuotations();
 });
 
-const filteredQuotations = computed(() => {
-  return quotations.value.filter((q) => {
-    const qNum = q.quotation_number || '';
-    const cName = q.customer_name || '';
-    const matchSearch =
-      !searchQuery.value ||
-      qNum.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      cName.toLowerCase().includes(searchQuery.value.toLowerCase());
-    const matchStatus = !statusFilter.value || q.status === statusFilter.value;
-    return matchSearch && matchStatus;
-  });
+function onPage(event) {
+  first.value = event.first;
+  loadQuotations();
+}
+
+// Đổi bộ lọc thì quay về trang đầu; gõ tìm kiếm chờ 400ms để không gọi API mỗi phím
+let searchTimer = null;
+function reloadFromFirstPage() {
+  first.value = 0;
+  loadQuotations();
+}
+watch(statusFilter, reloadFromFirstPage);
+watch(searchQuery, () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(reloadFromFirstPage, 400);
 });
 
 const goToCreate = () => {
