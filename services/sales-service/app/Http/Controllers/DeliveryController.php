@@ -35,9 +35,24 @@ class DeliveryController extends Controller
     )]
     public function index(Request $request): JsonResponse
     {
-        $deliveries = DeliveryRequest::with(['items.orderItem', 'order'])
-            ->orderByDesc('id')
-            ->paginate(min(max($request->integer('per_page', 50), 1), 200));
+        $query = DeliveryRequest::with(['items.orderItem', 'order'])->orderByDesc('id');
+        // Lọc theo đơn bán: màn hình lập yêu cầu giao cần mọi yêu cầu cũ của đúng đơn đó, không chỉ trang mới nhất
+        if ($request->filled('order_id')) {
+            $query->where('order_id', $request->integer('order_id'));
+        }
+        // Tìm ở server trên toàn bộ yêu cầu giao: mã yêu cầu, địa chỉ, và số đơn / khách hàng của đơn bán (cùng DB sales)
+        $search = trim((string) $request->query('search', ''));
+        if ($search !== '') {
+            $like = '%'.addcslashes($search, '\%_').'%';
+            $query->where(fn ($w) => $w->where('request_number', 'like', $like)
+                ->orWhere('shipping_address', 'like', $like)
+                ->when(ctype_digit($search), fn ($q) => $q->orWhere('id', (int) $search))
+                ->orWhereHas('order', fn ($o) => $o->where('order_number', 'like', $like)
+                    ->orWhere('customer_order_number', 'like', $like)
+                    ->orWhere('customer_code', 'like', $like)
+                    ->orWhere('customer_name', 'like', $like)));
+        }
+        $deliveries = $query->paginate(min(max($request->integer('per_page', 50), 1), 200));
 
         return response()->json([
             'success' => true,

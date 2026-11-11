@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import logging
 import unicodedata
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -12,8 +13,10 @@ from datetime import date, timedelta
 from typing import Any, Callable
 
 from . import db as database
-from . import ml, warehouse
+from . import config, knowledge, ml, warehouse
 from .auth import Actor
+
+log = logging.getLogger("ai.tools")
 
 SALES_PERMS = ("order.view", "report.view")
 
@@ -211,7 +214,7 @@ def _stock_rows(con, args: dict) -> tuple[list[dict], date]:
     f.like("p.brand", args.get("brand"))
     f.like("p.sku || ' ' || p.name", args.get("product"))
     rows = con.execute(f"""
-        select p.id, p.sku, p.name, p.category, p.brand, p.cost_price, p.min_stock, p.status,
+        select p.id, p.sku, p.name, p.category, p.brand, p.unit, p.cost_price, p.min_stock, p.status,
                coalesce(k.on_hand, 0) on_hand, coalesce(k.available, 0) available,
                coalesce((select sum(quantity) from fact_sales s where s.product_id = p.id and s.date >= ?), 0) q30,
                coalesce((select sum(quantity) from fact_sales s where s.product_id = p.id and s.date >= ?), 0) q90,
@@ -420,6 +423,113 @@ def supplier_info(actor: Actor, args: dict) -> dict:
                         for r in rows]}
 
 
+# Nhãn tiếng Việt cho loại chứng từ trên sổ cái tồn kho; loại chưa biết giữ nguyên mã
+DOC_TYPE_LABELS = {
+    "PURCHASE_RECEIPT": "Nhập kho mua hàng", "GOODS_RECEIPT": "Nhập kho mua hàng",
+    "DELIVERY_NOTE": "Xuất kho bán hàng", "SALES_INVOICE": "Xuất kho bán hàng", "SALES_ORDER": "Xuất kho bán hàng",
+    "SALES_RETURN_RECEIPT": "Nhận hàng trả lại", "SALES_RETURN_TRANSFER_IN": "Chuyển hàng trả về kho",
+    "SALES_RETURN_TRANSFER_OUT": "Chuyển hàng trả khỏi kho", "PURCHASE_RETURN": "Xuất trả nhà cung cấp",
+}
+
+
+def _exact_product(con: database.Connection, sku: str | None) -> dict:
+    """Tìm sản phẩm theo đúng mã SKU đầy đủ (truy vết chứng từ). Không khớp thì trả gợi ý, không tự đoán."""
+    code = (sku or "").strip()
+    if not code:
+        return {"loi": "Cần mã SKU đầy đủ của sản phẩm"}
+    row = con.execute("select id, sku, name, cost_price from dim_product where lower(sku) = lower(?)", [code]).fetchone()
+    if row:
+        return dict(zip(row.keys(), row))
+    hints = con.execute(f"select sku, name from dim_product where {ua('sku')} like ? order by sku limit 5",
+                        [f"%{unaccent(code)}%"]).fetchall()
+    return {"loi": f"Không có sản phẩm mã '{code}'. Hãy dùng đúng mã SKU đầy đủ.",
+            "goi_y": [{"sku": h["sku"], "ten": h["name"]} for h in hints]}
+
+
+def stock_card_trace(actor: Actor, args: dict) -> dict:
+    """Thẻ kho của một SKU: tồn đầu kỳ, tổng nhập/xuất, tồn cuối kỳ và các phát sinh gần nhất theo chứng từ."""
+    con = db()
+    product = _exact_product(con, args.get("sku"))
+    if "loi" in product:
+        return product
+    start, end = period(con, args.get("start_date"), args.get("end_date"), default_days=30)
+    where, params = "m.product_id = ?", [product["id"]]
+    if args.get("warehouse_id"):
+        where, params = where + " and m.warehouse_id = ?", [*params, int(args["warehouse_id"])]
+
+    opening = con.execute(f"select coalesce(sum(m.delta), 0) from stock_move m where {where} and m.date < ?",
+                          [*params, start]).fetchone()[0]
+    received, issued, count = con.execute(f"""select coalesce(sum(case when m.delta > 0 then m.delta end), 0),
+            coalesce(sum(case when m.delta < 0 then -m.delta end), 0), count(*)
+            from stock_move m where {where} and m.date between ? and ?""", [*params, start, end]).fetchone()
+    limit = min(int(args.get("limit") or 20), 50)
+    rows = con.execute(f"""select m.date, m.doc_type, m.doc_id, m.delta, m.warehouse_id, m.balance_after, s.name staff
+            from stock_move m left join dim_staff s on s.id = m.created_by
+            where {where} and m.date between ? and ? order by m.date desc, m.move_id desc limit ?""",
+                       [*params, start, end, limit]).fetchall()
+    return {
+        "sku": product["sku"], "ten": product["name"], "ky": f"{start} → {end}",
+        "kho": int(args["warehouse_id"]) if args.get("warehouse_id") else "tất cả kho",
+        "ton_dau_ky": int(opening), "nhap_trong_ky": int(received), "xuat_trong_ky": int(issued),
+        "ton_cuoi_ky": int(opening + received - issued), "so_phat_sinh": int(count),
+        "dong": [{"ngay": r["date"], "loai": DOC_TYPE_LABELS.get(r["doc_type"], r["doc_type"]), "so_chung_tu": r["doc_id"],
+                  "nhap": int(r["delta"]) if r["delta"] > 0 else 0, "xuat": -int(r["delta"]) if r["delta"] < 0 else 0,
+                  "ton_sau_tai_kho": r["balance_after"], "kho_id": r["warehouse_id"],
+                  "nguoi_thuc_hien": r["staff"] or "hệ thống"} for r in rows],
+        "ghi_chu": f"Hiển thị {len(rows)}/{count} phát sinh gần nhất trong kỳ, mới nhất trước. "
+                   "Tồn sau tại kho là số dư của đúng kho phát sinh chứng từ.",
+    }
+
+
+def purchase_price_variance_alert(actor: Actor, args: dict) -> dict:
+    """Dòng PO có đơn giá lệch bất thường so với giá nhập bình quân (theo số lượng) 90 ngày trước ngày đặt."""
+    con = db()
+    start, end = period(con, args.get("start_date"), args.get("end_date"), default_days=30)
+    threshold = abs(float(args.get("threshold_percent") or 5))
+    direction = args.get("direction") or "increase"
+    limit = min(int(args.get("limit") or 10), 30)
+    f = Filters()
+    f.like("sp.name || ' ' || sp.code", args.get("supplier"))
+    f.like("p.sku || ' ' || p.name", args.get("product"))
+    # Giá tham chiếu cùng sản phẩm, cùng tiền tệ, các PO đặt trong 90 ngày trước PO đang xét (không gồm chính nó)
+    rows = con.execute(f"""
+        select l.po_code, l.date, p.sku, p.name, sp.name supplier, sp.code supplier_code, l.currency,
+               l.unit_cost, l.qty_ordered,
+               (select sum(b.unit_cost * b.qty_ordered) / nullif(sum(b.qty_ordered), 0) from fact_po_line b
+                 where b.product_id = l.product_id and b.currency = l.currency and b.date < l.date
+                   and b.date >= date_format(date_sub(l.date, interval 90 day), '%Y-%m-%d')) baseline
+        from fact_po_line l join dim_product p on p.id = l.product_id join dim_supplier sp on sp.id = l.supplier_id
+        where l.date between ? and ?{f.where}""", [start, end, *f.args]).fetchall()
+
+    alerts, no_baseline = [], 0
+    for r in rows:
+        if not r["baseline"]:
+            no_baseline += 1
+            continue
+        variance = (float(r["unit_cost"]) - float(r["baseline"])) / float(r["baseline"]) * 100
+        if abs(variance) < threshold or (direction == "increase" and variance < 0) or (direction == "decrease" and variance > 0):
+            continue
+        impact = (float(r["unit_cost"]) - float(r["baseline"])) * int(r["qty_ordered"])
+        usd = r["currency"] == "USD"
+        alerts.append((abs(impact), {
+            "po": r["po_code"], "ngay_dat": r["date"], "sku": r["sku"], "ten": r["name"], "ncc": r["supplier"],
+            "ma_ncc": r["supplier_code"], "so_luong": int(r["qty_ordered"]),
+            "don_gia": f"{r['unit_cost']:,.2f} USD" if usd else money(r["unit_cost"]),
+            "gia_tham_chieu_90_ngay": f"{r['baseline']:,.2f} USD" if usd else money(r["baseline"]),
+            "chenh_lech": f"{variance:+.1f}%",
+            "anh_huong_chi_phi": f"{impact:,.2f} USD" if usd else money(impact),
+        }))
+    alerts.sort(key=lambda item: item[0], reverse=True)
+    return {
+        "ky": f"{start} → {end}", "nguong": f"±{threshold:g}%",
+        "chieu": {"increase": "tăng giá", "decrease": "giảm giá", "both": "cả hai chiều"}.get(direction, direction),
+        "so_dong_po_trong_ky": len(rows), "so_canh_bao": len(alerts), "chua_co_gia_tham_chieu": no_baseline,
+        "dong": [item for _, item in alerts[:limit]],
+        "ghi_chu": "Giá tham chiếu = giá nhập bình quân theo số lượng của cùng sản phẩm, cùng tiền tệ trong 90 ngày "
+                   "trước ngày đặt PO. Hệ thống chưa lưu hợp đồng khung nên không so với giá hợp đồng.",
+    }
+
+
 def order_list(actor: Actor, args: dict) -> dict:
     con = db()
     start, end = period(con, args.get("start_date"), args.get("end_date"))
@@ -518,7 +628,7 @@ def procurement_fast_order(actor: Actor, args: dict) -> dict:
         SELECT s.id as supplier_id, s.code as supplier_code, s.name as supplier_name,
                s.payment_terms, s.email, s.phone,
                po.unit_cost as latest_price, po.date as latest_order_date, po.po_code as latest_po_code,
-               po.qty_ordered as latest_qty
+               po.qty_ordered as latest_qty, po.currency
         FROM fact_po_line po
         JOIN dim_supplier s ON s.id = po.supplier_id
         WHERE po.product_id = ?
@@ -537,16 +647,19 @@ def procurement_fast_order(actor: Actor, args: dict) -> dict:
         if sup_id not in seen_suppliers:
             seen_suppliers.add(sup_id)
             unit_price = float(r["latest_price"])
-            # Tính biên lãi gộp kỳ vọng dựa trên giá niêm yết bán
-            margin_pct = round(((gross_price - unit_price) / gross_price) * 100, 1) if gross_price > 0 else 0.0
+            currency = r["currency"] or "VND"
+            # Biên lãi gộp kỳ vọng so với giá niêm yết (VND); giá nhập ngoại tệ thì không quy đổi được nên bỏ trống
+            margin_pct = (round(((gross_price - unit_price) / gross_price) * 100, 1)
+                          if gross_price > 0 and currency == "VND" else None)
             suppliers_list.append({
                 "supplier_id": sup_id,
                 "supplier_code": sup_code,
                 "supplier_name": r["supplier_name"],
                 "payment_terms": r["payment_terms"] or "Thỏa thuận",
                 "phone": r["phone"] or "—",
+                "currency": currency,
                 "latest_price": unit_price,
-                "latest_price_formatted": money(unit_price),
+                "latest_price_formatted": money(unit_price) if currency == "VND" else f"{unit_price:,.2f} {currency}",
                 "expected_margin_pct": margin_pct,
                 "latest_order_date": r["latest_order_date"],
                 "latest_po_code": r["latest_po_code"],
@@ -581,6 +694,7 @@ def procurement_fast_order(actor: Actor, args: dict) -> dict:
                 "supplier_name": def_sup["name"],
                 "payment_terms": def_sup["payment_terms"] or "Thỏa thuận",
                 "phone": def_sup["phone"] or "—",
+                "currency": "VND",
                 "latest_price": cost_price,
                 "latest_price_formatted": money(cost_price),
                 "expected_margin_pct": margin_pct,
@@ -595,12 +709,12 @@ def procurement_fast_order(actor: Actor, args: dict) -> dict:
             "loi": f"Không tìm thấy dữ liệu nguồn hàng cho sản phẩm '{sku}' với Nhà Cung Cấp có mã code '{supplier_code_filter}'. Vui lòng kiểm tra lại mã NCC."
         }
 
-    # Đánh dấu Nhà Cung Cấp có giá nhập tốt nhất
-    if suppliers_list:
-        min_price = min(s["latest_price"] for s in suppliers_list)
-        for s in suppliers_list:
-            if s["latest_price"] == min_price:
-                s["is_best_price"] = True
+    # Đánh dấu NCC có giá nhập tốt nhất, chỉ so giữa các NCC cùng tiền tệ (không có tỷ giá để quy đổi)
+    for currency in {s["currency"] for s in suppliers_list}:
+        same = [s for s in suppliers_list if s["currency"] == currency]
+        min_price = min(s["latest_price"] for s in same)
+        for s in same:
+            s["is_best_price"] = s["latest_price"] == min_price
 
     # 5. Xác định số lượng đặt mua đề xuất
     ml_suggested_qty = ml_insight.get("suggested_procurement_qty", 0)
@@ -1102,6 +1216,103 @@ def credit_risk_radar(actor: Actor, args: dict) -> dict:
     }
 
 
+KNOWLEDGE_GROUP_LABELS = {"business": "nghiệp vụ", "technical": "kỹ thuật", "faq": "hỏi đáp & xử lý lỗi",
+                          "policy": "chính sách"}
+
+
+def search_company_policy(actor: Actor, args: dict) -> dict:
+    """Tra cứu tài liệu nội bộ (quy trình, kỹ thuật, xử lý lỗi, chính sách). Mỗi đoạn kèm đường dẫn nguồn."""
+    query = (args.get("query") or "").strip()
+    if not query:
+        return {"loi": "Cần nội dung câu hỏi để tra cứu tài liệu nội bộ"}
+    category = args.get("category") or None
+    if category and category not in knowledge.GROUPS:
+        return {"loi": f"Nhóm tài liệu không hợp lệ: {category}. Chọn một trong {', '.join(knowledge.GROUPS)}"}
+    limit = min(int(args.get("limit") or 4), 8)
+    try:
+        hits = knowledge.search(query, category, limit)
+    except knowledge.KnowledgeUnavailable as exc:
+        log.error("Không tra cứu được tài liệu nội bộ: %s (service=ai-service, user_id=%s)", exc, actor.id)
+        return {"loi": "Kho tài liệu nội bộ đang không sẵn sàng, chưa tra cứu được."}
+    hits = [h for h in hits if h["score"] >= config.KNOWLEDGE_MIN_SCORE]
+    if not hits:
+        return {"so_doan": 0, "ghi_chu": "Không có tài liệu nội bộ nào khớp câu hỏi. Không tự suy ra nội dung, "
+                                         "nhất là quy định và chính sách; đề nghị người dùng hỏi bộ phận phụ trách."}
+    return {
+        "so_doan": len(hits),
+        "doan": [{"nguon": h["meta"]["source"], "tieu_de": h["meta"]["title"], "muc": h["meta"]["heading"],
+                  "nhom": KNOWLEDGE_GROUP_LABELS[h["meta"]["group"]], "da_duyet": h["meta"]["verified"],
+                  **({"nguoi_duyet": h["meta"]["verified_by"]} if h["meta"]["verified"] else {}),
+                  "do_lien_quan": round(h["score"], 2), "noi_dung": h["text"]} for h in hits],
+        "ghi_chu": "Chỉ trả lời theo nội dung các đoạn này và ghi nguồn. Đoạn có da_duyet = false là bản chưa được "
+                   "người có thẩm quyền xác nhận: phải nói rõ điều đó với người dùng.",
+    }
+
+
+# Nhóm tuổi tồn (số ngày không bán) và kịch bản xả hàng tương ứng
+DEADSTOCK_BUCKETS = [
+    (365, "Trên 365 ngày", "Thanh lý hoặc thương lượng trả nhà cung cấp; chấp nhận bán dưới giá vốn để thu hồi tiền."),
+    (180, "181 - 365 ngày", "Xả về quanh giá vốn, chào khách dự án hoặc đại lý lớn theo lô."),
+    (0, "90 - 180 ngày", "Khuyến mãi 5 - 10% hoặc bán kèm với mã bán chạy cùng ngành hàng."),
+]
+
+
+def slow_moving_deadstock_radar(actor: Actor, args: dict) -> dict:
+    """Hàng tồn lâu không bán: tuổi tồn, vốn ứ đọng, chi phí giữ hàng ước tính và kịch bản xả hàng."""
+    con = db()
+    rows, today = _stock_rows(con, args)
+    min_idle = max(int(args.get("min_idle_days") or 90), 30)
+    holding_rate = float(args.get("annual_holding_rate_percent") or 20) / 100
+    limit = min(int(args.get("limit") or 15), 30)
+    # Mã chưa từng bán: tuổi tồn tính từ lần nhập kho đầu tiên
+    first_in = dict(con.execute("select product_id, min(date) from stock_move where delta > 0 group by product_id").fetchall())
+
+    items = []
+    for r in rows:
+        since = r["last_sale"] or first_in.get(r["id"])
+        if r["on_hand"] <= 0 or not since:
+            continue
+        idle = (today - date.fromisoformat(since)).days
+        if idle < min_idle:
+            continue
+        capital = r["on_hand"] * (r["cost_price"] or 0)
+        _, label, action = next(b for b in DEADSTOCK_BUCKETS if idle > b[0])
+        items.append((capital, idle, label, action, r))
+    items.sort(key=lambda i: i[0], reverse=True)
+
+    buckets = {label: {"so_ma": 0, "von_ua_dong": 0.0} for _, label, _ in DEADSTOCK_BUCKETS}
+    for capital, _, label, _, _ in items:
+        buckets[label]["so_ma"] += 1
+        buckets[label]["von_ua_dong"] += capital
+    total_capital = sum(i[0] for i in items)
+    holding = sum(capital * holding_rate * idle / 365 for capital, idle, *_ in items)
+    stock_value = sum(r["on_hand"] * (r["cost_price"] or 0) for r in rows)
+
+    return {
+        "ngay_du_lieu": today.isoformat(),
+        "dieu_kien": f"Còn tồn và không bán từ {min_idle} ngày trở lên",
+        "so_ma_ton_cham": len(items),
+        "von_ua_dong": money(total_capital),
+        "ty_trong_tren_tong_ton": pct(total_capital, stock_value),
+        "chi_phi_giu_hang_uoc_tinh": money(holding),
+        "theo_tuoi_ton": [{"nhom": label, "so_ma": b["so_ma"], "von_ua_dong": money(b["von_ua_dong"])}
+                          for label, b in buckets.items() if b["so_ma"]],
+        "dong": [{
+            "sku": r["sku"], "ten": r["name"], "nganh": r["category"], "hang": r["brand"],
+            "ton_thuc_te": int(r["on_hand"]), "so_ngay_khong_ban": idle,
+            "ban_gan_nhat": r["last_sale"] or "Chưa từng bán", "nhom_tuoi_ton": label,
+            "von_ua_dong": money(capital), "gia_von": money(r["cost_price"] or 0),
+            "chi_phi_giu_hang_uoc_tinh": money(capital * holding_rate * idle / 365),
+            "kich_ban_xa_hang": action,
+            **({"canh_bao": f"Vẫn còn {int(r['incoming'])} đang về từ PO mở: cân nhắc giảm hoặc hủy PO."}
+               if r["incoming"] > 0 else {}),
+        } for capital, idle, label, action, r in items[:limit]],
+        "ghi_chu": f"Hiển thị {min(limit, len(items))}/{len(items)} mã, xếp theo vốn ứ đọng. Tuổi tồn tính từ lần bán "
+                   "gần nhất; mã chưa từng bán tính từ lần nhập kho đầu tiên. Chi phí giữ hàng là ước tính với giả định "
+                   f"{holding_rate * 100:g}%/năm trên giá vốn (vốn, kho bãi, hao mòn), không phải số liệu kế toán.",
+    }
+
+
 def suggest_restock_plan(actor: Actor, args: dict) -> dict:
     con = db()
     rows, today = _stock_rows(con, args)
@@ -1109,73 +1320,98 @@ def suggest_restock_plan(actor: Actor, args: dict) -> dict:
     target_days = int(args.get("target_cover_days") or 45)
     limit = min(int(args.get("limit") or 10), 25)
 
-    proposals = []
-    for r in rows:
-        rate = r["rate"]
-        avail = r["available"]
-        incoming = r["incoming"]
-        cost_price = r["cost_price"] or 0
-        min_stock = r["min_stock"] or 0
+    see_cost = actor.can("purchase.view", "finance.view")
+    levels = {"urgent": (0, "Khẩn cấp (Tồn < 7 ngày hoặc hết hàng)"), "warning": (1, "Cảnh báo (Tồn 7 - 14 ngày)")}
 
+    # (thứ tự mức độ, số ngày đủ bán, dòng nguồn, số lượng đề xuất)
+    candidates = []
+    for r in rows:
+        rate, avail, incoming = r["rate"], r["available"], r["incoming"]
         if rate <= 0:
             continue
-
         cover = (avail + incoming) / rate
-
-        if avail <= 0 or cover < 7:
-            level = "urgent"
-            level_name = "Khẩn cấp (Tồn < 7 ngày hoặc hết hàng)"
-        elif cover < 15:
-            level = "warning"
-            level_name = "Cảnh báo (Tồn 7 - 14 ngày)"
-        else:
-            level = "safe"
-            level_name = "An toàn"
-
-        if urgency != "all" and level != urgency:
+        level = "urgent" if avail <= 0 or cover < 7 else "warning" if cover < 15 else "safe"
+        if level == "safe" or (urgency != "all" and level != urgency):
             continue
-        if urgency == "all" and level == "safe":
-            continue
-
-        target_qty = target_days * rate
-        needed = max(0, int(round(target_qty - avail - incoming)))
+        needed = max(0, int(round(target_days * rate - avail - incoming)))
+        min_stock = r["min_stock"] or 0
         if needed <= 0 and avail < min_stock:
             needed = int(min_stock - avail)
-
         if needed > 0:
-            proposals.append({
-                "sku": r["sku"],
-                "ten": r["name"],
-                "nganh": r["category"],
-                "hang": r["brand"],
-                "ton_kha_dung": int(avail),
-                "dang_ve": int(incoming),
-                "toc_do_ban_ngay": round(rate, 2),
-                "so_ngay_du_ban": round(cover, 1),
-                "muc_do": level_name,
-                "so_luong_de_xuat_nhap": needed,
-                "don_gia_von": money(cost_price) if actor.can("purchase.view", "finance.view") else "—",
-                "uoc_tinh_chi_phi": money(needed * cost_price) if actor.can("purchase.view", "finance.view") else "—",
-                "nha_cung_cap": r["supplier"],
-                "du_kien_giao_gan_nhat": r["next_arrival"] or "Chưa có đơn đang về",
-            })
+            candidates.append((levels[level][0], cover, r, needed))
+    candidates.sort(key=lambda c: (c[0], c[1]))
+    shown = candidates[:limit]
 
-    urgency_order = {"Khẩn cấp (Tồn < 7 ngày hoặc hết hàng)": 0, "Cảnh báo (Tồn 7 - 14 ngày)": 1}
-    proposals.sort(key=lambda x: (urgency_order.get(x["muc_do"], 9), x["so_ngay_du_ban"]))
+    proposals = [{
+        "sku": r["sku"], "ten": r["name"], "nganh": r["category"], "hang": r["brand"],
+        "ton_kha_dung": int(r["available"]), "dang_ve": int(r["incoming"]),
+        "toc_do_ban_ngay": round(r["rate"], 2), "so_ngay_du_ban": round(cover, 1),
+        "muc_do": levels["urgent" if order == 0 else "warning"][1], "so_luong_de_xuat_nhap": needed,
+        "don_gia_von": money(r["cost_price"] or 0) if see_cost else "—",
+        "uoc_tinh_chi_phi": money(needed * (r["cost_price"] or 0)) if see_cost else "—",
+        "nha_cung_cap": r["supplier"], "du_kien_giao_gan_nhat": r["next_arrival"] or "Chưa có đơn đang về",
+    } for order, cover, r, needed in shown]
+    total_cost = sum(needed * (r["cost_price"] or 0) for _, _, r, needed in candidates)
 
-    proposals_shown = proposals[:limit]
-    total_cost_num = sum(
-        (p["so_luong_de_xuat_nhap"] * (next((r["cost_price"] for r in rows if r["sku"] == p["sku"]), 0) or 0))
-        for p in proposals
-    )
-
-    return {
+    result = {
         "ngay_du_lieu": today.isoformat(),
         "muc_tieu_du_tru_ngay": target_days,
-        "tong_so_ma_can_nhap": len(proposals),
-        "tong_chi_phi_uoc_tinh": money(total_cost_num) if actor.can("purchase.view", "finance.view") else "—",
-        "danh_sach_de_xuat": proposals_shown,
-        "ghi_chu": f"Hiển thị {len(proposals_shown)}/{len(proposals)} mã hàng cần ưu tiên bổ sung kho. Công thức: target_days * bán_bình_quân - (khả_dụng + đang_về).",
+        "tong_so_ma_can_nhap": len(candidates),
+        "tong_chi_phi_uoc_tinh": money(total_cost) if see_cost else "—",
+        "danh_sach_de_xuat": proposals,
+        "ghi_chu": f"Hiển thị {len(proposals)}/{len(candidates)} mã hàng cần ưu tiên bổ sung kho. "
+                   "Công thức: target_days * bán_bình_quân - (khả_dụng + đang_về).",
+    }
+    # Thẻ tạo PO cần đơn giá nhập, nên chỉ người xem được giá mua mới nhận thẻ
+    if shown and actor.can("purchase.view"):
+        result["action_schema"] = _restock_action_schema(con, actor, shown, today, target_days)
+    return result
+
+
+def _restock_action_schema(con: database.Connection, actor: Actor, shown: list, today: date, target_days: int) -> dict:
+    """Gom các dòng đề xuất theo NCC (mỗi NCC một PO). Đơn giá và tiền tệ lấy từ dòng PO gần nhất của sản phẩm."""
+    ids = [r["id"] for _, _, r, _ in shown]
+    marks = ",".join("?" * len(ids))
+    latest: dict[int, dict] = {}
+    for line in con.execute(f"""select product_id, supplier_id, unit_cost, currency from fact_po_line
+                                where product_id in ({marks}) order by date desc""", ids).fetchall():
+        latest.setdefault(line["product_id"], dict(line))
+    supplier_ids = sorted({line["supplier_id"] for line in latest.values()})
+    suppliers = {}
+    if supplier_ids:
+        suppliers = {s["id"]: dict(s) for s in con.execute(
+            f"select id, code, name, payment_terms from dim_supplier where id in ({','.join('?' * len(supplier_ids))})",
+            supplier_ids).fetchall()}
+
+    groups: dict[tuple, dict] = {}
+    unassigned = []
+    for order, cover, r, needed in shown:
+        last = latest.get(r["id"])
+        supplier = suppliers.get(last["supplier_id"]) if last else None
+        if not supplier:
+            # Chưa từng mua mã này: không biết NCC và giá nhập, người dùng phải lập PO thủ công
+            unassigned.append({"sku": r["sku"], "product_name": r["name"], "suggested_quantity": needed})
+            continue
+        currency = last["currency"] or "VND"
+        # PO chỉ có một tiền tệ: cùng NCC nhưng khác tiền tệ thì tách thành hai nhóm
+        group = groups.setdefault((supplier["id"], currency), {
+            "supplier_id": supplier["id"], "supplier_code": supplier["code"], "supplier_name": supplier["name"],
+            "payment_terms": supplier["payment_terms"] or "Thỏa thuận", "currency": currency, "lines": []})
+        group["lines"].append({
+            "product_id": r["id"], "sku": r["sku"], "product_name": r["name"], "unit": r["unit"] or "Bộ",
+            "suggested_quantity": needed, "unit_cost": float(last["unit_cost"] or 0),
+            "urgency": "urgent" if order == 0 else "warning", "cover_days": round(cover, 1),
+            "available": int(r["available"]), "incoming": int(r["incoming"])})
+
+    return {
+        "action_type": "ACTION_CARD_RESTOCK_PLAN",
+        "action_title": "Kế hoạch nhập kho khuyến nghị",
+        "can_execute": actor.can("purchase.create"),
+        "required_permission": "purchase.create",
+        "as_of": today.isoformat(),
+        "target_cover_days": target_days,
+        "groups": sorted(groups.values(), key=lambda g: -len(g["lines"])),
+        "unassigned": unassigned,
     }
 
 
@@ -1353,6 +1589,24 @@ TOOLS: list[Tool] = [
     Tool("supplier_info", "Look up suppliers by name/code/brand: payment terms, contacts.",
          obj({"query": {"type": "string"}, "limit": {"type": "integer"}}, ["query"]),
          ("supplier.view", "purchase.view"), supplier_info),
+    Tool("stock_card_trace", "Thẻ kho của một sản phẩm theo MÃ SKU ĐẦY ĐỦ: tồn đầu kỳ, tổng nhập, tổng xuất, tồn cuối kỳ "
+         "và từng phát sinh nhập/xuất theo số chứng từ, kho, người thực hiện.",
+         obj({"sku": {"type": "string", "description": "Bắt buộc: mã SKU đầy đủ (ví dụ CFS-13VDM-COM)"},
+              "start_date": {"type": "string", "description": "YYYY-MM-DD, mặc định 30 ngày trước ngày dữ liệu"},
+              "end_date": {"type": "string", "description": "YYYY-MM-DD, mặc định ngày dữ liệu"},
+              "warehouse_id": {"type": "integer", "description": "Chỉ xem một kho"},
+              "limit": {"type": "integer", "description": "Số phát sinh hiển thị, tối đa 50"}}, ["sku"]),
+         ("inventory.view",), stock_card_trace),
+    Tool("purchase_price_variance_alert", "Cảnh báo biến động giá mua (PPV): dòng đơn mua có đơn giá lệch quá ngưỡng so với "
+         "giá nhập bình quân 90 ngày trước, xếp theo ảnh hưởng chi phí.",
+         obj({"start_date": {"type": "string", "description": "YYYY-MM-DD, mặc định 30 ngày trước ngày dữ liệu"},
+              "end_date": {"type": "string", "description": "YYYY-MM-DD"},
+              "threshold_percent": {"type": "number", "description": "Ngưỡng lệch giá %, mặc định 5"},
+              "direction": {"type": "string", "enum": ["increase", "decrease", "both"]},
+              "supplier": {"type": "string", "description": "Lọc theo tên hoặc mã NCC"},
+              "product": {"type": "string", "description": "Lọc theo SKU hoặc tên sản phẩm"},
+              "limit": {"type": "integer"}}),
+         ("purchase.view",), purchase_price_variance_alert),
     Tool("order_list", "Sales orders by date range, customer, status "
          "(PENDING_APPROVAL, APPROVED, PROCESSING, COMPLETED, CANCELLED, REJECTED).",
          obj({**DATE_PROPS, "customer": FILTER_PROPS["customer"], "status": {"type": "string"},
@@ -1377,6 +1631,24 @@ TOOLS: list[Tool] = [
               "target_cover_days": {"type": "integer"},
               "limit": {"type": "integer"}}),
          ("inventory.view", "purchase.view"), suggest_restock_plan),
+    Tool("slow_moving_deadstock_radar", "Hàng tồn chậm luân chuyển / tồn chết: mã còn tồn nhưng lâu không bán, "
+         "phân theo tuổi tồn, vốn ứ đọng, chi phí giữ hàng ước tính và kịch bản xả hàng.",
+         obj({"category": FILTER_PROPS["category"], "brand": FILTER_PROPS["brand"],
+              "product": {"type": "string", "description": "Lọc theo SKU hoặc tên sản phẩm"},
+              "min_idle_days": {"type": "integer", "description": "Số ngày không bán tối thiểu, mặc định 90"},
+              "annual_holding_rate_percent": {"type": "number",
+                                              "description": "Giả định chi phí giữ hàng %/năm trên giá vốn, mặc định 20"},
+              "limit": {"type": "integer", "description": "Số mã hiển thị, tối đa 30"}}),
+         ("inventory.view", "report.view"), slow_moving_deadstock_radar),
+    Tool("search_company_policy", "Tra cứu tài liệu nội bộ của công ty: quy trình nghiệp vụ ERP (tạo đơn, báo giá, giữ hàng, "
+         "nhập/xuất kho, hàng trả), kiến trúc kỹ thuật, cách xử lý lỗi thường gặp, chính sách. Dùng cho câu hỏi "
+         "'làm thế nào', 'vì sao lỗi', 'quy định ra sao', không dùng cho số liệu.",
+         obj({"query": {"type": "string", "description": "Câu hỏi hoặc từ khóa, viết đầy đủ bằng tiếng Việt"},
+              "category": {"type": "string", "enum": list(knowledge.GROUPS),
+                           "description": "business = quy trình nghiệp vụ, technical = kỹ thuật, faq = lỗi thường gặp, "
+                                          "policy = chính sách. Bỏ trống nếu không chắc."},
+              "limit": {"type": "integer", "description": "Số đoạn trả về, tối đa 8"}}, ["query"]),
+         ("ai.use",), search_company_policy),
     Tool("suggest_churn_retention", "Đề xuất danh sách khách hàng có nguy cơ rời bỏ cần chăm sóc giữ chân kèm doanh thu lịch sử và kịch bản can thiệp (gọi điện, ưu đãi, gặp trực tiếp).",
          obj({"customer_type": FILTER_PROPS["customer_type"],
               "min_historical_revenue": {"type": "number"},
@@ -1410,10 +1682,13 @@ TOOL_SCOPE = {
     "sales_report": "doanh số", "inventory_status": "tồn kho", "receivables_report": "công nợ khách hàng",
     "purchase_report": "mua hàng / đơn mua", "supplier_info": "nhà cung cấp", "order_list": "đơn bán hàng",
     "customer_info": "thông tin khách hàng",
+    "stock_card_trace": "thẻ kho / lịch sử nhập xuất", "purchase_price_variance_alert": "biến động giá mua",
     "demand_forecast": "dự báo doanh số ML",
     "rfm_customer_segmentation": "phân cụm khách hàng RFM",
     "credit_risk_radar": "đánh giá rủi ro tín dụng",
     "suggest_restock_plan": "kế hoạch nhập kho thông minh",
+    "slow_moving_deadstock_radar": "hàng tồn chậm luân chuyển",
+    "search_company_policy": "tài liệu nội bộ",
     "suggest_churn_retention": "kế hoạch giữ chân khách hàng rời bỏ",
     "suggest_credit_action": "xử lý thu hồi nợ và rủi ro tín dụng",
 }

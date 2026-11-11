@@ -1,8 +1,8 @@
-"""Kho phân tích (read model) của ai-service.
+"""Kho phân tích (read model) của ai-service, nằm trong schema MySQL `erp_analytics_db`.
 
-Job ETL đọc chỉ-đọc từ DB của các service, làm phẳng thành các bảng dễ truy vấn. Mỗi lần đồng bộ dựng các
-bảng `<tên>_new` rồi đổi tên đồng loạt bằng một câu RENAME TABLE (nguyên tử): người đang hỏi không bao giờ
-đọc phải kho dựng dở.
+Job ETL đọc dữ liệu qua endpoint export nội bộ của từng service (export_client), không kết nối database của
+service khác. Mỗi lần đồng bộ dựng các bảng `<tên>_new` rồi đổi tên đồng loạt bằng một câu RENAME TABLE
+(nguyên tử): người đang hỏi không bao giờ đọc phải kho dựng dở.
 """
 from __future__ import annotations
 
@@ -12,7 +12,8 @@ from contextlib import closing
 
 from simulator.people import REGION_OF
 
-from . import config, db
+from . import db
+from .export_client import ExportClient
 
 log = logging.getLogger("ai.warehouse")
 
@@ -38,6 +39,7 @@ TABLES = {
         discount double, subtotal double, index ix_line_order (order_id)""",
     "stock": "product_id bigint primary key, on_hand bigint, available bigint",
     "stock_move": """date varchar(10), product_id bigint, doc_type varchar(64), doc_id varchar(128), delta bigint,
+        move_id bigint, warehouse_id bigint, balance_after bigint, created_by bigint,
         index ix_move_product (product_id, date)""",
     "fact_po_line": """po_id bigint, po_code varchar(64), date varchar(10), expected_date varchar(10),
         status varchar(64), supplier_id bigint, currency varchar(8), product_id bigint, qty_ordered bigint,
@@ -50,15 +52,6 @@ TABLES = {
 }
 
 
-def _src(name: str) -> db.Connection:
-    return db.connect(config.SOURCE_DB[name], read_only=True)
-
-
-def _rows(con: db.Connection, sql: str) -> list[tuple]:
-    """Đọc nguồn và chuẩn hóa ngày/Decimal về chuỗi/số, như kho phân tích vẫn lưu."""
-    return [tuple(db.to_text(v) for v in row) for row in con.execute(sql).fetchall()]
-
-
 def _day(value) -> str | None:
     return str(value)[:10] if value else None
 
@@ -69,6 +62,11 @@ def _dmy_to_iso(value: str | None) -> str | None:
     return value
 
 
+def _num(value) -> float | None:
+    # Laravel trả cột DECIMAL dưới dạng chuỗi ("100.00"): đổi sang số để còn tính toán (giá vốn = SL x đơn giá vốn)
+    return float(value) if value not in (None, "") else None
+
+
 def _province(address: str | None) -> str | None:
     if not address:
         return None
@@ -76,8 +74,22 @@ def _province(address: str | None) -> str | None:
     return last if last in REGION_OF else None
 
 
-def build(target: db.Connection) -> dict[str, int]:
-    """Dựng toàn bộ bảng `<tên>_new` trong schema phân tích."""
+def build(target: db.Connection, source: ExportClient) -> dict[str, int]:
+    """Dựng toàn bộ bảng `<tên>_new` trong schema phân tích từ dữ liệu export của các service."""
+    # Đọc hết nguồn trước khi đụng vào schema phân tích: service nào lỗi thì dừng sớm, không dựng dở
+    products = source.fetch_all("catalog", "products")
+    customers = source.fetch_all("catalog", "customers")
+    suppliers = source.fetch_all("catalog", "suppliers")
+    staff = source.fetch_all("identity", "staff")
+    revenue_items = source.fetch_all("sales", "revenue_items")
+    orders = source.fetch_all("sales", "orders")
+    order_lines = source.fetch_all("sales", "order_lines")
+    stock_balances = source.fetch_all("inventory", "stock_balances")
+    reservation_balances = source.fetch_all("inventory", "reservation_balances")
+    stock_moves = source.fetch_all("inventory", "stock_moves")
+    po_lines = source.fetch_all("purchase", "po_lines")
+    receivables = source.fetch_all("finance", "receivables")
+
     for table, columns in TABLES.items():
         target.execute(f"drop table if exists {table}_new")
         target.execute(f"create table {table}_new ({columns}) {TABLE_OPTIONS}")
@@ -88,76 +100,73 @@ def build(target: db.Connection) -> dict[str, int]:
             target.executemany(f"insert into {table}_new values ({','.join('?' * len(rows[0]))})", rows)
         counts[table] = len(rows)
 
-    with closing(_src("catalog")) as c:
-        put("dim_product", [r + (None,) for r in _rows(c, (
-            "select p.id, p.sku, p.designation, p.description, cg.name, b.name, p.com, p.unit, p.gross_price, "
-            "p.cost_price, p.min_stock, p.status, p.created_at from products p "
-            "left join categories cg on cg.id = p.category_id left join brands b on b.id = p.brand_id"))])
-        rows = []
-        for r in _rows(c, "select id, code, name, customer_type, address, tax_code, phone, email, credit_limit, "
-                          "status, created_at from customers"):
-            province = _province(r[4])
-            rows.append((r[0], r[1], r[2], r[3], province, REGION_OF.get(province), r[4], r[5], r[6], r[7], r[8],
-                         r[9], r[10]))
-        put("dim_customer", rows)
-        put("dim_supplier", _rows(c, (
-            "select id, code, name, supplier_type, supplier_group, payment_terms, email, phone, contact_person, "
-            "status, notes from suppliers")))
+    put("dim_product", [
+        (p["id"], p["sku"], p["designation"], p["description"], p["category"], p["brand"], p["com"], p["unit"],
+         _num(p["gross_price"]), _num(p["cost_price"]), p["min_stock"], p["status"], p["created_at"], None)
+        for p in products])
+    rows = []
+    for c in customers:
+        province = _province(c["address"])
+        rows.append((c["id"], c["code"], c["name"], c["customer_type"], province, REGION_OF.get(province),
+                     c["address"], c["tax_code"], c["phone"], c["email"], _num(c["credit_limit"]), c["status"],
+                     c["created_at"]))
+    put("dim_customer", rows)
+    put("dim_supplier", [
+        (s["id"], s["code"], s["name"], s["supplier_type"], s["supplier_group"], s["payment_terms"], s["email"],
+         s["phone"], s["contact_person"], s["status"], s["notes"])
+        for s in suppliers])
+    put("dim_staff", [(u["id"], u["name"], u["email"], u["roles"]) for u in staff])
 
-    with closing(_src("identity")) as c:
-        put("dim_staff", _rows(c, (
-            "select u.id, u.name, u.email, group_concat(r.name separator ', ') from users u left join user_roles ur "
-            "on ur.user_id = u.id left join roles r on r.id = ur.role_id group by u.id, u.name, u.email")))
+    cost = {p["id"]: _num(p["cost_price"]) or 0 for p in products}
+    put("fact_sales", [
+        (_day(r["issue_date"]), r["invoice_number"], r["order_id"], r["order_number"], r["customer_id"],
+         r["product_id"], _num(r["quantity"]), _num(r["unit_price"]), _num(r["subtotal"]), _num(r["vat_amount"]),
+         (_num(r["quantity"]) or 0) * cost.get(r["product_id"], 0), r["salesperson_id"],
+         1 if r["is_vat_invoiced"] else 0)
+        for r in revenue_items])
+    put("fact_order", [
+        (o["id"], o["order_number"], _dmy_to_iso(_day(o["order_date"])), o["customer_id"], o["status"],
+         _num(o["subtotal"]), _num(o["total_amount"]),
+         int(o["salesperson"]) if str(o["salesperson"] or "").isdigit() else None, o["quotation_id"])
+        for o in orders])
+    put("fact_order_line", [
+        (line["order_id"], line["product_id"], _num(line["quantity"]), _num(line["delivered_quantity"]),
+         _num(line["selling_price"]), _num(line["discount_percent"]), _num(line["subtotal"]))
+        for line in order_lines])
 
-    cost = dict(target.execute("select id, cost_price from dim_product_new").fetchall())
-    with closing(_src("sales")) as c:
-        put("fact_sales", [
-            (_day(r[0]), r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9],
-             (r[6] or 0) * (cost.get(r[5]) or 0), r[10], r[11])
-            for r in _rows(c, (
-                "select issue_date, invoice_number, order_id, order_number, customer_id, product_id, quantity, "
-                "unit_price, subtotal, vat_amount, salesperson_id, is_vat_invoiced from revenue_report_items"))])
-        put("fact_order", [
-            (r[0], r[1], _dmy_to_iso(_day(r[2])), r[3], r[4], r[5], r[6],
-             int(r[7]) if str(r[7] or "").isdigit() else None, r[8])
-            for r in _rows(c, "select id, order_number, order_date, customer_id, status, subtotal, total_amount, "
-                              "coalesce(assigned_to, created_by), quotation_id from sales_orders")])
-        put("fact_order_line", _rows(c, (
-            "select order_id, product_id, quantity, delivered_quantity, selling_price, discount_percent, subtotal "
-            "from sales_order_items")))
+    # Tồn bán được của sản phẩm = tổng các kho được bán (endpoint đã lọc can_sell)
+    physical: dict[int, int] = {}
+    for s in stock_balances:
+        physical[s["product_id"]] = physical.get(s["product_id"], 0) + int(s["quantity"])
+    available: dict[int, int] = {}
+    for r in reservation_balances:
+        available[r["product_id"]] = available.get(r["product_id"], 0) + int(r["quantity"])
+    put("stock", [(pid, physical.get(pid, 0), available.get(pid, 0)) for pid in set(physical) | set(available)])
+    # inventory-service (.NET) bỏ trường null khỏi JSON: biến động do hệ thống tạo không có created_by
+    put("stock_move", [
+        (_day(m["created_at"]), m["product_id"], m["document_type"], m["document_id"], m["quantity_delta"],
+         m["id"], m.get("warehouse_id"), m.get("balance_after"), m.get("created_by"))
+        for m in stock_moves])
 
-    with closing(_src("inventory")) as c:
-        physical = dict(_rows(c, "select product_id, sum(quantity) from inventory_stocks s join warehouses w "
-                                 "on w.id = s.warehouse_id where w.can_sell = 1 group by product_id"))
-        available = dict(_rows(c, "select product_id, sum(quantity) from inventory_stocks_reservation s "
-                                  "join warehouses w on w.id = s.warehouse_id where w.can_sell = 1 group by product_id"))
-        put("stock", [(pid, int(physical.get(pid) or 0), int(available.get(pid) or 0))
-                      for pid in set(physical) | set(available)])
-        put("stock_move", _rows(c, (
-            "select substr(created_at, 1, 10), product_id, document_type, document_id, quantity_delta "
-            "from inventory_stocks_transaction")))
-
-    with closing(_src("purchase")) as c:
-        put("fact_po_line", _rows(c, (
-            "select o.id, o.code, substr(o.order_date, 1, 10), substr(o.expected_delivery_date, 1, 10), o.status, "
-            "o.supplier_id, o.currency, i.product_id, i.quantity_ordered, i.quantity_received, "
-            "cast(i.unit_cost as double), "
-            "(select substr(min(g.received_at), 1, 10) from goods_receipts g where g.purchase_order_id = o.id), "
-            "(select substr(max(g.received_at), 1, 10) from goods_receipts g where g.purchase_order_id = o.id) "
-            "from purchase_orders o join purchase_order_items i on i.purchase_order_id = o.id")))
+    # purchase-service (.NET) bỏ trường null khỏi JSON: PO chưa nhận hàng không có first_receipt/last_receipt
+    put("fact_po_line", [
+        (r["po_id"], r["po_code"], _day(r["order_date"]), _day(r.get("expected_date")), r["status"],
+         r["supplier_id"], r["currency"], r["product_id"], r["qty_ordered"], r["qty_received"], _num(r["unit_cost"]),
+         _day(r.get("first_receipt")), _day(r.get("last_receipt")))
+        for r in po_lines])
     # NCC chính của sản phẩm = NCC của PO gần nhất
     target.execute("update dim_product_new set supplier_id = (select supplier_id from fact_po_line_new l "
                    "where l.product_id = dim_product_new.id order by l.date desc limit 1)")
 
-    with closing(_src("finance")) as c:
-        put("receivable", _rows(c, (
-            "select customer_id, invoice_number, invoice_date, due_date, original_amount, paid_amount, "
-            "outstanding_amount, status from customer_receivables")))
+    put("receivable", [
+        (r["customer_id"], r["invoice_number"], _day(r["invoice_date"]), _day(r["due_date"]),
+         _num(r["original_amount"]), _num(r["paid_amount"]), _num(r["outstanding_amount"]), r["status"])
+        for r in receivables])
 
     as_of = target.execute("select max(d) from (select max(date) d from fact_sales_new union all "
                            "select max(date) from fact_order_new) x").fetchone()[0]
     target.executemany("insert into meta_new values (?, ?)", [
-        ("as_of", as_of or ""), ("synced_at", time.strftime("%Y-%m-%d %H:%M:%S"))])
+        ("as_of", as_of or ""), ("synced_at", time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))])
     return counts
 
 
@@ -174,14 +183,28 @@ def _swap(target: db.Connection) -> None:
         target.execute(f"drop table if exists {table}_old")
 
 
+def _current_sales_rows(target: db.Connection) -> int:
+    existing = {row[0] for row in target.execute("show tables").fetchall()}
+    return target.execute("select count(*) from fact_sales").fetchone()[0] if "fact_sales" in existing else 0
+
+
 def sync() -> dict[str, int]:
-    """Dựng lại kho phân tích và thay thế bản đang dùng."""
+    """Dựng lại kho phân tích từ export của các service và thay thế bản đang dùng.
+
+    Không thay khi nguồn không có dòng doanh thu nào mà kho đang có dữ liệu: thường là service bán hàng vừa được
+    dựng lại DB rỗng, thay vào sẽ xóa sạch màn hình phân tích.
+    """
     started = time.time()
-    with closing(db.connect()) as target:
-        counts = build(target)
+    with closing(db.connect()) as target, ExportClient() as source:
+        counts = build(target, source)
+        current = _current_sales_rows(target)
+        if counts.get("fact_sales", 0) == 0 and current > 0:
+            log.warning("Bỏ qua thay kho phân tích: nguồn bán hàng không có dòng doanh thu nào, kho hiện có %d dòng "
+                        "(correlation_id=%s, service=ai-service, user_id=system)", current, source.correlation_id)
+            return {**counts, "swapped": 0}
         _swap(target)
     log.info("Đồng bộ kho phân tích xong sau %.1fs: %s", time.time() - started, counts)
-    return counts
+    return {**counts, "swapped": 1}
 
 
 def connect() -> db.Connection:

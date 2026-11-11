@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from . import agent, config, ml, store, warehouse
+from . import agent, config, knowledge, ml, store, warehouse
 from .auth import Actor, current_actor, optional_actor, require_analytics_actor
 from .llm import LLMError
 
@@ -23,9 +23,12 @@ log = logging.getLogger("ai")
 async def sync_loop() -> None:
     while True:
         try:
-            await asyncio.to_thread(warehouse.sync)
+            counts = await asyncio.to_thread(warehouse.sync)
+            # Kho vừa được thay: huấn luyện lại mô hình để màn hình phân tích thấy giao dịch mới
+            if counts.get("swapped"):
+                await asyncio.to_thread(ml.warmup_cache)
         except Exception:
-            log.exception("Đồng bộ kho phân tích lỗi")
+            log.exception("Đồng bộ kho phân tích lỗi (service=ai-service, user_id=system)")
         await asyncio.sleep(config.SYNC_INTERVAL_SECONDS)
 
 
@@ -40,6 +43,11 @@ async def lifespan(_: FastAPI):
             log.exception("Không thể đồng bộ kho phân tích khi khởi động; dịch vụ tiếp tục ở trạng thái degraded")
     # Khởi động và nạp trước mô hình Machine Learning & Analytics vào In-memory Cache
     await asyncio.to_thread(ml.warmup_cache)
+    try:
+        await asyncio.to_thread(knowledge.warmup)
+    except Exception:
+        log.exception("Không dựng được index tài liệu nội bộ khi khởi động (service=ai-service, user_id=system); "
+                      "tool search_company_policy sẽ thử lại khi được gọi")
     if config.WAREHOUSE_SYNC_ENABLED:
         task = asyncio.create_task(sync_loop())
     yield
@@ -154,18 +162,18 @@ def analytics_credit_risk(actor: Actor = Depends(require_analytics_actor)):
 
 @router.post("/analytics/refresh")
 async def analytics_refresh(actor: Actor = Depends(current_actor)):
-    """Làm mới dữ liệu: Đồng bộ ETL từ các database nghiệp vụ vào analytics.db và tái huấn luyện mô hình ML."""
+    """Tái huấn luyện mô hình ML từ dữ liệu hiện có. Chỉ đồng bộ ETL khi ETL được bật và người gọi là Super Admin."""
     if "SUPER_ADMIN" not in actor.roles and not actor.can("ai.use"):
         raise HTTPException(403, detail="Chỉ quản trị viên được làm mới mô hình phân tích")
-    # 1. Đồng bộ các giao dịch mới nhất từ sales, inventory, finance vào analytics.db
-    sync_counts = {}
-    try:
-        sync_counts = await asyncio.to_thread(warehouse.sync)
-    except Exception as e:
-        log.warning(f"Cảnh báo đồng bộ ETL: {e}")
-    # 2. Tái huấn luyện các mô hình Machine Learning từ kho phân tích vào In-Memory Cache
+    # ETL đọc chéo schema các service nên mặc định tắt; nút làm mới không được tự ý chạy nó
+    sync_counts = None
+    if config.WAREHOUSE_SYNC_ENABLED and "SUPER_ADMIN" in actor.roles:
+        try:
+            sync_counts = await asyncio.to_thread(warehouse.sync)
+        except Exception:
+            log.exception("Đồng bộ kho phân tích lỗi khi làm mới mô hình (user_id=%s)", actor.id)
     await asyncio.to_thread(ml.warmup_cache)
-    return ok({"message": "Đồng bộ dữ liệu và nạp lại mô hình Machine Learning thành công", "synced": sync_counts})
+    return ok({"message": "Đã huấn luyện lại mô hình phân tích từ dữ liệu hiện có.", "synced": sync_counts})
 
 
 app.include_router(router)

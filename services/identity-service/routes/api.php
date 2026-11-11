@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\InternalExportController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\PermissionController;
@@ -27,6 +28,11 @@ Route::middleware('user_or_service')->group(function () {
 });
 
 // 3. Quản trị: chỉ người dùng có quyền tương ứng
+// Xuất dữ liệu nhân viên cho kho phân tích của ai-service: chỉ service nội bộ (X-Internal-Service-Key)
+Route::middleware('internal')->prefix('internal/exports')->group(function () {
+    Route::get('/staff', [InternalExportController::class, 'staff']);
+});
+
 Route::middleware('jwt')->group(function () {
     Route::put('/company', [CompanyController::class, 'update'])->middleware('permission:company.manage');
     Route::post('/company/logo', [CompanyController::class, 'uploadLogo'])->middleware('permission:company.manage');

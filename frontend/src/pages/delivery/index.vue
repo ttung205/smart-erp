@@ -25,18 +25,22 @@
 
       <template #end>
         <div class="flex items-center gap-2 text-xs text-slate-500">
-          <span>Tổng số: <strong class="text-slate-800">{{ filteredOrders.length }}</strong> đơn bán chờ giao</span>
+          <span>Tổng số: <strong class="text-slate-800">{{ totalOrders.toLocaleString('vi-VN') }}</strong> đơn bán chờ giao</span>
         </div>
       </template>
     </Toolbar>
 
     <!-- CommonDataTable cho Đơn Bán Chờ Giao -->
     <CommonDataTable
-      :value="filteredOrders"
+      :value="approvedOrders"
       :columns="orderColumns"
-      :rows="10"
+      :rows="pageSize"
+      :first="first"
+      lazy
+      :totalRecords="totalOrders"
       :loading="loadingOrders"
-      :paginator="filteredOrders.length > 10"
+      :paginator="totalOrders > pageSize"
+      @page="onPage"
       emptyIcon="pi pi-shopping-bag"
       emptyTitle="Không có đơn bán hàng nào chờ giao"
       emptySubtitle="Các đơn bán hàng sau khi được Phê duyệt (APPROVED) sẽ hiển thị tại đây để điều phối giao hàng."
@@ -150,7 +154,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import Column from 'primevue/column';
@@ -179,6 +183,11 @@ const toast = useToast();
 
 // State Data
 const orders = ref([]);
+const totalOrders = ref(0);
+const pageSize = 10;
+const first = ref(0);
+// Đơn đã duyệt trở đi mới lập được yêu cầu giao
+const DELIVERABLE_STATUSES = ['APPROVED', 'PROCESSING', 'CONFIRMED', 'COMPLETED'];
 const deliveryRequests = ref([]);
 const loadingOrders = ref(false);
 const orderSearchQuery = ref('');
@@ -204,8 +213,15 @@ const orderColumns = [
 const loadOrders = async () => {
   loadingOrders.value = true;
   try {
-    const res = await salesApi.getOrders();
+    // Lọc trạng thái, tìm kiếm và phân trang ở server trên toàn bộ đơn
+    const res = await salesApi.getOrders({
+      page: Math.floor(first.value / pageSize) + 1,
+      per_page: pageSize,
+      status: DELIVERABLE_STATUSES.join(','),
+      search: orderSearchQuery.value.trim()
+    });
     orders.value = res.data || [];
+    totalOrders.value = res.meta?.total ?? 0;
   } catch (err) {
     console.error('Lỗi tải danh sách đơn bán:', err);
   } finally {
@@ -213,26 +229,39 @@ const loadOrders = async () => {
   }
 };
 
-// Tải dữ liệu Yêu Cầu Giao Hàng để đối chiếu lũy kế
-const loadDeliveries = async () => {
+// Yêu cầu giao cũ của đúng đơn đang lập (để trừ số lượng đã yêu cầu), không phải trang yêu cầu mới nhất
+const loadDeliveries = async (orderId) => {
+  deliveryRequests.value = [];
   try {
-    const res = await salesApi.getDeliveries();
+    const res = await salesApi.getDeliveries({ order_id: orderId, per_page: 200 });
     deliveryRequests.value = res.data || [];
   } catch (err) {
-    console.error('Lỗi tải danh sách giao hàng:', err);
+    console.error('Lỗi tải yêu cầu giao hàng của đơn:', err);
+    toast.add({ severity: 'error', summary: 'Không tải được yêu cầu giao cũ', detail: err.message || 'Vui lòng thử lại.', life: 4000 });
   }
 };
 
+function onPage(event) {
+  first.value = event.first;
+  loadOrders();
+}
+
+let searchTimer = null;
+watch(orderSearchQuery, () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    first.value = 0;
+    loadOrders();
+  }, 400);
+});
+
 onMounted(() => {
   loadOrders();
-  loadDeliveries();
 });
 
 // Tính toán danh sách đơn bán hàng đã duyệt (APPROVED, PROCESSING, CONFIRMED, COMPLETED) kèm lũy kế giao hàng
 const approvedOrders = computed(() => {
-  const allowedStatuses = ['APPROVED', 'PROCESSING', 'CONFIRMED', 'COMPLETED'];
   return orders.value
-    .filter((o) => allowedStatuses.includes(o.status))
     .map((o) => {
       const orderNumber = o.order_number || o.id;
 
@@ -256,35 +285,21 @@ const approvedOrders = computed(() => {
     });
 });
 
-// Lọc đơn bán theo từ khóa tìm kiếm
-const filteredOrders = computed(() => {
-  if (!orderSearchQuery.value) return approvedOrders.value;
-  const q = orderSearchQuery.value.toLowerCase().trim();
-  return approvedOrders.value.filter((o) => {
-    return (
-      String(o.order_number || '').toLowerCase().includes(q) ||
-      String(o.customer_order_number || '').toLowerCase().includes(q) ||
-      String(o.customer_name || '').toLowerCase().includes(q) ||
-      String(o.salesperson || '').toLowerCase().includes(q) ||
-      String(o.shipping_address || '').toLowerCase().includes(q)
-    );
-  });
-});
 
 const openOrderViewDialog = (order) => {
   selectedOrder.value = order;
   showOrderDialog.value = true;
 };
 
-const openCreateDeliveryDialog = (order) => {
+const openCreateDeliveryDialog = async (order) => {
   selectedOrder.value = order;
+  await loadDeliveries(order.id);
   showCreateDeliveryDialog.value = true;
 };
 
 // Sau khi tạo yêu cầu giao hàng thành công
 const handleDeliveryCreated = (newDr) => {
   loadOrders();
-  loadDeliveries();
   toast.add({
     severity: 'success',
     summary: 'Đã gửi yêu cầu giao hàng',

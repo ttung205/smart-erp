@@ -2,6 +2,10 @@
 
 return [
 
+    'internal' => [
+        'key' => env('INTERNAL_SERVICE_KEY'),
+    ],
+
     'identity' => [
         // Không có giá trị mặc định: thiếu JWT_SECRET thì service báo lỗi cấu hình thay vì âm thầm dùng secret công khai
         'jwt_secret' => env('JWT_SECRET'),

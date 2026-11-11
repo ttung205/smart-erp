@@ -46,18 +46,30 @@ MYSQL_HOST = os.getenv("MYSQL_HOST", "127.0.0.1")
 MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
 MYSQL_USER = os.getenv("MYSQL_USER", "erp_user")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "erp_secret")
-ANALYTICS_DB = Path(os.getenv("ANALYTICS_DB_PATH", ROOT / "data" / "analytics.db"))
 ANALYTICS_DB_NAME = os.getenv("ANALYTICS_DB_NAME", "erp_analytics_db")
 SYNC_INTERVAL_SECONDS = int(os.getenv("SYNC_INTERVAL_SECONDS", "300"))
 WAREHOUSE_SYNC_ENABLED = os.getenv("WAREHOUSE_SYNC_ENABLED", "true").lower() in {"1", "true", "yes", "on"}
+# Dữ liệu phân tích hiện là dữ liệu mô phỏng (simulator). Giao diện ghi nhãn theo cờ này; chỉ tắt khi có dữ liệu thật.
+ANALYTICS_DATA_SIMULATED = os.getenv("ANALYTICS_DATA_SIMULATED", "true").lower() in {"1", "true", "yes", "on"}
 
-# Nguồn dữ liệu cho ETL (chỉ đọc, cùng MySQL server). Đây là điểm lệch chuẩn đã biết (architecture.md §13 #2):
-# đích là consume event `erp.analytics.events` hoặc export API của từng service.
-SOURCE_DB = {
-    "identity": os.getenv("SOURCE_IDENTITY_DB", "erp_identity_db"),
-    "catalog": os.getenv("SOURCE_CATALOG_DB", "erp_catalog_db"),
-    "sales": os.getenv("SOURCE_SALES_DB", "erp_sales_db"),
-    "inventory": os.getenv("SOURCE_INVENTORY_DB", "erp_inventory_db"),
-    "purchase": os.getenv("SOURCE_PURCHASE_DB", "erp_purchase_db"),
-    "finance": os.getenv("SOURCE_FINANCE_DB", "erp_finance_db"),
+# Nguồn dữ liệu cho ETL: endpoint export nội bộ của từng service (không đọc database của service khác).
+# URL không có giá trị mặc định: thiếu cấu hình thì đồng bộ báo lỗi rõ ràng thay vì gọi nhầm địa chỉ.
+SERVICE_URLS = {
+    "identity": os.getenv("IDENTITY_SERVICE_URL", "").rstrip("/"),
+    "catalog": os.getenv("CATALOG_SERVICE_URL", "").rstrip("/"),
+    "sales": os.getenv("SALES_SERVICE_URL", "").rstrip("/"),
+    "inventory": os.getenv("INVENTORY_SERVICE_URL", "").rstrip("/"),
+    "purchase": os.getenv("PURCHASE_SERVICE_URL", "").rstrip("/"),
+    "finance": os.getenv("FINANCE_SERVICE_URL", "").rstrip("/"),
 }
+INTERNAL_SERVICE_KEY = os.getenv("INTERNAL_SERVICE_KEY", "")
+EXPORT_TIMEOUT_SECONDS = float(os.getenv("EXPORT_TIMEOUT_SECONDS", "5"))
+EXPORT_PAGE_SIZE = int(os.getenv("EXPORT_PAGE_SIZE", "1000"))
+
+# RAG tài liệu nội bộ (docs/knowledge). Trong container thư mục được mount chỉ đọc và trỏ bằng KNOWLEDGE_DIR.
+KNOWLEDGE_DIR = Path(os.getenv("KNOWLEDGE_DIR", str(SERVICES.parent / "docs" / "knowledge")))
+# Model nhúng đa ngôn ngữ chạy cục bộ qua fastembed (ONNX, không cần GPU/torch)
+KNOWLEDGE_EMBED_MODEL = os.getenv("KNOWLEDGE_EMBED_MODEL", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+KNOWLEDGE_MODEL_CACHE = os.getenv("KNOWLEDGE_MODEL_CACHE") or None
+# Đoạn có độ liên quan (cosine) thấp hơn ngưỡng này bị loại: trả "không tìm thấy" thay vì ngữ cảnh lạc đề
+KNOWLEDGE_MIN_SCORE = float(os.getenv("KNOWLEDGE_MIN_SCORE", "0.42"))

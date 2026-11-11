@@ -243,8 +243,6 @@ const selectedProduct = ref({});
 
 const showImportDialog = ref(false);
 const importing = ref(false);
-const selectedFileName = ref('');
-const parsedItems = ref([]);
 
 const brandOptions = computed(() => {
   const brands = new Set(products.value.map((p) => p.brand).filter(Boolean));
@@ -366,54 +364,24 @@ const confirmDeleteProduct = async (p) => {
   }
 };
 
-// Đọc file Excel từ client
-const handleFileSelected = (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  selectedFileName.value = file.name;
-  const reader = new FileReader();
-
-  reader.onload = (evt) => {
-    try {
-      const data = new Uint8Array(evt.target.result);
-      const workbook = XLSX.read(data, { type: 'array' });
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
-      const json = XLSX.utils.sheet_to_json(worksheet);
-
-      parsedItems.value = json;
-    } catch (err) {
-      console.error('Parse Excel error:', err);
-      toast.add({
-        severity: 'error',
-        summary: 'Lỗi đọc file Excel',
-        detail: 'Định dạng file Excel không hợp lệ.',
-        life: 3000
-      });
-    }
-  };
-
-  reader.readAsArrayBuffer(file);
-};
-
-// Gửi dữ liệu Excel đã parse lên Catalog Service
-const submitImportExcel = async () => {
-  if (parsedItems.value.length === 0) return;
+// Nhận các dòng đã đọc từ file Excel (CatalogImportExcelDialog phân tích file và emit `submit` kèm dữ liệu)
+const submitImportExcel = async (items) => {
+  if (!Array.isArray(items) || items.length === 0) return;
 
   importing.value = true;
   try {
-    const res = await catalogApi.importProducts(parsedItems.value);
+    const res = await catalogApi.importProducts(items);
     if (res && res.success) {
+      const skipped = res.data.errors?.length ?? 0;
       toast.add({
-        severity: 'success',
-        summary: 'Import thành công!',
-        detail: res.data.message || `Đã import ${res.data.imported_count} sản phẩm vào hệ thống.`,
-        life: 4000
+        severity: skipped > 0 ? 'warn' : 'success',
+        summary: skipped > 0 ? 'Import có dòng bị bỏ qua' : 'Import thành công!',
+        detail: skipped > 0
+          ? `${res.data.message} Bỏ qua ${skipped} dòng: ${res.data.errors.slice(0, 3).join('; ')}`
+          : res.data.message || `Đã import ${res.data.imported_count} sản phẩm vào hệ thống.`,
+        life: 6000
       });
       showImportDialog.value = false;
-      parsedItems.value = [];
-      selectedFileName.value = '';
       await fetchProducts();
     }
   } catch (err) {

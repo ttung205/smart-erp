@@ -9,6 +9,7 @@ use App\Http\Controllers\RevenueReportController;
 use App\Http\Controllers\SaleReportController;
 use App\Http\Controllers\SaleReturnController;
 use App\Http\Controllers\SaleReturnRequestController;
+use App\Http\Controllers\InternalExportController;
 use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\VatInvoiceAdjustmentController;
 use App\Http\Controllers\VatInvoiceController;
@@ -19,6 +20,13 @@ Route::get('/health', [HealthController::class, 'check']);
 
 // Service khác đọc tệp đính kèm bằng X-Internal-Service-Key (vd notification-service tải PDF báo giá để gửi email)
 Route::get('/internal/attachments/{id}/download', [AttachmentController::class, 'download'])->middleware('internal');
+
+// Xuất dữ liệu bán hàng cho kho phân tích của ai-service: chỉ service nội bộ (X-Internal-Service-Key)
+Route::middleware('internal')->prefix('internal/exports')->group(function () {
+    Route::get('/revenue-items', [InternalExportController::class, 'revenueItems']);
+    Route::get('/orders', [InternalExportController::class, 'orders']);
+    Route::get('/order-lines', [InternalExportController::class, 'orderLines']);
+});
 
 Route::middleware('jwt')->group(function () {
     Route::get('/sale-return-requests/eligible-invoices', [SaleReturnRequestController::class, 'eligibleInvoices'])->middleware('permission:sale_return.view');

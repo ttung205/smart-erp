@@ -1,3 +1,4 @@
+using Purchase.Api.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Purchase.Application.Common.Models;
 using Purchase.Application.DTOs.Requisitions;
@@ -28,6 +29,7 @@ public class PurchaseRequisitionsController : ControllerBase
     /// <summary>
     /// Lấy danh sách phiếu đề nghị mua hàng (PR) có lọc theo Kho và Trạng thái
     /// </summary>
+    [RequirePermission("purchase.view")]
     [HttpGet]
     public async Task<IActionResult> GetList(
         [FromQuery] long? warehouseId,
@@ -42,6 +44,7 @@ public class PurchaseRequisitionsController : ControllerBase
     /// <summary>
     /// Lấy danh sách các dòng PR đã duyệt còn hạn mức khả dụng để nhân viên thu mua gom vào PO
     /// </summary>
+    [RequirePermission("purchase.view")]
     [HttpGet("available-for-order")]
     public async Task<IActionResult> GetAvailableForOrder(
         [FromQuery] long? warehouseId,
@@ -54,6 +57,7 @@ public class PurchaseRequisitionsController : ControllerBase
     /// <summary>
     /// Xem chi tiết một phiếu đề nghị mua hàng
     /// </summary>
+    [RequirePermission("purchase.view")]
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(long id, CancellationToken ct = default)
     {
@@ -69,6 +73,7 @@ public class PurchaseRequisitionsController : ControllerBase
     /// <summary>
     /// Thủ kho lập mới đề nghị mua hàng (PR) ở trạng thái Dự thảo (Draft)
     /// </summary>
+    [RequirePermission("purchase.create")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreatePurchaseRequisitionDto dto, CancellationToken ct = default)
     {
@@ -80,6 +85,7 @@ public class PurchaseRequisitionsController : ControllerBase
     /// <summary>
     /// Gửi duyệt phiếu đề nghị mua hàng (Draft -> Submitted)
     /// </summary>
+    [RequirePermission("purchase.create")]
     [HttpPost("{id}/submit")]
     public async Task<IActionResult> Submit(long id, CancellationToken ct = default)
     {
@@ -90,6 +96,7 @@ public class PurchaseRequisitionsController : ControllerBase
     /// <summary>
     /// Quản lý phê duyệt đề nghị mua hàng (có thể điều chỉnh số lượng duyệt từng dòng)
     /// </summary>
+    [RequirePermission("purchase.approve")]
     [HttpPost("{id}/approve")]
     public async Task<IActionResult> Approve(long id, [FromBody] ApprovePurchaseRequisitionDto dto, CancellationToken ct = default)
     {
@@ -100,6 +107,7 @@ public class PurchaseRequisitionsController : ControllerBase
     /// <summary>
     /// Quản lý từ chối đề nghị mua hàng
     /// </summary>
+    [RequirePermission("purchase.approve")]
     [HttpPost("{id}/reject")]
     public async Task<IActionResult> Reject(long id, [FromBody] RejectPurchaseRequisitionDto dto, CancellationToken ct = default)
     {

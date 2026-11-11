@@ -131,9 +131,11 @@ delete the volume to force initialization.
 ## Known limitation
 
 The AI service keeps its conversation history and analytics read model in the
-MySQL schema `erp_analytics_db`. Warehouse synchronization is off by default in
-Docker (`AI_WAREHOUSE_SYNC_ENABLED=false`) because the ETL reads the other
-services' MySQL schemas directly, which crosses service boundaries. Set
-`AI_WAREHOUSE_SYNC_ENABLED=true` for demos only. `/health` reports both
-`analytics_ready` and `warehouse_sync_enabled`. Replace the ETL with an event/API-
-based ingestion path before enabling AI analytics in production.
+MySQL schema `erp_analytics_db`. The read model is rebuilt every
+`SYNC_INTERVAL_SECONDS` from each service's internal export endpoints
+(`X-Internal-Service-Key`; Kong strips that header, so the endpoints are not
+reachable through the gateway). Synchronization is on by default
+(`AI_WAREHOUSE_SYNC_ENABLED=true`); set it to `false` to freeze the read model.
+`/health` reports both `analytics_ready` and `warehouse_sync_enabled`. The data is
+still simulated (`ANALYTICS_DATA_SIMULATED=true`); load it with
+`services/ai-service/simulator` (`run`, `validate`, `import_mysql`).

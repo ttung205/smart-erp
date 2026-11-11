@@ -65,7 +65,12 @@ class SalesOrderController extends Controller
         description: 'Yêu cầu quyền order.view.',
         tags: ['Đơn bán hàng'],
         security: [['bearerAuth' => []]],
-        parameters: [new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer'))],
+        parameters: [
+            new OA\Parameter(name: 'page', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'per_page', in: 'query', required: false, description: 'Mặc định 50, tối đa 200', schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'search', in: 'query', required: false, description: 'Tìm theo số đơn, số đơn khách, mã hoặc tên khách', schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'status', in: 'query', required: false, description: 'Một hoặc nhiều trạng thái, phân cách dấu phẩy', schema: new OA\Schema(type: 'string')),
+        ],
         responses: [
             new OA\Response(response: 200, description: 'Đơn bán và phân trang'),
             new OA\Response(response: 401, description: self::DOC_401),
@@ -74,18 +79,38 @@ class SalesOrderController extends Controller
     )]
     public function index(Request $request)
     {
-        $orders = SalesOrder::with(['items', 'quotation'])
-            ->orderByDesc('id')
-            ->paginate(min(max($request->integer('per_page', 50), 1), 200));
+        $query = SalesOrder::with(['items', 'quotation'])->orderByDesc('id');
+        // Một trạng thái hoặc danh sách phân cách dấu phẩy (vd. màn hình giao hàng: APPROVED,PROCESSING,...)
+        $statuses = array_filter(array_map('trim', explode(',', (string) $request->query('status', ''))));
+        if ($statuses) {
+            $query->whereIn('status', $statuses);
+        }
+        // Tìm trên toàn bộ đơn ở server (không chỉ trang đang xem); ký tự đại diện LIKE của người dùng được thoát
+        $search = trim((string) $request->query('search', ''));
+        if ($search !== '') {
+            $like = '%'.addcslashes($search, '\%_').'%';
+            $query->where(fn ($w) => $w->where('order_number', 'like', $like)
+                ->orWhere('customer_order_number', 'like', $like)
+                ->orWhere('customer_code', 'like', $like)
+                ->orWhere('customer_name', 'like', $like));
+        }
+        $orders = $query->paginate(min(max($request->integer('per_page', 50), 1), 200));
 
         return response()->json([
             'success' => true,
             'data' => $orders->items(),
             'meta' => [
+                // Giữ các key cũ cho màn hình đang dùng; pagination theo envelope chuẩn
                 'current_page' => $orders->currentPage(),
                 'last_page' => $orders->lastPage(),
                 'per_page' => $orders->perPage(),
                 'total' => $orders->total(),
+                'pagination' => [
+                    'current_page' => $orders->currentPage(),
+                    'per_page' => $orders->perPage(),
+                    'total_items' => $orders->total(),
+                    'total_pages' => $orders->lastPage(),
+                ],
             ],
         ]);
     }
