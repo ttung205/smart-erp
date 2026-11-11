@@ -2,6 +2,11 @@
 node_modules/
 vendor/
 
+# Python: bytecode và môi trường ảo (áp dụng cho mọi thư mục, kể cả tools/)
+__pycache__/
+*.py[cod]
+.venv/
+
 # .NET Build artifacts
 [Bb]in/
 [Oo]bj/
