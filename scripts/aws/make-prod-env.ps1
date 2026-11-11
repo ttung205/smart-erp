@@ -113,7 +113,7 @@ if ($Ha) {
             $_.Replace("__COMPOSE__", "${base}:docker-compose.ha-${role}.yml").Replace("__ROLE__", $role).Replace("__RABBIT__", $(if ($role -eq "a") { "rabbitmq" } else { $PrivateIpA }))
         }
         if ($role -eq "b") {
-            # Máy B không chạy giám sát, sao lưu, AI key không cần thiết lập lại
+            # Máy B không chạy Loki/Prometheus/Grafana và sao lưu (chỉ Alloy, bật trong docker-compose.ha-b.yml, đẩy log về Loki ở máy A); AI key không cần thiết lập lại
             $roleLines = $roleLines | Where-Object { $_ -notlike "COMPOSE_PROFILES=*" -and $_ -notlike "# Bật giám sát*" }
         }
         $target = "$path-$role"

@@ -302,7 +302,7 @@ const isReadOnly = computed(() => {
 });
 
 const onSupplierChange = () => {
-  const s = DEFAULT_SUPPLIERS.find(x => x.id === form.supplier_id);
+  const s = supplierOptions.value.find(x => x.id === form.supplier_id);
   if (s) {
     form.supplier_name = s.name;
   }
@@ -406,12 +406,12 @@ const loadOrder = async (id) => {
 };
 
 const getSupplierName = (id) => {
-  const found = DEFAULT_SUPPLIERS.find(s => s.id === Number(id));
+  const found = supplierOptions.value.find(s => s.id === Number(id));
   return found ? found.name : `Nhà cung cấp #${id}`;
 };
 
 const getSupplierContact = (id) => {
-  const found = DEFAULT_SUPPLIERS.find(s => s.id === Number(id));
+  const found = supplierOptions.value.find(s => s.id === Number(id));
   return found ? found.contact : '';
 };
 
@@ -724,13 +724,17 @@ onMounted(async () => {
     try {
       const localPrs = JSON.parse(localStorage.getItem('smart_erp_mock_pr_list') || '[]');
       matchedPr = localPrs.find(p => String(p.id) === prIdTarget);
-    } catch {}
+    } catch (err) {
+      console.warn('Không đọc được danh sách PR lưu cục bộ, chuyển sang lấy từ máy chủ:', err);
+    }
 
     if (!matchedPr) {
       try {
         const res = await purchaseApi.getRequisitionById(prIdTarget);
         matchedPr = res?.data || res;
-      } catch {}
+      } catch (err) {
+        console.warn(`Không tải được đề nghị mua ${prIdTarget} từ máy chủ, tạo PO không kèm dữ liệu PR:`, err);
+      }
     }
 
     if (matchedPr) {

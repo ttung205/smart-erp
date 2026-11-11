@@ -95,7 +95,8 @@ Lưu ý khi trình bày số liệu:
 7. **Rate limit của Kong theo từng máy** (`policy: local`) nên hạn mức tính riêng từng máy; tổng hạn mức tăng theo số máy ASG.
 8. **Health check mức liveness** (xem lưu ý mục 4); và `/health` của ALB chỉ đo tới Kong, không đo từng service phía sau (cố ý: một service lẻ chết không nên khiến cả máy bị loại khỏi ALB).
 9. **Tệp trên EFS chỉ có một bản "sống" cộng bản sao lưu mỗi giờ.** `backup.sh` gói các thư mục EFS (sales, purchase, eoffice, và chat riêng) thành `files/*.tar.gz` đẩy lên S3 cùng bản dump DB. EFS chịu được mất một AZ nhưng không chịu được xoá nhầm; RPO của tệp là 1 giờ, không có phiên bản hoá từng tệp. Chưa thử phục hồi `--efs` trên AWS thật (đã thử trong container với dữ liệu giả).
-10. Container MySQL cũ vẫn còn trên máy A làm đường lui sau khi chuyển sang RDS (nên gỡ khi chắc chắn không cần).
+10. **Log tập trung phụ thuộc máy A:** Alloy chạy ở mọi máy và đẩy log về một Loki duy nhất ở máy A (cổng 3100, chỉ mở cho nhóm `erp-app`), nhãn `instance` cho biết máy nguồn. Máy A chết thì Grafana và Loki ngừng; log máy ASG trong lúc đó chỉ đọc được bằng `docker logs` trên máy. Máy ASG bị terminate thì log chưa kịp đẩy sẽ mất.
+11. Container MySQL cũ vẫn còn trên máy A làm đường lui sau khi chuyển sang RDS (nên gỡ khi chắc chắn không cần).
 
 ### Kịch bản mất cả AZ 1a (máy A nằm ở 1a): suy luận từ thiết kế, **chưa thử thật**
 - **Tiếp tục chạy:** ALB loại các target ở 1a; máy ASG ở 1b (10 container: 8 service + Kong + frontend) vẫn phục vụ web/API. RDS Multi-AZ chuyển sang bản chờ (~1 phút), EFS còn mount target ở 1b. ASG thêm máy ở 1b để bù.

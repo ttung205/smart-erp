@@ -3,7 +3,8 @@
 #   - RabbitMQ và Mongo (một node, là điểm lỗi đơn còn lại, đã ghi trong tài liệu chịu lỗi)
 #   - relay outbox (catalog, sales, eoffice) và sales-scheduler: relay Laravel không khóa nên chạy hai nơi sẽ phát trùng event
 #   - chat-service và notification-service: trạng thái kết nối realtime nằm trong bộ nhớ từng process
-#   - sao lưu (profile ops) và giám sát (profile monitoring, đặt COMPOSE_PROFILES=monitoring trong .env của máy A)
+#   - sao lưu (profile ops) và giám sát (profile monitoring, đặt COMPOSE_PROFILES=monitoring trong .env của máy A).
+#     Loki, Prometheus, Grafana chỉ ở máy A; Alloy chạy ở mọi máy và đẩy log về Loki của máy A (cổng 3100).
 # Máy B phải gọi được RabbitMQ của máy A, nên cổng 5672 được publish ra máy chủ (security group chỉ cho nhóm sg-app).
 # Grafana publish cổng 3000 để ALB chuyển /grafana vào đúng máy này (security group chỉ cho sg-alb).
 
@@ -14,6 +15,10 @@ services:
   grafana:
     ports: !override
       - "3000:3000"
+  # Loki nhận log từ Alloy của các máy ASG qua cổng 3100 (security group erp-app chỉ cho chính nhóm erp-app, KHÔNG ra Internet).
+  loki:
+    ports: !override
+      - "3100:3100"
 
   # Tệp chat nằm trên EFS (không còn là docker volume chat_files). create_host_path: false để thiếu EFS thì không khởi động.
   chat-service:

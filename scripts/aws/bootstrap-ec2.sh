@@ -40,9 +40,10 @@ grep -q ' /mnt/efs ' /etc/fstab \
   || echo "${EFS_ID}.efs.${REGION}.amazonaws.com:/ /mnt/efs nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport,_netdev 0 0" >> /etc/fstab
 systemctl daemon-reload
 mountpoint -q /mnt/efs || mount /mnt/efs
-# Trong container sales, PHP chạy bằng www-data (uid 33): thư mục phải thuộc uid này
+# Image PHP là Alpine (php:8.4-fpm-alpine) nên www-data trong container có uid 82, KHÔNG phải 33 như www-data của Ubuntu:
+# thư mục EFS của sales và eoffice phải thuộc uid 82, sai uid thì upload tệp báo 'Unable to create a directory' (500)
 mkdir -p /mnt/efs/sales /mnt/efs/eoffice /mnt/efs/purchase /mnt/efs/chat
-chown 33:33 /mnt/efs/sales /mnt/efs/eoffice   # eoffice cũng là Laravel (www-data); purchase và chat chạy root nên không cần chown
+chown 82:82 /mnt/efs/sales /mnt/efs/eoffice   # eoffice cũng là Laravel (www-data); purchase và chat chạy root nên không cần chown
 
 if [ ! -d "$APP_DIR/.git" ]; then
   log "Lấy mã nguồn, nhánh $GIT_BRANCH"

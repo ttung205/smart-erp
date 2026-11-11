@@ -65,43 +65,13 @@ export const useStockStore = defineStore('stock', () => {
     const catalogStore = useCatalogStore()
     catalogStore.addProduct(product)
 
-    const productId = Number(product.product_id || product.id)
-    const sku = product.sku
-    const name = product.name || product.designation
-    const origin = product.origin || product.com || 'Việt Nam'
-
-    // Khởi tạo ngay các dòng tồn kho trên giao diện cho từng kho đã tải từ backend.
-    // Chưa tải được danh sách kho thì bỏ qua, lần đồng bộ bên dưới sẽ lấy dữ liệu thật.
-    for (const w of warehouses.value) {
-      const exists = stocks.value.some(
-        s => Number(s.product_id) === productId && Number(s.warehouse_id) === Number(w.id)
-      )
-      if (!exists) {
-        stocks.value.unshift({
-          id: `realtime_${productId}_${w.id}`,
-          product_id: productId,
-          sku,
-          product_name: name,
-          warehouse_id: w.id,
-          warehouse_code: w.code,
-          warehouse_name: w.name,
-          origin,
-          quantity_on_hand: 0,
-          quantity_reserved: 0,
-          available: 0,
-          sales_available: 0,
-          min_stock: Number(product.min_stock || 0),
-          is_low_stock: false,
-          can_sell: w.can_sell !== false,
-          updated_at: new Date().toISOString()
-        })
-      }
+    // Dòng tồn kho do inventory-service tạo bất đồng bộ khi nhận event ProductCreated (có thể chậm hoặc chưa chạy
+    // nếu inventory đang tắt), nên giao diện không tự vẽ dòng tồn giả mà chỉ tải lại từ backend.
+    for (const delayMs of [1500, 6000]) {
+      setTimeout(() => {
+        fetchStocks().catch(err => console.warn('[StockStore] Không tải lại được tồn kho sau khi có sản phẩm mới:', err))
+      }, delayMs)
     }
-
-    // Đồng bộ lại với backend sau 1.5s để có ID chính thức từ DB
-    setTimeout(() => {
-      fetchStocks().catch(() => {})
-    }, 1500)
   }
 
   const applyStockUpdated = (payload) => {

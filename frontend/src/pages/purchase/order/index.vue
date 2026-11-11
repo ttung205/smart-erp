@@ -341,8 +341,9 @@ import PageHeader from '../../../components/common/PageHeader.vue';
 import CommonDataTable from '../../../components/common/CommonDataTable.vue';
 import PurchaseOrderCancelDialog from '../../../components/purchase/PurchaseOrderCancelDialog.vue';
 import { purchaseApi } from '../../../api/purchase.api';
-import { PURCHASE_ORDER_STATUS, DEFAULT_SUPPLIERS } from '../../../constants/purchase.constant';
+import { PURCHASE_ORDER_STATUS } from '../../../constants/purchase.constant';
 import { useWarehouses } from '../../../composables/useWarehouses';
+import { useSuppliers } from '../../../composables/useSuppliers';
 import { formatCurrency } from '../../../utils/format';
 import { isSuperAdmin, hasPermission, canManage } from '../../../utils/rbac';
 import { storage } from '../../../utils/storage';
@@ -351,6 +352,7 @@ const router = useRouter();
 const toast = useToast();
 
 const { getWarehouseName, fetchWarehouses } = useWarehouses();
+const { suppliers, fetchSuppliers, getSupplier } = useSuppliers();
 
 const orders = ref([]);
 const loading = ref(false);
@@ -368,10 +370,10 @@ const statusOptions = [
   { label: 'Đã hủy', value: 'CANCELLED' }
 ];
 
-const supplierOptions = [
+const supplierOptions = computed(() => [
   { label: 'Tất cả nhà cung cấp', value: null },
-  ...DEFAULT_SUPPLIERS.map(s => ({ label: s.name, value: s.id }))
-];
+  ...suppliers.value.map(s => ({ label: s.name, value: s.id }))
+]);
 
 const tableColumns = [
   { field: 'po_number', header: 'Mã Đơn PO', width: '150px' },
@@ -395,9 +397,9 @@ const normalizeOrder = (o) => {
   }
 
   const supplierId = Number(o.supplier_id || 1);
-  const foundSupplier = DEFAULT_SUPPLIERS.find(s => s.id === supplierId);
+  const foundSupplier = getSupplier(supplierId);
   const supplierName = o.supplier_name || (foundSupplier ? foundSupplier.name : `Nhà cung cấp #${supplierId}`);
-  const supplierContact = o.supplier_contact || (foundSupplier ? foundSupplier.contact : '');
+  const supplierContact = o.supplier_contact || (foundSupplier ? foundSupplier.contact_person : '');
 
   const total = Number(o.grand_total ?? o.total_amount ?? o.subtotal_amount ?? 0);
 
@@ -449,6 +451,8 @@ const fallbackOrders = [
 const loadOrders = async () => {
   loading.value = true;
   try {
+    // Tên nhà cung cấp tra từ catalog nên phải có danh sách trước khi chuẩn hóa đơn
+    await fetchSuppliers();
     let apiList = [];
     try {
       const res = await purchaseApi.getOrders();

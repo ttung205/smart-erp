@@ -108,6 +108,7 @@ class Writer:
             brand_by_key.setdefault(brand_key(name), name)
         brands = sorted(brand_by_key.values())
         brand_id = {brand_key(b): i for i, b in enumerate(brands, 1)}
+        self.brand_of_product: dict[int, str] = {p.id: brand_by_key[brand_key(p.brand)] for p in md.products}
         brand_index = defaultdict(list)
         for p in md.products:
             brand_index[brand_key(p.brand)].append(p.gross_price / p.cost_price)
@@ -154,6 +155,7 @@ class Writer:
 
         contact_id = 0
         self.primary_contact: dict[int, int] = {}
+        self.primary_contact_info: dict[int, object] = {}
         for c in md.customers:
             rep = md.staff_by_id[c.salesperson_id]
             rows["customers"].append({
@@ -167,6 +169,7 @@ class Writer:
                 contact_id += 1
                 if ct.is_primary:
                     self.primary_contact[c.id] = contact_id
+                    self.primary_contact_info[c.id] = ct
                 rows["customer_contacts"].append({
                     "id": contact_id, "customer_id": c.id, "name": ct.name, "position": ct.position,
                     "phone": ct.phone, "email": ct.email, "is_primary": int(ct.is_primary), "notes": None,
@@ -191,6 +194,23 @@ class Writer:
         sale_mgr = self.manager["Sale Manager"]
         q_item_by_product: dict[tuple[int, int], int] = {}
 
+        def customer_snapshot(c) -> dict:
+            """Snapshot khách hàng + người liên hệ chính lưu cứng vào chứng từ (CLAUDE.md mục 3), giống
+            ReferenceSnapshot::customerColumns của sales-service."""
+            contact = self.primary_contact_info.get(c.id)
+            return {
+                "customer_code": c.code, "customer_name": c.name, "customer_tax_code": c.tax_code,
+                "customer_address": c.address, "customer_phone": c.phone, "customer_email": c.email,
+                "contact_name": contact.name if contact else None,
+                "contact_phone": contact.phone if contact else None,
+                "contact_email": contact.email if contact else None,
+            }
+
+        def product_snapshot(product) -> dict:
+            """Snapshot sản phẩm lưu cứng vào dòng chứng từ, giống ReferenceSnapshot::productColumns."""
+            return {"designation": product.model, "brand": self.brand_of_product[product.id],
+                    "com": product.origin, "unit": product.unit}
+
         for q in sim.quotations:
             c = q.customer
             subtotal = sum(l.subtotal for l in q.lines)
@@ -203,7 +223,8 @@ class Writer:
                 "status": q.status, "approved_by": sale_mgr.name if q.approved_at else None,
                 "approved_at": dmy_hm(q.approved_at), "subtotal": subtotal, "vat_total": vat,
                 "total_amount": subtotal + vat, "notes": "Báo giá theo yêu cầu khách hàng",
-                "created_at": lts(q.created_at), "updated_at": lts(updated), "created_by_id": q.staff_id})
+                "created_at": lts(q.created_at), "updated_at": lts(updated), "created_by_id": q.staff_id,
+                **customer_snapshot(c)})
             ordered = {l.product.id: l.qty for l in q.order.lines} if q.order else {}
             for l in q.lines:
                 q_item_by_product[(q.id, l.product.id)] = l.id
@@ -213,7 +234,7 @@ class Writer:
                     "vat_percent": l.vat, "lead_time": "Có sẵn", "subtotal": l.subtotal,
                     "won_quantity": ordered.get(l.product.id, 0),
                     "status": "WIN" if l.product.id in ordered else "PENDING",
-                    "product_id": l.product.id, "gross_price": l.gross_price,
+                    "product_id": l.product.id, "gross_price": l.gross_price, **product_snapshot(l.product),
                     "created_at": lts(q.created_at), "updated_at": lts(updated)})
 
         for o in sim.orders:
@@ -227,14 +248,17 @@ class Writer:
                 "currency": "VND", "exchange_rate": 1, "created_by": str(o.staff_id), "assigned_to": str(o.staff_id),
                 "subtotal": o.subtotal, "vat_total": o.vat_total, "quotation_id": o.quotation.id if o.quotation else None,
                 "approved_by": sale_mgr.id if o.approved_at else None, "approved_at": dmy_hm(o.approved_at),
-                "shipping_address": c.address})
+                "shipping_address": c.address, **customer_snapshot(c),
+                "created_by_name": self.name(o.staff_id), "assigned_to_name": self.name(o.staff_id),
+                "approved_by_name": sale_mgr.name if o.approved_at else None})
             for l in o.lines:
                 rows["sales_order_items"].append({
                     "id": l.id, "order_id": o.id, "sku": l.product.sku, "product_name": l.product.model,
                     "quantity": l.qty, "subtotal": l.subtotal, "discount_percent": l.discount,
                     "selling_price": l.price, "vat_percent": l.vat, "lead_time": "Có sẵn", "status": "WIN",
                     "delivery_date": dmy(o.day), "product_id": l.product.id, "gross_price": l.gross_price,
-                    "delivered_quantity": l.delivered,
+                    "delivered_quantity": l.delivered, **product_snapshot(l.product),
+                    "description": l.product.name,
                     "quotation_item_id": q_item_by_product.get((o.quotation.id, l.product.id)) if o.quotation else None,
                     "created_at": lts(o.created_at), "updated_at": lts(o.updated_at or o.created_at)})
                 if o.approved_at:

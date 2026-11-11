@@ -1,5 +1,27 @@
 <template>
   <div class="bg-white border border-slate-200 rounded-[6px] overflow-hidden">
+    <!-- Tìm theo ID (lọc trên dữ liệu đã tải; bảng phân trang phía máy chủ thì ẩn vì chỉ lọc được trang hiện tại) -->
+    <div v-if="idSearchVisible" class="flex items-center justify-end gap-2 px-3 py-2 border-b border-slate-200 bg-white">
+      <IconField>
+        <InputIcon class="pi pi-hashtag" />
+        <InputText
+          v-model="idQuery"
+          size="small"
+          class="w-56 rounded-[6px]"
+          placeholder="Tìm theo ID, ví dụ 120 hoặc 120, 135"
+          aria-label="Tìm theo ID"
+        />
+      </IconField>
+      <Button
+        v-if="idQuery"
+        icon="pi pi-times"
+        text
+        size="small"
+        severity="secondary"
+        aria-label="Xóa tìm theo ID"
+        @click="idQuery = ''"
+      />
+    </div>
     <DataTable
       :value="filteredData"
       showGridlines
@@ -7,7 +29,7 @@
       responsiveLayout="scroll"
       :paginator="paginator"
       :rows="rows"
-      :first="first"
+      :first="firstRow"
       :lazy="lazy"
       :totalRecords="totalRecords"
       :rowsPerPageOptions="rowsPerPageOptions"
@@ -21,10 +43,21 @@
       :columnResizeMode="columnResizeMode"
       :rowHover="rowHover"
       @row-click="emit('row-click', $event)"
-      @page="emit('page', $event)"
+      @page="onPage"
     >
       <!-- Optional slot for custom columns or prepend -->
       <slot name="prepend-columns"></slot>
+
+      <!-- Cột ID tự thêm khi dữ liệu có id và bảng chưa tự khai báo cột ID -->
+      <Column v-if="idColumnVisible" field="id" header="ID" sortable style="width: 90px" class="text-center">
+        <template #body="{ data }">
+          <slot name="col-id" :data="data" :value="data.id">
+            <span class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-200 inline-block whitespace-nowrap">
+              #{{ data.id }}
+            </span>
+          </slot>
+        </template>
+      </Column>
 
       <!-- Default columns loop if columns prop is provided -->
       <template v-if="columns && columns.length > 0">
@@ -63,9 +96,13 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
+import Button from 'primevue/button';
+import IconField from 'primevue/iconfield';
+import InputIcon from 'primevue/inputicon';
+import InputText from 'primevue/inputtext';
 
 const props = defineProps({
   value: {
@@ -155,24 +192,67 @@ const props = defineProps({
   emptySubtitle: {
     type: String,
     default: 'Không tìm thấy dữ liệu phù hợp.'
+  },
+  // Tự thêm cột ID khi dữ liệu có trường id và `columns` chưa có cột field = 'id'
+  showIdColumn: {
+    type: Boolean,
+    default: true
+  },
+  // Ô tìm theo ID phía trên bảng; tự ẩn khi bảng phân trang phía máy chủ (lazy) hoặc dữ liệu không có id
+  showIdSearch: {
+    type: Boolean,
+    default: true
   }
 });
 
 const emit = defineEmits(['row-click', 'page']);
 
-const filteredData = computed(() => {
-  if (!props.searchQuery || props.searchQuery.trim() === '') {
-    return props.value;
-  }
-  const q = props.searchQuery.toLowerCase().trim();
-  const fields = props.searchFields.length > 0 ? props.searchFields : props.columns.map((c) => c.field);
+const idQuery = ref('');
+const firstRow = ref(props.first);
 
-  return props.value.filter((item) => {
-    return fields.some((f) => {
-      const val = item[f];
-      if (val === null || val === undefined) return false;
-      return String(val).toLowerCase().includes(q);
+const hasIdData = computed(() => props.value.some((item) => item && item.id !== undefined && item.id !== null));
+const hasIdColumn = computed(() => props.columns.some((c) => c.field === 'id'));
+const idColumnVisible = computed(() => props.showIdColumn && hasIdData.value && !hasIdColumn.value);
+const idSearchVisible = computed(() => props.showIdSearch && !props.lazy && hasIdData.value);
+
+/** "120, 135" hoặc "#120 135" -> ['120', '135'] (không phân biệt hoa thường, bỏ dấu # đầu mỗi mã). */
+const idTokens = computed(() =>
+  idQuery.value
+    .split(/[\s,;]+/)
+    .map((token) => token.replace(/^#/, '').trim().toLowerCase())
+    .filter(Boolean)
+);
+
+const filteredData = computed(() => {
+  let list = props.value;
+
+  if (props.searchQuery && props.searchQuery.trim() !== '') {
+    const q = props.searchQuery.toLowerCase().trim();
+    const fields = props.searchFields.length > 0 ? props.searchFields : props.columns.map((c) => c.field);
+    list = list.filter((item) => {
+      return fields.some((f) => {
+        const val = item[f];
+        if (val === null || val === undefined) return false;
+        return String(val).toLowerCase().includes(q);
+      });
     });
-  });
+  }
+
+  // ID khớp chính xác (một hoặc nhiều mã); chỉ áp dụng khi ô tìm theo ID đang hiện
+  if (idSearchVisible.value && idTokens.value.length > 0) {
+    list = list.filter((item) => item && item.id !== undefined && item.id !== null
+      && idTokens.value.includes(String(item.id).toLowerCase()));
+  }
+
+  return list;
 });
+
+// Bảng tự quản vị trí trang để về trang đầu khi lọc theo ID; bảng lazy vẫn theo `first` do trang cha điều khiển
+watch(() => props.first, (value) => { firstRow.value = value; });
+watch(idQuery, () => { firstRow.value = 0; });
+
+const onPage = (event) => {
+  firstRow.value = event.first;
+  emit('page', event);
+};
 </script>

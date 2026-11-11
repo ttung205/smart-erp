@@ -148,7 +148,7 @@ const rulesHint = computed(() => ({
 const isOwner = computed(() => !request.value || Number(request.value.user_id) === currentUserId);
 const editable = computed(() => !request.value || ['DRAFT', 'RETURNED'].includes(request.value.status));
 const canCancel = computed(() => request.value && ['PENDING', 'APPROVED'].includes(request.value.status));
-const myPendingStep = computed(() => request.value?.approval_steps?.find(step => Number(step.approver_id) === currentUserId && step.status === 'PENDING'));
+const myPendingStep = computed(() => request.value?.approval_steps?.find(step => Number(step.approver_id) === currentUserId && step.status === 'PENDING') ?? null);
 const returnedComment = computed(() => {
   if (request.value?.status !== 'RETURNED') return '';
   return [...(request.value.approval_histories || [])].reverse().find(item => item.action === 'RETURNED')?.comment || '';
