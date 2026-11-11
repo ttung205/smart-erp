@@ -181,7 +181,7 @@ const startSessionOptions = computed(() => singleDay.value ? SESSION_OPTIONS : S
 const endSessionOptions = SESSION_OPTIONS.filter(option => option.value !== 'AFTERNOON');
 const handoverOptions = computed(() => users.value.filter(user => Number(user.id) !== Number(currentUser?.sub)));
 const pendingStep = computed(() => request.value?.approval_steps?.find(step => step.status === 'PENDING'));
-const myPendingStep = computed(() => pendingStep.value && Number(pendingStep.value.approver_id) === Number(currentUser?.sub));
+const myPendingStep = computed(() => (pendingStep.value && Number(pendingStep.value.approver_id) === Number(currentUser?.sub) ? pendingStep.value : null));
 const decision = reactive({ visible: false, type: 'APPROVED' });
 const openDecision = type => Object.assign(decision, { visible: true, type });
 const returnedComment = computed(() => {
