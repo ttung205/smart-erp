@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\InternalExportController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\CategoryController;
@@ -17,6 +18,13 @@ Route::middleware('user_or_service')->group(function () {
     Route::get('/products', [ProductController::class, 'index']);
     Route::get('/customers', [CustomerController::class, 'index']);
     Route::get('/customers/{id}', [CustomerController::class, 'show']);
+});
+
+// Xuất dữ liệu cho kho phân tích của ai-service: chỉ service nội bộ (X-Internal-Service-Key)
+Route::middleware('internal')->prefix('internal/exports')->group(function () {
+    Route::get('/products', [InternalExportController::class, 'products']);
+    Route::get('/customers', [InternalExportController::class, 'customers']);
+    Route::get('/suppliers', [InternalExportController::class, 'suppliers']);
 });
 
 Route::middleware('jwt')->group(function () {

@@ -4,10 +4,16 @@ use App\Http\Controllers\ChartOfAccountController;
 use App\Http\Controllers\CustomerReceivableController;
 use App\Http\Controllers\FinanceVoucherController;
 use App\Http\Controllers\GeneralLedgerController;
+use App\Http\Controllers\InternalExportController;
 use App\Http\Controllers\InvoiceAdjustmentSyncController;
 use App\Http\Controllers\PayrollJournalController;
 use App\Http\Controllers\TreasuryController;
 use Illuminate\Support\Facades\Route;
+
+// Xuất công nợ cho kho phân tích của ai-service: chỉ service nội bộ (X-Internal-Service-Key)
+Route::middleware('internal')->prefix('internal/exports')->group(function () {
+    Route::get('/receivables', [InternalExportController::class, 'receivables']);
+});
 
 Route::get('/health', fn () => response()->json(['success' => true, 'service' => 'finance-service']));
 
