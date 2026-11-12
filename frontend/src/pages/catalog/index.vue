@@ -173,6 +173,7 @@
 </template>
 
 <script setup>
+import * as XLSX from 'xlsx';
 import { ref, computed, onMounted } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import Column from 'primevue/column';

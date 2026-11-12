@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/no-mutating-props -- `form` là đối tượng dùng chung do trang cha sở hữu; dialog chỉnh trực tiếp theo thiết kế hiện tại -->
 <template>
   <Dialog
     :visible="visible"
