@@ -8,8 +8,8 @@ from datetime import date
 
 SEED = 20251001
 
-START_DATE = date(2024, 10, 1)   # 2 năm dữ liệu (01/10/2024 -> 30/09/2026)
-END_DATE = date(2026, 9, 30)     # ngày cuối cùng có chứng từ
+START_DATE = date(2024, 10, 1)   # dữ liệu từ 01/10/2024 đến hôm qua so với lúc chạy mô phỏng (09/11/2026)
+END_DATE = date(2026, 11, 9)     # ngày cuối cùng có chứng từ
 
 # --- Lịch làm việc ---------------------------------------------------------
 TET_DATE = date(2026, 2, 17)     # Mùng 1 Tết Bính Ngọ

@@ -16,6 +16,13 @@ in bảng ghép và dừng nếu có giá trị không ghép được.
 
 Lệnh nạp thật hỏi xác nhận, rồi tạo một bản mysqldump (docker exec erp-mysql) trước khi thay dữ liệu nghiệp vụ.
 Với MySQL không chạy trong container (RDS) dùng --skip-backup sau khi đã sao lưu bằng backup.sh.
+
+Khi cổng 3306 của host bị MySQL cài trên máy chiếm (container erp-mysql không publish được), nạp từ một container
+tạm trong mạng của compose:
+    python -m simulator.import_mysql --backup-only          # trên host, cần Docker CLI
+    docker run --rm --network smart-erp_erp-network --env-file .env -e SIMULATOR_MYSQL_HOST=mysql \\
+        -v "$PWD/services:/services" -w /services/ai-service smart-erp-ai-service:latest \\
+        python -m simulator.import_mysql --skip-backup
 """
 from __future__ import annotations
 
@@ -62,7 +69,8 @@ def mysql_connection(database: str | None = None):
         host=os.getenv("SIMULATOR_MYSQL_HOST", "127.0.0.1"),
         port=int(os.getenv("SIMULATOR_MYSQL_PORT", "3306")),
         user=os.getenv("SIMULATOR_MYSQL_USER", "erp_user"),
-        password=os.getenv("SIMULATOR_MYSQL_PASSWORD", "erp_secret"),
+        # Chạy trong container (docker run --env-file .env): dùng mật khẩu erp_user của compose
+        password=os.getenv("SIMULATOR_MYSQL_PASSWORD") or os.getenv("MYSQL_PASSWORD", "erp_secret"),
         database=database,
         charset="utf8mb4",
         autocommit=False,
@@ -256,18 +264,23 @@ def print_mapping_report(report: dict) -> None:
 
 
 def backup_mysql() -> Path:
+    """Sao lưu DB nghiệp vụ và kho phân tích của container erp-mysql (chạy từ máy host, cần Docker CLI).
+
+    Tài khoản lấy từ biến môi trường của chính container (MYSQL_USER/MYSQL_PASSWORD của compose), không truyền
+    mật khẩu qua dòng lệnh của host."""
     target = Path(__file__).resolve().parent / ".backup" / "mysql"
     target.mkdir(parents=True, exist_ok=True)
     path = target / f"smart-erp-{datetime.now():%Y%m%d-%H%M%S}.sql"
-    user = os.getenv("SIMULATOR_MYSQL_USER", "erp_user")
-    password = os.getenv("SIMULATOR_MYSQL_PASSWORD", "erp_secret")
+    databases = " ".join([*MYSQL_DATABASES.values(), "erp_analytics_db"])
     command = [
-        "docker", "exec", "erp-mysql", "mysqldump",
-        f"-u{user}", f"-p{password}", "--single-transaction", "--skip-lock-tables",
-        "--no-tablespaces", "--databases", *MYSQL_DATABASES.values(),
+        "docker", "exec", "erp-mysql", "sh", "-c",
+        'exec mysqldump -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" --single-transaction --skip-lock-tables '
+        f"--no-tablespaces --databases {databases}",
     ]
     with path.open("wb") as output:
         subprocess.run(command, stdout=output, check=True)
+    if path.stat().st_size == 0:
+        raise RuntimeError(f"Bản sao lưu rỗng: {path}")
     return path
 
 
@@ -328,6 +341,7 @@ def main() -> None:
     parser.add_argument("--source", type=Path, help="thư mục snapshot chứa các file SQLite nguồn (mặc định: DB dev)")
     parser.add_argument("--skip-backup", action="store_true",
                         help="bỏ bước mysqldump qua docker exec (dùng khi MySQL là RDS và đã sao lưu bằng backup.sh)")
+    parser.add_argument("--backup-only", action="store_true", help="chỉ sao lưu MySQL của Docker (chạy trên host)")
     parser.add_argument("--yes", action="store_true", help="không hỏi xác nhận trước khi xóa dữ liệu đích")
     parser.add_argument("--only", metavar="SERVICE[,SERVICE]",
                         help="chỉ nạp các service này (identity,catalog,sales,inventory,purchase,finance); dùng khi chạy "
@@ -335,6 +349,10 @@ def main() -> None:
     parser.add_argument("--map-user", action="append", default=[], metavar="EMAIL_NGUỒN=EMAIL_ĐÍCH",
                         help="ghép user nguồn với user đích đã đổi email, ví dụ admin@erp.local=ten@gmail.com (lặp lại được)")
     args = parser.parse_args()
+
+    if args.backup_only:
+        print("Backup MySQL ->", backup_mysql())
+        return
 
     user_aliases = {}
     for item in args.map_user:

@@ -714,16 +714,25 @@ services:
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_MODEL: "openai/gpt-oss-120b"
       SYNC_INTERVAL_SECONDS: 300
-      # Mặc định TẮT: ETL đọc thẳng schema của các service khác (xem docs/deployment.md). Bật cho demo: AI_WAREHOUSE_SYNC_ENABLED=true
-      WAREHOUSE_SYNC_ENABLED: ${AI_WAREHOUSE_SYNC_ENABLED:-false}
+      # ETL đọc qua endpoint export nội bộ của từng service (không kết nối DB của service khác), mỗi
+      # SYNC_INTERVAL_SECONDS. Không thay kho khi nguồn bán hàng rỗng mà kho đang có dữ liệu (warehouse.sync).
+      WAREHOUSE_SYNC_ENABLED: ${AI_WAREHOUSE_SYNC_ENABLED:-true}
       MYSQL_HOST: ${MYSQL_HOST:-mysql}
       MYSQL_PORT: 3306
       MYSQL_USER: erp_analytics
       MYSQL_PASSWORD: ${ANALYTICS_DB_PASSWORD:?ANALYTICS_DB_PASSWORD chưa đặt trong .env (copy .env.example thành .env)}
       ANALYTICS_DB_NAME: erp_analytics_db
-      KAGGLE_DATASET_DIR: /data/kaggle_dataset
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?INTERNAL_SERVICE_KEY chưa đặt trong .env (copy .env.example thành .env)}
+      IDENTITY_SERVICE_URL: http://identity-service:8001
+      CATALOG_SERVICE_URL: http://catalog-service:8002
+      PURCHASE_SERVICE_URL: http://purchase-service:8003
+      INVENTORY_SERVICE_URL: http://inventory-service:8004
+      SALES_SERVICE_URL: http://sales-service:8005
+      FINANCE_SERVICE_URL: http://finance-service:8008
+      # RAG: tài liệu nội bộ mount chỉ đọc; index dựng lại trong bộ nhớ khi tài liệu đổi
+      KNOWLEDGE_DIR: /knowledge
     volumes:
-      - ./kaggle_dataset:/data/kaggle_dataset:ro
+      - ./docs/knowledge:/knowledge:ro
     depends_on:
       mysql:
         condition: service_healthy
@@ -735,6 +744,30 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    networks:
+      - erp-network
+
+  # 2.11 Bot sinh giao dịch demo hằng ngày qua API thật (tools/demo-traffic). Chỉ chạy khi bật profile:
+  #      docker compose --profile demo up -d demo-traffic
+  demo-traffic:
+    profiles: ["demo"]
+    build:
+      context: ./tools/demo-traffic
+    image: smart-erp-demo-traffic:latest
+    container_name: erp-demo-traffic
+    restart: unless-stopped
+    environment:
+      GATEWAY_URL: http://gateway:8000
+      # Mật khẩu chung của tài khoản mẫu (tools/demo-traffic/README.md); bot báo lỗi khi khởi động nếu thiếu
+      DEMO_TRAFFIC_PASSWORD: ${DEMO_TRAFFIC_PASSWORD:-}
+      DEMO_ORDERS_PER_DAY: ${DEMO_ORDERS_PER_DAY:-30}
+      DEMO_MAX_CATCHUP_DAYS: ${DEMO_MAX_CATCHUP_DAYS:-3}
+      DEMO_WAREHOUSE_ID: ${DEMO_WAREHOUSE_ID:-1}
+    volumes:
+      - demo_traffic_state:/state
+    depends_on:
+      gateway:
+        condition: service_healthy
     networks:
       - erp-network
 
@@ -917,6 +950,7 @@ networks:
 
 volumes:
   mysql_data:
+  demo_traffic_state:
   rabbitmq_data:
   mongo_data:
   loki_data:

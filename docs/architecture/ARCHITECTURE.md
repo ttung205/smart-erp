@@ -28,7 +28,7 @@ Important boundary: this is a static review. Live broker bindings, migrated prod
 5. The Transactional Outbox is implemented in Catalog, Sales, E-Office, Purchase, and Inventory. Catalog/Sales/E-Office run separate Compose relay containers; Purchase and Inventory host background relay workers in their API processes. Evidence: Compose `*-relay`; `RelayOutboxEvents.handle`; `Purchase.Infrastructure.DependencyInjection.AddInfrastructure`; `Inventory.Infrastructure.DependencyInjection.AddInfrastructure`.
 6. Chat realtime is implemented with SignalR over `/api/v1/chat/hub`; Notification realtime is independently implemented with Socket.IO over `/api/v1/notifications/socket.io`. They are not connected to each other. Evidence: `Chat.Api.Program`, `ChatHub`, `notification-service/src/realtime/socket.js — createRealtime`.
 7. RabbitMQ analytics routing is configured, but AI has no AMQP consumer. Chat's roadmap claims a RabbitMQ bot worker, but current Chat project has neither `RabbitMQ.Client` nor a worker registration. Both are **CONFIGURED_ONLY / DOC_ONLY**, not implemented integration. Evidence: `infrastructure/rabbitmq/definitions.json`; `services/ai-service/requirements.txt`; `services/chat-service/src/Chat.Infrastructure/Chat.Infrastructure.csproj`; contrast `docs/csharp-realtime-chat-roadmap.md:201-205`.
-8. AI's ETL reads the other services' MySQL schemas read-only and refreshes the analytics read model every `SYNC_INTERVAL_SECONDS` when `AI_WAREHOUSE_SYNC_ENABLED=true` (default off). This crosses service boundaries and is a known deviation until an `erp.analytics.events` consumer or export APIs replace it. Evidence: `services/ai-service/app/warehouse.py — _src/build/sync`; `services/ai-service/app/main.py — lifespan`; `docker-compose.yml — ai-service`.
+8. AI's ETL pulls each service's internal export endpoints (`/internal/exports/*` on Laravel services, `/internal/analytics/*` on .NET services, `X-Internal-Service-Key`, keyset paging) and refreshes the analytics read model every `SYNC_INTERVAL_SECONDS` (`AI_WAREHOUSE_SYNC_ENABLED`, default on). AI no longer connects to other services' schemas. Evidence: `services/ai-service/app/export_client.py`; `services/ai-service/app/warehouse.py — build/sync`; `services/ai-service/app/main.py — lifespan`; `docker-compose.yml — ai-service`.
 
 ## 3. System context
 
@@ -138,7 +138,7 @@ Notes:
 | `eoffice-service` | Laravel 13.17, PHP 8.4; separate relay | Leave, purchase/payment office requests, approval steps/history, balances/holidays | `erp_eoffice_db`: leave/approval/office request tables + `outbox_events` | MySQL, RabbitMQ, Identity REST | **IMPLEMENTED** — `routes/api.php`; `LeaveRequestService`; `OfficeRequestService`; `IdentityClient` |
 | `finance-service` | Laravel 13.17, PHP 8.4 | Chart of accounts, cash/bank books, vouchers/posting/allocation, receivables, GL, invoice adjustment sync | `erp_finance_db`: accounts, funds/banks, vouchers/lines, allocations, receivables/adjustments, GL | MySQL; receives Sales REST calls | **IMPLEMENTED** — `routes/api.php`; Finance controllers |
 | `chat-service` | ASP.NET Core `net10.0`, MongoDB.Driver 3, SignalR | Direct/group/work-thread chat, messages/files/reactions/pins/read state, presence/typing | MongoDB `erp_chat_db`: conversations (members embedded), chat_messages (attachments and reactions embedded), message_hides, contact_aliases, counters; local file volume | Identity REST; no RabbitMQ package in current project | REST/SignalR **IMPLEMENTED**; Rabbit bot **DOC_ONLY** — `Program.cs`; `ChatHub`; `IdentityUserDirectory`; `.csproj` |
-| `ai-service` | Python 3.12, FastAPI, PyMySQL, HTTPX, external Groq | Permission-gated conversational analytics and conversation history; optional local ETL read model | MySQL `erp_analytics_db`: conversations/messages/tool_calls and the analytics read model | Groq HTTPS; read-only MySQL access to the six service schemas for the ETL | API **IMPLEMENTED**; Compose ETL **OPT-IN (default OFF)**; AMQP analytics consumer **ABSENT** — `main.py`; `warehouse.py`; Compose `WAREHOUSE_SYNC_ENABLED` |
+| `ai-service` | Python 3.12, FastAPI, PyMySQL, HTTPX, external Groq | Permission-gated conversational analytics and conversation history; ETL read model built from export APIs | MySQL `erp_analytics_db`: conversations/messages/tool_calls and the analytics read model | Groq HTTPS; REST export endpoints of identity, catalog, sales, inventory, purchase, finance | API **IMPLEMENTED**; ETL via export APIs **IMPLEMENTED (default ON)**; AMQP analytics consumer **ABSENT** — `main.py`; `warehouse.py`; `export_client.py`; Compose `WAREHOUSE_SYNC_ENABLED` |
 
 ### Frontend and gateway
 
@@ -194,7 +194,7 @@ Evidence: `infrastructure/kong/kong.yml`.
 | Notification → Identity | Resolve recipients by permission | `X-Internal-Service-Key` | **IMPLEMENTED** — `RecipientResolver`; wired in `src/index.js:48-52` |
 | Chat → Identity | User directory, cached 60 seconds | `X-Internal-Service-Key` | **IMPLEMENTED** — `IdentityUserDirectory.GetUsersAsync` |
 | Purchase → Identity/Catalog/Notification | Item-inquiry user checks, applying inquiry results, supplier email status lookups (sending is an event) | Mixed internal key/JWT depending method | **IMPLEMENTED**, concentrated in `ItemInquiriesController` |
-| AI → other APIs | None found | N/A | **UNKNOWN/ABSENT**; AI reads its SQLite warehouse rather than calling domain APIs |
+| AI → other APIs | `GET /internal/exports/*`, `GET /internal/analytics/*` | `X-Internal-Service-Key`, `X-Correlation-ID`; timeout 5s, 2 retries on 5xx/network errors | **IMPLEMENTED** — `ai-service/app/export_client.py`; AI reads only its MySQL read model `erp_analytics_db` |
 
 Kong removes `X-Internal-Service-Key` only at the public gateway. Internal callers address service DNS directly, so the header is preserved. Evidence: `kong.yml — request-transformer`; service base URLs in Compose.
 
@@ -349,7 +349,7 @@ Evidence: `ConversationsController`; `MessagesController`; `MessageService.SendA
 
 - FastAPI provides health, chat, conversation history/delete, and admin sync. JWT requires `ai.use`; manual sync requires `SUPER_ADMIN`.
 - The agent invokes external Groq and reads the MySQL analytics schema `erp_analytics_db` through registered tools.
-- The ETL reads the six other services' MySQL schemas directly (read-only session) and builds a star-like read model in `erp_analytics_db`; Compose keeps it off by default (`AI_WAREHOUSE_SYNC_ENABLED=false`) and it is meant for demos. Reading another service's schema still crosses a service boundary; the target is the `erp.analytics.events` consumer or export APIs (architecture.md §13 item 2).
+- The ETL pulls the six services' internal export endpoints and builds a star-like read model in `erp_analytics_db` (`<table>_new` + atomic `RENAME TABLE`). It skips the swap when the sales source returns no revenue rows while the current model has data. ML models and tools read only this MySQL schema; there is no SQLite or CSV fallback.
 - Roadmap analytics endpoints (`/analytics/overview`, forecast, RFM, credit risk, summary) are not present in `main.py`; classify them as **PLANNED / DOC_ONLY**.
 
 Evidence: `ai-service/app/main.py`; `auth.py`; `agent.py`; `warehouse.py`; `docker-compose.yml`; `docs/data-analytics-ml-bi-roadmap.md:100-112`.
@@ -483,7 +483,7 @@ Observability beyond correlation IDs and container logs is **UNKNOWN**: no metri
 | Notification event/retry/idempotency | `notification-service/src/messaging/consumer.js — startConsumer`; `notifications/notification.service.js — handleEvent`; `notification.repository.js` |
 | SignalR chat | `chat-service/src/Chat.Api/Program.cs — AddSignalR/MapHub`; `Realtime/ChatHub.cs`; frontend `chatStore.js — buildConnection` |
 | Socket.IO notifications | `notification-service/src/realtime/socket.js — createRealtime`; frontend `useNotifications.js — connect` |
-| AI ETL disabled in Compose | `docker-compose.yml — ai-service.WAREHOUSE_SYNC_ENABLED`; `ai-service/app/main.py — lifespan`; `warehouse.py — sync` |
+| AI ETL via export APIs (Compose default on) | `docker-compose.yml — ai-service.WAREHOUSE_SYNC_ENABLED`; `ai-service/app/main.py — lifespan`; `warehouse.py — sync`; `export_client.py` |
 | Kong routes/header stripping | `infrastructure/kong/kong.yml — services/plugins` |
 | Rabbit topology | `infrastructure/rabbitmq/definitions.json` plus runtime declarations in Inventory/Notification |
 

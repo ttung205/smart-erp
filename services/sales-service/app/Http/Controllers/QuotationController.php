@@ -81,9 +81,12 @@ class QuotationController extends Controller
         $query = Quotation::with('items')->orderBy('id', 'desc');
 
         if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('quotation_number', 'like', "%{$search}%")
-                    ->orWhere('customer_name', 'like', "%{$search}%");
+            // Thoát ký tự đại diện LIKE do người dùng gõ
+            $like = '%'.addcslashes($search, '\%_').'%';
+            $query->where(function ($q) use ($like) {
+                $q->where('quotation_number', 'like', $like)
+                    ->orWhere('customer_code', 'like', $like)
+                    ->orWhere('customer_name', 'like', $like);
             });
         }
 
@@ -126,6 +129,12 @@ class QuotationController extends Controller
                 'last_page' => $paginator->lastPage(),
                 'per_page' => $paginator->perPage(),
                 'total' => $paginator->total(),
+                'pagination' => [
+                    'current_page' => $paginator->currentPage(),
+                    'per_page' => $paginator->perPage(),
+                    'total_items' => $paginator->total(),
+                    'total_pages' => $paginator->lastPage(),
+                ],
             ],
         ]);
     }

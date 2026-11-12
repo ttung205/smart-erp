@@ -12,9 +12,6 @@
           </span>
         </div>
         <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Phân Tích & Dự Báo Kinh Doanh Thông Minh</h1>
-        <p class="text-sm text-slate-500 mt-1">
-          Hệ thống Analytics & BI toàn diện: K-Means RFM, Holt-Winters Demand Forecasting (766.3 tỷ VNĐ, 24 tháng) & Chấm điểm nợ rủi ro.
-        </p>
       </div>
 
       <div class="flex items-center gap-2 self-start md:self-auto">
@@ -50,7 +47,7 @@
         <!-- Doanh thu thuần -->
         <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs relative overflow-hidden group hover:border-indigo-300 transition-all">
           <div class="flex items-center justify-between mb-3">
-            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tổng Doanh Thu (24T)</span>
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tổng Doanh Thu</span>
             <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-base">
               <i class="pi pi-wallet"></i>
             </div>
@@ -60,7 +57,7 @@
           </div>
           <div class="mt-2 flex items-center justify-between text-xs text-slate-500">
             <span>{{ overview.total_transactions?.toLocaleString() }} đơn xuất bán</span>
-            <span class="font-medium text-emerald-600">61.982 dòng hàng</span>
+            <span class="font-medium text-emerald-600">{{ overview.total_lines?.toLocaleString('vi-VN') }} dòng hàng</span>
           </div>
           <div class="absolute bottom-0 left-0 right-0 h-1 bg-blue-500"></div>
         </div>
@@ -98,7 +95,7 @@
           </div>
           <div class="mt-2 flex items-center justify-between text-xs text-slate-500">
             <span>Phạm vi thị trường</span>
-            <span class="font-medium text-slate-700">34 tỉnh thành</span>
+            <span v-if="overview.total_provinces" class="font-medium text-slate-700">{{ overview.total_provinces }} tỉnh thành</span>
           </div>
           <div class="absolute bottom-0 left-0 right-0 h-1 bg-purple-500"></div>
         </div>
@@ -128,15 +125,15 @@
           <div>
             <div class="flex flex-wrap items-center gap-2">
               <h2 class="text-lg font-bold text-slate-900">Dự Báo Doanh Số Chuỗi Thời Gian (Demand Forecasting)</h2>
-              <span class="text-xs font-semibold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200/60">
-                Holt-Winters + Seasonal Regression
+              <span v-if="forecastData.model" class="text-xs font-semibold px-2 py-0.5 rounded-[6px] bg-sky-50 text-sky-700 border border-sky-200">
+                {{ forecastData.model }}
               </span>
-              <span class="text-xs font-semibold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200/70">
-                <i class="pi pi-calendar mr-1"></i>Kỳ chốt sổ: 30/09/2026
+              <span v-if="forecastData.as_of" class="text-xs font-semibold px-2 py-0.5 rounded-[6px] bg-amber-50 text-amber-700 border border-amber-200">
+                <i class="pi pi-calendar mr-1"></i>Dữ liệu đến: {{ formatDate(forecastData.as_of) }}
               </span>
             </div>
-            <p class="text-xs text-slate-500 mt-1">
-              <strong>30/09/2026</strong> → <strong>Tháng 10/2026 & Quý IV/2026</strong>.
+            <p v-if="forecastData.forecast_period" class="text-xs text-slate-500 mt-1">
+              Dự báo {{ forecastData.forecast_period }} và {{ forecastData.monthly_forecast?.length || 0 }} tháng kế tiếp, tính từ ngày dữ liệu cuối cùng.
             </p>
           </div>
 
@@ -159,23 +156,30 @@
           </div>
         </div>
 
+        <!-- Chưa đủ dữ liệu để dự báo -->
+        <div v-if="forecastData.status === 'INSUFFICIENT_DATA'" class="mb-6 p-4 rounded-[6px] border border-amber-200 bg-amber-50 text-sm text-amber-700">
+          Chưa đủ dữ liệu để dự báo: hiện có {{ forecastData.history_days }} ngày, mô hình cần tối thiểu
+          {{ forecastData.min_history_days }} ngày (12 tuần huấn luyện và 30 ngày kiểm định). Biểu đồ chỉ hiển thị số liệu thực tế.
+        </div>
+
         <!-- Metric badges bar -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/60 text-xs">
+        <div v-else class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/60 text-xs">
           <div>
-            <span class="text-slate-500 block">Sai số dự báo (MAPE):</span>
-            <span class="text-sm font-bold text-indigo-600">{{ forecastData.metrics?.mape }} (Độ chính xác: {{ forecastData.metrics?.accuracy }})</span>
+            <span class="text-slate-500 block">Sai số kiểm định ({{ formatDate(forecastData.metrics?.holdout_start) }} - {{ formatDate(forecastData.metrics?.holdout_end) }}):</span>
+            <span class="text-sm font-bold text-slate-900">Tổng 30 ngày lệch {{ forecastData.metrics?.total_error_pct }}%</span>
+            <span class="text-slate-500 block">Theo từng ngày (MAPE): {{ forecastData.metrics?.mape }}%</span>
           </div>
           <div>
-            <span class="text-slate-500 block">Xu hướng chu kỳ:</span>
-            <span class="text-sm font-semibold text-emerald-600">{{ forecastData.metrics?.trend }}</span>
+            <span class="text-slate-500 block">Xu hướng 30 ngày tới:</span>
+            <span class="text-sm font-semibold" :class="forecastData.metrics?.trend_pct < 0 ? 'text-rose-700' : 'text-emerald-700'">{{ forecastData.metrics?.trend }}</span>
           </div>
           <div>
-            <span class="text-slate-500 block">Dự kiến doanh số Tháng 10/2026:</span>
+            <span class="text-slate-500 block">Dự kiến doanh thu 30 ngày tới:</span>
             <span class="text-sm font-bold text-slate-900">{{ formatBillion(forecastData.metrics?.total_predicted_revenue) }}</span>
           </div>
           <div>
-            <span class="text-slate-500 block">Đặc trưng ngoại sinh:</span>
-            <span class="text-xs font-medium text-slate-700 truncate block" :title="forecastData.metrics?.seasonality_note">
+            <span class="text-slate-500 block">Mùa vụ:</span>
+            <span class="text-xs font-medium text-slate-700 block">
               {{ forecastData.metrics?.seasonality_note }}
             </span>
           </div>
@@ -191,11 +195,11 @@
           <div class="flex items-center gap-4 text-slate-500">
             <span class="flex items-center gap-1.5 font-medium">
               <span class="w-3.5 h-1 bg-blue-600 rounded-full inline-block"></span>
-              Thực tế (Tháng 9)
+              {{ forecastMode === 'transition' ? 'Thực tế 30 ngày gần nhất' : 'Thực tế theo tháng' }}
             </span>
             <span class="flex items-center gap-1.5 font-medium">
               <span class="w-3.5 h-1 bg-purple-600 border-dashed border-b-2 border-purple-600 inline-block"></span>
-              ML Dự báo (Tháng 10)
+              {{ forecastMode === 'transition' ? 'Dự báo 30 ngày tới' : 'Dự báo theo tháng' }}
             </span>
             <span class="flex items-center gap-1.5 font-medium">
               <span class="w-3.5 h-2.5 bg-purple-500/20 border border-purple-400 rounded-xs inline-block"></span>
@@ -204,6 +208,7 @@
           </div>
 
           <button
+            v-if="forecastData.forecast?.length"
             @click="showForecastAudit = !showForecastAudit"
             class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 bg-slate-50 hover:bg-slate-100 font-medium transition-colors"
           >
@@ -217,10 +222,10 @@
           <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-2">
               <span class="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                Bảng Kiểm Thử Dự Báo Từng Ngày (01/10/2026 - 30/10/2026)
+                Bảng Dự Báo Từng Ngày ({{ forecastData.forecast_period }})
               </span>
-              <span class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold">
-                Kiểm định chu kỳ tuần & 95% Confidence Interval
+              <span class="text-[11px] px-2 py-0.5 rounded-[6px] bg-sky-50 text-sky-700 border border-sky-200 font-semibold">
+                Dải tin cậy 95% từ {{ forecastData.simulation_paths }} lần mô phỏng
               </span>
             </div>
             <span class="text-xs text-slate-500">Tổng 30 ngày: <strong>{{ formatBillion(forecastData.metrics?.total_predicted_revenue) }}</strong></span>
@@ -235,7 +240,6 @@
                   <th class="py-2.5 px-3 text-right">Dự báo ML (VND)</th>
                   <th class="py-2.5 px-3 text-right">Ngưỡng dưới 95%</th>
                   <th class="py-2.5 px-3 text-right">Ngưỡng trên 95%</th>
-                  <th class="py-2.5 px-3">Đặc tính chu kỳ</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100 text-slate-700">
@@ -257,17 +261,6 @@
                   <td class="py-2 px-3 text-right text-slate-500">
                     {{ item.upper?.toLocaleString() }} ₫
                   </td>
-                  <td class="py-2 px-3 text-[11px]">
-                    <span v-if="getDOWName(item.date) === 'Chủ Nhật'" class="text-amber-600 font-medium">
-                      <i class="pi pi-moon mr-1"></i>Ngày nghỉ/đóng kho (~18 tr)
-                    </span>
-                    <span v-else-if="getDOWName(item.date) === 'Thứ Hai' || getDOWName(item.date) === 'Thứ Ba'" class="text-emerald-600 font-medium">
-                      <i class="pi pi-bolt mr-1"></i>Đỉnh nhập hàng sỉ (~1.38 - 1.40 tỷ)
-                    </span>
-                    <span v-else class="text-slate-600">
-                      Bán lẻ & phân phối ổn định (~1.0 - 1.1 tỷ)
-                    </span>
-                  </td>
                 </tr>
               </tbody>
             </table>
@@ -287,8 +280,8 @@
               </span>
             </div>
             <p class="text-xs text-slate-500 mb-4">
-              Phân cụm toàn bộ 2.591 đối tác dựa trên Recency, Frequency, Monetary. Silhouette Score:
-              <strong class="text-indigo-600 font-bold">{{ rfmData.silhouette_score }}</strong>
+              Phân cụm {{ rfmData.total_customers?.toLocaleString('vi-VN') }} đối tác dựa trên Recency, Frequency, Monetary. Silhouette Score:
+              <strong class="text-indigo-600 font-bold">{{ rfmData.silhouette_score ?? 'không tính được' }}</strong>
             </p>
 
             <div class="relative w-full h-64 flex items-center justify-center my-2">
@@ -299,10 +292,12 @@
             <div class="p-3 rounded-xl bg-purple-50/70 border border-purple-100 text-xs text-purple-900 mb-3">
               <div class="font-bold flex items-center gap-1.5 mb-1">
                 <i class="pi pi-check-circle text-purple-600"></i>
-                <span>Kiểm định phân bổ khách hàng (Đủ 2.591 đối tác):</span>
+                <span>Kiểm tra phân bổ khách hàng:</span>
               </div>
               <p class="text-[11px] leading-relaxed text-purple-800">
-                VIP ({{ rfmData.clusters[0]?.count }}) + Trung thành ({{ rfmData.clusters[1]?.count }}) + Tiềm năng ({{ rfmData.clusters[2]?.count }}) + Nguy cơ & Chưa kích hoạt ({{ rfmData.clusters[3]?.count }} = 926 cũ + 110 mới). Tổng: <strong>{{ rfmData.total_customers?.toLocaleString() }} khách</strong> (Khớp 100% không lệch).
+                <template v-for="(c, i) in rfmData.clusters" :key="c.key">{{ i ? ' + ' : '' }}{{ c.name }} ({{ c.count?.toLocaleString('vi-VN') }})</template>
+                = <strong>{{ clusterTotal.toLocaleString('vi-VN') }}</strong> / {{ rfmData.total_customers?.toLocaleString('vi-VN') }} khách
+                ({{ clusterTotal === rfmData.total_customers ? 'khớp' : 'lệch ' + Math.abs(rfmData.total_customers - clusterTotal).toLocaleString('vi-VN') }}).
               </p>
             </div>
           </div>
@@ -475,7 +470,7 @@ Chart.register(...registerables);
 // Reactive State
 const loading = ref(true);
 const refreshing = ref(false);
-const forecastMode = ref('transition'); // 'transition' (60d + 30d forecast) hoặc 'full' (24m + 30d)
+const forecastMode = ref('transition'); // 'transition' (30 ngày thực tế + 30 ngày dự báo) hoặc 'full' (theo tháng)
 const selectedClusterKey = ref('at_risk');
 const showForecastAudit = ref(false);
 
@@ -491,6 +486,8 @@ const rfmCanvas = ref(null);
 let forecastChartInstance = null;
 let rfmChartInstance = null;
 
+const clusterTotal = computed(() => (rfmData.value.clusters || []).reduce((sum, c) => sum + (c.count || 0), 0));
+
 const activeCluster = computed(() => {
   return rfmData.value.clusters?.find(c => c.key === selectedClusterKey.value) || rfmData.value.clusters?.[0];
 });
@@ -504,6 +501,13 @@ const getDOWName = (dateStr) => {
 };
 
 // Formatters
+// Ngày dữ liệu dạng YYYY-MM-DD (ngày lịch, không có giờ) nên tách chuỗi, không qua Date để tránh lệch múi giờ
+const formatDate = (isoDate) => {
+  if (!isoDate) return '';
+  const [y, m, d] = String(isoDate).slice(0, 10).split('-');
+  return `${d}/${m}/${y}`;
+};
+
 const formatBillion = (val) => {
   if (!val && val !== 0) return '0 ₫';
   const num = Number(val);
@@ -536,39 +540,8 @@ const renderForecastChart = () => {
   const isTransition = forecastMode.value === 'transition';
   const hist = isTransition ? (forecastData.value.daily_historical || []) : (forecastData.value.monthly_historical || []);
   
-  // Chuỗi dự báo: Chế độ 60 ngày dùng theo ngày; Chế độ 24 tháng dùng cấp độ tháng Quý IV/2026
-  let fore = [];
-  if (isTransition) {
-    fore = forecastData.value.forecast || [];
-  } else {
-    if (forecastData.value.monthly_forecast && forecastData.value.monthly_forecast.length > 0) {
-      fore = forecastData.value.monthly_forecast;
-    } else {
-      // Tự động tổng hợp 3 tháng Quý IV/2026 cùng thang đo tỷ đồng/tháng
-      const totalOct = Number(forecastData.value.metrics?.total_predicted_revenue) || 30183301447;
-      const sigma = totalOct * 0.075;
-      fore = [
-        {
-          date: '2026-10',
-          predicted: Math.round(totalOct),
-          lower: Math.round(Math.max(0, totalOct - 1.96 * sigma)),
-          upper: Math.round(totalOct + 1.96 * sigma),
-        },
-        {
-          date: '2026-11',
-          predicted: Math.round(totalOct * 1.052),
-          lower: Math.round(Math.max(0, totalOct * 1.052 - 1.96 * sigma * 1.2)),
-          upper: Math.round(totalOct * 1.052 + 1.96 * sigma * 1.2),
-        },
-        {
-          date: '2026-12',
-          predicted: Math.round(totalOct * 1.145),
-          lower: Math.round(Math.max(0, totalOct * 1.145 - 1.96 * sigma * 1.4)),
-          upper: Math.round(totalOct * 1.145 + 1.96 * sigma * 1.4),
-        }
-      ];
-    }
-  }
+  // Chuỗi dự báo do backend tính; chưa đủ dữ liệu thì backend trả mảng rỗng và biểu đồ chỉ vẽ số thực tế
+  const fore = isTransition ? (forecastData.value.forecast || []) : (forecastData.value.monthly_forecast || []);
 
   const labels = [];
   const actualValues = [];

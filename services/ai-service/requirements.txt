@@ -8,3 +8,7 @@ numpy>=1.26.0
 scikit-learn>=1.4.0
 statsmodels>=0.14.0
 
+
+# RAG tài liệu nội bộ: vector DB chạy trong tiến trình + embedding ONNX cục bộ (không cần torch)
+chromadb>=1.0
+fastembed>=0.5

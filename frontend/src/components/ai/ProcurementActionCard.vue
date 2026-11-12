@@ -1,251 +1,172 @@
 <template>
-  <div class="my-3 rounded-[8px] border border-violet-200 bg-white p-4 shadow-sm text-slate-800 transition-all">
-    <!-- Header: Phân loại thẻ & Tên sản phẩm -->
-    <div class="flex items-start justify-between border-b border-slate-100 pb-3 gap-2">
-      <div>
-        <div class="flex items-center gap-2 mb-1">
-          <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded bg-violet-100 text-violet-700">
-            <i class="pi pi-sparkles text-[10px]"></i> AI Procurement Copilot
-          </span>
-          <span class="px-2 py-0.5 text-[11px] font-bold rounded bg-slate-100 text-slate-700 border border-slate-200">
-            Internal Code: {{ action.sku }}
-          </span>
+  <div class="mt-3 rounded-[6px] border border-slate-200 bg-white p-4 text-slate-700">
+    <div class="flex items-start justify-between gap-2 border-b border-slate-200 pb-3">
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center gap-2">
+          <Tag value="Trợ lý AI" severity="info" class="rounded-[6px]" />
+          <span class="text-xs text-slate-500">Internal Code {{ action.sku }}</span>
         </div>
-        <h4 class="font-bold text-sm text-slate-900 m-0 leading-snug">{{ action.product_name }}</h4>
+        <span class="text-sm font-semibold text-slate-900">{{ action.product_name }}</span>
       </div>
-      <button
-        v-if="!submitted"
-        type="button"
-        class="text-slate-400 hover:text-slate-600 p-1 rounded hover:bg-slate-100 text-xs cursor-pointer border-none bg-transparent"
-        title="Đóng thẻ"
-        @click="$emit('dismiss')"
-      >
-        <i class="pi pi-times"></i>
-      </button>
+      <Button v-if="!createdCode" icon="pi pi-times" severity="secondary" text size="small" aria-label="Đóng thẻ" @click="$emit('dismiss')" />
     </div>
 
-    <!-- Trạng thái sau khi đã tạo đơn thành công -->
-    <div v-if="submitted" class="py-4 text-center">
-      <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-2">
-        <i class="pi pi-check text-lg"></i>
-      </div>
-      <div class="font-bold text-sm text-emerald-800">Đã tạo Đơn Mua Hàng (Draft PO) thành công!</div>
-      <p class="text-xs text-slate-600 mt-1 mb-3">
-        Mã PO: <strong class="text-slate-900">{{ createdPoCode || ('PO-#' + createdPoId) }}</strong> — Nhà cung cấp: {{ selectedSupplier?.supplier_name }}
-      </p>
-      <div class="flex justify-center gap-2">
-        <router-link
-          to="/purchase/orders"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded bg-violet-600 text-white hover:bg-violet-700 no-underline"
-        >
-          <i class="pi pi-external-link"></i> Xem danh sách Đơn mua
-        </router-link>
-      </div>
+    <div v-if="createdCode" class="flex flex-col gap-3 pt-3">
+      <Message severity="success" :closable="false">
+        Đã tạo đơn mua nháp {{ createdCode }} cho {{ selectedSupplier?.supplier_name }}.
+        <router-link to="/purchase/orders" class="font-medium text-indigo-600">Mở danh sách đơn mua</router-link>
+      </Message>
     </div>
 
-    <!-- Form tương tác khi chưa tạo đơn -->
-    <div v-else class="space-y-3 pt-3">
-      <!-- Machine Learning Recommendation Pill -->
-      <div v-if="action.suggested_quantity" class="p-2.5 rounded-[6px] bg-violet-50/70 border border-violet-100 text-xs">
-        <div class="flex justify-between items-center text-violet-800 font-semibold mb-1">
-          <span class="flex items-center gap-1">
-            <i class="pi pi-chart-line text-violet-600"></i> Đề xuất Machine Learning:
-          </span>
-          <span class="font-bold text-violet-700">Khuyên nhập: {{ action.suggested_quantity }} {{ action.unit || 'Bộ' }}</span>
-        </div>
-        <p class="text-[11px] text-slate-600 m-0">
-          Dựa trên tốc độ bán thực tế và định mức tồn kho an toàn để chống đứt gãy nguồn hàng.
-        </p>
+    <div v-else class="flex flex-col gap-4 pt-3">
+      <Message v-if="action.suggested_quantity" severity="info" :closable="false">
+        Mô hình dự báo đề xuất nhập {{ action.suggested_quantity }} {{ unit }}, tính theo tốc độ bán thực tế và định mức tồn an toàn.
+      </Message>
+
+      <div class="flex flex-col gap-2">
+        <label class="text-xs text-slate-500">Nhà cung cấp (theo lịch sử giá)</label>
+        <Select v-model="selectedSupplierId" :options="supplierOptions" option-label="label" option-value="value" size="small" class="w-full" />
       </div>
 
-      <!-- Chọn Nhà Cung Cấp -->
-      <div>
-        <label class="block text-xs font-medium text-slate-600 mb-1">
-          Chọn Nhà Cung Cấp (Ưu tiên theo lịch sử giá):
-        </label>
-        <select
-          v-model="selectedSupplierId"
-          class="w-full text-xs rounded border border-slate-300 bg-white p-2 text-slate-800 focus:outline-none focus:border-violet-500 font-medium"
-        >
-          <option v-for="sup in action.suppliers" :key="sup.supplier_id" :value="sup.supplier_id">
-            [{{ sup.supplier_code }}] {{ sup.supplier_name }} — {{ formatCurrency(sup.latest_price) }}
-            (Biên lãi: {{ sup.expected_margin_pct }}%) {{ sup.is_best_price ? ' ★ GIÁ TỐT NHẤT' : '' }}
-          </option>
-        </select>
-      </div>
-
-      <!-- Số lượng đặt & Tổng tiền tạm tính -->
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Số lượng đặt mua:</label>
-          <div class="flex items-center border border-slate-300 rounded overflow-hidden">
-            <button
-              type="button"
-              class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs border-none cursor-pointer"
-              @click="changeQty(-1)"
-            >
-              -
-            </button>
-            <input
-              v-model.number="quantity"
-              type="number"
-              min="1"
-              class="w-full text-center text-xs p-1.5 border-none focus:outline-none font-bold text-slate-800"
-            />
-            <button
-              type="button"
-              class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs border-none cursor-pointer"
-              @click="changeQty(1)"
-            >
-              +
-            </button>
-          </div>
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div class="flex flex-col gap-2">
+          <label class="text-xs text-slate-500">Kho nhận hàng</label>
+          <Select v-model="warehouseId" :options="sellableWarehouses" option-label="label" option-value="value" size="small" class="w-full" />
         </div>
-
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Tổng tiền tạm tính (gồm VAT):</label>
-          <div class="p-1.5 text-xs font-bold text-violet-700 bg-violet-50 rounded border border-violet-100 h-[30px] flex items-center justify-between">
-            <span>{{ formatCurrency(calculatedTotal) }}</span>
-            <span class="text-[10px] text-slate-500 font-normal">VAT 10%</span>
-          </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-xs text-slate-500">Số lượng đặt ({{ unit }})</label>
+          <InputNumber v-model="quantity" :min="1" show-buttons button-layout="horizontal" size="small" input-class="w-full text-center" fluid />
         </div>
       </div>
 
-      <!-- Ghi chú nhanh -->
-      <div>
-        <input
-          v-model="notes"
-          type="text"
-          placeholder="Ghi chú đơn mua (Tùy chọn)..."
-          class="w-full text-xs rounded border border-slate-200 bg-slate-50 p-1.5 text-slate-700 focus:outline-none focus:border-violet-500"
+      <div class="flex flex-col gap-2">
+        <label class="text-xs text-slate-500">Ghi chú đơn mua</label>
+        <InputText v-model="notes" size="small" class="w-full" />
+      </div>
+
+      <div class="flex flex-col items-end gap-1 border-t border-slate-200 pt-3 text-xs">
+        <span>Đơn giá: {{ formatMoney(unitPrice) }}<template v-if="selectedSupplier?.expected_margin_pct != null"> · biên lãi kỳ vọng {{ selectedSupplier.expected_margin_pct }}%</template></span>
+        <span>Thuế GTGT {{ TAX_RATE }}%: {{ formatMoney(subtotal * TAX_RATE / 100) }}</span>
+        <span class="text-sm">Tổng cộng: <strong class="text-slate-900">{{ formatMoney(subtotal * (1 + TAX_RATE / 100)) }}</strong></span>
+      </div>
+
+      <Message v-if="!action.can_execute" severity="warn" :closable="false" icon="pi pi-lock">
+        Tài khoản chưa có quyền purchase.create nên chỉ xem được đề xuất. Liên hệ quản trị để được cấp quyền tạo đơn mua.
+      </Message>
+
+      <div class="flex justify-end gap-2">
+        <Button label="Bỏ qua" severity="secondary" outlined size="small" @click="$emit('dismiss')" />
+        <Button
+          label="Tạo PO nháp"
+          icon="pi pi-shopping-cart"
+          size="small"
+          :loading="submitting"
+          :disabled="!action.can_execute || !selectedSupplier || !warehouseId || !quantity"
+          @click="createOrder"
         />
-      </div>
-
-      <!-- Cảnh báo phân quyền RBAC nếu thiếu quyền -->
-      <div v-if="!action.can_execute" class="p-2 rounded bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-1.5">
-        <i class="pi pi-lock text-amber-600"></i>
-        <span>Tài khoản của bạn chưa được cấp quyền <strong>purchase.create</strong> để tạo Đơn mua hàng trực tiếp.</span>
-      </div>
-
-      <!-- Các nút thao tác -->
-      <div class="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
-        <button
-          type="button"
-          class="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded border border-slate-200 cursor-pointer bg-white"
-          @click="$emit('dismiss')"
-        >
-          Bỏ qua
-        </button>
-        <button
-          type="button"
-          :disabled="isSubmitting || !action.can_execute"
-          class="px-4 py-1.5 text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed rounded shadow-sm border-none cursor-pointer flex items-center gap-1.5"
-          @click="submitCreatePO"
-        >
-          <i v-if="isSubmitting" class="pi pi-spin pi-spinner text-xs"></i>
-          <i v-else class="pi pi-shopping-cart text-xs"></i>
-          <span>{{ isSubmitting ? 'Đang khởi tạo PO...' : '🚀 Xác nhận Tạo Đơn Mua (Draft PO)' }}</span>
-        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import Button from 'primevue/button';
+import InputNumber from 'primevue/inputnumber';
+import InputText from 'primevue/inputtext';
+import Message from 'primevue/message';
+import Select from 'primevue/select';
+import Tag from 'primevue/tag';
 import { useToast } from 'primevue/usetoast';
 import { purchaseApi } from '../../api/purchase.api';
+import { useWarehouses } from '../../composables/useWarehouses';
 
 const props = defineProps({
   action: { type: Object, required: true }
 });
-
 const emit = defineEmits(['order-created', 'dismiss']);
+
+const TAX_RATE = 10;
 const toast = useToast();
+const { warehouses, fetchWarehouses } = useWarehouses();
 
-const selectedSupplierId = ref(props.action.default_supplier_id || (props.action.suppliers?.[0]?.supplier_id));
+const unit = props.action.unit || 'Bộ';
+const selectedSupplierId = ref(props.action.default_supplier_id || props.action.suppliers?.[0]?.supplier_id);
 const quantity = ref(props.action.default_quantity || 10);
-const notes = ref('Đơn mua tự động khởi tạo từ Trợ lý AI Procurement Copilot');
-const isSubmitting = ref(false);
-const submitted = ref(false);
-const createdPoId = ref(null);
-const createdPoCode = ref('');
+const notes = ref('Lập từ đề xuất đặt mua nhanh của Trợ lý AI');
+const warehouseId = ref(null);
+const submitting = ref(false);
+const createdCode = ref('');
 
-const selectedSupplier = computed(() => {
-  return props.action.suppliers?.find((s) => s.supplier_id === selectedSupplierId.value) || props.action.suppliers?.[0];
-});
+const selectedSupplier = computed(() =>
+  props.action.suppliers?.find((s) => s.supplier_id === selectedSupplierId.value) || props.action.suppliers?.[0]);
+const currency = computed(() => selectedSupplier.value?.currency || 'VND');
+const unitPrice = computed(() => Number(selectedSupplier.value?.latest_price || 0));
+const subtotal = computed(() => unitPrice.value * (quantity.value || 0));
 
-const calculatedTotal = computed(() => {
-  if (!selectedSupplier.value) return 0;
-  const unitPrice = selectedSupplier.value.latest_price || 0;
-  const subtotal = unitPrice * (quantity.value || 0);
-  return Math.round(subtotal * 1.10); // gồm 10% VAT
-});
+const supplierOptions = computed(() => (props.action.suppliers || []).map((s) => ({
+  value: s.supplier_id,
+  label: `${s.supplier_code} · ${s.supplier_name} · ${formatMoney(s.latest_price, s.currency)}${s.is_best_price ? ' · giá tốt nhất' : ''}`
+})));
 
-function formatCurrency(val) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
+// Hàng mua về nhập vào kho được phép bán
+const sellableWarehouses = computed(() => warehouses.value
+  .filter((w) => w.is_active && w.can_sell)
+  .map((w) => ({ value: w.id, label: `${w.name} (${w.code})` })));
+
+watch(sellableWarehouses, (list) => {
+  if (!warehouseId.value && list.length) warehouseId.value = list[0].value;
+}, { immediate: true });
+
+onMounted(() => fetchWarehouses());
+
+function formatMoney(value, code = currency.value) {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: code || 'VND',
+    maximumFractionDigits: code === 'VND' || !code ? 0 : 2
+  }).format(value || 0);
 }
 
-function changeQty(delta) {
-  const current = Number(quantity.value) || 1;
-  const next = current + delta;
-  if (next >= 1) quantity.value = next;
-}
-
-async function submitCreatePO() {
-  if (!selectedSupplier.value) {
-    toast?.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Vui lòng chọn Nhà cung cấp.', life: 3000 });
-    return;
-  }
-  if (!quantity.value || quantity.value < 1) {
-    toast?.add({ severity: 'warn', summary: 'Cảnh báo', detail: 'Số lượng mua phải lớn hơn 0.', life: 3000 });
-    return;
-  }
-
-  isSubmitting.value = true;
+async function createOrder() {
+  const supplier = selectedSupplier.value;
+  submitting.value = true;
   try {
-    const payload = {
-      supplier_id: Number(selectedSupplierId.value),
-      warehouse_id: 1, // Mặc định Kho Tổng Hà Nội
-      payment_terms: selectedSupplier.value.payment_terms || 'Thỏa thuận',
+    const res = await purchaseApi.createOrder({
+      supplier_id: Number(supplier.supplier_id),
+      warehouse_id: Number(warehouseId.value),
+      order_date: new Date().toISOString(),
+      currency: currency.value,
+      payment_terms: supplier.payment_terms || 'Thỏa thuận',
       notes: notes.value,
-      items: [
-        {
-          product_id: Number(props.action.product_id),
-          sku: props.action.sku,
-          product_name: props.action.product_name,
-          unit: props.action.unit || 'Bộ',
-          unit_cost: Number(selectedSupplier.value.latest_price),
-          quantity_ordered: Number(quantity.value),
-          tax_rate: 10.0
-        }
-      ]
-    };
-
-    const res = await purchaseApi.createOrder(payload);
-    const data = res?.data || res;
-    createdPoId.value = data?.id;
-    createdPoCode.value = data?.po_code || data?.po_number || '';
-    submitted.value = true;
-
-    toast?.add({
+      items: [{
+        product_id: Number(props.action.product_id),
+        sku: props.action.sku,
+        product_name: props.action.product_name,
+        unit,
+        unit_cost: unitPrice.value,
+        quantity_ordered: Number(quantity.value),
+        tax_rate: TAX_RATE
+      }]
+    });
+    const order = res?.data || res;
+    createdCode.value = order?.code || `#${order?.id}`;
+    toast.add({
       severity: 'success',
-      summary: 'Thành công',
-      detail: `Đã tạo đơn mua hàng ${createdPoCode.value || ('ID ' + createdPoId.value)} thành công!`,
+      summary: 'Đã tạo đơn mua nháp',
+      detail: `Đơn ${createdCode.value}: ${quantity.value} ${unit} ${props.action.sku} từ ${supplier.supplier_name}.`,
       life: 5000
     });
-    emit('order-created', data);
-  } catch (err) {
-    console.error('Lỗi khi tạo PO từ Action Card:', err);
-    toast?.add({
+    emit('order-created', order);
+  } catch (error) {
+    toast.add({
       severity: 'error',
-      summary: 'Lỗi tạo đơn mua',
-      detail: err.message || 'Không thể tạo đơn mua hàng, vui lòng kiểm tra lại quyền hạn hoặc dữ liệu.',
-      life: 5000
+      summary: 'Không tạo được đơn mua',
+      detail: error.message || `Tạo đơn mua ${props.action.sku} thất bại. Kiểm tra quyền và thử lại.`,
+      life: 6000
     });
   } finally {
-    isSubmitting.value = false;
+    submitting.value = false;
   }
 }
 </script>
-

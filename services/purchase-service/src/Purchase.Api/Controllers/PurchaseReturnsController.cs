@@ -1,3 +1,5 @@
+using Purchase.Api.Authorization;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Purchase.Application.Common.Models;
 using Purchase.Application.DTOs.PurchaseReturns;
@@ -28,6 +30,7 @@ public class PurchaseReturnsController : ControllerBase
     /// <summary>
     /// Lấy danh sách phiếu trả hàng mua (RTV)
     /// </summary>
+    [RequirePermission("purchase.view")]
     [HttpGet]
     public async Task<IActionResult> GetList(
         [FromQuery] long? supplierId,
@@ -41,6 +44,7 @@ public class PurchaseReturnsController : ControllerBase
     /// <summary>
     /// Xem chi tiết phiếu trả hàng
     /// </summary>
+    [RequirePermission("purchase.view")]
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(long id, CancellationToken ct = default)
     {
@@ -56,9 +60,15 @@ public class PurchaseReturnsController : ControllerBase
     /// <summary>
     /// Lập phiếu trả hàng mua mới (Draft)
     /// </summary>
+    [RequirePermission("purchase.create")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreatePurchaseReturnDto dto, CancellationToken ct = default)
     {
+        if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+        {
+            return Unauthorized(ApiEnvelope<object>.Fail("UNAUTHENTICATED", "Token không có mã người dùng."));
+        }
+        dto.CreatedBy = userId;
         var created = await _returnService.CreateAsync(dto, ct);
         return CreatedAtAction(nameof(GetById), new { id = created.Id },
             ApiEnvelope<PurchaseReturnDto>.Ok(created, new ApiMeta { CorrelationId = GetCorrelationId() }));
@@ -67,6 +77,7 @@ public class PurchaseReturnsController : ControllerBase
     /// <summary>
     /// Cập nhật phiếu trả hàng mua ở trạng thái Draft (lý do, RMA, ghi chú, mặt hàng)
     /// </summary>
+    [RequirePermission("purchase.create")]
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(long id, [FromBody] UpdatePurchaseReturnDto dto, CancellationToken ct = default)
     {
@@ -77,6 +88,7 @@ public class PurchaseReturnsController : ControllerBase
     /// <summary>
     /// Gửi phê duyệt phiếu trả hàng mua (Submit)
     /// </summary>
+    [RequirePermission("purchase.create")]
     [HttpPost("{id}/submit")]
     public async Task<IActionResult> Submit(long id, [FromBody] SubmitPurchaseReturnDto? dto, CancellationToken ct = default)
     {
@@ -87,6 +99,7 @@ public class PurchaseReturnsController : ControllerBase
     /// <summary>
     /// Phê duyệt phiếu trả hàng mua
     /// </summary>
+    [RequirePermission("purchase.approve")]
     [HttpPost("{id}/approve")]
     public async Task<IActionResult> Approve(long id, [FromBody] ApproveReturnRequest? request, CancellationToken ct = default)
     {
@@ -97,6 +110,7 @@ public class PurchaseReturnsController : ControllerBase
     /// <summary>
     /// Xác nhận xuất kho trả hàng thực tế cho NCC (Dispatched) -> Giảm tồn kho OnHand qua Outbox
     /// </summary>
+    [RequirePermission("purchase.create")]
     [HttpPost("{id}/dispatch")]
     public async Task<IActionResult> Dispatch(long id, CancellationToken ct = default)
     {
@@ -107,6 +121,7 @@ public class PurchaseReturnsController : ControllerBase
     /// <summary>
     /// Hủy phiếu trả hàng mua
     /// </summary>
+    [RequirePermission("purchase.approve")]
     [HttpPost("{id}/cancel")]
     public async Task<IActionResult> Cancel(long id, CancellationToken ct = default)
     {

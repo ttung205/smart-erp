@@ -315,14 +315,16 @@ const onSummaryChange = () => {
 const canApprove = computed(() => {
   try {
     const token = storage.getToken();
-    if (!token) return true; // Hỗ trợ dev/demo test mượt mà
+    if (!token) return false;
     const base64Url = token.split('.')[1];
-    if (!base64Url) return true;
+    if (!base64Url) return false;
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
     const u = JSON.parse(decodeURIComponent(escape(atob(base64))));
-    return isSuperAdmin(u) || hasPermission('purchase.approve', u) || canManage('purchase', u) || true;
+    // Chỉ là UX: purchase-service vẫn kiểm tra purchase.approve khi duyệt
+    return isSuperAdmin(u) || hasPermission('purchase.approve', u) || canManage('purchase', u);
   } catch {
-    return true;
+    // Token hỏng thì không hiện nút duyệt; backend sẽ trả 401 ở lần gọi tiếp theo
+    return false;
   }
 });
 
@@ -581,7 +583,6 @@ const saveOrder = async (andSubmit = false) => {
       currency: 'VND',
       payment_terms: form.notes || 'Thanh toán chuyển khoản sau khi nhận hàng',
       notes: form.notes || '',
-      created_by: 1,
       items: form.items.map((it, idx) => ({
         product_id: Number(it.product_id || it.productId || it.id || (idx + 1)),
         sku: it.sku || `IC-${idx + 1}`,

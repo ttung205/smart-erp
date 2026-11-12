@@ -86,7 +86,7 @@ Bằng chứng: `ConversationsController`; `MessagesController`; `MessageService
 
 - FastAPI cung cấp health, chat, lịch sử/xóa hội thoại và đồng bộ thủ công cho quản trị. JWT yêu cầu quyền `ai.use`; đồng bộ thủ công yêu cầu `SUPER_ADMIN`.
 - Agent gọi Groq bên ngoài và đọc schema phân tích MySQL `erp_analytics_db` qua các tool đã đăng ký.
-- ETL đọc trực tiếp schema MySQL của 6 service khác (phiên chỉ đọc) và dựng read model dạng star trong `erp_analytics_db`. Compose để mặc định tắt (`AI_WAREHOUSE_SYNC_ENABLED=false`) và chỉ dành cho demo. Việc đọc schema của service khác vẫn vượt ranh giới service; đích đến là consumer `erp.analytics.events` hoặc export API (xem docs/architecture/ARCHITECTURE.md §13 mục 2).
+- ETL gọi endpoint export nội bộ của 6 service và dựng read model dạng star trong `erp_analytics_db` (dựng bảng `<tên>_new` rồi đổi tên nguyên tử). Compose bật mặc định (`AI_WAREHOUSE_SYNC_ENABLED=true`). Nếu nguồn bán hàng trả về rỗng trong khi kho đang có dữ liệu thì không thay kho. Mô hình ML và tool chỉ đọc schema MySQL này, không có nguồn dự phòng SQLite hay CSV.
 - Các endpoint phân tích trong roadmap (`/analytics/overview`, dự báo, RFM, rủi ro tín dụng, tóm tắt) không có trong `main.py`; xếp vào **PLANNED / DOC_ONLY**.
 
 Bằng chứng: `ai-service/app/main.py`; `auth.py`; `agent.py`; `warehouse.py`; `docker-compose.yml`; `docs/data-analytics-ml-bi-roadmap.md:100-112`.

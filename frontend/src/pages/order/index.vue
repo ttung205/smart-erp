@@ -34,17 +34,22 @@
 
       <template #end>
         <div class="flex items-center gap-2 text-xs text-slate-500">
-          <span>Tổng số: <strong class="text-slate-800">{{ orders.length }}</strong> đơn bán hàng</span>
+          <span>Tổng số: <strong class="text-slate-800">{{ totalOrders.toLocaleString('vi-VN') }}</strong> đơn bán hàng</span>
         </div>
       </template>
     </Toolbar>
 
     <!-- Data Table using CommonDataTable -->
     <CommonDataTable
-      :value="filteredOrders"
+      :value="orders"
       :columns="tableColumns"
-      :rows="8"
-      :paginator="filteredOrders.length > 8"
+      :rows="pageSize"
+      :first="first"
+      lazy
+      :totalRecords="totalOrders"
+      :loading="loading"
+      :paginator="totalOrders > pageSize"
+      @page="onPage"
       emptyIcon="pi pi-shopping-cart"
       emptyTitle="Chưa có đơn bán hàng nào"
       emptySubtitle="Tất cả đơn bán hàng đều phải được tạo từ Báo giá đã duyệt. Vui lòng chuyển sang trang Báo Giá để tiến hành tạo đơn bán."
@@ -231,7 +236,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
@@ -265,6 +270,9 @@ const toast = useToast();
 const confirm = useConfirm();
 
 const orders = ref([]);
+const totalOrders = ref(0);
+const pageSize = 10;
+const first = ref(0);
 const loading = ref(false);
 const searchQuery = ref('');
 const statusFilter = ref(null);
@@ -327,7 +335,14 @@ const getStatusMeta = (st) => {
 const loadOrders = async () => {
   loading.value = true;
   try {
-    const res = await salesApi.getOrders();
+    // Phân trang, tìm kiếm và lọc trạng thái chạy ở server trên toàn bộ đơn, không chỉ trang đang xem
+    const res = await salesApi.getOrders({
+      page: Math.floor(first.value / pageSize) + 1,
+      per_page: pageSize,
+      search: searchQuery.value.trim(),
+      status: statusFilter.value
+    });
+    totalOrders.value = res.meta?.total ?? 0;
     orders.value = (res.data || []).map((o) => ({
       ...o,
       _db_id: o.id,
@@ -346,24 +361,21 @@ onMounted(() => {
   loadOrders();
 });
 
-const filteredOrders = computed(() => {
-  return orders.value.filter((o) => {
-    const oId = String(o.order_number || o.id || '');
-    const cOrderNo = String(o.customer_order_number || '');
-    const cName = String(o.customer_name || o.customer?.name || '');
-    const qNo = String(o.quotation_number || '');
-    const q = searchQuery.value.toLowerCase().trim();
+function onPage(event) {
+  first.value = event.first;
+  loadOrders();
+}
 
-    const matchSearch =
-      !q ||
-      oId.toLowerCase().includes(q) ||
-      cOrderNo.toLowerCase().includes(q) ||
-      cName.toLowerCase().includes(q) ||
-      qNo.toLowerCase().includes(q);
-
-    const matchStatus = !statusFilter.value || o.status === statusFilter.value;
-    return matchSearch && matchStatus;
-  });
+// Đổi bộ lọc thì quay về trang đầu; gõ tìm kiếm chờ 400ms để không gọi API mỗi phím
+let searchTimer = null;
+function reloadFromFirstPage() {
+  first.value = 0;
+  loadOrders();
+}
+watch(statusFilter, reloadFromFirstPage);
+watch(searchQuery, () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(reloadFromFirstPage, 400);
 });
 
 const openViewOrder = (order) => {

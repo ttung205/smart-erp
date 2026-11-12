@@ -1,3 +1,4 @@
+using Purchase.Api.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Purchase.Application.Common.Models;
 using Purchase.Application.DTOs.Invoices;
@@ -28,6 +29,7 @@ public class PurchaseInvoicesController : ControllerBase
     /// <summary>
     /// Lấy danh sách hóa đơn tài chính của Nhà cung cấp có lọc theo PO, NCC, Trạng thái
     /// </summary>
+    [RequirePermission("purchase.view")]
     [HttpGet]
     public async Task<IActionResult> GetList(
         [FromQuery] long? purchaseOrderId,
@@ -42,6 +44,7 @@ public class PurchaseInvoicesController : ControllerBase
     /// <summary>
     /// Xem chi tiết một hóa đơn mua hàng
     /// </summary>
+    [RequirePermission("purchase.view")]
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(long id, CancellationToken ct = default)
     {
@@ -57,6 +60,7 @@ public class PurchaseInvoicesController : ControllerBase
     /// <summary>
     /// Kế toán lập mới hóa đơn tài chính từ NCC và tự động chạy đối chiếu 3 chiều ban đầu
     /// </summary>
+    [RequirePermission("purchase.create")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreatePurchaseInvoiceDto dto, CancellationToken ct = default)
     {
@@ -68,6 +72,7 @@ public class PurchaseInvoicesController : ControllerBase
     /// <summary>
     /// Kích hoạt chạy lại đối chiếu 3 bên (PO – GRN – Invoice) để kiểm tra lệch giá/lệch số lượng
     /// </summary>
+    [RequirePermission("purchase.create")]
     [HttpPost("{id}/match")]
     public async Task<IActionResult> Match(long id, CancellationToken ct = default)
     {
@@ -78,6 +83,7 @@ public class PurchaseInvoicesController : ControllerBase
     /// <summary>
     /// Ghi sổ hóa đơn (Posted) chuyển sang Kế toán công nợ (Yêu cầu phải MATCHED, chặn nếu có chênh lệch)
     /// </summary>
+    [RequirePermission("purchase.approve")]
     [HttpPost("{id}/post")]
     public async Task<IActionResult> Post(long id, CancellationToken ct = default)
     {

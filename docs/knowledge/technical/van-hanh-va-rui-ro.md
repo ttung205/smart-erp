@@ -75,7 +75,7 @@ Quan sát ngoài correlation ID và log container là **UNKNOWN**: không tìm t
 | Sự kiện/retry/idempotency của Notification | `notification-service/src/messaging/consumer.js — startConsumer`; `notifications/notification.service.js — handleEvent`; `notification.repository.js` |
 | SignalR của Chat | `chat-service/src/Chat.Api/Program.cs — AddSignalR/MapHub`; `Realtime/ChatHub.cs`; frontend `chatStore.js — buildConnection` |
 | Socket.IO của Notification | `notification-service/src/realtime/socket.js — createRealtime`; frontend `useNotifications.js — connect` |
-| ETL của AI tắt trong Compose | `docker-compose.yml — ai-service.WAREHOUSE_SYNC_ENABLED`; `ai-service/app/main.py — lifespan`; `warehouse.py — sync` |
+| ETL của AI qua API export (Compose bật mặc định) | `docker-compose.yml — ai-service.WAREHOUSE_SYNC_ENABLED`; `ai-service/app/main.py — lifespan`; `warehouse.py — sync`; `export_client.py` |
 | Route và xóa header của Kong | `infrastructure/kong/kong.yml — services/plugins` |
 | Topology Rabbit | `infrastructure/rabbitmq/definitions.json` cùng các khai báo lúc chạy trong Inventory/Notification |
 

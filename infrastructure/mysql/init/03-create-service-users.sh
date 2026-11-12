@@ -28,7 +28,8 @@ erp_finance|FINANCE_DB_PASSWORD|erp_finance_db
 erp_analytics|ANALYTICS_DB_PASSWORD|erp_analytics_db
 "
 
-# ai-service dựng kho phân tích bằng ETL chỉ đọc từ các schema này (điểm lệch chuẩn đã biết, xem docs/deployment.md)
+# ai-service trước đây đọc thẳng các schema này để dựng kho phân tích. Nay ETL đi qua endpoint export nội bộ,
+# nên thu hồi quyền SELECT cũ (chạy lại trên volume đã có cũng gỡ quyền).
 ANALYTICS_SOURCES="erp_identity_db erp_catalog_db erp_sales_db erp_inventory_db erp_purchase_db erp_finance_db"
 
 # erp_user không dùng cho service nào; chỉ phục vụ test (erp_*_test) và công cụ dev chạy trên máy (seed, simulator).
@@ -61,7 +62,7 @@ sql+="ALTER USER 'erp_backup'@'%' IDENTIFIED BY '${backup_escaped}';"
 sql+="GRANT SELECT, SHOW VIEW, TRIGGER, EVENT, LOCK TABLES ON \`erp\_%\_db\`.* TO 'erp_backup'@'%';"
 
 for schema in $ANALYTICS_SOURCES; do
-    sql+="GRANT SELECT ON \`${schema}\`.* TO 'erp_analytics'@'%';"
+    sql+="REVOKE IF EXISTS SELECT ON \`${schema}\`.* FROM 'erp_analytics'@'%' IGNORE UNKNOWN USER;"
 done
 
 for schema in $DEV_TOOLS_SCHEMAS; do

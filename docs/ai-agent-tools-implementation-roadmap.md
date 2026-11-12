@@ -81,7 +81,7 @@ Mục tiêu cốt lõi:
   3. **Bước 2.3 - Chỉ thị sinh Action Schema (Generative UI Directive)**: Dạy model cách nhận diện ý định muốn tạo đơn/thao tác để trả về cấu trúc payload JSON `action_schema`, kích hoạt thẻ tương tác trên giao diện người dùng.
 
 ### 🟡 TẦNG 03: RAG (Retrieval-Augmented Generation - Tri thức phi cấu trúc)
-* **Hiện trạng**: Hệ thống đang sử dụng cơ chế Text-to-Data SQL trên kho phân tích `analytics.db`. Chưa có khả năng tra cứu tài liệu dạng văn bản tự do (SOP quy trình, chính sách bảo hành, điều khoản chiết khấu).
+* **Hiện trạng**: Hệ thống đang sử dụng cơ chế Text-to-Data SQL trên kho phân tích MySQL `erp_analytics_db`. Chưa có khả năng tra cứu tài liệu dạng văn bản tự do (SOP quy trình, chính sách bảo hành, điều khoản chiết khấu).
 * **Các bước triển khai**:
   1. **Bước 3.1 - Tích hợp Vector Database nội bộ**: Nhúng **ChromaDB** ở chế độ chạy trong tiến trình (embedded, lưu ra thư mục cục bộ) vào `ai-service`. Không dùng container riêng. Embedding model chạy cục bộ (ví dụ bge-m3 hỗ trợ tiếng Việt), LLM sinh câu trả lời vẫn dùng Groq.
   2. **Bước 3.2 - Xây dựng Pipeline Nạp & Phân mảnh tài liệu (Document Ingestion)**: Tài liệu nằm trong `docs/knowledge/`, chia theo 4 nhóm:
@@ -93,7 +93,7 @@ Mục tiêu cốt lõi:
   3. **Bước 3.3 - Khởi tạo Tool RAG**: Bổ sung Tool `search_company_policy(query, category)` vào `app/tools.py`, với `category` nhận một trong bốn giá trị `business`, `technical`, `faq`, `policy`. LLM tự kết hợp dữ liệu giao dịch SQL và tài liệu nội bộ, và mỗi đoạn trả về kèm đường dẫn nguồn để đối chiếu ở Tầng 06.2.
 
 ### 🟢 TẦNG 04: TOOLS • MCP (Actionable Function Calling & Chuẩn hóa MCP)
-* **Hiện trạng**: Đã có 10 tool SQL chỉ đọc, 6 tool Machine Learning, và 2 Tool Copilot Hành động hoàn chỉnh (`procurement_fast_order` & `instant_quote_check`).
+* **Hiện trạng**: 20 tool trong `app/tools.py`: 12 tool SQL chỉ đọc (gồm `stock_card_trace`, `purchase_price_variance_alert`), 3 tool Machine Learning (`demand_forecast`, `rfm_customer_segmentation`, `credit_risk_radar`), 3 tool gợi ý hành động (`suggest_restock_plan`, `suggest_churn_retention`, `suggest_credit_action`) và 2 Tool Copilot (`procurement_fast_order` & `instant_quote_check`). Chưa có MCP Server.
 * **Các bước triển khai**:
   1. **Bước 4.1 - Triển khai Top Actionable Tools**: Xây dựng các tool tương tác 2 chiều (tra cứu giá NCC $\rightarrow$ gợi ý số lượng theo ML $\rightarrow$ tạo Draft PO/SO) theo Bảng quy hoạch Mục 3.
   2. **Bước 4.2 - Chuẩn hóa giao thức Model Context Protocol (MCP)**:
@@ -126,7 +126,7 @@ Mục tiêu cốt lõi:
      - Khi nhận câu hỏi mới có cosine similarity $\ge 93\%$ với câu hỏi đã có, trả ngay kết quả trong < 30ms mà không tốn token Groq API.
   2. **Bước 7.2 - Xây dựng Smart Intent Router**:
      - *Phân luồng Chitchat*: Nhận diện câu chào hỏi xã giao $\rightarrow$ Trả về mẫu câu chào tiêu chuẩn ngay lập tức.
-     - *Phân luồng SQL*: Nhận diện câu hỏi số liệu tồn kho, doanh số $\rightarrow$ Kích hoạt bộ tool SQL trên `analytics.db`.
+     - *Phân luồng SQL*: Nhận diện câu hỏi số liệu tồn kho, doanh số $\rightarrow$ Kích hoạt bộ tool SQL trên `erp_analytics_db`.
      - *Phân luồng Machine Learning*: Nhận diện câu hỏi dự báo, phân nhóm khách hàng, cảnh báo nợ $\rightarrow$ Kích hoạt bộ tool `ml.py`.
 
 ### 🟡 TẦNG 08: OBSERVABILITY (Giám sát Toàn diện, Tracing & Đánh giá)
@@ -156,13 +156,13 @@ Toàn bộ công cụ của `ai-service` được phân chia thành 3 cấu ph�
 | **01** | `procurement_fast_order` | `purchase.create` | `purchase-service`<br>`catalog-service`<br>`ml.py` (Holt-Winters) | **Truy cứu giá NCC & Tạo Draft PO**: Nhập SKU $\rightarrow$ So sánh giá các NCC, gợi ý SL nhập theo ML $\rightarrow$ Thẻ tương tác chọn giá và nút `[Tạo Đơn mua PO]`. | ✅ **HOÀN THÀNH (PILOT)** |
 | **02** | `smart_restock_plan` | `purchase.view`<br>`inventory.view` | `inventory-service`<br>`ml.py` (Dự báo nhu cầu) | **Đề xuất kế hoạch nhập kho thông minh**: Quét mã hàng $\text{Available} \le \text{MinStock}$, tính tốc độ bán $\rightarrow$ Cảnh báo thiếu hàng kèm nút `[Tạo PO khuyến nghị]`. | 🚀 Sprint 1 |
 | **03** | `supplier_scorecard_evaluate` | `purchase.view` | `purchase-service`<br>`FactPurchase` | **Đánh giá xếp hạng KPI/SLA Nhà cung cấp**: Tổng hợp tỷ lệ giao trễ, tỷ lệ hàng lỗi phải hoàn trả, thời gian giao hàng (Lead Time) và độ biến động giá. | 🚀 Sprint 2 |
-| **04** | `purchase_price_variance_alert` | `purchase.view`<br>`report.view` | `purchase-service`<br>`ProductPriceHistories` | **Cảnh báo biến động giá mua (PPV)**: Phát hiện đơn mua có đơn giá tăng bất thường so với hợp đồng khung hoặc so với giá nhập trung bình 3 tháng gần nhất. | 🚀 Sprint 2 |
+| **04** | `purchase_price_variance_alert` | `purchase.view` | `purchase-service` (qua kho phân tích)<br>`fact_po_line` | **Cảnh báo biến động giá mua (PPV)**: Phát hiện dòng PO có đơn giá lệch quá ngưỡng (mặc định 5%) so với giá nhập bình quân theo số lượng 90 ngày trước ngày đặt, xếp theo ảnh hưởng chi phí. Chưa so với hợp đồng khung vì hệ thống chưa lưu hợp đồng khung. | ✅ **ĐÃ TÍCH HỢP** |
 | **05** | `resolve_matching_discrepancy` | `purchase.view`<br>`inventory.view` | `purchase-service`<br>`inventory-service` | **Đối soát sai lệch 3 bên (3-Way Matching)**: So khớp Đơn mua PO $\leftrightarrow$ Phiếu nhập kho GRN $\leftrightarrow$ Hóa đơn VAT, tự sinh biên bản chênh lệch số lượng/giá. | 🚀 Sprint 3 |
 
 #### 🏭 PHÂN HỆ 2: KHO VẬN & QUẢN TRỊ TỒN KHO (WAREHOUSE & LOGISTICS)
 | STT | Mã Tool MCP | Quyền hạn RBAC | Dịch vụ & ML liên kết | Mô tả nghiệp vụ & Giao diện tương tác (Generative UI) | Trạng thái |
 | :-: | :--- | :--- | :--- | :--- | :---: |
-| **06** | `stock_card_trace` | `inventory.view` | `inventory-service`<br>`StockMove` Table | **Truy vết thẻ kho theo dòng thời gian**: Tra cứu lịch sử nhập, xuất, giữ chỗ (Reservation) của SKU theo từng số phiếu và nhân viên thực hiện. | 🚀 Sprint 1 |
+| **06** | `stock_card_trace` | `inventory.view` | `inventory-service` (qua kho phân tích)<br>`stock_move` | **Truy vết thẻ kho theo dòng thời gian**: Theo mã SKU đầy đủ: tồn đầu kỳ, tổng nhập, tổng xuất, tồn cuối kỳ và từng phát sinh theo số chứng từ, kho, tồn sau phát sinh, nhân viên thực hiện. Chưa gồm sổ giữ chỗ (Reservation). | ✅ **ĐÃ TÍCH HỢP** |
 | **07** | `slow_moving_deadstock_radar` | `inventory.view`<br>`report.view` | `inventory-service`<br>`ml.py` (Velocity scoring) | **Nhận diện hàng tồn kho chậm luân chuyển (Dead Stock)**: Quét các SKU $>90$ ngày không phát sinh đơn bán, tính chi phí ứ đọng vốn và gợi ý kịch bản xả hàng. | 🚀 Sprint 1 |
 | **08** | `inter_warehouse_transfer_plan` | `inventory.create` | `inventory-service`<br>`catalog-service` | **Đề xuất điều chuyển hàng liên kho**: Phân tích kho dư thừa và kho thiếu hụt cục bộ $\rightarrow$ Trả về thẻ điều chuyển kèm nút `[Tạo Phiếu Xuất Điều Chuyển]`. | 🚀 Sprint 1 |
 | **09** | `warehouse_slotting_rebalance` | `inventory.view` | `inventory-service`<br>ABC Classification | **Khuyến nghị sắp xếp vị trí kho (Slotting)**: Đề xuất chuyển các mặt hàng bán chạy (Nhóm A) về gần cửa xuất hàng để tối ưu quãng đường di chuyển. | 🚀 Sprint 3 |
@@ -337,7 +337,7 @@ Sau khi nghiệm thu luồng Pilot thành công, toàn bộ 24 công cụ MCP s�
 
 ### 🚀 Sprint 1: Kho vận & Quản trị tồn kho thông minh (Logistics & Inventory Intelligence)
 - [ ] **Tool 02 (`smart_restock_plan`)**: Quét mã hàng $\text{Available} \le \text{MinStock}$, tính tốc độ bán $\rightarrow$ Cảnh báo thiếu hàng kèm nút `[Tạo PO khuyến nghị]`.
-- [ ] **Tool 06 (`stock_card_trace`)**: Truy vết thẻ kho theo dòng thời gian theo từng số phiếu nhập/xuất và nhân viên thực hiện.
+- [x] **Tool 06 (`stock_card_trace`)**: Truy vết thẻ kho theo dòng thời gian theo từng số phiếu nhập/xuất và nhân viên thực hiện.
 - [ ] **Tool 07 (`slow_moving_deadstock_radar`)**: Nhận diện hàng tồn kho $>90$ ngày không phát sinh đơn bán $\rightarrow$ Đề xuất xả hàng.
 - [ ] **Tool 08 (`inter_warehouse_transfer_plan`)**: Phân tích kho thừa và kho thiếu cục bộ $\rightarrow$ Trả về thẻ điều chuyển liên kho kèm nút `[Tạo Phiếu Xuất Điều Chuyển]`.
 
@@ -345,7 +345,8 @@ Sau khi nghiệm thu luồng Pilot thành công, toàn bộ 24 công cụ MCP s�
 - [ ] **Tool 13 (`create_sales_order_nlp`)**: Lên đơn bán hàng từ câu chat/voice tự do $\rightarrow$ Bóc tách thực thể khách hàng, mã hàng, số lượng.
 - [ ] **Tool 14 (`suggest_accessory_bundle`)**: Gợi ý combo phụ kiện biên lãi cao ($25-35\%$) khi mua điều hòa/tủ lạnh kèm nút `[➕ Thêm vào Đơn]`.
 - [ ] **Tool 15 (`at_risk_winback_action`)**: Kích hoạt đại lý nguy cơ rời bỏ $\rightarrow$ Đề xuất voucher chiết khấu $2\%$ kèm nút `[Gửi Tri Ân]`.
-- [ ] **Tool 03 & 04 (`supplier_scorecard_evaluate` & `purchase_price_variance_alert`)**: Đánh giá SLA nhà cung cấp và cảnh báo biến động giá mua bất thường.
+- [ ] **Tool 03 (`supplier_scorecard_evaluate`)**: Đánh giá SLA nhà cung cấp (hiện có một phần trong `purchase_report` chế độ `supplier_performance`).
+- [x] **Tool 04 (`purchase_price_variance_alert`)**: Cảnh báo biến động giá mua bất thường.
 
 ### 🚀 Sprint 3: Tài chính, Công nợ & Đối soát 3 bên (Finance, Credit & 3-Way Reconciliation)
 - [ ] **Tool 05 (`resolve_matching_discrepancy`)**: Đối soát 3 bên Đơn mua PO $\leftrightarrow$ Phiếu nhập kho GRN $\leftrightarrow$ Hóa đơn VAT, tự sinh biên bản chênh lệch.
@@ -365,13 +366,15 @@ Sau khi nghiệm thu luồng Pilot thành công, toàn bộ 24 công cụ MCP s�
 
 | Dịch vụ | Cổng | Công nghệ | Nhiệm vụ chính trong Hệ sinh thái Agentic ERP |
 | :--- | :---: | :--- | :--- |
-| **`ai-service`** | **8010** | Python FastAPI | LLM Agent Core, 24 MCP Tools, Scikit-Learn ML Models, SQLite Analytics |
-| **`purchase-service`** | **8004** | C# .NET 10 | Quản lý Đơn mua hàng (PO), Đề nghị mua sắm (PR), Kiểm nhận hàng (GRN) |
-| **`sales-service`** | **8003** | PHP Laravel 11 | Quản lý Đơn bán hàng (SO), Báo giá (Quotation), Giao hàng (Delivery) |
-| **`inventory-service`** | **8005** | Go (Golang) | Quản lý Tồn kho thực tế, Giữ chỗ (Reservation), Thẻ kho, Điều chuyển |
-| **`catalog-service`** | **8002** | Node.js Express | Danh mục sản phẩm, Phân loại ngành hàng, Bảng giá niêm yết |
-| **`identity-service`** | **8001** | PHP Laravel 11 | Xác thực JWT (HS256), Quản trị người dùng & Phân quyền RBAC |
-| **`chat-service`** | **8009** | C# .NET 10 SignalR | Quản lý kênh chat nội bộ phòng ban & Realtime Bot Worker |
+| **`ai-service`** | **8010** | Python FastAPI | LLM Agent Core, 20 tool (lộ trình 24), Scikit-Learn ML Models, MySQL Analytics (`erp_analytics_db`) |
+| **`identity-service`** | **8001** | PHP Laravel | Xác thực JWT (HS256), Quản trị người dùng & Phân quyền RBAC |
+| **`catalog-service`** | **8002** | PHP Laravel | Danh mục sản phẩm, Phân loại ngành hàng, Bảng giá niêm yết, Khách hàng, Nhà cung cấp |
+| **`purchase-service`** | **8003** | C# .NET 10 | Quản lý Đơn mua hàng (PO), Đề nghị mua sắm (PR), Kiểm nhận hàng (GRN) |
+| **`inventory-service`** | **8004** | C# .NET 10 | Quản lý Tồn kho thực tế, Giữ chỗ (Reservation), Thẻ kho, Điều chuyển |
+| **`sales-service`** | **8005** | PHP Laravel | Quản lý Đơn bán hàng (SO), Báo giá (Quotation), Giao hàng (Delivery) |
 | **`notification-service`**| **8006** | Node.js | Quả chuông thông báo cá nhân (Inbox Bell) & Email Dispatcher |
-| **`api-gateway`** | **8000** | YARP / Envoy | Định tuyến API tập trung, Rate Limiting, Correlation-ID Tracking |
+| **`eoffice-service`** | **8007** | PHP Laravel | Văn phòng điện tử: tờ trình, phê duyệt, chấm công |
+| **`finance-service`** | **8008** | PHP Laravel | Công nợ phải thu, Thu chi, Sổ cái |
+| **`chat-service`** | **8009** | C# .NET 10 SignalR | Quản lý kênh chat nội bộ phòng ban & Realtime Bot Worker |
+| **`api-gateway`** | **8000** | Kong (DB-less) | Định tuyến API tập trung, Rate Limiting, Correlation-ID Tracking |
 | **`frontend`** | **5175** | Vue 3 + PrimeVue | Giao diện Single Page Application (SPA), Generative UI Action Cards |

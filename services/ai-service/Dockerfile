@@ -7,6 +7,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends     curl     &&
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Model nhúng cho RAG tải sẵn lúc build (layer riêng, không tải lại khi chỉ đổi mã nguồn); container chạy không cần mạng
+ARG KNOWLEDGE_EMBED_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+ENV KNOWLEDGE_EMBED_MODEL=${KNOWLEDGE_EMBED_MODEL} KNOWLEDGE_MODEL_CACHE=/opt/models
+RUN python -c "import os; from fastembed import TextEmbedding; TextEmbedding(os.environ['KNOWLEDGE_EMBED_MODEL'], cache_dir=os.environ['KNOWLEDGE_MODEL_CACHE'])"
+
 COPY . .
 
 # Stage 2 (test): docker build --target test; biên dịch được và import được (giống job ai-check của CI)
