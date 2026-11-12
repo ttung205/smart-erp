@@ -8,7 +8,7 @@
       @update:model-value="$emit('update:modelValue', $event)"
       @summary-change="$emit('summary-change', $event)"
     >
-      <!-- 1. SKU (Internal Code) - Cố định (Frozen) -->
+      <!-- 1. Internal Code - Cố định (Frozen) -->
       <template #col-sku="{ data }">
         <span class="font-mono text-xs font-bold text-sky-800 truncate block px-1" :title="data.sku">
           {{ data.sku || '-' }}

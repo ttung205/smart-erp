@@ -16,7 +16,7 @@
         <table class="w-full text-xs">
           <thead class="bg-slate-50 border-b border-slate-200">
             <tr>
-              <th class="p-2.5 text-left font-semibold text-slate-700">Mã SKU / Sản Phẩm</th>
+              <th class="p-2.5 text-left font-semibold text-slate-700">Internal Code / Sản Phẩm</th>
               <th class="p-2.5 text-right font-semibold text-slate-700 w-24">SL Xin</th>
               <th class="p-2.5 text-right font-semibold text-slate-700 w-36 pr-4">SL Duyệt</th>
             </tr>

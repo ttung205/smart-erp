@@ -10,22 +10,23 @@
   >
     <div class="flex flex-col gap-3 pt-1 text-xs">
       <div class="grid grid-cols-2 gap-3">
-        <!-- SKU -->
+        <!-- Internal Code -->
         <div class="flex flex-col gap-1">
-          <label for="sku" class="font-semibold text-slate-700">Mã SKU <span class="text-red-600">*</span></label>
+          <label for="sku" class="font-semibold text-slate-700">Internal Code</label>
           <InputText
             id="sku"
-            v-model="form.sku"
-            placeholder="Ví dụ: XQ530-LG"
+            :model-value="isEdit ? form.sku : skuPreview"
+            placeholder="Tự động tạo từ Thương hiệu và Designation"
             class="w-full rounded-[6px] font-mono font-bold"
             size="small"
-            :disabled="isEdit"
+            readonly
+            disabled
           />
         </div>
 
         <!-- Designation -->
         <div class="flex flex-col gap-1">
-          <label for="designation" class="font-semibold text-slate-700">Designation (Quy cách)</label>
+          <label for="designation" class="font-semibold text-slate-700">Designation (Quy cách) <span class="text-red-600">*</span></label>
           <InputText
             id="designation"
             v-model="form.designation"
@@ -39,7 +40,7 @@
       <div class="grid grid-cols-2 gap-3">
         <!-- Brand -->
         <div class="flex flex-col gap-1">
-          <label for="brand" class="font-semibold text-slate-700">Thương hiệu (Brand)</label>
+          <label for="brand" class="font-semibold text-slate-700">Thương hiệu (Brand) <span class="text-red-600">*</span></label>
           <Select
             id="brand"
             v-model="form.brand_id"
@@ -196,6 +197,13 @@ const isEdit = computed(() => Boolean(props.initialData && props.initialData.id)
 const brands = ref([]);
 const categories = ref([]);
 const loadingOptions = ref(false);
+
+const slug = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toUpperCase();
+// Chỉ để xem trước; mã thật do catalog-service sinh và kiểm tra trùng
+const skuPreview = computed(() => {
+  const brand = brands.value.find((b) => b.id === form.brand_id);
+  return brand && form.designation.trim() ? `${slug(form.designation)}-${slug(brand.name).replace(/-/g, '').slice(0, 3)}` : '';
+});
 
 const form = reactive({
   id: null,

@@ -80,7 +80,7 @@
           <thead class="bg-slate-50 text-slate-700 border-b border-slate-200 text-[11px] uppercase tracking-wider">
             <tr>
               <th class="p-2 w-10 text-center">STT</th>
-              <th class="p-2 w-28">Mã SKU</th>
+              <th class="p-2 w-28">Internal Code</th>
               <th class="p-2">Tên Mặt Hàng</th>
               <th class="p-2 text-right w-24">Đơn Giá</th>
               <th class="p-2 text-right w-20">SL Xuất</th>

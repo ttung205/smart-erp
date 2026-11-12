@@ -48,7 +48,7 @@ public class ItemInquiriesController(PurchaseDbContext db, IOutboxService outbox
         return doc.RootElement.TryGetProperty("data", out var data) ? data.Clone() : null;
     }
 
-    // Lưu gross price hiện tại của catalog theo SKU để sale thấy giá lúc hỏi hàng
+    // Lưu gross price hiện tại của catalog theo Internal Code để sale thấy giá lúc hỏi hàng
     private async Task SnapshotCatalogPrices(List<ItemInquiryRequestItem> items, CancellationToken ct)
     {
         foreach (var group in items.Where(x => !string.IsNullOrWhiteSpace(x.Sku)).GroupBy(x => x.Sku!, StringComparer.OrdinalIgnoreCase))
@@ -374,7 +374,7 @@ public class ItemInquiriesController(PurchaseDbContext db, IOutboxService outbox
             files.Add(new { source = "purchase", id = a.Id, filename = a.FileName, content_type = a.ContentType });
         }
         var body = new StringBuilder($"Kính gửi {i.SupplierName},\n\nVui lòng phản hồi thông tin hỏi hàng {i.Code}:\n");
-        foreach (var item in i.Items) body.AppendLine($"- {item.Designation} ({item.Sku ?? "chưa có SKU"}), SL {item.Quantity} {item.Unit}; brand {item.BrandName}; category {item.Category}; COM {item.Com}; mô tả {item.ItemDescription}; spec {item.Spec}; lead time {item.LeadTime}; ghi chú {item.Note}; giá mua dự kiến {item.BuyingPrice:N2}; VAT {item.Vat}%; tax {item.Tax}%");
+        foreach (var item in i.Items) body.AppendLine($"- {item.Designation} ({item.Sku ?? "chưa có Internal Code"}), SL {item.Quantity} {item.Unit}; brand {item.BrandName}; category {item.Category}; COM {item.Com}; mô tả {item.ItemDescription}; spec {item.Spec}; lead time {item.LeadTime}; ghi chú {item.Note}; giá mua dự kiến {item.BuyingPrice:N2}; VAT {item.Vat}%; tax {item.Tax}%");
         body.AppendLine("\nTrân trọng,");
         // Lưu mã job và ghi event trong cùng một lần SaveChanges (outbox): hoặc cả hai cùng có, hoặc không có gì
         var jobId = Guid.NewGuid().ToString();
@@ -439,7 +439,7 @@ public class ItemInquiriesController(PurchaseDbContext db, IOutboxService outbox
             if (requestItem == null) return Bad("Item hỏi hàng không thuộc yêu cầu.");
             if (requestItem.SelectedInquiryItemId.HasValue || (wasCompleted && requestItem.GrossPrice.HasValue)) continue;
             var (product, error) = await ApplyProduct(item, i.Code, ct);
-            if (product == null) return StatusCode(502, new { success = false, error = new { message = $"Chưa cập nhật được Product cho SKU {item.Sku}.", detail = error } });
+            if (product == null) return StatusCode(502, new { success = false, error = new { message = $"Chưa cập nhật được Product cho Internal Code {item.Sku}.", detail = error } });
             requestItem.Sku = product.Value.GetProperty("sku").GetString();
             requestItem.GrossPrice = product.Value.GetProperty("gross_price").GetDecimal();
         }

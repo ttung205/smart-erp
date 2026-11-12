@@ -6,12 +6,12 @@ with open(tools_path, "r", encoding="utf-8") as f:
 
 new_func = '''# ------------------------------------------------------------------- Actionable Sales Copilot
 def instant_quote_check(actor: Actor, args: dict) -> dict:
-    """Báo giá sỉ nhanh, tra cứu tồn khả dụng, kiểm tra chính sách chiết khấu theo phân hạng đối tác, kiểm tra hạn mức công nợ và sàn biên lợi nhuận gộp theo MÃ CODE SKU ĐẦY ĐỦ và MÃ KHÁCH HÀNG ĐẦY ĐỦ."""
+    """Báo giá sỉ nhanh, tra cứu tồn khả dụng, kiểm tra chính sách chiết khấu theo phân hạng đối tác, kiểm tra hạn mức công nợ và sàn biên lợi nhuận gộp theo INTERNAL CODE ĐẦY ĐỦ và MÃ KHÁCH HÀNG ĐẦY ĐỦ."""
     raw_sku = (args.get("sku") or args.get("product_code") or "").strip()
     if not raw_sku:
         return {
             "loi": (
-                "Vui lòng cung cấp chính xác MÃ CODE SKU ĐẦY ĐỦ của sản phẩm cần báo giá "
+                "Vui lòng cung cấp chính xác INTERNAL CODE ĐẦY ĐỦ của sản phẩm cần báo giá "
                 "(Ví dụ: RT38CG6584B1SV-SAM, CFS-13VDM-COM, DAIKIN-FTKF25XVMV). "
                 "Hệ thống yêu cầu mã đầy đủ để đảm bảo tính toàn vẹn và truy vết chứng từ trong ERP."
             )
@@ -44,7 +44,7 @@ def instant_quote_check(actor: Actor, args: dict) -> dict:
     con = db()
     today = as_of(con).isoformat()
 
-    # 1. Tìm sản phẩm CHÍNH XÁC theo mã SKU đầy đủ (Không dùng LIKE mơ hồ nhằm bảo đảm tính truy vết)
+    # 1. Tìm sản phẩm CHÍNH XÁC theo Internal Code đầy đủ (Không dùng LIKE mơ hồ nhằm bảo đảm tính truy vết)
     clean_sku = raw_sku.strip()
     prod_row = con.execute("""
         SELECT p.id, p.sku, p.name, p.category, p.brand, p.unit, p.gross_price, p.cost_price, p.min_stock,
@@ -58,9 +58,9 @@ def instant_quote_check(actor: Actor, args: dict) -> dict:
     if not prod_row:
         return {
             "loi": (
-                f"Không tìm thấy sản phẩm có mã SKU chính xác là '{clean_sku}'. "
+                f"Không tìm thấy sản phẩm có Internal Code chính xác là '{clean_sku}'. "
                 "Để đảm bảo tính toàn vẹn dữ liệu và truy vết chứng từ trong hệ thống ERP, "
-                "vui lòng nhập đúng MÃ CODE SKU ĐẦY ĐỦ (Ví dụ: RT38CG6584B1SV-SAM, CFS-13VDM-COM, DAIKIN-FTKF25XVMV...)."
+                "vui lòng nhập đúng INTERNAL CODE ĐẦY ĐỦ (Ví dụ: RT38CG6584B1SV-SAM, CFS-13VDM-COM, DAIKIN-FTKF25XVMV...)."
             )
         }
 
@@ -289,8 +289,8 @@ else:
 # Now update TOOLS list
 old_tools = '''    # --- Nhóm 3: Actionable Copilot Tools
     Tool("procurement_fast_order",
-         "Truy cứu lịch sử giá mua và phân tích nhu cầu nhập hàng theo MÃ CODE SKU ĐẦY ĐỦ của sản phẩm (và mã NCC đầy đủ nếu có) để lập đơn mua nhanh.",
-         obj({"sku": {"type": "string", "description": "Bắt buộc: Mã SKU đầy đủ của sản phẩm cần đặt mua (ví dụ: RT38CG6584B1SV-SAM, DAIKIN-FTKF25XVMV)"},
+         "Truy cứu lịch sử giá mua và phân tích nhu cầu nhập hàng theo INTERNAL CODE ĐẦY ĐỦ của sản phẩm (và mã NCC đầy đủ nếu có) để lập đơn mua nhanh.",
+         obj({"sku": {"type": "string", "description": "Bắt buộc: Internal Code đầy đủ của sản phẩm cần đặt mua (ví dụ: RT38CG6584B1SV-SAM, DAIKIN-FTKF25XVMV)"},
               "supplier_code": {"type": "string", "description": "Tùy chọn: Mã Nhà Cung Cấp đầy đủ nếu muốn chỉ định đích danh (ví dụ: NCC-008)"},
               "quantity": {"type": "integer", "description": "Số lượng muốn đặt mua (nếu người dùng có nêu cụ thể)"}},
              ["sku"]),
@@ -299,15 +299,15 @@ old_tools = '''    # --- Nhóm 3: Actionable Copilot Tools
 
 new_tools = '''    # --- Nhóm 3: Actionable Copilot Tools
     Tool("procurement_fast_order",
-         "Truy cứu lịch sử giá mua và phân tích nhu cầu nhập hàng theo MÃ CODE SKU ĐẦY ĐỦ của sản phẩm (và mã NCC đầy đủ nếu có) để lập đơn mua nhanh.",
-         obj({"sku": {"type": "string", "description": "Bắt buộc: Mã SKU đầy đủ của sản phẩm cần đặt mua (ví dụ: RT38CG6584B1SV-SAM, DAIKIN-FTKF25XVMV)"},
+         "Truy cứu lịch sử giá mua và phân tích nhu cầu nhập hàng theo INTERNAL CODE ĐẦY ĐỦ của sản phẩm (và mã NCC đầy đủ nếu có) để lập đơn mua nhanh.",
+         obj({"sku": {"type": "string", "description": "Bắt buộc: Internal Code đầy đủ của sản phẩm cần đặt mua (ví dụ: RT38CG6584B1SV-SAM, DAIKIN-FTKF25XVMV)"},
               "supplier_code": {"type": "string", "description": "Tùy chọn: Mã Nhà Cung Cấp đầy đủ nếu muốn chỉ định đích danh (ví dụ: NCC-008)"},
               "quantity": {"type": "integer", "description": "Số lượng muốn đặt mua (nếu người dùng có nêu cụ thể)"}},
              ["sku"]),
          ("purchase.view",), procurement_fast_order),
     Tool("instant_quote_check",
-         "Báo giá sỉ nhanh, tra cứu tồn khả dụng, kiểm tra chính sách chiết khấu theo phân hạng đối tác, kiểm tra hạn mức công nợ và sàn biên lợi nhuận gộp theo MÃ SKU ĐẦY ĐỦ và MÃ KHÁCH HÀNG ĐẦY ĐỦ.",
-         obj({"sku": {"type": "string", "description": "Bắt buộc: Mã code SKU đầy đủ của sản phẩm cần báo giá (ví dụ: RT38CG6584B1SV-SAM, CFS-13VDM-COM)"},
+         "Báo giá sỉ nhanh, tra cứu tồn khả dụng, kiểm tra chính sách chiết khấu theo phân hạng đối tác, kiểm tra hạn mức công nợ và sàn biên lợi nhuận gộp theo INTERNAL CODE ĐẦY ĐỦ và MÃ KHÁCH HÀNG ĐẦY ĐỦ.",
+         obj({"sku": {"type": "string", "description": "Bắt buộc: Internal Code đầy đủ của sản phẩm cần báo giá (ví dụ: RT38CG6584B1SV-SAM, CFS-13VDM-COM)"},
               "customer_code": {"type": "string", "description": "Bắt buộc: Mã khách hàng đầy đủ để kiểm tra công nợ và áp chiết khấu phân hạng (ví dụ: DI-14998, DE-00123)"},
               "quantity": {"type": "integer", "description": "Số lượng đặt mua hoặc báo giá (mặc định 1)"},
               "custom_discount_percent": {"type": "number", "description": "Tùy chọn: Tỷ lệ chiết khấu thương lượng riêng (%) nếu muốn kiểm tra đàm phán giá"}},

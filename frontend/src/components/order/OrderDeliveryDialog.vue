@@ -92,7 +92,7 @@
               </template>
             </Column>
 
-            <Column field="product_sku" header="Mã SKU" style="width: 140px">
+            <Column field="product_sku" header="Internal Code" style="width: 140px">
               <template #body="{ data }">
                 <span class="font-mono text-xs font-semibold text-sky-700">{{ data.product_sku }}</span>
               </template>

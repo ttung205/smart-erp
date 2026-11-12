@@ -50,7 +50,7 @@
           <table class="w-full text-[11px] text-left border-collapse">
             <thead class="bg-slate-100 text-slate-700 font-semibold sticky top-0">
               <tr>
-                <th class="p-1.5 border-b">SKU</th>
+                <th class="p-1.5 border-b">Internal Code</th>
                 <th class="p-1.5 border-b">Designation</th>
                 <th class="p-1.5 border-b">Brand</th>
                 <th class="p-1.5 border-b">Category</th>

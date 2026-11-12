@@ -134,7 +134,7 @@ Tất cả chữ hiển thị (label, button text, placeholder, thông báo hệ
 ### 6.3. Không slogan, không mô tả dài dòng
 * Dưới tiêu đề trang không chèn các câu văn dài dòng mang tính trang trí.
 * Nếu thực sự cần ghi chú phạm vi, chỉ dùng tối đa 1 dòng subtitle ngắn gọn với class `text-slate-500 text-xs`:
-  * Ví dụ: `<p class="text-slate-500 text-xs">Quản lý định danh SKU, nhóm ngành hàng và chính sách giá bán buôn.</p>`
+  * Ví dụ: `<p class="text-slate-500 text-xs">Quản lý định danh Internal Code, nhóm ngành hàng và chính sách giá bán buôn.</p>`
 
 ### 6.4. Tiêu đề Modal / Drawer phải chính xác theo ngữ cảnh
 * Khi mở Dialog/Drawer, tiêu đề phải nói rõ hành động: "Thêm Mới Khách Hàng", "Cập Nhật Thông Tin #KH-012", "Xác Nhận Hủy Đơn Hàng", không để tiêu đề mập mờ ("Thông tin", "Thao tác", "Chi tiết").

@@ -41,7 +41,7 @@ export const PURCHASE_RETURN_STATUS = {
 
 export const PURCHASE_RETURN_REASONS = [
   { value: 'Defective', label: 'Hàng lỗi kỹ thuật / Không đạt tiêu chuẩn (Defective)' },
-  { value: 'WrongItem', label: 'Giao sai mã SKU / Sai quy cách (Wrong Item)' },
+  { value: 'WrongItem', label: 'Giao sai Internal Code / Sai quy cách (Wrong Item)' },
   { value: 'ExcessQuantity', label: 'Giao thừa số lượng đặt (Excess Quantity)' },
   { value: 'DamagedInTransit', label: 'Móp méo / Hư hại do vận chuyển (Damaged)' },
   { value: 'ExpiredNearDate', label: 'Cận date / Hết hạn bảo hành (Expired)' },

@@ -182,7 +182,7 @@ class MasterData:
                 continue
             seen_url.add(item["source_url"])
             item["model"] = extract_model(item["name"], item["source_url"], brand)
-            # Quy ước SKU của công ty: designation + "-" + 3 ký tự đầu của hãng (XU3333 + SHARP -> XU3333-SHA)
+            # Quy ước Internal Code của công ty: designation + "-" + 3 ký tự đầu của hãng (XU3333 + SHARP -> XU3333-SHA)
             brand_code = re.sub(r"[^A-Z0-9]", "", strip_accents(brand).upper())[:3]
             sku = f"{item['model'].upper()[:50 - len(brand_code) - 1]}-{brand_code}"
             if sku in seen_sku:                          # cùng model cùng hãng = cùng một sản phẩm

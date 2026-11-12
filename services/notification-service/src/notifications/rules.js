@@ -303,7 +303,7 @@ export const rules = {
     category: 'info',
     recipients: () => ({ permissions: ['inventory.view'] }),
     title: (p) => `Sản phẩm mới [${p.sku || p.name}]`,
-    body: (p) => `Sản phẩm "${p.name || ''}" (SKU: ${p.sku || ''}) vừa được thêm vào hệ thống. Tồn kho đã khởi tạo tự động.`,
+    body: (p) => `Sản phẩm "${p.name || ''}" (Internal Code: ${p.sku || ''}) vừa được thêm vào hệ thống. Tồn kho đã khởi tạo tự động.`,
     link: () => '/inventory',
   },
 };

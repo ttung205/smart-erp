@@ -42,7 +42,7 @@ export const useStockStore = defineStore('stock', () => {
         const p = productMap.get(Number(s.product_id))
         return {
           ...s,
-          sku: s.sku || p?.sku || `SKU-${s.product_id}`,
+          sku: s.sku || p?.sku || `IC-${s.product_id}`,
           product_name: p?.item_description || p?.designation || p?.name || `Sản phẩm #${s.product_id}`,
           unit: p?.unit || 'Chiếc',
           brand: p?.brand || '',

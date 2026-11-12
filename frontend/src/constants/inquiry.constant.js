@@ -23,7 +23,7 @@ export const toStatusOptions = (statusMap) => [
 
 // Các trường item dùng chung giữa yêu cầu hỏi hàng và phiếu hỏi hàng nhà cung cấp
 export const INQUIRY_ITEM_FIELDS = [
-  { key: 'sku', label: 'SKU', width: '130px' },
+  { key: 'sku', label: 'Internal Code', width: '130px' },
   { key: 'designation', label: 'Designation *', width: '190px' },
   { key: 'item_description', label: 'Item description', width: '200px' },
   { key: 'brand', label: 'Brand', width: '140px' },

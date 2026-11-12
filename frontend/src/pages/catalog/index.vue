@@ -3,7 +3,7 @@
     <!-- Single Page Title -->
     <PageHeader
       title="Danh Mục Sản Phẩm (Catalog Master)"
-      subtitle="Quản lý mã hàng SKU, thông số kỹ thuật, giá gross chuẩn và đồng bộ toàn hệ thống"
+      subtitle="Quản lý Internal Code, thông số kỹ thuật, giá gross chuẩn và đồng bộ toàn hệ thống"
       badge="Catalog Service"
       badge-severity="info"
     >
@@ -40,7 +40,7 @@
             <InputIcon class="pi pi-search" />
             <InputText
               v-model="searchQuery"
-              placeholder="Tìm theo SKU, Designation, Brand, Tên sản phẩm..."
+              placeholder="Tìm theo Internal Code, Designation, Brand, Tên sản phẩm..."
               class="w-80 rounded-[6px]"
               size="small"
             />
@@ -99,7 +99,7 @@
       emptyTitle="Không tìm thấy sản phẩm nào"
       emptySubtitle="Nhấn nút 'Import Excel' để nạp dữ liệu mẫu hoặc 'Tạo sản phẩm mới'."
     >
-      <!-- 1. SKU -->
+      <!-- 1. Internal Code -->
       <template #col-sku="{ data }">
         <span class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-[4px] border border-sky-200">
           {{ data.sku }}
@@ -193,7 +193,7 @@ import { formatCurrency } from '../../utils/format';
 const toast = useToast();
 
 const tableColumns = [
-  { field: 'sku', header: 'MÃ SKU', sortable: true, width: '170px' },
+  { field: 'sku', header: 'INTERNAL CODE', sortable: true, width: '170px' },
   { field: 'designation', header: 'DESIGNATION', sortable: true, width: '150px' },
   { field: 'brand', header: 'BRAND', sortable: true, width: '110px' },
   { field: 'category', header: 'DANH MỤC', sortable: true, width: '130px' },

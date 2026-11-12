@@ -8,7 +8,7 @@
             <i class="pi pi-sparkles text-[10px]"></i> AI Procurement Copilot
           </span>
           <span class="px-2 py-0.5 text-[11px] font-bold rounded bg-slate-100 text-slate-700 border border-slate-200">
-            SKU: {{ action.sku }}
+            Internal Code: {{ action.sku }}
           </span>
         </div>
         <h4 class="font-bold text-sm text-slate-900 m-0 leading-snug">{{ action.product_name }}</h4>

@@ -51,7 +51,7 @@
       <div class="flex items-center flex-wrap gap-2.5">
         <InputText
           v-model="search"
-          placeholder="Tìm theo mã chứng từ, SKU, ghi chú..."
+          placeholder="Tìm theo mã chứng từ, Internal Code, ghi chú..."
           size="small"
           class="w-72 bg-white !rounded-[6px]"
         />
@@ -109,9 +109,9 @@
         />
       </template>
 
-      <!-- Mã Nội Bộ (SKU) -->
+      <!-- Mã Nội Bộ -->
       <template #col-sku="{ data }">
-        <span class="font-mono text-xs font-semibold text-slate-800">{{ data.sku || ('SKU-' + data.product_id) }}</span>
+        <span class="font-mono text-xs font-semibold text-slate-800">{{ data.sku || ('IC-' + data.product_id) }}</span>
       </template>
 
       <!-- Tồn Trước -->
@@ -187,9 +187,9 @@
         />
       </template>
 
-      <!-- Mã Nội Bộ (SKU) -->
+      <!-- Mã Nội Bộ -->
       <template #col-sku="{ data }">
-        <span class="font-mono text-xs font-semibold text-slate-800">{{ data.sku || ('SKU-' + data.product_id) }}</span>
+        <span class="font-mono text-xs font-semibold text-slate-800">{{ data.sku || ('IC-' + data.product_id) }}</span>
       </template>
 
       <!-- Tồn Trước -->
@@ -353,7 +353,7 @@ const loadPhysicalTxs = async () => {
       return {
         ...t,
         product_name: p?.item_description || p?.designation || p?.name || `Sản phẩm #${t.product_id}`,
-        sku: p?.sku || `SKU-${t.product_id}`
+        sku: p?.sku || `IC-${t.product_id}`
       }
     })
   } catch (err) {
@@ -380,7 +380,7 @@ const loadReservationTxs = async () => {
       return {
         ...t,
         product_name: p?.item_description || p?.designation || p?.name || `Sản phẩm #${t.product_id}`,
-        sku: p?.sku || `SKU-${t.product_id}`
+        sku: p?.sku || `IC-${t.product_id}`
       }
     })
   } catch (err) {

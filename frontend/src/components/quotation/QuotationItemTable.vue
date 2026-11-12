@@ -35,7 +35,7 @@
         </Column>
       </template>
 
-      <!-- 1. SKU (Internal Code) -->
+      <!-- 1. Internal Code -->
       <template #col-sku="{ data }">
         <span class="font-mono text-xs font-bold text-sky-800 truncate block px-1" :title="data.sku">
           {{ data.sku || '-' }}

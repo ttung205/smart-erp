@@ -233,7 +233,7 @@ const rejectReason = ref('');
 const { warehouseOptions, fetchWarehouses } = useWarehouses();
 
 const requisitionColumns = [
-  { field: 'sku', header: 'MÃ SKU', width: '120px' },
+  { field: 'sku', header: 'INTERNAL CODE', width: '120px' },
   { field: 'item_name', header: 'TÊN MẶT HÀNG / THIẾT BỊ', width: '220px' },
   { field: 'origin', header: 'XUẤT XỨ', width: '110px' },
   { field: 'stock', header: 'TỒN KHO', width: '85px', align: 'center' },
@@ -356,7 +356,7 @@ const saveRequisition = async (andSubmit = false) => {
       department: form.department,
       items: form.items.map((it, idx) => ({
         product_id: Number(it.product_id || it.productId || it.id || (idx + 1)),
-        sku: it.sku || `SKU-PR-${idx + 1}`,
+        sku: it.sku || `IC-PR-${idx + 1}`,
         product_name: it.item_name || it.product_name || 'Thiết bị đề nghị',
         unit: it.unit || 'Cái',
         origin: it.origin || getProductOrigin(it.sku || it.product_id),

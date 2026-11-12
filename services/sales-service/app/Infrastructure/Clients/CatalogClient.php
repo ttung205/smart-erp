@@ -21,7 +21,7 @@ class CatalogClient extends ServiceClient
 
     /**
      * @param  iterable<string>  $skus
-     * @return array<string, array<string, mixed>> theo SKU viết hoa
+     * @return array<string, array<string, mixed>> theo Internal Code viết hoa
      */
     public function productsBySkus(iterable $skus): array
     {

@@ -178,7 +178,7 @@
           <thead class="bg-slate-50 border-b border-slate-200">
             <tr>
               <th class="p-2.5 text-center font-semibold text-slate-700 w-10">#</th>
-              <th class="p-2.5 text-left font-semibold text-slate-700">Mã SKU & Tên Sản Phẩm</th>
+              <th class="p-2.5 text-left font-semibold text-slate-700">Internal Code & Tên Sản Phẩm</th>
               <th class="p-2.5 text-center font-semibold text-slate-700 w-20">ĐVT</th>
               <th class="p-2.5 text-right font-semibold text-slate-700 w-24">SL Đặt PO</th>
               <th class="p-2.5 text-right font-semibold text-slate-700 w-24">Đã Nhập Trước</th>

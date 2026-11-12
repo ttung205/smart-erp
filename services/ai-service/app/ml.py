@@ -619,14 +619,14 @@ def get_credit_risk() -> Dict[str, Any]:
 # 6. MÔ HÌNH HỌC MÁY GỢI Ý ĐẶT HÀNG NHẬP KHO (PROCUREMENT ML INSIGHT)
 # ==============================================================================
 def _fetch_sku_sales_stats(sku: str) -> Optional[Dict[str, Any]]:
-    """Truy vấn dữ liệu doanh số 90 ngày của SKU từ kho phân tích (MySQL hoặc SQLite fallback)."""
+    """Truy vấn dữ liệu doanh số 90 ngày của Internal Code từ kho phân tích (MySQL hoặc SQLite fallback)."""
     from . import config, warehouse
 
     clean_sku = (sku or "").strip()
     if not clean_sku:
         return None
 
-    # Truy vấn chính xác 100% theo mã SKU đầy đủ để phục vụ truy vết chứng từ ERP
+    # Truy vấn chính xác 100% theo Internal Code đầy đủ để phục vụ truy vết chứng từ ERP
     query = """
         SELECT p.id, p.sku, p.name, p.category, p.brand, p.min_stock, p.cost_price, p.gross_price,
                coalesce(sum(s.quantity), 0) as total_sold_90d,
@@ -666,7 +666,7 @@ def _fetch_sku_sales_stats(sku: str) -> Optional[Dict[str, Any]]:
                 if row:
                     return dict(row)
         except Exception as e:
-            log.warning(f"Lỗi truy vấn SQLite analytics.db cho SKU '{sku}': {e}")
+            log.warning(f"Lỗi truy vấn SQLite analytics.db cho Internal Code '{sku}': {e}")
 
     return None
 
@@ -674,7 +674,7 @@ def _fetch_sku_sales_stats(sku: str) -> Optional[Dict[str, Any]]:
 def get_sku_procurement_ml_insight(
     sku: str, available_stock: int = 0, min_stock: Optional[int] = None
 ) -> Dict[str, Any]:
-    """Kết hợp mô hình chuỗi thời gian Holt-Winters và định mức SCM an toàn để tính số lượng cần nhập tối ưu cho SKU.
+    """Kết hợp mô hình chuỗi thời gian Holt-Winters và định mức SCM an toàn để tính số lượng cần nhập tối ưu cho Internal Code.
 
     Tham số:
     - sku: Mã sản phẩm hoặc tên sản phẩm cần phân tích
@@ -688,12 +688,12 @@ def get_sku_procurement_ml_insight(
     if not prod_data:
         return {
             "status": "NOT_FOUND",
-            "error": f"Không tìm thấy dữ liệu cho sản phẩm hoặc mã SKU: '{sku}'",
+            "error": f"Không tìm thấy dữ liệu cho sản phẩm hoặc Internal Code: '{sku}'",
             "sku": sku,
             "suggested_procurement_qty": 0,
             "urgency_level": "UNKNOWN",
             "urgency_label": "Không xác định",
-            "recommendation_note": f"Không tìm thấy SKU hoặc sản phẩm có từ khóa '{sku}' trong hệ thống dữ liệu ERP.",
+            "recommendation_note": f"Không tìm thấy Internal Code hoặc sản phẩm có từ khóa '{sku}' trong hệ thống dữ liệu ERP.",
         }
 
     actual_sku = prod_data["sku"]

@@ -298,13 +298,13 @@
           <thead>
             <tr class="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold">
               <th class="py-2.5 px-3 w-10 text-center">#</th>
-              <th class="py-2.5 px-3 min-w-[240px]">Sản phẩm / SKU</th>
+              <th class="py-2.5 px-3 min-w-[240px]">Sản phẩm / Internal Code</th>
               <th class="py-2.5 px-3 w-20 text-center">ĐVT</th>
               <th class="py-2.5 px-3 w-28 text-right">SL Đã Nhận</th>
               <th class="py-2.5 px-3 w-36 text-right">SL Xuất Trả</th>
               <th class="py-2.5 px-3 w-32 text-right">Đơn Giá Mua</th>
               <th class="py-2.5 px-3 w-36 text-right">Thành Tiền Trả</th>
-              <th class="py-2.5 px-3 min-w-[180px]">Chi Tiết Lỗi / Ghi Chú SKU</th>
+              <th class="py-2.5 px-3 min-w-[180px]">Chi Tiết Lỗi / Ghi Chú Internal Code</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
@@ -317,7 +317,7 @@
               <!-- STT -->
               <td class="py-2.5 px-3 text-center text-slate-500 font-mono">{{ idx + 1 }}</td>
 
-              <!-- Sản phẩm & SKU -->
+              <!-- Sản phẩm & Internal Code -->
               <td class="py-2.5 px-3">
                 <div class="font-medium text-slate-900">{{ item.product_name }}</div>
                 <div class="text-[11px] text-slate-500 font-mono">{{ item.sku }}</div>
@@ -364,12 +364,12 @@
                 {{ formatCurrency((item.quantity_returned || 0) * (item.unit_cost || 0)) }}
               </td>
 
-              <!-- Ghi Chú SKU -->
+              <!-- Ghi Chú Internal Code -->
               <td class="py-2.5 px-3">
                 <InputText
                   v-if="!isReadOnly"
                   v-model="item.reason_detail"
-                  placeholder="Ghi chú chi tiết lỗi SKU này..."
+                  placeholder="Ghi chú chi tiết lỗi Internal Code này..."
                   class="w-full !rounded-[6px] !text-xs !py-1"
                   size="small"
                 />

@@ -48,7 +48,7 @@ python -m venv .venv
 ## Quy trình
 
 ```bash
-# 1. Cào danh mục sản phẩm thật (~1000 SKU) từ dienmayxanh.com, có cache, chạy lại không tải lại
+# 1. Cào danh mục sản phẩm thật (~1000 Internal Code) từ dienmayxanh.com, có cache, chạy lại không tải lại
 python -m simulator.scrape_products
 python -m simulator.scrape_products --fill     # bù danh mục render bằng JS từ sitemap
 

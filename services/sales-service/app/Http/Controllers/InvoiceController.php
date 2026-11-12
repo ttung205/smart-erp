@@ -247,7 +247,7 @@ class InvoiceController extends Controller
                     $qty = (float) ($it['quantity'] ?? $requestedQty ?: 1);
                     $remainingQty = max(0, (float) $drItem->quantity - (float) $drItem->delivered_quantity);
                     if ($qty > $remainingQty) {
-                        abort(422, "Số lượng chứng từ của SKU {$sku} vượt quá số lượng còn phải giao {$remainingQty}.");
+                        abort(422, "Số lượng chứng từ của Internal Code {$sku} vượt quá số lượng còn phải giao {$remainingQty}.");
                     }
                     $unitPrice = (float) ($it['unit_price'] ?? $it['price'] ?? 0);
                     $calculatedTotal += ($qty * $unitPrice);
@@ -1043,7 +1043,7 @@ class InvoiceController extends Controller
         $error = $response->json('error') ?? ['code' => 'INVENTORY_ERROR', 'message' => "Inventory Service trả về HTTP {$response->status()}."];
         if (($error['code'] ?? null) === 'INSUFFICIENT_STOCK' && isset($error['details']['product_id'])) {
             $sku = collect($items)->firstWhere('product_id', (int) $error['details']['product_id'])['sku'] ?? "#{$error['details']['product_id']}";
-            $error['message'] = "Không đủ hàng để lập chứng từ: SKU {$sku} cần {$error['details']['requested']}, kho chỉ còn {$error['details']['available']} khả dụng.";
+            $error['message'] = "Không đủ hàng để lập chứng từ: Internal Code {$sku} cần {$error['details']['requested']}, kho chỉ còn {$error['details']['available']} khả dụng.";
         }
 
         return ['reserved' => false, 'items' => $items, 'error' => $error];
@@ -1165,7 +1165,7 @@ class InvoiceController extends Controller
         return $results;
     }
 
-    /** Dòng cũ chưa lưu product_id: tra catalog theo SKU; catalog không phản hồi thì coi như chưa xác định được. */
+    /** Dòng cũ chưa lưu product_id: tra catalog theo Internal Code; catalog không phản hồi thì coi như chưa xác định được. */
     private function productIdForSku(?string $sku): ?int
     {
         if (empty($sku)) {

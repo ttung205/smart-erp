@@ -32,7 +32,7 @@
             </template>
           </Column>
 
-          <Column field="sku" header="Internal Code (SKU)" style="width: 150px">
+          <Column field="sku" header="Internal Code" style="width: 150px">
             <template #body="{ data }">
               <span class="font-mono text-xs font-semibold text-sky-700">{{ data.sku }}</span>
             </template>

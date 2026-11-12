@@ -36,7 +36,7 @@
           optionLabel="label"
           optionValue="value"
           filter
-          filterPlaceholder="Tìm nhanh mã SKU hoặc tên sản phẩm..."
+          filterPlaceholder="Tìm nhanh Internal Code hoặc tên sản phẩm..."
           placeholder="Chọn sản phẩm..."
           class="w-full !rounded-[6px]"
         />

@@ -18,7 +18,7 @@
             <tr>
               <th class="p-2 text-center w-10">Chọn</th>
               <th class="p-2 text-left">Mã PR</th>
-              <th class="p-2 text-left">SKU & Sản Phẩm</th>
+              <th class="p-2 text-left">Internal Code & Sản Phẩm</th>
               <th class="p-2 text-left">Xuất Xứ</th>
               <th class="p-2 text-right">SL Duyệt</th>
               <th class="p-2 text-right">Đã Lên PO</th>

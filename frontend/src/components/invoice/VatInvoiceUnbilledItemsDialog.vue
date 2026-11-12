@@ -107,7 +107,7 @@
                 />
               </th>
               <th class="p-2 w-10 text-center">STT</th>
-              <th class="p-2 w-28">Mã SKU</th>
+              <th class="p-2 w-28">Internal Code</th>
               <th class="p-2">Tên Mặt Hàng</th>
               <th class="p-2 text-right w-20">SL Đã Xuất</th>
               <th class="p-2 text-right w-20">Đã HĐ</th>
