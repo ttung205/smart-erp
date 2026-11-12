@@ -37,8 +37,12 @@ docker compose --profile demo run --rm demo-traffic python -m demo_traffic once 
 | `DEMO_ORDERS_PER_DAY` | 30 | Số đơn trung bình mỗi ngày (thứ 7 x0.5, Chủ nhật x0.2) |
 | `DEMO_MAX_CATCHUP_DAYS` | 3 | Số ngày bỏ lỡ tối đa được chạy bù |
 | `DEMO_MAX_PO_PER_DAY` | 5 | Số đơn mua tối đa mỗi ngày |
+| `DEMO_MAX_RECEIPTS_PER_DAY` | 30 | Số phiếu thu tối đa mỗi ngày (mỗi khách một phiếu); nợ quá hạn còn lại thu ở các ngày sau |
+| `DEMO_MAX_REQUESTS_PER_MINUTE` | 300 | Trần tốc độ gọi API của bot; gateway giới hạn 600 request/phút mỗi IP. Đặt 0 để bỏ giãn cách |
 | `DEMO_WAREHOUSE_ID` | 1 | Kho bán và nhận hàng |
 | `DEMO_*_EMAIL` | tài khoản mẫu | Đổi tài khoản cho từng vai trò |
+
+Gateway trả `429` (quá giới hạn tốc độ) thì bot chờ theo `Retry-After` rồi gửi lại, tối đa 3 lần. Request bị 429 chưa tới service nên gửi lại không tạo chứng từ trùng.
 
 Chỉ dùng cho môi trường demo. Không bật profile `demo` trên production.
 

@@ -228,7 +228,11 @@ def collect_payments(erp: Erp, today: date, rng: random.Random) -> dict[str, int
     """Khách trả một phần các khoản nợ quá hạn: mỗi khách một phiếu thu ngân hàng đã ghi sổ."""
     stats = {"receipts": 0, "receipt_failed": 0}
     bank_account_id = erp.bank_account_id()
-    for customer_id, items in policy.receivables_to_collect(erp.overdue_receivables(), rng).items():
+    paying = list(policy.receivables_to_collect(erp.overdue_receivables(), rng).items())
+    limit = erp.s.max_receipts_per_day
+    if len(paying) > limit:
+        log.info("Có %d khách trả nợ quá hạn, hôm nay thu %d khách; phần còn lại để các ngày sau", len(paying), limit)
+    for customer_id, items in paying[:limit]:
         try:
             erp.collect(customer_id, items, bank_account_id, today)
             stats["receipts"] += 1
