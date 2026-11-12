@@ -10,9 +10,9 @@
   >
     <div class="flex flex-col gap-3 pt-1">
       <div class="grid grid-cols-2 gap-3">
-        <!-- SKU -->
+        <!-- Internal Code -->
         <div class="flex flex-col gap-1">
-          <label for="sku" class="text-xs font-semibold text-slate-700">Mã SKU <span class="text-red-600">*</span></label>
+          <label for="sku" class="text-xs font-semibold text-slate-700">Internal Code <span class="text-red-600">*</span></label>
           <InputText
             id="sku"
             v-model="form.sku"

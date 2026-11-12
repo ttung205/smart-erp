@@ -34,7 +34,7 @@
       />
     </template>
 
-    <!-- Gross price của SKU trong catalog tại thời điểm lập yêu cầu -->
+    <!-- Gross price của Internal Code trong catalog tại thời điểm lập yêu cầu -->
     <template #col-catalog_gross_price="{ data }">
       <div class="flex items-center justify-end gap-1 whitespace-nowrap">
         <span class="font-mono text-xs" :class="data.catalog_gross_price != null ? 'font-semibold text-slate-700' : 'text-slate-400'">

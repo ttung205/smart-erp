@@ -260,7 +260,7 @@ const expectedDeliveryDateModel = computed({
   }
 });
 
-// Tải danh mục Catalog để ánh xạ ID <-> SKU
+// Tải danh mục Catalog để ánh xạ ID <-> Internal Code
 const loadCatalogMapping = async () => {
   const pMap = new Map();
   const sMap = new Map();
@@ -324,7 +324,7 @@ const getItemAvailableStock = (item, targetWarehouseId) => {
     return (targetPid && pid === targetPid) || (targetSku && sku === targetSku);
   });
 
-  // Chỉ tính tồn khả dụng của đúng kho đang chọn; kho chưa có bản ghi tồn của SKU thì là 0
+  // Chỉ tính tồn khả dụng của đúng kho đang chọn; kho chưa có bản ghi tồn của Internal Code thì là 0
   return matchedStocks.reduce((sum, s) => {
     const avail = Number(s.available ?? (Number(s.quantity_on_hand || 0) - Number(s.quantity_reserved || 0)));
     return sum + avail;
@@ -369,7 +369,7 @@ const initItems = () => {
     shipping_address: o.shipping_address || o.customer?.address || ''
   };
 
-  // Tính số lượng đã giao cho từng SKU từ các yêu cầu giao hàng trước đó của đơn này
+  // Tính số lượng đã giao cho từng Internal Code từ các yêu cầu giao hàng trước đó của đơn này
   const deliveredMap = new Map();
   const orderDeliveries = (props.existingDeliveries || []).filter(
     (dr) => (dr.order_number === o.order_number || dr.order_id === o.id) && dr.status !== 'CANCELLED'

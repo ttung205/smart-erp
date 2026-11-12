@@ -1,5 +1,5 @@
 export const PRODUCT_COLUMNS = [
-  { field: 'sku', header: 'Mã SKU', sortable: true },
+  { field: 'sku', header: 'Internal Code', sortable: true },
   { field: 'name', header: 'Tên Sản Phẩm', sortable: true },
   { field: 'category_name', header: 'Danh Mục', sortable: false },
   { field: 'unit_code', header: 'Đơn Vị Tính', sortable: false },

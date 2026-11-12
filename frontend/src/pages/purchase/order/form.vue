@@ -272,7 +272,7 @@ const loadSuppliers = async () => {
 };
 
 const orderColumns = [
-  { field: 'sku', header: 'MÃ SKU', width: '120px' },
+  { field: 'sku', header: 'INTERNAL CODE', width: '120px' },
   { field: 'item_name', header: 'TÊN MẶT HÀNG / THIẾT BỊ', width: '220px' },
   { field: 'origin', header: 'XUẤT XỨ', width: '110px' },
   { field: 'stock', header: 'TỒN KHO', width: '85px', align: 'center' },
@@ -377,7 +377,7 @@ const loadOrder = async (id) => {
         const sub = Number(i.subtotal ?? (qty * price * (1 - disc / 100) * (1 + vat / 100)));
         return {
           id: i.id || (idx + 1),
-          sku: i.sku || `SKU-${idx + 1}`,
+          sku: i.sku || `IC-${idx + 1}`,
           item_name: i.product_name || i.item_name || i.name || 'Thiết bị điện tử',
           product_name: i.product_name || i.item_name || i.name,
           origin: i.origin || i.com || getProductOrigin(i.sku || i.product_id),
@@ -585,7 +585,7 @@ const saveOrder = async (andSubmit = false) => {
       notes: form.notes || '',
       items: form.items.map((it, idx) => ({
         product_id: Number(it.product_id || it.productId || it.id || (idx + 1)),
-        sku: it.sku || `SKU-${idx + 1}`,
+        sku: it.sku || `IC-${idx + 1}`,
         product_name: it.item_name || it.product_name || 'Thiết bị điện tử',
         unit: it.unit || 'Cái',
         origin: it.origin || getProductOrigin(it.sku || it.product_id),

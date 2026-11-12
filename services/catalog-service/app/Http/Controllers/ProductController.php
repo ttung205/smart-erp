@@ -109,7 +109,7 @@ class ProductController extends Controller
         path: '/products/apply-inquiry-result',
         summary: 'Áp kết quả hỏi hàng vào sản phẩm (nội bộ)',
         description: 'Chỉ purchase-service gọi: cần cả JWT của người thao tác (vai trò SUPER_ADMIN, PURCHASE hoặc PURCHASE_MANAGER) và khóa nội bộ. '
-            .'Giá bán = giá mua x (1 + (vat + tax)/100) x price_index. Tạo mới hoặc cập nhật theo SKU (mặc định IQP-{inquiry_item_id}).',
+            .'Giá bán = giá mua x (1 + (vat + tax)/100) x price_index. Tạo mới hoặc cập nhật theo Internal Code (mặc định IQP-{inquiry_item_id}).',
         tags: ['Sản phẩm'],
         security: [['bearerAuth' => [], 'internalServiceKey' => []]],
         requestBody: new OA\RequestBody(
@@ -206,11 +206,11 @@ class ProductController extends Controller
         tags: ['Sản phẩm'],
         security: [['bearerAuth' => []], ['internalServiceKey' => []]],
         parameters: [
-            new OA\Parameter(name: 'search', in: 'query', required: false, description: 'Tìm theo SKU, model, mô tả, thương hiệu hoặc danh mục', schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'search', in: 'query', required: false, description: 'Tìm theo Internal Code, model, mô tả, thương hiệu hoặc danh mục', schema: new OA\Schema(type: 'string')),
             new OA\Parameter(name: 'category_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
             new OA\Parameter(name: 'brand_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
             new OA\Parameter(name: 'ids', in: 'query', required: false, description: 'Danh sách id phân tách bằng dấu phẩy', schema: new OA\Schema(type: 'string', example: '1,2,3')),
-            new OA\Parameter(name: 'skus', in: 'query', required: false, description: 'Danh sách SKU phân tách bằng dấu phẩy', schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'skus', in: 'query', required: false, description: 'Danh sách Internal Code phân tách bằng dấu phẩy', schema: new OA\Schema(type: 'string')),
         ],
         responses: [
             new OA\Response(response: 200, description: 'Danh sách sản phẩm kèm tên thương hiệu và danh mục, mới nhất trước'),
@@ -338,18 +338,14 @@ class ProductController extends Controller
             new OA\Response(response: 201, description: 'id và sku của sản phẩm mới'),
             new OA\Response(response: 401, description: 'UNAUTHENTICATED hoặc AUTH_TOKEN_MISSING: thiếu hoặc sai token'),
             new OA\Response(response: 403, description: 'FORBIDDEN: thiếu quyền catalog.create'),
-            new OA\Response(response: 422, description: 'VALIDATION_FAILED: thiếu SKU'),
+            new OA\Response(response: 422, description: 'VALIDATION_FAILED: thiếu Internal Code'),
         ]
     )]
     public function store(Request $request)
     {
-        $sku = trim($request->input('sku', ''));
         $grossPrice = (float) $request->input('gross_price', 0);
         $description = trim($request->input('item_description', $request->input('description', '')));
-
-        if (empty($sku)) {
-            return response()->json(['success' => false, 'error' => ['code' => 'VALIDATION_FAILED', 'message' => 'SKU không được để trống']], 422);
-        }
+        $designationInput = trim((string) $request->input('designation', ''));
 
         $brandName = trim($request->input('brand', ''));
         $brandId = $request->input('brand_id');
@@ -357,6 +353,16 @@ class ProductController extends Controller
             $brand = DB::table('brands')->where('name', $brandName)->first();
             $brandId = $brand ? $brand->id : DB::table('brands')->insertGetId(['name' => $brandName, 'created_at' => now(), 'updated_at' => now()]);
         }
+
+        // Internal Code không nhập tay: tự sinh từ designation + 3 chữ đầu brand
+        if ($designationInput === '' || ! $brandId) {
+            return response()->json(['success' => false, 'error' => ['code' => 'VALIDATION_FAILED', 'message' => 'Cần nhập Designation và chọn Thương hiệu để sinh Internal Code']], 422);
+        }
+        $brandRow = DB::table('brands')->where('id', $brandId)->select(['name'])->first();
+        if (! $brandRow) {
+            return response()->json(['success' => false, 'error' => ['code' => 'VALIDATION_FAILED', 'message' => 'Thương hiệu không tồn tại']], 422);
+        }
+        $sku = $this->generateSku($brandRow->name, $designationInput);
 
         $categoryName = trim($request->input('category', ''));
         $categoryId = $request->input('category_id');
@@ -395,6 +401,20 @@ class ProductController extends Controller
         });
 
         return response()->json(['success' => true, 'data' => ['id' => $id, 'sku' => $sku]], 201);
+    }
+
+    /** Sinh Internal Code dạng {DESIGNATION}-{3 chữ đầu BRAND}, thêm hậu tố -2, -3... nếu trùng. */
+    private function generateSku(string $brand, string $designation): string
+    {
+        $clean = fn (string $s) => strtoupper(trim(preg_replace('/[^A-Za-z0-9]+/', '-', Str::ascii($s)), '-'));
+        $brandCode = substr(str_replace('-', '', $clean($brand)), 0, 3);
+        $base = substr($clean($designation), 0, 90).'-'.$brandCode;
+        $sku = $base;
+        for ($i = 2; DB::table('products')->where('sku', $sku)->exists(); $i++) {
+            $sku = $base.'-'.$i;
+        }
+
+        return $sku;
     }
 
     #[OA\Put(
@@ -486,8 +506,8 @@ class ProductController extends Controller
     #[OA\Post(
         path: '/products/import',
         summary: 'Nhập danh sách sản phẩm (import Excel)',
-        description: 'Yêu cầu quyền catalog.create. Tạo mới hoặc cập nhật theo SKU trong một transaction; dòng thiếu SKU bị bỏ qua và báo trong errors. '
-            .'Mỗi dòng nhận cả tên cột viết thường lẫn tiêu đề Excel (SKU, Brand, Category, Designation, gross price...).',
+        description: 'Yêu cầu quyền catalog.create. Tạo mới hoặc cập nhật theo Internal Code trong một transaction; dòng thiếu Internal Code bị bỏ qua và báo trong errors. '
+            .'Mỗi dòng nhận cả tên cột viết thường lẫn tiêu đề Excel (Internal Code, Brand, Category, Designation, gross price...).',
         tags: ['Sản phẩm'],
         security: [['bearerAuth' => []]],
         requestBody: new OA\RequestBody(
@@ -541,9 +561,9 @@ class ProductController extends Controller
         DB::beginTransaction();
         try {
             foreach ($items as $index => $row) {
-                $sku = trim($row['sku'] ?? $row['SKU'] ?? '');
+                $sku = trim($row['sku'] ?? $row['SKU'] ?? $row['Internal Code'] ?? '');
                 if (empty($sku)) {
-                    $errors[] = 'Dòng '.($index + 1).': Thiếu mã SKU';
+                    $errors[] = 'Dòng '.($index + 1).': Thiếu Internal Code';
 
                     continue;
                 }

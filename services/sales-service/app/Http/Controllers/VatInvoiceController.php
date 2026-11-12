@@ -300,7 +300,7 @@ class VatInvoiceController extends Controller
                     abort(422, 'Dòng doanh thu không thuộc chứng từ bán hàng đã chọn hoặc đã được xuất hóa đơn.');
                 }
                 if ($qty > (float) $reportItem->remaining_invoice_quantity) {
-                    abort(422, "Số lượng xuất hóa đơn của SKU {$reportItem->sku} vượt quá số lượng còn lại.");
+                    abort(422, "Số lượng xuất hóa đơn của Internal Code {$reportItem->sku} vượt quá số lượng còn lại.");
                 }
 
                 $price = (float) $reportItem->unit_price;

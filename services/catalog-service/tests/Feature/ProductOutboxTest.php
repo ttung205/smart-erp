@@ -18,10 +18,15 @@ class ProductOutboxTest extends TestCase
             ->map(fn ($e) => json_decode($e->payload, true))->all();
     }
 
+    private function brandId(string $name = 'SKF'): int
+    {
+        return DB::table('brands')->insertGetId(['name' => $name, 'created_at' => now(), 'updated_at' => now()]);
+    }
+
     public function test_store_records_product_created_in_outbox(): void
     {
         $id = $this->withHeaders($this->jwtHeaders(['catalog.create']))->postJson('/api/products', [
-            'sku' => 'VB-50', 'designation' => 'Van bi DN50', 'com' => 'Ý', 'unit' => 'Cái', 'gross_price' => 150000, 'min_stock' => 5,
+            'designation' => 'Van bi DN50', 'brand_id' => $this->brandId(), 'com' => 'Ý', 'unit' => 'Cái', 'gross_price' => 150000, 'min_stock' => 5,
         ])->assertCreated()->json('data.id');
 
         [$event] = $this->createdEvents();
@@ -29,7 +34,7 @@ class ProductOutboxTest extends TestCase
         $this->assertSame('PENDING', DB::table('outbox_events')->value('status'));
         $this->assertSame('catalog-service', $event['producer']);
         $this->assertSame((string) $id, $event['aggregate_id']);
-        $this->assertEquals(['product_id' => $id, 'sku' => 'VB-50', 'name' => 'Van bi DN50', 'origin' => 'Ý', 'unit' => 'Cái', 'gross_price' => 150000.0, 'min_stock' => 5], $event['payload']);
+        $this->assertEquals(['product_id' => $id, 'sku' => 'VAN-BI-DN50-SKF', 'name' => 'Van bi DN50', 'origin' => 'Ý', 'unit' => 'Cái', 'gross_price' => 150000.0, 'min_stock' => 5], $event['payload']);
     }
 
     public function test_import_records_event_only_for_new_products(): void
@@ -59,7 +64,7 @@ class ProductOutboxTest extends TestCase
 
     public function test_relay_publishes_pending_events_and_keeps_failed_ones_for_retry(): void
     {
-        $this->withHeaders($this->jwtHeaders(['catalog.create']))->postJson('/api/products', ['sku' => 'R-1', 'designation' => 'R'])->assertCreated();
+        $this->withHeaders($this->jwtHeaders(['catalog.create']))->postJson('/api/products', ['designation' => 'R', 'brand_id' => $this->brandId()])->assertCreated();
 
         $failing = $this->mock(RabbitMqPublisher::class);
         $failing->shouldReceive('publish')->once()->andThrow(new \RuntimeException('broker down'));
@@ -70,7 +75,7 @@ class ProductOutboxTest extends TestCase
 
         $publisher = $this->mock(RabbitMqPublisher::class);
         $publisher->shouldReceive('publish')->once()->withArgs(fn ($key, $body) => $key === 'catalog.product.created'
-            && json_decode($body, true)['payload']['sku'] === 'R-1');
+            && json_decode($body, true)['payload']['sku'] === 'R-SKF');
         $publisher->shouldReceive('close');
         $this->artisan('outbox:relay', ['--once' => true])->assertSuccessful();
         $this->assertDatabaseHas('outbox_events', ['status' => 'PUBLISHED']);

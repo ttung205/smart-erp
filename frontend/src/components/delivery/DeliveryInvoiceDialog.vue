@@ -159,7 +159,7 @@
             </template>
           </Column>
 
-          <Column field="sku" header="SKU" style="width: 120px">
+          <Column field="sku" header="Internal Code" style="width: 120px">
             <template #body="{ data }">
               <span class="font-mono text-xs font-semibold text-sky-700">{{ data.sku }}</span>
             </template>

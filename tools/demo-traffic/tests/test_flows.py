@@ -6,9 +6,9 @@ from datetime import date
 
 import httpx
 
-from demo_traffic.api import ApiClient
+from demo_traffic.api import ApiClient, ApiError
 from demo_traffic.config import Settings
-from demo_traffic.flows import Erp, run_day
+from demo_traffic.flows import Erp, collect_payments, run_day
 
 USERS = {"sale@erp.local": 1, "sale.manager@erp.local": 2, "finance@erp.local": 3, "finance.manager@erp.local": 4,
          "logistic@erp.local": 5, "purchase@erp.local": 6, "purchase.manager@erp.local": 7}
@@ -74,7 +74,8 @@ class FakeGateway:
 class FlowTest(unittest.TestCase):
     def test_full_day_runs_each_step_with_the_right_role(self):
         gateway = FakeGateway()
-        settings = Settings(gateway_url="http://gateway:8000", password="x", warehouse_id=1, max_purchase_orders_per_day=2)
+        settings = Settings(gateway_url="http://gateway:8000", password="x", warehouse_id=1, max_purchase_orders_per_day=2,
+                            max_requests_per_minute=0)
         rng = random.Random(7)
         rng.random = lambda: 0.0  # mọi khoản nợ quá hạn đều được trả trong test
         with ApiClient(settings, transport=httpx.MockTransport(gateway)) as api:
@@ -130,11 +131,81 @@ class FlowTest(unittest.TestCase):
                 return httpx.Response(409, json={"success": False, "error": {"code": "INSUFFICIENT_STOCK", "message": "Thiếu hàng"}})
 
         gateway.route = failing
-        settings = Settings(gateway_url="http://gateway:8000", password="x")
+        settings = Settings(gateway_url="http://gateway:8000", password="x", max_requests_per_minute=0)
         with ApiClient(settings, transport=httpx.MockTransport(handler)) as api:
             stats = run_day(Erp(api, settings), 2, date(2026, 11, 10), random.Random(1))
         self.assertEqual(stats["order_failed"], 2)
         self.assertEqual(stats["orders"], 0)
+
+    def test_collects_at_most_the_daily_receipt_limit(self):
+        gateway = FakeGateway()
+        original = gateway.route
+
+        def many_debtors(method, path, body, params):
+            if path == "/finance/customer-receivables":
+                return [{"id": 90 + i, "customer_id": 100 + i, "customer_name": f"Khách {i}", "invoice_number": f"VAT-{i}",
+                         "outstanding_amount": "1000000.00"} for i in range(5)]
+            return original(method, path, body, params)
+
+        gateway.route = many_debtors
+        settings = Settings(gateway_url="http://gateway:8000", password="x", max_receipts_per_day=2, max_requests_per_minute=0)
+        rng = random.Random(7)
+        rng.random = lambda: 0.0
+        with ApiClient(settings, transport=httpx.MockTransport(gateway)) as api:
+            stats = collect_payments(Erp(api, settings), date(2026, 11, 10), rng)
+        self.assertEqual(stats, {"receipts": 2, "receipt_failed": 0})
+        created = [b["party_id"] for _, method, path, b in gateway.calls if method == "POST" and path == "/finance/vouchers"]
+        self.assertEqual(created, [100, 101])
+
+
+class RateLimitTest(unittest.TestCase):
+    def test_waits_and_resends_when_gateway_returns_429(self):
+        gateway = FakeGateway()
+        rejected = []
+
+        def handler(request):
+            if request.url.path.endswith("/finance/vouchers") and not rejected:
+                rejected.append(request)
+                return httpx.Response(429, headers={"Retry-After": "7"}, json={"message": "API rate limit exceeded"})
+            return gateway(request)
+
+        sleeps = []
+        settings = Settings(gateway_url="http://gateway:8000", password="x", max_requests_per_minute=0)
+        with ApiClient(settings, transport=httpx.MockTransport(handler), sleep=sleeps.append) as api:
+            voucher = api.post("finance.manager@erp.local", "/finance/vouchers", {"party_id": 7})
+        self.assertEqual(voucher["id"], 60)
+        self.assertEqual(sleeps, [8.0])  # Retry-After + 1 giây
+        posts = [path for _, method, path, _ in gateway.calls if method == "POST"]
+        self.assertEqual(posts, ["/finance/vouchers"])  # lần bị 429 không tới service, chỉ một phiếu được tạo
+
+    def test_gives_up_after_repeated_429(self):
+        def handler(request):
+            if request.url.path.endswith("/auth/login"):
+                return FakeGateway.ok({"token": "t", "expires_in": 3600, "user": {"id": 1, "name": "x"}})
+            return httpx.Response(429, json={"message": "API rate limit exceeded"})
+
+        sleeps = []
+        settings = Settings(gateway_url="http://gateway:8000", password="x", max_requests_per_minute=0)
+        with ApiClient(settings, transport=httpx.MockTransport(handler), sleep=sleeps.append) as api:
+            with self.assertRaises(ApiError) as raised:
+                api.post("sale@erp.local", "/sales/orders", {})
+        self.assertEqual(raised.exception.status, 429)
+        self.assertEqual(len(sleeps), 3)
+
+    def test_spaces_requests_to_stay_under_the_gateway_limit(self):
+        gateway = FakeGateway()
+        now = [100.0]
+        sleeps = []
+
+        def sleep(seconds):
+            sleeps.append(round(seconds, 3))
+            now[0] += seconds
+
+        settings = Settings(gateway_url="http://gateway:8000", password="x", max_requests_per_minute=120)
+        with ApiClient(settings, transport=httpx.MockTransport(gateway), sleep=sleep, clock=lambda: now[0]) as api:
+            api.get("sale@erp.local", "/catalog/customers")  # đăng nhập + 1 lần gọi
+            api.get("sale@erp.local", "/catalog/customers")
+        self.assertEqual(sleeps, [0.5, 0.5])  # 120 request/phút = cách nhau 0,5 giây
 
 
 if __name__ == "__main__":

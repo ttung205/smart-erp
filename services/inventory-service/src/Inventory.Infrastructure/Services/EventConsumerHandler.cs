@@ -102,7 +102,7 @@ public class EventConsumerHandler : IEventConsumerHandler
         ArgumentNullException.ThrowIfNull(envelope);
         var product = envelope.Payload;
 
-        _logger.LogInformation("[{CorrelationId}] Bắt đầu xử lý ProductCreated cho sản phẩm {ProductId} (SKU: {Sku}, Origin: {Origin})",
+        _logger.LogInformation("[{CorrelationId}] Bắt đầu xử lý ProductCreated cho sản phẩm {ProductId} (Internal Code: {Sku}, Origin: {Origin})",
             envelope.CorrelationId, product.ProductId, product.Sku, product.Origin);
 
         // 1. Idempotency Check
@@ -181,7 +181,7 @@ public class EventConsumerHandler : IEventConsumerHandler
             return;
         }
 
-        _logger.LogInformation("[{CorrelationId}] Khởi tạo tồn kho THÀNH CÔNG cho sản phẩm {ProductId} (SKU: {Sku}) tại {WarehouseCount} kho.",
+        _logger.LogInformation("[{CorrelationId}] Khởi tạo tồn kho THÀNH CÔNG cho sản phẩm {ProductId} (Internal Code: {Sku}) tại {WarehouseCount} kho.",
             envelope.CorrelationId, product.ProductId, product.Sku, warehouses.Count);
     }
 

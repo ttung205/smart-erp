@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/no-mutating-props -- `form` là đối tượng dùng chung do trang cha sở hữu; dialog chỉnh trực tiếp theo thiết kế hiện tại -->
 <template>
   <Dialog
     :visible="visible"
@@ -107,7 +108,7 @@
                 />
               </th>
               <th class="p-2 w-10 text-center">STT</th>
-              <th class="p-2 w-28">Mã SKU</th>
+              <th class="p-2 w-28">Internal Code</th>
               <th class="p-2">Tên Mặt Hàng</th>
               <th class="p-2 text-right w-20">SL Đã Xuất</th>
               <th class="p-2 text-right w-20">Đã HĐ</th>

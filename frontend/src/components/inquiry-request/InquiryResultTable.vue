@@ -72,7 +72,7 @@ const itemById = computed(() => new Map(props.items.map(item => [item.id, item])
 const rows = computed(() => props.results.map(result => ({ ...result, requestItem: itemById.value.get(result.request_item_id) })));
 
 const columns = computed(() => [
-  { field: 'sku', header: 'SKU yêu cầu', width: '135px' },
+  { field: 'sku', header: 'Internal Code yêu cầu', width: '135px' },
   { field: 'designation', header: 'Designation yêu cầu', width: '180px' },
   { field: 'result_designation', header: 'Designation báo giá', width: '180px' },
   { field: 'brand', header: 'Brand', width: '120px' },

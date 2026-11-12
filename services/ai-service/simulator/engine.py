@@ -679,7 +679,7 @@ class Simulation:
 
     # ------------------------------------------------------------------ main
     def estimate_rates(self) -> None:
-        """Nhu cầu kỳ vọng (cái/ngày) của từng SKU tại thời điểm bắt đầu bán, tính giải tích
+        """Nhu cầu kỳ vọng (cái/ngày) của từng Internal Code tại thời điểm bắt đầu bán, tính giải tích
         từ sức mua của khách. Dùng cho tồn đầu kỳ và dự báo ban đầu của model mới."""
         rates: dict[int, float] = defaultdict(float)
         retail_daily = 0.0   # khách lẻ chiếm tỷ trọng nhỏ, bỏ qua khi ước tính

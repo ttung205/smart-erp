@@ -274,7 +274,7 @@
             <InputIcon class="pi pi-search" />
             <InputText
               v-model="catalogSearchInput"
-              placeholder="Nhập mã SKU, tên quy cách hoặc mô tả mặt hàng..."
+              placeholder="Nhập Internal Code, tên quy cách hoặc mô tả mặt hàng..."
               class="w-full text-xs rounded-[6px]"
               autofocus
             />
@@ -297,7 +297,7 @@
             :loading="catalogLoading"
           >
             <Column selectionMode="multiple" headerStyle="width: 3rem" class="text-center"></Column>
-            <Column field="sku" header="Mã SKU" style="width: 150px">
+            <Column field="sku" header="Internal Code" style="width: 150px">
               <template #body="{ data }">
                 <span class="font-mono text-xs font-bold text-sky-700">{{ data.sku }}</span>
               </template>
@@ -491,7 +491,7 @@ const showColumnConfig = ref(false);
 const hiddenColumns = reactive({});
 
 const DEFAULT_STANDARD_COLUMNS = [
-  { field: 'sku', header: 'MÃ SKU', width: '120px' },
+  { field: 'sku', header: 'INTERNAL CODE', width: '120px' },
   { field: 'item_name', header: 'TÊN MẶT HÀNG / MÔ TẢ', width: '240px' },
   { field: 'stock', header: 'TỒN KHO', width: '85px', align: 'center' },
   { field: 'unit', header: 'ĐVT', width: '70px', align: 'center' },

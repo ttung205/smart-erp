@@ -388,7 +388,7 @@ Khi thêm mã lỗi mới, cập nhật `docs/contracts/api-spec.md`.
 * **Cấm văn phong quảng cáo, sáo rỗng** như "Khám phá sức mạnh quản trị tối thượng".
 * **Một tiêu đề chính cho mỗi màn hình** (`<h1>`), đặt ở Page Header. Ví dụ: `Danh Mục Sản Phẩm` ở trang danh sách, `Đơn Mua Hàng #PO-2024-001` ở trang chi tiết.
 * **Không lặp tiêu đề.** Trong Card hay DataTable bên dưới không viết lại `<h2>` hoặc `<h3>` cùng nội dung. Chỉ dùng Toolbar chứa công cụ: tìm kiếm, bộ lọc trạng thái, nút Thêm mới, nút Xuất dữ liệu.
-* **Không slogan.** Dưới tiêu đề chỉ được có tối đa một dòng subtitle ngắn `text-slate-500 text-xs`. Ví dụ: "Quản lý định danh SKU, nhóm ngành hàng và chính sách giá bán buôn."
+* **Không slogan.** Dưới tiêu đề chỉ được có tối đa một dòng subtitle ngắn `text-slate-500 text-xs`. Ví dụ: "Quản lý định danh Internal Code, nhóm ngành hàng và chính sách giá bán buôn."
 * **Tiêu đề Dialog và Drawer nói rõ hành động:** "Thêm Mới Khách Hàng", "Xác Nhận Hủy Đơn Hàng". Cấm tiêu đề mập mờ như "Thông tin", "Thao tác", "Chi tiết".
 
 ---

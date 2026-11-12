@@ -5,7 +5,7 @@
       <div class="flex items-center flex-wrap gap-2.5">
         <InputText
           v-model="search"
-          placeholder="Tìm theo SKU, tên sản phẩm, xuất xứ, kho..."
+          placeholder="Tìm theo Internal Code, tên sản phẩm, xuất xứ, kho..."
           size="small"
           class="w-72 bg-white !rounded-[6px]"
         />
@@ -68,9 +68,9 @@
       emptyTitle="Không tìm thấy dữ liệu tồn kho"
       emptySubtitle="Thử thay đổi bộ lọc hoặc kiểm tra lại dữ liệu."
     >
-      <!-- SKU -->
+      <!-- Internal Code -->
       <template #col-sku="{ data }">
-        <span class="font-mono text-xs font-semibold text-slate-800">{{ data.sku || ('SKU-' + data.product_id) }}</span>
+        <span class="font-mono text-xs font-semibold text-slate-800">{{ data.sku || ('IC-' + data.product_id) }}</span>
       </template>
 
       <!-- Tên Sản Phẩm -->
@@ -234,7 +234,7 @@ const stockStore = useStockStore()
 const { stocks, warehouses, loading } = storeToRefs(stockStore)
 
 const tableColumns = [
-  { field: 'sku', header: 'Mã SKU', width: '130px', sortable: true },
+  { field: 'sku', header: 'Internal Code', width: '130px', sortable: true },
   { field: 'product_name', header: 'Tên Sản Phẩm', width: 'auto', sortable: true },
   { field: 'origin', header: 'Xuất Xứ', width: '130px', sortable: true },
   { field: 'warehouse_name', header: 'Kho Lưu Trữ', width: '180px', sortable: true },

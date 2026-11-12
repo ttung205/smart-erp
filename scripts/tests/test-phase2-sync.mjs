@@ -28,7 +28,7 @@ async function main() {
 
   const token = generateToken();
   const testSku = `SYNC-${Date.now().toString().slice(-6)}`;
-  console.log(`\n[Bước 1] Chuẩn bị mã SKU thử nghiệm: ${testSku}`);
+  console.log(`\n[Bước 1] Chuẩn bị Internal Code thử nghiệm: ${testSku}`);
 
   // 1. Gọi Catalog Service tạo sản phẩm mới
   console.log('[Bước 2] Gửi POST /api/products sang Catalog Service (:8002)...');
@@ -61,7 +61,7 @@ async function main() {
   const createResult = await createResp.json();
   console.log('[Bước 2 Kết quả]', JSON.stringify(createResult));
   const newProductId = createResult.data.id;
-  console.log(`[OK] Đã tạo thành công sản phẩm mới với ID: ${newProductId}, SKU: ${testSku}`);
+  console.log(`[OK] Đã tạo thành công sản phẩm mới với ID: ${newProductId}, Internal Code: ${testSku}`);
 
   // 2. Chờ 2 giây để message truyền qua RabbitMQ và Inventory Service xử lý
   console.log('\n[Bước 3] Đang chờ 2.5s để RabbitMQ truyền event ProductCreated tới Inventory Service...');

@@ -81,7 +81,7 @@ class RevenueReportService
             $vatRate = (float) $reportItem->vat_rate;
 
             if ($invoicedQty > (float) $reportItem->remaining_invoice_quantity) {
-                throw new \DomainException("Số lượng xuất hóa đơn vượt quá số lượng còn lại của SKU {$reportItem->sku}.");
+                throw new \DomainException("Số lượng xuất hóa đơn vượt quá số lượng còn lại của Internal Code {$reportItem->sku}.");
             }
 
             if (abs($invoicedQty - (float) $reportItem->remaining_invoice_quantity) < 0.000001) {

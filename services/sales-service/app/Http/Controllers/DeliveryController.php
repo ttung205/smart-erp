@@ -155,7 +155,7 @@ class DeliveryController extends Controller
                     ->sum('delivery_request_items.quantity');
                 $remaining = max(0, (float) $orderItem->quantity - $alreadyRequested);
                 if ((float) $itemData['quantity'] > $remaining) {
-                    abort(422, "Số lượng yêu cầu của SKU {$orderItem->sku} vượt quá số lượng còn lại {$remaining}.");
+                    abort(422, "Số lượng yêu cầu của Internal Code {$orderItem->sku} vượt quá số lượng còn lại {$remaining}.");
                 }
 
                 DeliveryRequestItem::create([

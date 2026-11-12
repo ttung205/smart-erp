@@ -30,27 +30,27 @@ unauthorized = Actor(
     permissions={"technical.view"}
 )
 
-print("=== TEST 1: Missing SKU ===")
+print("=== TEST 1: Missing Internal Code ===")
 res1 = run_tool(salesperson, "instant_quote_check", {"customer_code": "DI-14998"})
 print(json.dumps(res1, ensure_ascii=False, indent=2))
-assert "loi" in res1, "Test 1 failed: Should return error for missing SKU"
+assert "loi" in res1, "Test 1 failed: Should return error for missing Internal Code"
 
 print("\n=== TEST 2: Missing Customer Code ===")
 res2 = run_tool(salesperson, "instant_quote_check", {"sku": "CFS-13VDM-COM"})
 print(json.dumps(res2, ensure_ascii=False, indent=2))
 assert "loi" in res2, "Test 2 failed: Should return error for missing customer code"
 
-print("\n=== TEST 3: Fuzzy / Non-existent SKU ===")
+print("\n=== TEST 3: Fuzzy / Non-existent Internal Code ===")
 res3 = run_tool(salesperson, "instant_quote_check", {"sku": "comfee 1.5 hp", "customer_code": "DI-14998"})
 print(json.dumps(res3, ensure_ascii=False, indent=2))
-assert "Không tìm thấy sản phẩm có mã SKU chính xác" in res3["loi"], "Test 3 failed: Should reject fuzzy SKU"
+assert "Không tìm thấy sản phẩm có Internal Code chính xác" in res3["loi"], "Test 3 failed: Should reject fuzzy Internal Code"
 
 print("\n=== TEST 4: Non-existent Customer Code ===")
 res4 = run_tool(salesperson, "instant_quote_check", {"sku": "CFS-13VDM-COM", "customer_code": "DI-99999999"})
 print(json.dumps(res4, ensure_ascii=False, indent=2))
 assert "Không tìm thấy khách hàng có mã code chính xác" in res4["loi"], "Test 4 failed: Should reject non-existent customer"
 
-print("\n=== TEST 5: Valid Exact SKU & Customer Code (Distributor - order.create granted) ===")
+print("\n=== TEST 5: Valid Exact Internal Code & Customer Code (Distributor - order.create granted) ===")
 res5 = run_tool(salesperson, "instant_quote_check", {"sku": "CFS-13VDM-COM", "customer_code": "DI-14998", "quantity": 10})
 print(json.dumps(res5, ensure_ascii=False, indent=2))
 assert "action_schema" in res5, "Test 5 failed: Missing action_schema"

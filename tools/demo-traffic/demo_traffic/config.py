@@ -37,6 +37,10 @@ class Settings:
     orders_per_day: int = _int("DEMO_ORDERS_PER_DAY", 30)
     max_catchup_days: int = _int("DEMO_MAX_CATCHUP_DAYS", 3)
     max_purchase_orders_per_day: int = _int("DEMO_MAX_PO_PER_DAY", 5)
+    # Số phiếu thu tối đa mỗi ngày (mỗi khách một phiếu); phần nợ quá hạn còn lại để các ngày sau thu tiếp
+    max_receipts_per_day: int = _int("DEMO_MAX_RECEIPTS_PER_DAY", 30)
+    # Trần tốc độ gọi API của bot, để dưới giới hạn 600 request/phút mỗi IP của gateway; 0 = không giãn cách
+    max_requests_per_minute: int = _int("DEMO_MAX_REQUESTS_PER_MINUTE", 300)
     work_start_hour: int = _int("DEMO_WORK_START_HOUR", 8)
     work_end_hour: int = _int("DEMO_WORK_END_HOUR", 17)
     tick_seconds: int = _int("DEMO_TICK_SECONDS", 900)

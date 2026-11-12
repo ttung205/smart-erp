@@ -33,7 +33,7 @@ USER_AGENT = (
     "(KHTML, like Gecko) Chrome/130.0 Safari/537.36"
 )
 
-# (slug trên DMX, tên danh mục trong ERP, số SKU muốn lấy)
+# (slug trên DMX, tên danh mục trong ERP, số Internal Code muốn lấy)
 CATEGORIES: list[tuple[str, str, int]] = [
     ("may-lanh", "Điều hòa", 110),
     ("tu-lanh", "Tủ lạnh", 100),

@@ -303,7 +303,7 @@ const refreshStockInfo = async () => {
     const warehouseId = form.value.warehouse_id
       || (warehouseName.includes('TP.HCM') || warehouseName.includes('Nam') ? 2 : (warehouseName.includes('Đà Nẵng') || warehouseName.includes('Trung') ? 3 : 1));
 
-    // Tạo map PID <-> SKU từ Catalog
+    // Tạo map PID <-> Internal Code từ Catalog
     const pidToSkuMap = new Map();
     FALLBACK_CATALOG_PRODUCTS.forEach(p => {
       if (p.id && p.sku) pidToSkuMap.set(Number(p.id), p.sku.trim().toUpperCase());

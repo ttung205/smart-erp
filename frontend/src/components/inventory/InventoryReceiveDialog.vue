@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/no-mutating-props -- `form` là đối tượng dùng chung do trang cha sở hữu; dialog chỉnh trực tiếp theo thiết kế hiện tại -->
 <template>
   <Dialog
     :visible="visible"
@@ -36,7 +37,7 @@
           optionLabel="label"
           optionValue="value"
           filter
-          filterPlaceholder="Tìm nhanh mã SKU hoặc tên sản phẩm..."
+          filterPlaceholder="Tìm nhanh Internal Code hoặc tên sản phẩm..."
           placeholder="Chọn sản phẩm..."
           class="w-full !rounded-[6px]"
         />

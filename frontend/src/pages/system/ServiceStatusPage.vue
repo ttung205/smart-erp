@@ -296,7 +296,7 @@ const services = ref([
     runtime: 'PHP 8.2+ / MySQL',
     port: 8002,
     endpoint: '/api/v1/catalog/health',
-    scope: 'Quản lý mã SKU sản phẩm, danh mục hàng hóa, thương hiệu, đối tác & bảng giá',
+    scope: 'Quản lý Internal Code sản phẩm, danh mục hàng hóa, thương hiệu, đối tác & bảng giá',
     icon: 'pi pi-box',
     iconBg: 'bg-emerald-50 border border-emerald-200',
     iconColor: 'text-emerald-600',

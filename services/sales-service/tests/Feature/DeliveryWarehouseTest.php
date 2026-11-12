@@ -80,7 +80,7 @@ class DeliveryWarehouseTest extends TestCase
         $this->createInvoice($delivery, $lines)
             ->assertStatus(409)
             ->assertJsonPath('error.code', 'INSUFFICIENT_STOCK')
-            ->assertJsonPath('error.message', 'Không đủ hàng để lập chứng từ: SKU SM456-SHA cần 2, kho chỉ còn 1 khả dụng.');
+            ->assertJsonPath('error.message', 'Không đủ hàng để lập chứng từ: Internal Code SM456-SHA cần 2, kho chỉ còn 1 khả dụng.');
 
         $this->assertDatabaseCount('invoices', 0);
         $this->assertDatabaseCount('invoice_items', 0);

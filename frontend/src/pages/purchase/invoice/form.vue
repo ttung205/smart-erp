@@ -270,7 +270,7 @@
             <!-- Dòng tiêu đề chính -->
             <tr class="bg-slate-100 border-b border-slate-200">
               <th rowspan="2" class="p-2.5 text-left font-semibold text-slate-700 border-r border-slate-200">
-                Mặt Hàng & SKU
+                Mặt Hàng & Internal Code
               </th>
               <th colspan="2" class="p-2 text-center font-semibold text-slate-700 border-r border-slate-200 bg-slate-50">
                 <div class="flex items-center justify-center gap-1.5">
@@ -308,7 +308,7 @@
               :key="idx"
               class="border-b border-slate-100 last:border-none hover:bg-slate-50 transition-colors"
             >
-              <!-- Mặt Hàng & SKU -->
+              <!-- Mặt Hàng & Internal Code -->
               <td class="p-2.5 border-r border-slate-100">
                 <div class="font-mono font-semibold text-slate-800">{{ item.sku }}</div>
                 <div class="text-[11px] text-slate-500">{{ item.product_name }}</div>

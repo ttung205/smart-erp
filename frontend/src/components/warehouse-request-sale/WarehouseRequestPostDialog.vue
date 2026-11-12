@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/no-mutating-props -- `form` là đối tượng dùng chung do trang cha sở hữu; dialog chỉnh trực tiếp theo thiết kế hiện tại -->
 <template>
   <Dialog
     :visible="visible"
@@ -26,7 +27,7 @@
           Mặt Hàng Trừ Tồn Kho Thật
         </div>
         <DataTable :value="invoice.items" showGridlines class="clean-datatable text-xs">
-          <Column field="sku" header="SKU" style="width: 130px">
+          <Column field="sku" header="Internal Code" style="width: 130px">
             <template #body="{ data }">
               <span class="font-mono font-semibold text-sky-700">{{ data.sku }}</span>
             </template>

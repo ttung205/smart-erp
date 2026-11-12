@@ -4,7 +4,7 @@
       <div class="flex flex-col gap-1">
         <div class="flex items-center gap-2">
           <Tag value="Trợ lý AI" severity="info" class="rounded-[6px]" />
-          <span class="text-xs text-slate-500">SKU {{ action.sku }}</span>
+          <span class="text-xs text-slate-500">Internal Code {{ action.sku }}</span>
         </div>
         <span class="text-sm font-semibold text-slate-900">{{ action.product_name }}</span>
       </div>

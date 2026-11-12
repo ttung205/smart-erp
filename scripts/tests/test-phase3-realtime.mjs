@@ -29,7 +29,7 @@ async function main() {
 
   const token = generateToken();
   const testSku = `REALTIME-${Date.now().toString().slice(-6)}`;
-  console.log(`\n[Bước 1] Chuẩn bị token và SKU kiểm thử: ${testSku}`);
+  console.log(`\n[Bước 1] Chuẩn bị token và Internal Code kiểm thử: ${testSku}`);
 
   // 1. Kết nối Socket.IO tới Notification Hub (:8006)
   console.log('[Bước 2] Thiết lập kết nối Socket.IO tới http://127.0.0.1:8006...');
@@ -103,10 +103,10 @@ async function main() {
   await productCreatedPromise;
 
   if (receivedProduct.sku !== testSku) {
-    throw new Error(`SKU nhận được (${receivedProduct.sku}) không khớp với SKU đã tạo (${testSku})!`);
+    throw new Error(`Internal Code nhận được (${receivedProduct.sku}) không khớp với Internal Code đã tạo (${testSku})!`);
   }
 
-  console.log(`\n[XÁC MINH HOÀN TẤT] SKU [${receivedProduct.sku}] - "${receivedProduct.name}" đã được đẩy realtime tới Client thành công!`);
+  console.log(`\n[XÁC MINH HOÀN TẤT] Internal Code [${receivedProduct.sku}] - "${receivedProduct.name}" đã được đẩy realtime tới Client thành công!`);
 
   socket.close();
   console.log('\n========================================================================');
