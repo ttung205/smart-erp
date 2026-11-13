@@ -9,6 +9,10 @@
 #   2. ALB kết thúc TLS, nên Caddy bị tắt (profile legacy-caddy). Frontend (nginx) nghe cổng 80 để ALB gọi vào.
 #   3. Mỗi máy chạy trọn bộ ứng dụng; các service gọi nhau qua Docker DNS cục bộ trên cùng máy.
 #   4. Thư mục tệp đính kèm của sales là EFS dùng chung (mount ở /mnt/efs/sales trên máy chủ, xem docs).
+#   5. Gọi giữa các service (sales -> inventory, ...) đi qua ALB nội bộ khi đặt INTERNAL_LB_HOST=<DNS của ALB nội bộ> trong .env.
+#      ALB nội bộ có một listener cho mỗi cổng service (8001..8008) và health check riêng từng service, nên service nào chết
+#      ở một máy thì lời gọi được chuyển sang máy còn lại. Không đặt INTERNAL_LB_HOST thì giữ nguyên hành vi cũ (DNS Docker
+#      trên cùng máy). Các cổng service được publish ra máy chủ; security group chỉ cho ALB nội bộ, không ra Internet.
 # Phần chỉ chạy một nơi (RabbitMQ, Mongo, relay, scheduler, chat, notification, backup, giám sát) nằm ở ha-a.yml.
 # Không đổi nghiệp vụ, API hay schema database.
 
@@ -32,6 +36,14 @@ services:
 
   # Tệp đính kèm (storage_path('app/private'), disk 'local') phải thấy được từ cả hai máy
   sales-service:
+    # Cổng service được publish để ALB nội bộ (xem INTERNAL_LB_HOST ở đầu file) gọi vào; security group chỉ cho ALB nội bộ.
+    ports: !override
+      - "8005:8005"
+    environment:
+      CATALOG_SERVICE_URL: http://${INTERNAL_LB_HOST:-catalog-service}:8002
+      IDENTITY_SERVICE_URL: http://${INTERNAL_LB_HOST:-identity-service}:8001
+      INVENTORY_SERVICE_URL: http://${INTERNAL_LB_HOST:-inventory-service}:8004
+      FINANCE_SERVICE_URL: http://${INTERNAL_LB_HOST:-finance-service}:8008
     volumes:
       # create_host_path: false -> nếu EFS chưa được mount, container KHÔNG khởi động (thay vì âm thầm ghi vào đĩa cục bộ)
       - type: bind
@@ -46,20 +58,38 @@ services:
   # Bỏ phụ thuộc vào container mysql (đã ở RDS); giữ phụ thuộc khác.
   # Phụ thuộc rabbitmq giữ nguyên ở chế độ chung: máy A có rabbitmq cục bộ. Máy B ghi đè lại trong ha-b.yml.
   identity-service:
+    ports: !override
+      - "8001:8001"
     depends_on: !override {}
   finance-service:
+    ports: !override
+      - "8008:8008"
     depends_on: !override {}
   ai-service:
+    environment:
+      IDENTITY_SERVICE_URL: http://${INTERNAL_LB_HOST:-identity-service}:8001
+      CATALOG_SERVICE_URL: http://${INTERNAL_LB_HOST:-catalog-service}:8002
+      PURCHASE_SERVICE_URL: http://${INTERNAL_LB_HOST:-purchase-service}:8003
+      INVENTORY_SERVICE_URL: http://${INTERNAL_LB_HOST:-inventory-service}:8004
+      SALES_SERVICE_URL: http://${INTERNAL_LB_HOST:-sales-service}:8005
+      FINANCE_SERVICE_URL: http://${INTERNAL_LB_HOST:-finance-service}:8008
     depends_on: !override
       identity-service:
         condition: service_healthy
   catalog-service:
+    ports: !override
+      - "8002:8002"
     depends_on: !override
       rabbitmq:
         condition: service_healthy
   # Tệp đính kèm đề nghị (disk 'local' của Laravel, storage/app/private) cũng phải dùng chung giữa các máy.
   # Container chạy bằng www-data của image Alpine (uid 82, không phải 33 của Ubuntu) nên /mnt/efs/eoffice phải thuộc uid 82.
   eoffice-service:
+    ports: !override
+      - "8007:8007"
+    environment:
+      IDENTITY_SERVICE_URL: http://${INTERNAL_LB_HOST:-identity-service}:8001
+      FINANCE_SERVICE_URL: http://${INTERNAL_LB_HOST:-finance-service}:8008
     volumes:
       - type: bind
         source: ${EOFFICE_FILES_DIR:-/mnt/efs/eoffice}
@@ -70,12 +100,20 @@ services:
       rabbitmq:
         condition: service_healthy
   inventory-service:
+    ports: !override
+      - "8004:8004"
     depends_on: !override
       rabbitmq:
         condition: service_healthy
   # Tệp đính kèm yêu cầu hỏi hàng NCC (Path.Combine(ContentRootPath, "inquiry-attachments")), ContentRootPath = /app.
   # notification-service (máy A) tải tệp qua purchase-service cục bộ nên tệp phải thấy được từ mọi máy.
   purchase-service:
+    ports: !override
+      - "8003:8003"
+    environment:
+      Services__Catalog: http://${INTERNAL_LB_HOST:-catalog-service}:8002
+      Services__Identity: http://${INTERNAL_LB_HOST:-identity-service}:8001
+      Services__Notification: http://${INTERNAL_LB_HOST:-notification-service}:8006
     volumes:
       - type: bind
         source: ${PURCHASE_FILES_DIR:-/mnt/efs/purchase}

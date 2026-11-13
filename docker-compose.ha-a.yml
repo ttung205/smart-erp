@@ -20,8 +20,23 @@ services:
     ports: !override
       - "3100:3100"
 
+  # Notification chỉ ở máy A nhưng purchase ở mọi máy gọi sang (tra trạng thái email, tải tệp): publish 8006 cho ALB nội bộ.
+  # Máy A và chat/sales-scheduler cùng chạy ở A nên đi qua ALB nội bộ như các service khác khi INTERNAL_LB_HOST được đặt.
+  notification-service:
+    ports: !override
+      - "8006:8006"
+    environment:
+      IDENTITY_SERVICE_URL: http://${INTERNAL_LB_HOST:-identity-service}:8001
+      SALES_SERVICE_URL: http://${INTERNAL_LB_HOST:-sales-service}:8005
+      PURCHASE_SERVICE_URL: http://${INTERNAL_LB_HOST:-purchase-service}:8003
+  sales-scheduler:
+    environment:
+      INVENTORY_SERVICE_URL: http://${INTERNAL_LB_HOST:-inventory-service}:8004
+
   # Tệp chat nằm trên EFS (không còn là docker volume chat_files). create_host_path: false để thiếu EFS thì không khởi động.
   chat-service:
+    environment:
+      Services__Identity: http://${INTERNAL_LB_HOST:-identity-service}:8001
     volumes: !override
       - type: bind
         source: ${CHAT_FILES_DIR:-/mnt/efs/chat}

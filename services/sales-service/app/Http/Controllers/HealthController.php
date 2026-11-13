@@ -19,6 +19,18 @@ class HealthController extends Controller
         security: [],
         responses: [new OA\Response(response: 200, description: 'Dịch vụ đang hoạt động')]
     )]
+    /**
+     * Liveness cho target group của ALB: chỉ cho biết tiến trình sales còn sống, không phụ thuộc DB hay inventory.
+     * Nếu ALB dùng `check()` thì inventory chết sẽ làm cả sales bị loại khỏi load balancer.
+     */
+    public function live(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => ['service' => 'sales-service', 'status' => 'UP'],
+        ]);
+    }
+
     public function check(): JsonResponse
     {
         $databaseHealthy = false;

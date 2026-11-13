@@ -3,13 +3,13 @@
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\InternalExportController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\RevenueReportController;
 use App\Http\Controllers\SaleReportController;
 use App\Http\Controllers\SaleReturnController;
 use App\Http\Controllers\SaleReturnRequestController;
-use App\Http\Controllers\InternalExportController;
 use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\VatInvoiceAdjustmentController;
 use App\Http\Controllers\VatInvoiceController;
@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Route;
 
 // 1. Health Check
 Route::get('/health', [HealthController::class, 'check']);
+// Liveness cho ALB (không kiểm tra DB và inventory), xem HealthController::live
+Route::get('/health/live', [HealthController::class, 'live']);
 
 // Service khác đọc tệp đính kèm bằng X-Internal-Service-Key (vd notification-service tải PDF báo giá để gửi email)
 Route::get('/internal/attachments/{id}/download', [AttachmentController::class, 'download'])->middleware('internal');
