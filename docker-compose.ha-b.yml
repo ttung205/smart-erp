@@ -47,22 +47,5 @@ services:
   sales-service:
     depends_on: !override {}
 
-  # Kong chạy được khi thiếu chat và notification: tuyến /api/v1/chat và /api/v1/notifications chỉ được ALB gửi vào máy A
-  gateway:
-    depends_on: !override
-      ai-service:
-        condition: service_healthy
-      catalog-service:
-        condition: service_healthy
-      eoffice-service:
-        condition: service_healthy
-      finance-service:
-        condition: service_healthy
-      identity-service:
-        condition: service_healthy
-      inventory-service:
-        condition: service_healthy
-      purchase-service:
-        condition: service_healthy
-      sales-service:
-        condition: service_healthy
+  # Gateway không có depends_on ở cả hai máy (đặt trong docker-compose.ha.yml): Kong chạy được khi thiếu chat,
+  # notification và khi bất kỳ service nào đang tắt. Tuyến /api/v1/chat và /api/v1/notifications chỉ được ALB gửi vào máy A.
