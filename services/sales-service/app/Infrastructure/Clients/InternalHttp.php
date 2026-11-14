@@ -2,14 +2,16 @@
 
 namespace App\Infrastructure\Clients;
 
+use App\Http\Middleware\CorrelationContext;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
  * Http client gọi service nội bộ: chuyển tiếp JWT (không có người dùng, vd job đối soát, thì dùng khóa nội bộ),
- * timeout, circuit breaker theo service đích.
+ * X-Correlation-ID của request đang xử lý, timeout, circuit breaker theo service đích.
  * Retry chỉ dùng cho lời gọi an toàn khi gọi lại (đọc, hoặc lệnh kho idempotent theo số chứng từ).
  */
 final class InternalHttp
@@ -33,10 +35,17 @@ final class InternalHttp
     {
         $request = ($token ? Http::withToken($token) : Http::withHeaders(['X-Internal-Service-Key' => (string) config('services.internal.key')]))
             ->acceptJson()
+            ->withHeaders([CorrelationContext::HEADER => self::correlationId()])
             ->timeout($timeout)
             ->withMiddleware(CircuitBreaker::for($service)->middleware());
 
         return $retry ? $request->retry(2, 200, fn (Throwable $e): bool => self::isRetryable($e), throw: false) : $request;
+    }
+
+    /** Id của request đang xử lý; chạy từ command/job thì request() rỗng nên sinh id mới. */
+    public static function correlationId(): string
+    {
+        return request()->header(CorrelationContext::HEADER) ?: (string) Str::uuid();
     }
 
     /** Chỉ retry lỗi kết nối thật; mạch đang mở thì trả lỗi ngay. */

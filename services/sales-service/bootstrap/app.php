@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\AuthenticateJwt;
+use App\Http\Middleware\CorrelationContext;
 use App\Http\Middleware\RequireInternalService;
 use App\Http\Middleware\RequirePermission;
 use Illuminate\Foundation\Application;
@@ -20,6 +21,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => RequirePermission::class,
             'internal' => RequireInternalService::class,
         ]);
+        // Chạy trước xác thực để cả log lỗi 401/403 cũng mang correlation_id
+        $middleware->api(prepend: [CorrelationContext::class]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
