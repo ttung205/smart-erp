@@ -216,8 +216,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import Column from 'primevue/column'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
@@ -229,6 +229,7 @@ import { storeToRefs } from 'pinia'
 import { inventoryApi } from '../../api/inventory.api'
 import { formatNumber, formatDateTime } from '../../utils/format'
 
+const route = useRoute()
 const router = useRouter()
 const stockStore = useStockStore()
 const { stocks, warehouses, loading } = storeToRefs(stockStore)
@@ -251,7 +252,13 @@ const reserveColumns = [
   { field: 'created_at', header: 'Thời Gian Giữ', width: '150px', sortable: false }
 ]
 
-const search = ref('')
+// Mã lọc có thể đến từ URL (ví dụ bấm thông báo "Sản phẩm mới" mở /inventory/stocks?search=<Internal Code>)
+const searchFromRoute = () => (typeof route.query.search === 'string' ? route.query.search : '')
+const search = ref(searchFromRoute())
+// Đang ở trang này mà bấm thêm một thông báo khác thì trang được dùng lại, chỉ có query đổi nên phải theo dõi
+watch(() => route.query.search, () => {
+  search.value = searchFromRoute()
+})
 const selectedWarehouseId = ref(null)
 const selectedOrigin = ref(null)
 
@@ -295,6 +302,10 @@ const resetFilters = () => {
   search.value = ''
   selectedWarehouseId.value = null
   selectedOrigin.value = null
+  // Bỏ luôn mã trên URL, nếu không tải lại trang sẽ lọc lại theo mã cũ
+  if (route.query.search !== undefined) {
+    router.replace({ query: { ...route.query, search: undefined } })
+  }
   loadStocks()
 }
 
