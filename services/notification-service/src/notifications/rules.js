@@ -304,6 +304,7 @@ export const rules = {
     recipients: () => ({ permissions: ['inventory.view'] }),
     title: (p) => `Sản phẩm mới [${p.sku || p.name}]`,
     body: (p) => `Sản phẩm "${p.name || ''}" (Internal Code: ${p.sku || ''}) vừa được thêm vào hệ thống. Tồn kho đã khởi tạo tự động.`,
-    link: () => '/inventory',
+    // Mở Bảng Tồn Kho đã lọc sẵn theo Internal Code của sản phẩm vừa tạo (trang chọn ô tìm kiếm từ query `search`)
+    link: (p) => (p.sku ? `/inventory/stocks?search=${encodeURIComponent(p.sku)}` : '/inventory/stocks'),
   },
 };
