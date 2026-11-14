@@ -2,7 +2,7 @@
   <div class="flex flex-col gap-4 pb-10">
     <!-- Single Page Title -->
     <PageHeader
-      title="Danh Mục Sản Phẩm (Catalog Master)"
+      title="Uứng dụng phân tán"
       subtitle="Quản lý Internal Code, thông số kỹ thuật, giá gross chuẩn và đồng bộ toàn hệ thống"
       badge="Catalog Service"
       badge-severity="info"
