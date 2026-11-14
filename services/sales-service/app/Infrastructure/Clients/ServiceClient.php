@@ -5,7 +5,6 @@ namespace App\Infrastructure\Clients;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Str;
 
 /**
  * Gọi REST sang service khác theo architecture.md §6: timeout, retry khi lỗi kết nối, circuit breaker,
@@ -46,7 +45,7 @@ abstract class ServiceClient
             ->timeout($this->timeout)
             ->withMiddleware(CircuitBreaker::for($this->service)->middleware())
             ->retry(2, 200, fn ($e) => InternalHttp::isRetryable($e), throw: false)
-            ->withHeaders(['X-Correlation-ID' => $incoming->header('X-Correlation-ID') ?: (string) Str::uuid()]);
+            ->withHeaders(['X-Correlation-ID' => InternalHttp::correlationId()]);
 
         $token = $incoming->bearerToken();
         if ($token) {
