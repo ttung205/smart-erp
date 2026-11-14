@@ -244,7 +244,7 @@
         />
         <div v-else-if="previewLoading" class="py-8 text-sm text-slate-500">
           <i class="pi pi-spin pi-spinner mr-2" />
-          Đang tải bản xem trước PDF...
+          Đang tải bản xem trước...
         </div>
         <div v-else class="text-center py-8 space-y-3">
           <p v-if="previewError" class="text-xs text-red-600">{{ previewError }}</p>
@@ -352,15 +352,22 @@ const clearPdfPreview = () => {
   previewPdfUrl.value = '';
 };
 
+const clearImagePreview = () => {
+  if (previewImageUrl.value.startsWith('blob:')) URL.revokeObjectURL(previewImageUrl.value);
+  previewImageUrl.value = '';
+};
+
 watch(showPreviewModal, (open) => {
   if (!open) {
     previewSequence += 1;
     clearPdfPreview();
+    clearImagePreview();
   }
 });
 onBeforeUnmount(() => {
   previewSequence += 1;
   clearPdfPreview();
+  clearImagePreview();
 });
 
 const attachments = computed({
@@ -581,32 +588,35 @@ const downloadFileDirectly = async (item) => {
 const handlePreviewOrDownload = async (item) => {
   const sequence = ++previewSequence;
   clearPdfPreview();
+  clearImagePreview();
   previewLoading.value = false;
   previewError.value = '';
   activePreviewItem.value = item;
   previewTitle.value = item.name || item.file_name;
   const isImg = (item.mime_type && item.mime_type.startsWith('image/')) || /\.(png|jpg|jpeg|webp|gif)$/i.test(item.name || item.file_name);
   const isPdf = item.mime_type === 'application/pdf' || /\.pdf$/i.test(item.name || item.file_name || '');
-  if (isImg && (item.file_url || item.url)) {
-    previewImageUrl.value = item.file_url || item.url;
-  } else {
-    previewImageUrl.value = '';
-  }
+  const directUrl = item.file_url || item.url;
   showPreviewModal.value = true;
-  if (!isPdf) return;
-  previewLoading.value = true;
-  try {
-    if (item.id && !props.downloadHandler) {
+  if (!isImg && !isPdf) return;
+
+  // Đường tải tệp yêu cầu token Bearer nên <img>/<iframe> không gọi thẳng được (server trả 401, ảnh vỡ):
+  // tải về dạng blob có kèm token rồi xem bằng object URL, giống PDF.
+  if (item.id && !props.downloadHandler) {
+    previewLoading.value = true;
+    try {
       const blob = await salesApi.downloadAttachment(item.id);
       if (sequence !== previewSequence) return;
-      previewPdfUrl.value = URL.createObjectURL(blob);
-    } else if (item.file_url || item.url) {
-      previewPdfUrl.value = item.file_url || item.url;
+      const objectUrl = URL.createObjectURL(blob);
+      if (isImg) previewImageUrl.value = objectUrl;
+      else previewPdfUrl.value = objectUrl;
+    } catch (error) {
+      if (sequence === previewSequence) previewError.value = error?.message || 'Không thể xem trước tệp.';
+    } finally {
+      if (sequence === previewSequence) previewLoading.value = false;
     }
-  } catch (error) {
-    if (sequence === previewSequence) previewError.value = error?.message || 'Không thể xem trước PDF.';
-  } finally {
-    if (sequence === previewSequence) previewLoading.value = false;
+  } else if (directUrl) {
+    if (isImg) previewImageUrl.value = directUrl;
+    else previewPdfUrl.value = directUrl;
   }
 };
 
