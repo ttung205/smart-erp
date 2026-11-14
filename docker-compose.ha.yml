@@ -34,6 +34,13 @@ services:
     ports: !override
       - "80:80"
 
+  # Kong (cửa vào của ALB, cổng 80) không được chờ service nào healthy mới khởi động: nếu chờ, một service lẻ đang tắt
+  # (ví dụ inventory) làm gateway và frontend không được tạo, máy mất cổng 80 và bị ALB loại khỏi TẤT CẢ target group.
+  # Kong phân giải upstream lúc có request, nên upstream chết chỉ làm riêng route đó trả 502/503 và chỉ target group của
+  # service đó đánh máy này unhealthy.
+  gateway:
+    depends_on: !override {}
+
   # Tệp đính kèm (storage_path('app/private'), disk 'local') phải thấy được từ cả hai máy
   sales-service:
     # Cổng service được publish để ALB nội bộ (xem INTERNAL_LB_HOST ở đầu file) gọi vào; security group chỉ cho ALB nội bộ.
