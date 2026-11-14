@@ -87,104 +87,107 @@ Timeout 2 đến 5 giây, retry tối đa 2 lần chỉ cho lệnh idempotent, c
 
 ## Chương 5. Định danh
 
-**21. Các service tìm thấy nhau thế nào?**
-Bên trong một máy: DNS nội bộ của Docker (`http://inventory-service:8004`), Kong cũng trỏ bằng tên. Từ ngoài vào: tên miền `erp.transportbooking.xyz` (CNAME tới ALB), ALB định tuyến theo đường dẫn tới target group. URL service khác lấy từ biến `*_SERVICE_URL`, không hardcode. Chi tiết: bài 05, mục 2.
+**21. Phân biệt thực thể, tên, địa chỉ, điểm truy cập và định danh bằng ví dụ trong hệ thống.**
+Thực thể là thứ cần tham chiếu, ví dụ service kho. Tên là chuỗi tham chiếu tới nó và một thực thể có nhiều tên: `inventory-service`, `erp-inventory`, `/api/v1/inventory`. Địa chỉ là tên của một điểm truy cập và đổi được, ví dụ `172.18.0.10` của container. Điểm truy cập là nơi vào thực thể: cổng 8004 trong mạng Docker, trên máy chủ, và ở listener của ALB nội bộ. Định danh là loại tên đặc biệt chỉ đúng một thực thể, không đổi, không dùng lại: `product_id`, `event_id`, ID máy EC2. Chi tiết: bài 05, mục 1 và 2.
 
-**22. Vì sao mỗi service tự kiểm tra JWT, không hỏi identity?**
-Tránh điểm nghẽn và điểm chết đơn (identity sập thì cả hệ không xác thực được), giảm độ trễ. Đổi lại không thu hồi token tức thì được và quyền được chụp vào token lúc đăng nhập.
+**22. Địa chỉ có ba tính chất nào, và hệ thống có đủ cả ba không?**
+Một tên có nhiều địa chỉ: tên ALB phân giải ra hai IP, mỗi vùng khả dụng một địa chỉ. Thực thể đổi địa chỉ trong lúc tồn tại: container tạo lại, máy trong Auto Scaling group bị thay (ID và địa chỉ đổi, vai trò giữ nguyên). Một địa chỉ có thể trỏ tới thực thể khác ở thời điểm khác: IP của container đã dừng có thể cấp lại. Vì vậy không hardcode IP, mà truy cập bằng tên, và Kong chỉ nhớ kết quả DNS 10 giây.
 
-**23. JWT có mã hóa không? Chống đổi thuật toán thế nào?**
-Không, chỉ ký; payload đọc được nên không để bí mật trong đó. Code kiểm tra cứng `alg == HS256` trước khi tính chữ ký, chặn `alg: none`. Hướng cải tiến: RS256 để chỉ identity giữ khóa ký.
+**23. Ba yêu cầu của định danh, và ví dụ thỏa từng yêu cầu? Internal Code có phải định danh không?**
+(1) Một định danh chỉ tới nhiều nhất một thực thể: `event_id` là UUID, mỗi sự kiện một giá trị. (2) Mỗi thực thể chỉ có một định danh: sản phẩm được tham chiếu chéo service bằng `product_id`. (3) Không tái sử dụng: số chứng từ ghi vào `document_number_claims` nên số đã thất bại không bao giờ cấp lại. Internal Code là tên dễ đọc chứ không phải định danh dùng tham chiếu chéo; service khác lưu `product_id`. Dùng UUID vì nhiều service sinh id độc lập, không có nơi cấp số chung và không cạn kiệt không gian tên.
 
-**24. GitHub deploy lên AWS không có access key, vì sao an toàn?**
-OIDC: GitHub ký token ngắn hạn, trust policy của role chỉ nhận đúng repo và environment `production` (có người duyệt), credential STS hết hạn sau tối đa 1 giờ. Không có khóa dài hạn nào trong GitHub. Chi tiết: bài 08-devops-aws, mục 2.
+**24. Ba loại không gian tên và ví dụ? Phân giải `erp.transportbooking.xyz` thế nào? Có dùng Chord không?**
+Phẳng (không chứa vị trí): UUID, ID máy EC2. Có cấu trúc (phân cấp): tên miền, đường dẫn `/api/v1/inventory`, số chứng từ. Theo thuộc tính: lọc sản phẩm theo thương hiệu, nhãn Docker để gom log. Phân giải tên miền: root → `.xyz` → máy chủ tên `ns1.pavietnam.vn` → CNAME (TTL 300 s) tới tên ALB → hai bản ghi A (TTL 60 s) → ALB chọn máy còn sống; có cache và TTL ở mỗi tầng. Trong một máy: DNS nhúng của Docker (`127.0.0.11`). Không dùng Chord/DHT vì chỉ có vài chục thực thể tên cố định, một sổ đăng ký tập trung (DNS, ALB) là đủ; ALB giống ý tưởng home-based. Chi tiết: bài 05, mục 4 và 5.
+
+**25. OIDC là gì, và GitHub deploy lên AWS không có access key thì vì sao an toàn?**
+OIDC là lớp danh tính xây trên OAuth 2.0: bên cung cấp danh tính (GitHub) phát ID token, một JWT ký bằng khóa riêng, nói rõ "đây là workflow của repo X, môi trường Y". AWS kiểm chữ ký bằng khóa công khai của GitHub, rồi đối chiếu trust policy của role (`aud` phải là `sts.amazonaws.com`, `sub` khớp chính xác repo và environment `production`), rồi cấp credential tạm tối đa 1 giờ. Không có khóa dài hạn để lộ. Vì `sub` chứa `environment:production`, chỉ job đã được người duyệt mới lấy được quyền. Nhật ký thật: `Assuming role with OIDC`, rồi `Authenticated as ...:gha-deploy-<số run>` trong khoảng 1 giây. Chi tiết: bài 05, mục 7.
 
 ---
 
 ## Chương 6. Đồng bộ hóa
 
-**25. Hai người cùng đặt khi chỉ còn đủ cho một người thì sao?**
+**26. Hai người cùng đặt khi chỉ còn đủ cho một người thì sao?**
 `UPDATE ... WHERE quantity >= :qty` chạy nguyên tử: InnoDB khóa hàng, hai UPDATE xếp hàng, người đầu trừ được, người sau có số dòng ảnh hưởng bằng 0 và nhận `409 INSUFFICIENT_STOCK`. Có test 20 luồng song song: đúng 1 thành công, 19 bị từ chối, tồn không âm. Chi tiết: bài 06, mục 3.
 
-**26. Vì sao không dùng khóa phân tán (Redis, ZooKeeper)?**
+**27. Vì sao không dùng khóa phân tán (Redis, ZooKeeper)?**
 Mỗi dữ liệu thuộc một service và một database ACID, khóa của database đã đủ mạnh; thêm Redis chỉ thêm điểm hỏng. Nơi duy nhất cần là relay khi chạy nhiều máy, nên relay chỉ chạy ở máy A và các máy ASG tắt relay (`Outbox__RelayEnabled=false`).
 
-**27. Saga khác 2PC chỗ nào?**
+**28. Saga khác 2PC chỗ nào?**
 2PC khóa tài nguyên ở mọi bên khi chờ coordinator, một bên chết là treo, và MySQL với Mongo hay RabbitMQ không cùng XA. Saga chia thành chuỗi transaction cục bộ, bên nào lỗi thì chạy hành động bù trừ; đổi lại là nhất quán cuối cùng.
 
-**28. Timeout thì Sales không biết Inventory đã giữ hàng chưa, xử lý thế nào?**
+**29. Timeout thì Sales không biết Inventory đã giữ hàng chưa, xử lý thế nào?**
 Coi là không chắc và chủ động nhả hàng của số chứng từ đó. Nhả idempotent theo số chứng từ và số đã thất bại không bao giờ được cấp lại. Thiếu hàng (409) là kết quả chắc chắn nên không cần nhả. Job đối soát mỗi 5 phút dọn phần lệch còn sót.
 
-**29. Làm sao đảm bảo mỗi chứng từ chỉ ghi sổ kho một lần?**
+**30. Làm sao đảm bảo mỗi chứng từ chỉ ghi sổ kho một lần?**
 Sổ cái có `UNIQUE (document_type, document_id, warehouse_id, product_id)`; ghi lại cùng chứng từ với cùng số lượng là idempotent, khác số lượng trả `422 DOCUMENT_ALREADY_POSTED`. UNIQUE là trọng tài cuối cùng khi hai request chạy đua.
 
 ---
 
 ## Chương 7. Sao lưu
 
-**30. Sao lưu khác replication thế nào? Có Multi-AZ rồi có cần sao lưu không?**
+**31. Sao lưu khác replication thế nào? Có Multi-AZ rồi có cần sao lưu không?**
 Replication (Multi-AZ) bảo vệ trước hỏng phần cứng nhưng sao chép luôn lỗi của con người: lỡ `DROP TABLE` thì bản chờ cũng mất ngay. Sao lưu là bản chụp tại một thời điểm quá khứ. Hai thứ bổ sung nhau.
 
-**31. Em biết bản sao lưu dùng được không?**
+**32. Em biết bản sao lưu dùng được không?**
 Có lệnh `verify` phục hồi từng schema vào chỗ tạm, so số bảng với manifest rồi xóa; đã diễn tập thảm họa thật (phá dữ liệu, phục hồi, đối chiếu số dòng). Phục hồi 8 schema vào RDS mất 12 giây. Chi tiết: bài 07, mục 4.
 
-**32. RPO và RTO của hệ thống?**
+**33. RPO và RTO của hệ thống?**
 Đo được: phục hồi schema lớn nhất khoảng 84 giây cho cả quy trình. RPO của sao lưu bằng chu kỳ cron (mỗi giờ thì tối đa 1 giờ); RPO của RDS bằng 0 khi mất một AZ (đồng bộ). Muốn RPO nhỏ hơn thì bật binary log.
 
-**33. Bản sao lưu lưu ở đâu, có nhất quán không?**
+**34. Bản sao lưu lưu ở đâu, có nhất quán không?**
 Bản chống thảm họa ở bucket S3 `smart-erp-backup` (thiết kế: SSE-S3, chặn truy cập công khai, xóa sau 14 ngày, máy A không có quyền xóa; các thiết lập này chưa kiểm chứng lại bằng lệnh `get-*`, xem bài 07 mục 5). Cùng vùng với hệ thống, chưa sao chép chéo vùng. Sao lưu chạy mỗi giờ bằng cron trên máy A. Mỗi schema nhất quán nhờ `--single-transaction`, nhưng các schema được chụp cách nhau vài giây nên không nhất quán xuyên service. Chấp nhận được vì outbox, `processed_events` và job đối soát sửa phần lệch sau phục hồi.
 
 ---
 
 ## Chương 8. Tính chịu lỗi
 
-**34. Một máy web chết thì người dùng thấy gì?**
+**35. Một máy web chết thì người dùng thấy gì?**
 Có cửa sổ khoảng 50 giây với một phần request lỗi vì ALB cần vài lần health check mới loại máy; sau đó không còn lỗi. Đã đo trên AWS bằng máy đo gọi site thật mỗi giây (bài 08-chiu-loi, TN A1 và A2). ALB không tự thử lại request đã gửi vào máy chết.
 
-**35. RDS Multi-AZ failover thì ứng dụng ra sao? Vì sao .NET chậm hơn PHP?**
+**36. RDS Multi-AZ failover thì ứng dụng ra sao? Vì sao .NET chậm hơn PHP?**
 Gián đoạn khoảng 8 giây với PHP và 20 giây với .NET. PHP-FPM mở kết nối mới cho mỗi request nên đi theo DNS mới ngay; .NET giữ connection pool nên các kết nối cũ phải hết thời gian chờ (15 giây) rồi mới nối lại.
 
-**36. Multi-AZ khác read replica thế nào?**
+**37. Multi-AZ khác read replica thế nào?**
 Multi-AZ: bản chờ đồng bộ, chỉ để chuyển khi lỗi, không đọc được. Read replica: bất đồng bộ, đọc được nhưng có độ trễ, dùng để tăng khả năng đọc.
 
-**37. Auto Scaling group làm gì? Khi nào thêm và bớt máy?**
+**38. Auto Scaling group làm gì? Khi nào thêm và bớt máy?**
 Giữ số máy mong muốn (Min 1, Desired 2, Max 3) và thay máy hỏng, thêm bớt theo tải: target tracking theo số request mỗi máy mỗi phút, mục tiêu 300. Thêm máy cần 3 điểm đo liên tiếp vượt ngưỡng, bớt máy cần 15 điểm đo liên tiếp dưới ngưỡng. Đo được: thêm máy sau khoảng 6 phút kể từ lúc tải bắt đầu, bớt máy sau khoảng 18 phút kể từ lúc tải dừng. Tăng nhanh giảm chậm để tránh dao động.
 
-**38. Máy mới của ASG tự cấu hình thế nào?**
+**39. Máy mới của ASG tự cấu hình thế nào?**
 Dựng từ golden AMI (Docker, image đã kéo sẵn, không có `.env`), user data lấy `.env` và thẻ image từ SSM Parameter Store bằng IAM role, mount EFS rồi chạy `deploy-aws.sh`. Đo: user data khoảng 89 giây, cộng khởi động và ALB kiểm tra thành khoảng 2,5 phút kể từ lúc máy bị hủy đến khi máy thay vào lại.
 
 **33a. Có gì không nằm trong bản sao lưu?**
 Tệp trên EFS (sales, purchase, eoffice) và tệp chat đều có trong bản sao lưu: `backup.sh` gói mỗi thư mục thành `files/*.tar.gz` rồi đẩy lên S3 cùng bản dump DB, mỗi giờ. Điều chưa có: phiên bản hoá từng tệp (RPO là 1 giờ) và chưa thử `restore --efs` trên AWS thật (đã thử trong container với dữ liệu giả). Queue RabbitMQ cố ý không sao lưu vì outbox còn bản gốc.
 
-**39. Một AZ sập thì sao?**
+**40. Một AZ sập thì sao?**
 Máy web ở AZ còn lại tiếp tục phục vụ, ASG tự dựng máy bù ở AZ còn sống, RDS failover sang bản chờ, EFS còn mount target ở AZ kia. Mất AZ 1a thì máy A mất theo nên chat, notification, RabbitMQ, Mongo, Grafana và `sales-scheduler` ngừng: đây là điểm lỗi đơn đã biết. Không mất dữ liệu nghiệp vụ: máy ở 1b vẫn ghi dữ liệu và `outbox_events` trong cùng transaction vào RDS; relay chỉ chạy ở A nên các dòng `PENDING` chờ trong RDS, khi A lên lại thì phát, notification tạo thông báo trễ (không mất, `processed_events` chặn trùng). Hộp thư và tin nhắn (Mongo) nằm trên A, khôi phục từ bản sao lưu mỗi giờ; tệp chat nằm trên EFS nên không mất theo A. Kịch bản này suy luận từ thiết kế, chưa thử thật. Chi tiết: bài 08 mục 5. Web có thể chỉ còn một máy trong khoảng 5 đến 6 phút trước khi máy bù lên.
 
 **39a. (Vặn) Mất AZ 1a, người dùng còn làm được gì và thông báo của họ đi đâu?**
 Còn đăng nhập, tạo báo giá, đơn, chứng từ nhờ máy ASG ở 1b và RDS đã chuyển sang bản chờ. Chat và thông báo tức thời ngừng. Sự kiện (ví dụ "báo giá gửi duyệt") đã nằm trong RDS cùng transaction nên không mất; thông báo xuất hiện muộn sau khi A lên lại. Job đối soát giữ hàng (5 phút một lần) cũng dừng nên khoản giữ mồ côi, nếu có, được dọn muộn.
 
-**40. Hệ thống có điểm lỗi đơn nào?**
+**41. Hệ thống có điểm lỗi đơn nào?**
 Máy A (RabbitMQ, Mongo, relay outbox, scheduler, chat, notification, Grafana, sao lưu). Biện pháp hiện tại: event nằm trong outbox nên không mất khi A chết; web vẫn chạy nhờ các máy khác. Hướng khắc phục: Amazon MQ, Mongo dịch vụ ngoài, relay nhiều bản với khóa lãnh đạo.
 
-**41. Triển khai có gây gián đoạn không?**
+**42. Triển khai có gây gián đoạn không?**
 Cuốn chiếu: máy A trước rồi từng máy InService của ASG, mỗi máy có smoke test, lỗi ở máy nào thì dừng và các máy sau giữ bản cũ. Luôn còn ít nhất một máy phục vụ nhưng mỗi máy có 20 đến 30 giây lỗi một phần, nên chưa phải zero-downtime. Thẻ image chỉ ghi vào SSM khi tất cả máy xong, để máy ASG mới sinh ra không chạy bản chưa kiểm chứng.
 
-**42. Circuit breaker để làm gì, trạng thái thế nào?**
+**43. Circuit breaker để làm gì, trạng thái thế nào?**
 Tránh dồn request vào service đang chết và cạn worker. CLOSED, sau 5 lỗi liên tiếp thì OPEN 30 giây, rồi HALF_OPEN cho một request thử. Lỗi 4xx (như 409 hết hàng) không tính. Mở thì người dùng nhận `503 DEPENDENCY_UNAVAILABLE` ngay thay vì treo 30 giây.
 
 ---
 
 ## Câu hỏi tổng hợp và "vặn"
 
-**43. Nếu có thêm một tuần, em làm gì tiếp?**
+**44. Nếu có thêm một tuần, em làm gì tiếp?**
 Theo thứ tự rủi ro: (1) loại điểm lỗi đơn ở máy A (Amazon MQ, Mongo dịch vụ ngoài), (2) chỉ số scale tốt hơn (độ trễ hoặc CPU) và warm pool để rút thời gian thêm máy, (3) đưa hạ tầng thành code (Terraform) và cảnh báo CloudWatch qua SNS, (4) đặt EC2 vào subnet riêng với NAT hoặc VPC endpoint, (5) RS256 và refresh token cho JWT.
 
-**44. Đưa các service ra nhiều máy riêng thì khác gì bây giờ?**
+**45. Đưa các service ra nhiều máy riêng thì khác gì bây giờ?**
 Hiện tại là nhân bản: máy nào cũng chạy đủ bộ. Tách theo chức năng (ví dụ ai-service một máy) thì phải thay tên container bằng địa chỉ mà mọi máy phân giải được (DNS riêng của VPC, load balancer nội bộ, hoặc service discovery), đổi `*_SERVICE_URL`, mở security group giữa các máy; timeout, retry và `X-Correlation-ID` đã có sẵn cho lỗi từng phần. Em chưa làm phần này, ghi là hướng phát triển.
 
-**45. Phần nào em tự làm, phần nào dùng sẵn?**
+**46. Phần nào em tự làm, phần nào dùng sẵn?**
 Trả lời trung thực theo phân công nhóm. Với phần AWS và chịu lỗi: em tự dựng và đo (ALB, RDS, EFS, subnet riêng, ASG, CD qua OIDC, các thí nghiệm). Nếu bị hỏi vào dòng code cụ thể, mở file và đọc từng bước thay vì đoán.
 
-**46. Em đã gặp sự cố gì khi triển khai, xử lý ra sao?** (chọn một để kể)
+**47. Em đã gặp sự cố gì khi triển khai, xử lý ra sao?** (chọn một để kể)
 Ví dụ ASG không tự mở rộng khi tạo tải: nguyên nhân là chưa tạo chính sách scaling, em kiểm tra cảnh báo CloudWatch và thấy không có alarm, tạo target tracking rồi chạy lại thì tăng 2 lên 3 sau khoảng 6 phút. Danh sách đầy đủ ở bài 08-devops-aws, mục 6 (sự cố 1 đến 12).
 
 ---
