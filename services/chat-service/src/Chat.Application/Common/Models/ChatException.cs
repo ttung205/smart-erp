@@ -6,8 +6,8 @@ public class ChatException(int statusCode, string code, string message) : Except
     public int StatusCode { get; } = statusCode;
     public string Code { get; } = code;
 
-    public static ChatException NotFound(string message = "Không tìm thấy hội thoại.") => new(404, "NOT_FOUND", message);
-    public static ChatException Forbidden(string message = "Bạn không có quyền thực hiện thao tác này.") => new(403, "FORBIDDEN", message);
+    public static ChatException NotFound(string message = "Không tìm thấy hội thoại.") => new(404, "RESOURCE_NOT_FOUND", message);
+    public static ChatException Forbidden(string message = "Bạn không có quyền thực hiện thao tác này.") => new(403, "PERMISSION_DENIED", message);
     public static ChatException Invalid(string message) => new(422, "VALIDATION_FAILED", message);
 }
 

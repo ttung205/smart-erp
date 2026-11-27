@@ -1,3 +1,4 @@
+using Chat.Api.Authorization;
 using Chat.Application.Common.Interfaces;
 using Chat.Application.Common.Models;
 using Chat.Application.Services;
@@ -10,6 +11,7 @@ namespace Chat.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/chat")]
+[RequirePermission("chat.use")]
 public class MessagesController(MessageService messages, IChatRepository repository, ICurrentUser me, IFileStorage storage) : ControllerBase
 {
     public record ContentInput(string? Content);

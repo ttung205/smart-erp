@@ -3,6 +3,7 @@ using Inventory.Application.Common.Models;
 using Inventory.Application.DTOs;
 using Inventory.Application.Interfaces;
 using Inventory.Infrastructure.Persistence;
+using Inventory.Api.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -32,6 +33,7 @@ public class ReservationsController : ControllerBase
     /// Tra cứu danh sách tồn kho khả dụng.
     /// </summary>
     [HttpGet]
+    [RequirePermission(Perm.View)]
     public async Task<IActionResult> GetReservations(
         [FromQuery] long? productId,
         [FromQuery] long? warehouseId,
@@ -94,6 +96,7 @@ public class ReservationsController : ControllerBase
     /// Tự động cập nhật bảng inventory_stocks_reservation và ghi sổ inventory_stocks_reservation_transaction.
     /// </summary>
     [HttpPost("change")]
+    [RequirePermission(Perm.Manage)]
     public async Task<IActionResult> ChangeReservationStock([FromBody] ChangeStockRequest request, CancellationToken ct)
     {
         var command = new ChangeStockCommand(
@@ -131,6 +134,7 @@ public class ReservationsController : ControllerBase
     /// Sổ cái lịch sử giao dịch tồn kho khả dụng (Audit Ledger).
     /// </summary>
     [HttpGet("transactions")]
+    [RequirePermission(Perm.View)]
     public async Task<IActionResult> GetReservationTransactions(
         [FromQuery] long? productId,
         [FromQuery] long? warehouseId,

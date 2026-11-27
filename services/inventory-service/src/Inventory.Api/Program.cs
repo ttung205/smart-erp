@@ -35,7 +35,7 @@ builder.Services.AddSwaggerGen(c =>
     {
         Title = "Smart ERP - Inventory Service API",
         Version = "v1",
-        Description = "High-Performance Stock Engine & Concurrency Control (.NET 8 Web API)"
+        Description = "High-Performance Stock Engine & Concurrency Control (.NET 10 Web API)"
     });
 
     c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme

@@ -1,3 +1,4 @@
+using Chat.Api.Authorization;
 using Chat.Application.Common.Models;
 using Chat.Application.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -6,6 +7,7 @@ namespace Chat.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/chat")]
+[RequirePermission("chat.use")]
 public class UsersController(UserService users) : ControllerBase
 {
     public record AliasInput(string? Alias);

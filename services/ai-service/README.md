@@ -9,7 +9,7 @@ Chatbot nội bộ chỉ-đọc, hiển thị dạng widget nổi trên mọi tr
 ```
 Widget (Vue) ──JWT──► ai-service :8010 /api/v1/ai/chat
                         ├─ Groq (openai/gpt-oss-120b, tool calling)
-                        └─ 10 tool SQL trên kho phân tích MySQL (schema erp_analytics_db)
+                        └─ 22 tool SQL trên kho phân tích MySQL (schema erp_analytics_db)
                              (đồng bộ 5 phút/lần từ DB các service, chỉ đọc)
 ```
 
