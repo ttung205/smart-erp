@@ -1,3 +1,4 @@
+using Chat.Api.Authorization;
 using Chat.Application.Common.Models;
 using Chat.Application.Dtos;
 using Chat.Application.Services;
@@ -8,6 +9,7 @@ namespace Chat.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/chat/conversations")]
+[RequirePermission("chat.use")]
 public class ConversationsController(ConversationService conversations, MessageService messages) : ControllerBase
 {
     private const long MaxMessageRequestBytes = 210L * 1024 * 1024;

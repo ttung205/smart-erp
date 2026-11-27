@@ -52,13 +52,16 @@ public sealed class ChatApiFactory : WebApplicationFactory<Program>
         return client;
     }
 
-    public static string Token(long userId, string secret)
+    /// <summary>JWT của identity-service. Mặc định mang quyền chat.use; truyền danh sách khác để thử người thiếu quyền.</summary>
+    public static string Token(long userId, string secret, params string[]? permissions)
     {
+        var granted = permissions is { Length: > 0 } ? permissions : ["chat.use"];
         static string B64(byte[] bytes) => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
         var header = B64(JsonSerializer.SerializeToUtf8Bytes(new { alg = "HS256", typ = "JWT" }));
         var payload = B64(JsonSerializer.SerializeToUtf8Bytes(new
         {
             iss = "identity-service", sub = userId.ToString(), name = FakeDirectory.NameOf(userId),
+            permissions = granted,
             exp = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds()
         }));
         var signature = B64(HMACSHA256.HashData(Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes($"{header}.{payload}")));

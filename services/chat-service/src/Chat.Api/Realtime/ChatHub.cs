@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Chat.Api.Authorization;
 using Chat.Application.Services;
 using Chat.Infrastructure.Realtime;
 using Microsoft.AspNetCore.SignalR;
@@ -18,7 +19,7 @@ public class ChatHub(PresenceTracker presence, MessageService messages, HttpCurr
 
     public override async Task OnConnectedAsync()
     {
-        if (UserId <= 0)
+        if (UserId <= 0 || !PermissionRules.Can(Context.User!, "chat.use"))
         {
             Context.Abort();
             return;

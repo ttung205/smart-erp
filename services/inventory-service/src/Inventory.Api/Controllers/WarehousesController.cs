@@ -1,6 +1,7 @@
 using Inventory.Application.Common.Models;
 using Inventory.Domain.Entities;
 using Inventory.Infrastructure.Persistence;
+using Inventory.Api.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
@@ -44,6 +45,7 @@ public class WarehousesController : ControllerBase
     }
 
     [HttpGet]
+    [RequirePermission(Perm.View)]
     public async Task<IActionResult> GetAll(CancellationToken ct)
     {
         var rawWarehouses = await _context.Warehouses
@@ -100,6 +102,7 @@ public class WarehousesController : ControllerBase
     }
 
     [HttpPost]
+    [RequirePermission(Perm.Manage)]
     public async Task<IActionResult> Create([FromBody] WarehouseCreateOrUpdateRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
@@ -134,6 +137,7 @@ public class WarehousesController : ControllerBase
     }
 
     [HttpPut("{id:long}")]
+    [RequirePermission(Perm.Manage)]
     public async Task<IActionResult> Update(long id, [FromBody] WarehouseCreateOrUpdateRequest request, CancellationToken ct)
     {
         var warehouse = await _context.Warehouses.FindAsync(new object[] { id }, ct);
@@ -166,6 +170,7 @@ public class WarehousesController : ControllerBase
     }
 
     [HttpDelete("{id:long}")]
+    [RequirePermission(Perm.Manage)]
     public async Task<IActionResult> Delete(long id, CancellationToken ct)
     {
         var warehouse = await _context.Warehouses.FindAsync(new object[] { id }, ct);

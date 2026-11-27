@@ -35,6 +35,16 @@ public class ChatApiTests(ChatApiFactory factory) : IClassFixture<ChatApiFactory
         Assert.Equal(HttpStatusCode.Unauthorized, (await forged.GetAsync($"{Base}/conversations")).StatusCode);
     }
 
+    [Fact]
+    public async Task Users_without_chat_use_permission_get_403_permission_denied()
+    {
+        var noChatPermission = factory.CreateClient();
+        noChatPermission.DefaultRequestHeaders.Authorization = new("Bearer", ChatApiFactory.Token(1, ChatApiFactory.Secret, "order.view"));
+        var response = await noChatPermission.GetAsync($"{Base}/conversations");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Contains("PERMISSION_DENIED", await response.Content.ReadAsStringAsync());
+    }
+
     // ---------- Chat 1-1 ----------
 
     [Fact]

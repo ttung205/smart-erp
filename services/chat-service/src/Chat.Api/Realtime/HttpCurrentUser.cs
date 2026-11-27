@@ -18,7 +18,7 @@ public sealed class HttpCurrentUser(IHttpContextAccessor accessor) : ICurrentUse
 
     public long Id => long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) && id > 0
         ? id
-        : throw new ChatException(401, "UNAUTHORIZED", "Chưa xác thực danh tính người dùng.");
+        : throw new ChatException(401, "UNAUTHENTICATED", "Chưa xác thực danh tính người dùng.");
 
     public string Name => User.FindFirstValue(ClaimTypes.Name) is { Length: > 0 } name ? name : $"User #{Id}";
 }

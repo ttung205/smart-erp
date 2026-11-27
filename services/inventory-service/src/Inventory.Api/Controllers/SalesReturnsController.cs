@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Inventory.Application.Common.Models;
 using Inventory.Domain.Entities;
 using Inventory.Infrastructure.Persistence;
+using Inventory.Api.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -65,6 +66,7 @@ public class SalesReturnsController : ControllerBase
     }
 
     [HttpPost("receive")]
+    [RequirePermission(Perm.Receive, Perm.SaleReturnTechnical)]
     public async Task<IActionResult> Receive([FromBody] SalesReturnReceiveRequest request, CancellationToken ct)
     {
         var warehouse = await _context.Warehouses.SingleOrDefaultAsync(w => w.Id == request.WarehouseId, ct);
@@ -95,6 +97,7 @@ public class SalesReturnsController : ControllerBase
     }
 
     [HttpPost("transfer")]
+    [RequirePermission(Perm.Transfer, Perm.SaleReturnPost)]
     public async Task<IActionResult> Transfer([FromBody] SalesReturnTransferRequest request, CancellationToken ct)
     {
         if (request.SourceWarehouseId == request.DestinationWarehouseId)

@@ -49,6 +49,9 @@ class IdentitySeeder extends Seeder
             ['code' => 'inventory.issue', 'module' => 'inventory', 'description' => 'Xuất kho thực tế Goods Issue'],
             ['code' => 'inventory.transfer', 'module' => 'inventory', 'description' => 'Điều chuyển kho Stock Transfer'],
 
+            // Phân hệ Chat nội bộ (chat-service): mọi vai trò được dùng, quyền thành viên kiểm tra ở từng hội thoại
+            ['code' => 'chat.use', 'module' => 'chat', 'description' => 'Sử dụng chat nội bộ (nhắn tin, nhóm, luồng công việc)'],
+
             // Phân hệ Báo giá (Quotation)
             ['code' => 'quotation.view', 'module' => 'quotation', 'description' => 'Xem danh sách và chi tiết báo giá (Route: /quotation)'],
             ['code' => 'quotation.create', 'module' => 'quotation', 'description' => 'Tạo mới báo giá'],
@@ -201,6 +204,13 @@ class IdentitySeeder extends Seeder
                 if ($roleId && isset($allPerms[$code])) {
                     DB::table('role_permissions')->insert(['role_id' => $roleId, 'permission_id' => $allPerms[$code]]);
                 }
+            }
+        }
+
+        // chat.use cấp cho mọi vai trò (xem migration cùng tên để cập nhật CSDL đã tồn tại)
+        if (isset($allPerms['chat.use'])) {
+            foreach (DB::table('roles')->pluck('id') as $roleId) {
+                DB::table('role_permissions')->insertOrIgnore(['role_id' => $roleId, 'permission_id' => $allPerms['chat.use']]);
             }
         }
     }

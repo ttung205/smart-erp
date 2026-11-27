@@ -3,6 +3,7 @@ using Inventory.Application.Common.Models;
 using Inventory.Application.DTOs;
 using Inventory.Application.Interfaces;
 using Inventory.Infrastructure.Persistence;
+using Inventory.Api.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -36,6 +37,7 @@ public class StocksController : ControllerBase
     /// Tra cứu danh sách tồn kho theo bộ lọc kèm phân trang (kết hợp tồn thực tế và tồn khả dụng).
     /// </summary>
     [HttpGet]
+    [RequirePermission(Perm.View)]
     public async Task<IActionResult> GetStocks(
         [FromQuery] long? productId,
         [FromQuery] long? warehouseId,
@@ -135,6 +137,7 @@ public class StocksController : ControllerBase
     /// Chi tiết tồn kho của 1 sản phẩm tại tất cả các kho.
     /// </summary>
     [HttpGet("{productId:long}")]
+    [RequirePermission(Perm.View)]
     public async Task<IActionResult> GetStockByProductId(long productId, CancellationToken ct = default)
     {
         var rawStocks = await (from s in _context.InventoryStocks.AsNoTracking().Include(s => s.Warehouse)
@@ -196,6 +199,7 @@ public class StocksController : ControllerBase
     /// </summary>
     [HttpGet("movements")]
     [HttpGet("transactions")]
+    [RequirePermission(Perm.View)]
     public async Task<IActionResult> GetMovements(
         [FromQuery] long? productId,
         [FromQuery] long? warehouseId,
@@ -265,6 +269,7 @@ public class StocksController : ControllerBase
     /// Lấy danh sách các đơn hàng đang giữ chỗ cho sản phẩm này.
     /// </summary>
     [HttpGet("reservations/orders")]
+    [RequirePermission(Perm.View)]
     public async Task<IActionResult> GetReservationOrders(
         [FromQuery] long productId,
         [FromQuery] long? warehouseId,
@@ -301,6 +306,7 @@ public class StocksController : ControllerBase
     /// (bỏ qua chứng từ đang lập dở).
     /// </summary>
     [HttpGet("reservations/documents")]
+    [RequirePermission(Perm.View)]
     public async Task<IActionResult> GetOpenDocumentReservations(
         [FromQuery] DateTime? reservedFrom,
         [FromQuery] DateTime? reservedTo,
@@ -329,6 +335,7 @@ public class StocksController : ControllerBase
     /// Tự động cập nhật bảng inventory_stocks và ghi sổ inventory_stocks_transaction.
     /// </summary>
     [HttpPost("change")]
+    [RequirePermission(Perm.Manage)]
     public async Task<IActionResult> ChangePhysicalStock([FromBody] ChangeStockRequest request, CancellationToken ct)
     {
         var command = new ChangeStockCommand(
@@ -367,6 +374,7 @@ public class StocksController : ControllerBase
     /// Khóa giữ chỗ tồn kho (Reserve) theo đơn bán hàng SO.
     /// </summary>
     [HttpPost("reserve")]
+    [RequirePermission(Perm.Manage, Perm.SaleInvoiceCreate, Perm.InvoiceManage)]
     public async Task<IActionResult> ReserveStock([FromBody] ReserveStockRequest request, CancellationToken ct)
     {
         var command = new ReserveStockCommand(
@@ -407,6 +415,7 @@ public class StocksController : ControllerBase
     /// Khóa giữ chỗ theo lô (Batch Reserve).
     /// </summary>
     [HttpPost("reserve/batch")]
+    [RequirePermission(Perm.Manage, Perm.SaleInvoiceCreate, Perm.InvoiceManage)]
     public async Task<IActionResult> BatchReserveStock([FromBody] BatchReserveStockRequest request, CancellationToken ct)
     {
         var items = request.Items.Select(i => new ReserveStockItem(i.WarehouseId, i.ProductId, i.Quantity)).ToList();
@@ -442,6 +451,7 @@ public class StocksController : ControllerBase
     /// Giải phóng giữ chỗ (Release) khi đơn bán hàng bị hủy.
     /// </summary>
     [HttpPost("release")]
+    [RequirePermission(Perm.Manage, Perm.SaleInvoiceCreate, Perm.InvoiceManage)]
     public async Task<IActionResult> ReleaseStock([FromBody] ReleaseStockRequest request, CancellationToken ct)
     {
         var command = new ReleaseStockCommand(
@@ -481,6 +491,7 @@ public class StocksController : ControllerBase
     /// Hủy chứng từ bán hàng: nhả toàn bộ hàng đã giữ cho chứng từ (idempotent).
     /// </summary>
     [HttpPost("release/document")]
+    [RequirePermission(Perm.Manage, Perm.SaleInvoiceCreate, Perm.InvoiceManage)]
     public async Task<IActionResult> ReleaseDocument([FromBody] ReleaseDocumentRequest request, CancellationToken ct)
     {
         var results = await _stockManager.ReleaseDocumentReservationAsync(request.OrderId, ct: ct);
@@ -513,6 +524,7 @@ public class StocksController : ControllerBase
     /// Tăng cả tồn thực tế và tồn khả dụng.
     /// </summary>
     [HttpPost("receive")]
+    [RequirePermission(Perm.Receive)]
     public async Task<IActionResult> ReceiveStock([FromBody] ReceiveStockRequest request, CancellationToken ct)
     {
         var command = new ReceiveStockCommand(
@@ -553,6 +565,7 @@ public class StocksController : ControllerBase
     /// Trừ tồn thực tế.
     /// </summary>
     [HttpPost("issue")]
+    [RequirePermission(Perm.Issue, Perm.InvoiceManage)]
     public async Task<IActionResult> IssueStock([FromBody] IssueStockRequest request, CancellationToken ct)
     {
         var command = new IssueStockCommand(

@@ -59,7 +59,7 @@ public class JwtAuthMiddleware(RequestDelegate next, ILogger<JwtAuthMiddleware> 
         if (string.IsNullOrWhiteSpace(token))
         {
             logger.LogWarning("[{CorrelationId}] Unauthorized access attempt to {Path}: Missing Bearer token", correlationId, path);
-            await WriteErrorResponseAsync(context, "UNAUTHORIZED", "Yêu cầu cần token xác thực hợp lệ (Bearer Token).", correlationId);
+            await WriteErrorResponseAsync(context, "UNAUTHENTICATED", "Yêu cầu cần token xác thực hợp lệ (Bearer Token).", correlationId);
             return;
         }
 

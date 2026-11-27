@@ -8,12 +8,15 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from . import agent, config, knowledge, ml, store, warehouse
 from .auth import Actor, current_actor, optional_actor, require_analytics_actor
+from .envelope import CORRELATION_HEADER, bind_correlation_id, fail, ok
 from .llm import LLMError
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -67,20 +70,29 @@ app = FastAPI(
 router = APIRouter(prefix="/api/v1/ai")
 
 
-def ok(data) -> dict:
-    return {"success": True, "data": data}
+@app.middleware("http")
+async def correlation_middleware(request: Request, call_next):
+    correlation_id = bind_correlation_id(request.headers.get(CORRELATION_HEADER))
+    response = await call_next(request)
+    response.headers[CORRELATION_HEADER] = correlation_id
+    return response
 
 
 @app.exception_handler(HTTPException)
 async def http_error(_, exc: HTTPException):
-    code = {401: "UNAUTHORIZED", 403: "FORBIDDEN", 404: "NOT_FOUND", 422: "VALIDATION_FAILED"}.get(exc.status_code, "ERROR")
-    return JSONResponse({"success": False, "error": {"code": code, "message": exc.detail}}, status_code=exc.status_code)
+    return JSONResponse(fail(exc.status_code, str(exc.detail)), status_code=exc.status_code)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(_, exc: RequestValidationError):
+    return JSONResponse(fail(422, "Dữ liệu gửi lên không hợp lệ.", details=jsonable_encoder(exc.errors())), status_code=422)
 
 
 @app.exception_handler(LLMError)
 async def llm_error(_, exc: LLMError):
-    return JSONResponse({"success": False, "error": {"code": "AI_UNAVAILABLE", "message": str(exc)}},
-                        status_code=exc.status)
+    if exc.status == 500:
+        return JSONResponse(fail(500, str(exc), code="INTERNAL_SERVER_ERROR"), status_code=500)
+    return JSONResponse(fail(503, str(exc), code="DEPENDENCY_UNAVAILABLE"), status_code=503)
 
 
 class ChatRequest(BaseModel):
@@ -165,7 +177,7 @@ async def analytics_refresh(actor: Actor = Depends(current_actor)):
     """Tái huấn luyện mô hình ML từ dữ liệu hiện có. Chỉ đồng bộ ETL khi ETL được bật và người gọi là Super Admin."""
     if "SUPER_ADMIN" not in actor.roles and not actor.can("ai.use"):
         raise HTTPException(403, detail="Chỉ quản trị viên được làm mới mô hình phân tích")
-    # ETL đọc chéo schema các service nên mặc định tắt; nút làm mới không được tự ý chạy nó
+    # ETL kéo dữ liệu qua endpoint export nội bộ của từng service; mặc định tắt, nút làm mới không được tự ý chạy nó
     sync_counts = None
     if config.WAREHOUSE_SYNC_ENABLED and "SUPER_ADMIN" in actor.roles:
         try:
